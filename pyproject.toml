@@ -147,5 +147,6 @@ source = ["src/bancaemdia"]
 omit = ["tests/*", "alembic/*", "scripts/*", "src/bancaemdia/main.py"]
 
 [tool.coverage.report]
+fail_under = 80
 show_missing = true
 precision = 2
