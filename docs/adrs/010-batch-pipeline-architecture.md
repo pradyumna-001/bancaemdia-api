@@ -154,30 +154,38 @@ app.conf.update(
 from celery import shared_task
 from tenacity import retry, stop_after_attempt, wait_exponential_jitter
 
+
 @shared_task(bind=True, max_retries=3, default_retry_delay=60, queue="extraction")
 @retry(
     wait=wait_exponential_jitter(initial=1, max=4),
     stop=stop_after_attempt(3),
     retry=retry_if_exception_type((httpx.TimeoutException, httpx.HTTPStatusError)),
-    reraise=True
+    reraise=True,
 )
-def extract_bilhete(self, usuario_id: int, chat_id: int, message_id: int, 
-                    versao_prompt: str, foto_bytes: bytes, midia_hash: str):
+def extract_bilhete(
+    self,
+    usuario_id: int,
+    chat_id: int,
+    message_id: int,
+    versao_prompt: str,
+    foto_bytes: bytes,
+    midia_hash: str,
+):
     cache_key = f"ext:{chat_id}:{message_id}:{versao_prompt}"
-    
+
     # Cache hit
     cached = redis.get(cache_key)
     if cached:
         EXTRACTION_CACHE_HIT_RATE.inc()
         return json.loads(cached)
-    
+
     # Rate limit per user + global
     await rate_limiter.acquire(f"anthropic:{usuario_id}", limit=10, window=60)
     await rate_limiter.acquire("anthropic:global", limit=100, window=60)
-    
+
     # Extract with circuit breaker
     resultado = await chamar_anthropic_com_fallback(foto_bytes, versao_prompt)
-    
+
     # Validate conferences
     try:
         conferencias.validar(resultado)
@@ -187,27 +195,29 @@ def extract_bilhete(self, usuario_id: int, chat_id: int, message_id: int,
             usuario_id=usuario_id,
             midia_hash=midia_hash,
             motivo=f"conferencia_grave: {e}",
-            extracao_bruta=resultado
+            extracao_bruta=resultado,
         )
         REVISAO_PENDENTE_CREATED.labels(reason="conferencia_grave").inc()
         return {"status": "revisao_pendente"}
-    
+
     # Cache & forward
-    redis.setex(cache_key, 30*86400, json.dumps(resultado))
+    redis.setex(cache_key, 30 * 86400, json.dumps(resultado))
     EXTRACTION_CACHE_HIT_RATE.dec()  # miss
-    
+
     # Chain to materialization
     materializar_aposta.delay(usuario_id, resultado, midia_hash)
-    
+
     return {"status": "extracted"}
+
 
 # Chain: extraction → materialization
 from celery import chain
 
+
 def processar_mensagem(usuario_id, chat_id, message_id, versao_prompt, foto_bytes, midia_hash):
     chain(
         extract_bilhete.s(usuario_id, chat_id, message_id, versao_prompt, foto_bytes, midia_hash),
-        materializar_aposta.s()
+        materializar_aposta.s(),
     ).apply_async()
 ```
 
@@ -222,29 +232,33 @@ async def materializar_aposta(self, usuario_id: int, extracao_json: dict, midia_
                 session, usuario_id, extracao_json, midia_hash
             )
             # Emite evento para projection trigger
-            await event_bus.publish("ApostaCriada", {
-                "usuario_id": usuario_id,
-                "aposta_chave": extracao_json["chave"]
-            })
+            await event_bus.publish(
+                "ApostaCriada", {"usuario_id": usuario_id, "aposta_chave": extracao_json["chave"]}
+            )
 ```
 
 ### Idempotent Upsert
 ```python
 # repositorio.py
 async def upsert_aposta_idempotente(session, usuario_id, extracao, midia_hash):
-    stmt = pg_insert(Aposta).values(
-        usuario_id=usuario_id,
-        chat_id=extracao["chat_id"],
-        message_id=extracao["message_id"],
-        ordem_na_mensagem=extracao["ordem"],
-        midia_hash=midia_hash,
-        # ... all fields from extracao
-        atualizada_em=datetime.utcnow()
-    ).on_conflict_do_update(
-        index_elements=["usuario_id", "chat_id", "message_id", "ordem_na_mensagem"],
-        set_={k: v for k, v in extracao.items() if k not in IMMUTABLE_FIELDS},
-        where=pg_insert(Aposta).excluded.atualizada_em > Aposta.atualizada_em
-    ).returning(Aposta.id)
+    stmt = (
+        pg_insert(Aposta)
+        .values(
+            usuario_id=usuario_id,
+            chat_id=extracao["chat_id"],
+            message_id=extracao["message_id"],
+            ordem_na_mensagem=extracao["ordem"],
+            midia_hash=midia_hash,
+            # ... all fields from extracao
+            atualizada_em=datetime.utcnow(),
+        )
+        .on_conflict_do_update(
+            index_elements=["usuario_id", "chat_id", "message_id", "ordem_na_mensagem"],
+            set_={k: v for k, v in extracao.items() if k not in IMMUTABLE_FIELDS},
+            where=pg_insert(Aposta).excluded.atualizada_em > Aposta.atualizada_em,
+        )
+        .returning(Aposta.id)
+    )
     return (await session.execute(stmt)).scalar_one()
 ```
 

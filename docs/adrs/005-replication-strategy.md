@@ -85,22 +85,22 @@ async def read_after_write_routing(request: Request, call_next):
     # Track last write timestamp per session
     last_write = request.session.get("last_write_ts", 0)
     now = time.time()
-    
+
     # Route to primary if: write in last 5s OR explicit header OR mutation method
     use_primary = (
-        request.method in ("POST", "PUT", "PATCH", "DELETE") or
-        (now - last_write) < 5 or
-        request.headers.get("X-Read-Primary") == "true"
+        request.method in ("POST", "PUT", "PATCH", "DELETE")
+        or (now - last_write) < 5
+        or request.headers.get("X-Read-Primary") == "true"
     )
-    
+
     request.state.db_pool = primary_pool if use_primary else replica_pool
-    
+
     response = await call_next(request)
-    
+
     # Update last_write on mutations
     if request.method in ("POST", "PUT", "PATCH", "DELETE"):
         request.session["last_write_ts"] = now
-    
+
     return response
 ```
 

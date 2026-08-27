@@ -52,13 +52,14 @@ We adopt **feature flags** for gradual rollouts, **expand-only schema migrations
 # config/flags.py
 from functools import lru_cache
 
+
 class FeatureFlags:
     # Rollout: percentual de usuários (0-100)
-    NOVA_CASA_BET365 = "nova_casa_bet365"        # 0 → 10 → 50 → 100
-    PROMPT_V3_EXTRACAO = "prompt_v3_extracao"     # canary por tenant
+    NOVA_CASA_BET365 = "nova_casa_bet365"  # 0 → 10 → 50 → 100
+    PROMPT_V3_EXTRACAO = "prompt_v3_extracao"  # canary por tenant
     MERCADO_JOGADOR_FALTAS = "mercado_jogador_faltas"
     LIQUIDACAO_AUTOMATICA = "liquidacao_automatica"
-    
+
     @classmethod
     @lru_cache(maxsize=128)
     def is_enabled(cls, flag: str, usuario_id: int = None) -> bool:
@@ -67,7 +68,7 @@ class FeatureFlags:
             override = redis.get(f"flag:{flag}:user:{usuario_id}")
             if override is not None:
                 return override == "1"
-        
+
         # Percentual global
         pct = int(redis.get(f"flag:{flag}:pct") or "0")
         if pct >= 100:
@@ -76,6 +77,7 @@ class FeatureFlags:
             return False
         # Deterministic hash por usuario_id
         return (hash(f"{flag}:{usuario_id}") % 100) < pct
+
 
 # Uso no código
 if FeatureFlags.is_enabled("prompt_v3_extracao", usuario_id):
@@ -222,23 +224,26 @@ pact = Consumer("bancaemdia-extracao").has_pact_with(
     Provider("anthropic-api"), host_name="api.anthropic.com", port=443
 )
 
+
 def test_extracao_request_response():
     expected_request = {
         "model": "claude-3-haiku-20240307",
         "messages": [{"role": "user", "content": Like("[IMAGE]...")}],
-        "max_tokens": 4096
+        "max_tokens": 4096,
     }
     expected_response = {
         "content": [{"type": "text", "text": Like('{"odd": 1.95, ...}')}],
-        "usage": {"input_tokens": Like(100), "output_tokens": Like(50)}
+        "usage": {"input_tokens": Like(100), "output_tokens": Like(50)},
     }
-    
-    (pact
-     .given("valid API key")
-     .upon_receiving("extraction request")
-     .with_request("POST", "/v1/messages", body=expected_request)
-     .will_respond_with(200, body=expected_response))
-    
+
+    (
+        pact
+        .given("valid API key")
+        .upon_receiving("extraction request")
+        .with_request("POST", "/v1/messages", body=expected_request)
+        .will_respond_with(200, body=expected_response)
+    )
+
     with pact:
         resultado = await chamar_anthropic(foto_bytes)
         assert "odd" in resultado

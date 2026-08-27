@@ -108,11 +108,17 @@ async def get_aposta_for_update(session: AsyncSession, aposta_id: int) -> Aposta
     )
     return result.scalar_one()
 
+
 # Pareador: lock both bets in consistent order
-async def create_duvida_de_par(session: AsyncSession, aposta_nova_id: int, aposta_existente_id: int):
+async def create_duvida_de_par(
+    session: AsyncSession, aposta_nova_id: int, aposta_existente_id: int
+):
     ids = sorted([aposta_nova_id, aposta_existente_id])
     result = await session.execute(
-        select(Aposta).where(Aposta.id.in_(ids)).with_for_update(of=Aposta, nowait=False).order_by(Aposta.id)
+        select(Aposta)
+        .where(Aposta.id.in_(ids))
+        .with_for_update(of=Aposta, nowait=False)
+        .order_by(Aposta.id)
     )
     apostas = result.scalars().all()
     # ... logic
@@ -138,7 +144,7 @@ async def upsert_aposta(session: AsyncSession, aposta: Aposta) -> Aposta:
         .on_conflict_do_update(
             index_elements=["usuario_id", "chat_id", "message_id", "ordem_na_mensagem"],
             set_={k: v for k, v in aposta.to_dict().items() if k not in IMMUTABLE_FIELDS},
-            where=pg_insert(Aposta).excluded.atualizada_em > Aposta.atualizada_em
+            where=pg_insert(Aposta).excluded.atualizada_em > Aposta.atualizada_em,
         )
         .returning(Aposta)
     )

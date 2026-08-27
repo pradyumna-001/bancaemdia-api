@@ -136,18 +136,21 @@ from prometheus_client import Gauge
 
 breaker_state = Gauge("circuit_breaker_state", "0=closed, 1=open, 2=half-open", ["breaker"])
 
+
 class PrometheusListener(pybreaker.CircuitBreakerListener):
     def state_change(self, cb, old_state, new_state):
         state_map = {"closed": 0, "open": 1, "half_open": 2}
         breaker_state.labels(breaker=cb.name).set(state_map.get(new_state, -1))
+
 
 anthropic_breaker = pybreaker.CircuitBreaker(
     name="anthropic",
     fail_max=5,
     reset_timeout=60,
     exclude=[httpx.TimeoutException],
-    listeners=[PrometheusListener()]
+    listeners=[PrometheusListener()],
 )
+
 
 @anthropic_breaker
 async def chamar_anthropic(payload: dict, model: str) -> dict:
@@ -164,37 +167,36 @@ class Settings(BaseSettings):
     # HTTP
     HTTP_TIMEOUT_CONNECT: float = 5.0
     HTTP_TIMEOUT_READ: float = 30.0
-    
+
     # Anthropic
     ANTHROPIC_TIMEOUT: float = 30.0
     ANTHROPIC_MAX_RETRIES: int = 3
-    
+
     # PostgreSQL
     PG_STATEMENT_TIMEOUT_PRIMARY: int = 5000  # ms
     PG_STATEMENT_TIMEOUT_REPLICA: int = 30000
-    
+
     # Background
     BACKGROUND_JOB_TIMEOUT: int = 300
     BACKGROUND_MAX_RETRIES: int = 3
 
+
 # httpx client singleton
 httpx_client = httpx.AsyncClient(
-    timeout=httpx.Timeout(
-        connect=settings.HTTP_TIMEOUT_CONNECT,
-        read=settings.HTTP_TIMEOUT_READ
-    ),
-    limits=httpx.Limits(max_connections=20, max_keepalive=10)
+    timeout=httpx.Timeout(connect=settings.HTTP_TIMEOUT_CONNECT, read=settings.HTTP_TIMEOUT_READ),
+    limits=httpx.Limits(max_connections=20, max_keepalive=10),
 )
 
 # tenacity retry decorator
 from tenacity import retry, stop_after_attempt, wait_exponential_jitter
+
 
 def anthropic_retry():
     return retry(
         wait=wait_exponential_jitter(initial=1, max=4),
         stop=stop_after_attempt(settings.ANTHROPIC_MAX_RETRIES),
         retry=retry_if_exception_type((httpx.TimeoutException, httpx.HTTPStatusError)),
-        reraise=True
+        reraise=True,
     )
 ```
 
@@ -224,6 +226,7 @@ from opentelemetry import trace
 
 tracer = trace.get_tracer(__name__)
 
+
 async def processar_lote(usuario_id: int, apostas: list):
     with tracer.start_as_current_span("planilhar.lote") as span:
         span.set_attribute("usuario_id", usuario_id)
@@ -237,21 +240,23 @@ async def processar_lote(usuario_id: int, apostas: list):
 from slowapi import Limiter
 from slowapi.util import get_remote_address
 
+
 def get_user_id(request: Request) -> str:
     return request.state.usuario_id  # set by auth middleware
+
 
 limiter = Limiter(key_func=get_user_id, storage_uri="memory://")  # Redis:// when multi-worker
 app.state.limiter = limiter
 
+
 @router.post("/coleta")
 @limiter.limit("10/minute")
-async def coleta(request: Request, payload: ColetaPayload):
-    ...
+async def coleta(request: Request, payload: ColetaPayload): ...
+
 
 @router.post("/api/v1/apostas")
 @limiter.limit("100/minute")
-async def criar_aposta(request: Request, aposta: ApostaCreate):
-    ...
+async def criar_aposta(request: Request, aposta: ApostaCreate): ...
 ```
 
 ## Notes

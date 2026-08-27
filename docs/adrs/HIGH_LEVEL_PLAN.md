@@ -893,14 +893,16 @@ Ele criou um **protótipo funcional** que:
 async def parear_aposta(nova_aposta, apostas_existentes):
     # 1. Lock ordering OBRIGATÓRIO (deadlock prevention)
     apostas_ordenadas = sorted([nova_aposta] + apostas_existentes, key=lambda a: a.id)
-    
+
     # 2. FOR UPDATE com ordering (deadlock prevention)
     async with session.begin():
         rows = await session.execute(
-            select(Aposta).where(Aposta.id.in_([a.id for a in apostas_ordenadas]))
-            .with_for_update(of=Aposta, nowait=False).order_by(Aposta.id)
+            select(Aposta)
+            .where(Aposta.id.in_([a.id for a in apostas_ordenadas]))
+            .with_for_update(of=Aposta, nowait=False)
+            .order_by(Aposta.id)
         )
-    
+
     # 3. Idempotência por chave natural (replay safe)
     # 4. Dual DLQ: técnica (Celery) + negócio (revisao_pendente)
     # 5. Temporalidade: vigente_de/ate nas unidades, desde/ate contas_casa

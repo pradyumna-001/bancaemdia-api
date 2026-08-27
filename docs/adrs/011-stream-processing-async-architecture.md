@@ -122,21 +122,28 @@ We adopt **Redis Streams** as message broker (already provisioned for rate limit
 import ulid
 from datetime import datetime
 
+
 async def publish_event(redis, stream: str, event: BaseModel):
-    await redis.xadd(stream, {
-        "event_id": str(ulid.new()),
-        "event_type": event.event_type,
-        "occurred_at": event.occurred_at.isoformat(),
-        "version": str(event.version),
-        "payload": event.model_dump_json()
-    }, maxlen=100000, approximate=True)
+    await redis.xadd(
+        stream,
+        {
+            "event_id": str(ulid.new()),
+            "event_type": event.event_type,
+            "occurred_at": event.occurred_at.isoformat(),
+            "version": str(event.version),
+            "payload": event.model_dump_json(),
+        },
+        maxlen=100000,
+        approximate=True,
+    )
+
 
 # Usage in endpoints
 @router.post("/coleta", status_code=202)
 async def receber_coleta(request: Request, payload: ColetaPayload):
     # Quick validation
     job_id = str(ulid.new())
-    
+
     event = ColetaRecebida(
         event_type="ColetaRecebida",
         job_id=job_id,
@@ -144,19 +151,22 @@ async def receber_coleta(request: Request, payload: ColetaPayload):
         casa=payload.casa,
         identidade=payload.identidade,
         hash_conteudo=payload.hash_conteudo,
-        bruto_json=payload.bruto_json
+        bruto_json=payload.bruto_json,
     )
-    
+
     await publish_event(redis, "stream:materialization", event)
-    
+
     # Initial status
-    await redis.hset(f"coleta:status:{job_id}", mapping={
-        "status": "queued",
-        "usuario_id": str(request.state.usuario_id),
-        "created_at": datetime.utcnow().isoformat()
-    })
+    await redis.hset(
+        f"coleta:status:{job_id}",
+        mapping={
+            "status": "queued",
+            "usuario_id": str(request.state.usuario_id),
+            "created_at": datetime.utcnow().isoformat(),
+        },
+    )
     await redis.expire(f"coleta:status:{job_id}", 3600)
-    
+
     return {"job_id": job_id, "status": "queued"}
 ```
 
@@ -165,26 +175,27 @@ async def receber_coleta(request: Request, payload: ColetaPayload):
 # tasks/stream_consumers.py
 from celery import shared_task
 
+
 @shared_task(bind=True, max_retries=3, default_retry_delay=30, queue="materialization")
 async def consume_coleta_recebida(self, event_data: dict):
     event = ColetaRecebida.model_validate(event_data)
-    
+
     # Idempotency check (natural key)
     exists = await repositorio.coleta_existe(
         event.usuario_id, event.casa, event.identidade, event.hash_conteudo
     )
     if exists:
         return {"status": "duplicate", "action": "skipped"}
-    
+
     # Process (same as current synchronous /coleta logic)
     await processar_coleta_casa(event)
-    
+
     # Update status for polling
-    await redis.hset(f"coleta:status:{event.job_id}", mapping={
-        "status": "completed",
-        "completed_at": datetime.utcnow().isoformat()
-    })
-    
+    await redis.hset(
+        f"coleta:status:{event.job_id}",
+        mapping={"status": "completed", "completed_at": datetime.utcnow().isoformat()},
+    )
+
     return {"status": "processed"}
 ```
 
