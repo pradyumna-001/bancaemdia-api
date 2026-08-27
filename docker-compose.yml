@@ -3,9 +3,9 @@ services:
     image: postgres:16
     container_name: bancaemdia-postgres
     environment:
-      POSTGRES_USER: bancaemdia
-      POSTGRES_PASSWORD: ${{ secrets.POSTGRES_PASSWORD }}
-      POSTGRES_DB: bancaemdia
+      POSTGRES_USER: ${POSTGRES_USER:-bancaemdia}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-bancaemdia}
+      POSTGRES_DB: ${POSTGRES_DB:-bancaemdia}
     volumes:
       - postgres_data:/var/lib/postgresql/data
     ports:
