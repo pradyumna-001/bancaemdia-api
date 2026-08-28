@@ -1,9 +1,9 @@
+from __future__ import annotations
+
 import sys
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent.parent / "src"))
-
-from __future__ import annotations
 
 import asyncio
 import os
@@ -45,9 +45,7 @@ def pg_container() -> Generator[PostgresContainer, None, None]:
         with PostgresContainer("postgres:16") as pg:
             yield pg
     except DockerException:
-        pytest.skip(
-            "Docker daemon not reachable. Start Docker Desktop or configure DOCKER_HOST."
-        )
+        pytest.skip("Docker daemon not reachable. Start Docker Desktop or configure DOCKER_HOST.")
 
 
 @pytest.fixture(scope="session")
@@ -86,15 +84,11 @@ def bancaemdia_app_role(migrated_db_url: str) -> Generator[str, None, None]:
     async def _setup() -> None:
         conn = await _admin()
         try:
-            await conn.execute(
-                "ALTER ROLE postgres WITH PASSWORD 'postgres'"
-            )
+            await conn.execute("ALTER ROLE postgres WITH PASSWORD 'postgres'")
             await conn.execute(
                 "CREATE ROLE bancaemdia_app WITH LOGIN PASSWORD 'bancaemdia_app_pwd'"
             )
-            await conn.execute(
-                "GRANT USAGE ON SCHEMA public TO bancaemdia_app"
-            )
+            await conn.execute("GRANT USAGE ON SCHEMA public TO bancaemdia_app")
             await conn.execute(
                 "GRANT SELECT, INSERT, UPDATE, DELETE ON ALL TABLES IN SCHEMA public TO bancaemdia_app"
             )
@@ -110,9 +104,7 @@ def bancaemdia_app_role(migrated_db_url: str) -> Generator[str, None, None]:
                 )
                 """
             )
-            await conn.execute(
-                "ALTER TABLE test_tenant_data ENABLE ROW LEVEL SECURITY"
-            )
+            await conn.execute("ALTER TABLE test_tenant_data ENABLE ROW LEVEL SECURITY")
             await conn.execute(
                 """
                 CREATE POLICY test_tenant_isolation ON test_tenant_data

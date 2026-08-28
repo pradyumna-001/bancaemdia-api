@@ -26,9 +26,7 @@ async def get_db() -> AsyncGenerator[AsyncSession, None]:
     async with SessionLocal() as session:
         user_id = current_user_id.get()
         if user_id:
-            await session.execute(
-                text("SET LOCAL app.current_user_id = :uid"), {"uid": user_id}
-            )
+            await session.execute(text("SET LOCAL app.current_user_id = :uid"), {"uid": user_id})
         yield session
 
 
