@@ -30,4 +30,6 @@ async def health() -> JSONResponse:
     db_ok = await check_db_health()
     if db_ok:
         return JSONResponse({"status": "ok", "db": "ok"})
-    return JSONResponse({"status": "degraded", "db": "unreachable"}, status_code=status.HTTP_503_SERVICE_UNAVAILABLE)
+    return JSONResponse(
+        {"status": "degraded", "db": "unreachable"}, status_code=status.HTTP_503_SERVICE_UNAVAILABLE
+    )
