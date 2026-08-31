@@ -45,11 +45,11 @@ def _ci_db_urls() -> tuple[str, str]:
 def migrated_db_url() -> Generator[str, None, None]:
     """Provide a migrated database URL, using CI service or testcontainers."""
     if _is_ci():
-        async_url, sync_url = _ci_db_urls()
+        async_url, _ = _ci_db_urls()
         original_db_url = os.environ.get("DATABASE_URL")
         original_migration_url = os.environ.get("MIGRATION_DATABASE_URL")
         os.environ["DATABASE_URL"] = async_url
-        os.environ["MIGRATION_DATABASE_URL"] = sync_url
+        os.environ["MIGRATION_DATABASE_URL"] = async_url
         try:
             subprocess.run(
                 ["alembic", "upgrade", "heads"],
@@ -73,11 +73,10 @@ def migrated_db_url() -> Generator[str, None, None]:
         try:
             with PostgresContainer("postgres:16") as pg:
                 url = pg.get_connection_url(driver="asyncpg")
-                admin_url = pg.get_connection_url(driver="psycopg")
                 original_db_url = os.environ.get("DATABASE_URL")
                 original_migration_url = os.environ.get("MIGRATION_DATABASE_URL")
                 os.environ["DATABASE_URL"] = url
-                os.environ["MIGRATION_DATABASE_URL"] = admin_url
+                os.environ["MIGRATION_DATABASE_URL"] = url
                 try:
                     subprocess.run(
                         ["alembic", "upgrade", "heads"],
@@ -110,7 +109,10 @@ def bancaemdia_app_role(migrated_db_url: str) -> Generator[str, None, None]:
     async def _setup() -> None:
         conn = await _admin()
         try:
-            await conn.execute("ALTER ROLE postgres WITH PASSWORD 'postgres'")
+            try:
+                await conn.execute("ALTER ROLE postgres WITH PASSWORD 'postgres'")
+            except asyncpg.PostgresError:
+                pass
             await conn.execute(
                 "CREATE ROLE bancaemdia_app WITH LOGIN PASSWORD 'bancaemdia_app_pwd'"
             )
