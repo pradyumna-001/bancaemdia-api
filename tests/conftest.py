@@ -155,6 +155,11 @@ def bancaemdia_app_role(migrated_db_url: str) -> Generator[str, None, None]:
         conn = await _admin()
         try:
             await conn.execute("DROP TABLE IF EXISTS test_tenant_data")
+            await conn.execute("REVOKE ALL ON ALL TABLES IN SCHEMA public FROM bancaemdia_app")
+            await conn.execute("REVOKE ALL ON SCHEMA public FROM bancaemdia_app")
+            await conn.execute(
+                "ALTER DEFAULT PRIVILEGES IN SCHEMA public REVOKE SELECT, INSERT, UPDATE, DELETE ON TABLES FROM bancaemdia_app"
+            )
             await conn.execute("DROP ROLE IF EXISTS bancaemdia_app")
         finally:
             await conn.close()
