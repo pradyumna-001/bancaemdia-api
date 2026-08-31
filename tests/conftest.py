@@ -1,30 +1,18 @@
 from __future__ import annotations
 
-import sys
-from pathlib import Path
-
-sys.path.insert(0, str(Path(__file__).resolve().parent.parent.parent / "src"))
-
 import asyncio
 import os
 import subprocess
+import sys
 from collections.abc import Generator
 from pathlib import Path
 
 import asyncpg
 import pytest
-from docker.errors import DockerException
 from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
-from testcontainers.postgres import PostgresContainer
 
-os.environ.setdefault(
-    "DATABASE_URL",
-    "postgresql+asyncpg://placeholder@localhost:5432/placeholder",
-)
-os.environ.setdefault(
-    "MIGRATION_DATABASE_URL",
-    "postgresql://placeholder@localhost:5432/placeholder",
-)
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent.parent / "src"))
+
 os.environ.setdefault("REDIS_URL", "redis://localhost:6379/0")
 os.environ.setdefault("SECRET_KEY", "TEST_SECRET_KEY_REPLACE_IN_PRODUCTION")
 os.environ.setdefault("JWT_SECRET_KEY", "TEST_JWT_SECRET")
@@ -39,39 +27,77 @@ os.environ.setdefault("STATEMENT_TIMEOUT_REPLICA", "30000")
 import bancaemdia.db.session as db_session
 
 
-@pytest.fixture(scope="session")
-def pg_container() -> Generator[PostgresContainer, None, None]:
-    try:
-        with PostgresContainer("postgres:16") as pg:
-            yield pg
-    except DockerException:
-        pytest.skip("Docker daemon not reachable. Start Docker Desktop or configure DOCKER_HOST.")
+def _is_ci() -> bool:
+    return os.environ.get("GITHUB_ACTIONS") == "true"
+
+
+def _ci_db_urls() -> tuple[str, str]:
+    """Return (async_url, sync_url) for CI postgres service."""
+    async_url = os.environ.get("DATABASE_URL")
+    if not async_url:
+        pw = os.environ.get("POSTGRES_PASSWORD", "test_password")
+        async_url = f"postgresql+asyncpg://bancaemdia:{pw}@localhost:5432/bancaemdia"
+    sync_url = async_url.replace("postgresql+asyncpg", "postgresql", 1)
+    return async_url, sync_url
 
 
 @pytest.fixture(scope="session")
-def migrated_db_url(pg_container: PostgresContainer) -> Generator[str, None, None]:
-    url = pg_container.get_connection_url(driver="asyncpg")
-    admin_url = pg_container.get_connection_url(driver="psycopg")
-    original_db_url = os.environ.get("DATABASE_URL")
-    original_migration_url = os.environ.get("MIGRATION_DATABASE_URL")
-    os.environ["DATABASE_URL"] = url
-    os.environ["MIGRATION_DATABASE_URL"] = admin_url
-    try:
-        subprocess.run(
-            ["alembic", "upgrade", "heads"],
-            check=True,
-            cwd=str(Path(__file__).resolve().parent.parent),
-        )
-        yield url
-    finally:
-        if original_db_url is None:
-            os.environ.pop("DATABASE_URL", None)
-        else:
-            os.environ["DATABASE_URL"] = original_db_url
-        if original_migration_url is None:
-            os.environ.pop("MIGRATION_DATABASE_URL", None)
-        else:
-            os.environ["MIGRATION_DATABASE_URL"] = original_migration_url
+def migrated_db_url() -> Generator[str, None, None]:
+    """Provide a migrated database URL, using CI service or testcontainers."""
+    if _is_ci():
+        async_url, sync_url = _ci_db_urls()
+        original_db_url = os.environ.get("DATABASE_URL")
+        original_migration_url = os.environ.get("MIGRATION_DATABASE_URL")
+        os.environ["DATABASE_URL"] = async_url
+        os.environ["MIGRATION_DATABASE_URL"] = sync_url
+        try:
+            subprocess.run(
+                ["alembic", "upgrade", "heads"],
+                check=True,
+                cwd=str(Path(__file__).resolve().parent.parent),
+            )
+            yield async_url
+        finally:
+            if original_db_url is None:
+                os.environ.pop("DATABASE_URL", None)
+            else:
+                os.environ["DATABASE_URL"] = original_db_url
+            if original_migration_url is None:
+                os.environ.pop("MIGRATION_DATABASE_URL", None)
+            else:
+                os.environ["MIGRATION_DATABASE_URL"] = original_migration_url
+    else:
+        from docker.errors import DockerException
+        from testcontainers.postgres import PostgresContainer
+
+        try:
+            with PostgresContainer("postgres:16") as pg:
+                url = pg.get_connection_url(driver="asyncpg")
+                admin_url = pg.get_connection_url(driver="psycopg")
+                original_db_url = os.environ.get("DATABASE_URL")
+                original_migration_url = os.environ.get("MIGRATION_DATABASE_URL")
+                os.environ["DATABASE_URL"] = url
+                os.environ["MIGRATION_DATABASE_URL"] = admin_url
+                try:
+                    subprocess.run(
+                        ["alembic", "upgrade", "heads"],
+                        check=True,
+                        cwd=str(Path(__file__).resolve().parent.parent),
+                    )
+                    yield url
+                finally:
+                    if original_db_url is None:
+                        os.environ.pop("DATABASE_URL", None)
+                    else:
+                        os.environ["DATABASE_URL"] = original_db_url
+                    if original_migration_url is None:
+                        os.environ.pop("MIGRATION_DATABASE_URL", None)
+                    else:
+                        os.environ["MIGRATION_DATABASE_URL"] = original_migration_url
+        except DockerException:
+            pytest.skip(
+                "Docker daemon not reachable. Start Docker Desktop or configure DOCKER_HOST."
+            )
 
 
 @pytest.fixture(scope="session")
