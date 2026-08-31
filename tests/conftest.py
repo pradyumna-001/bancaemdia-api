@@ -2,7 +2,6 @@ from __future__ import annotations
 
 import asyncio
 import os
-import subprocess
 import sys
 from collections.abc import Generator
 from pathlib import Path
@@ -43,29 +42,15 @@ def _ci_db_urls() -> tuple[str, str]:
 
 @pytest.fixture(scope="session")
 def migrated_db_url() -> Generator[str, None, None]:
-    """Provide a migrated database URL, using CI service or testcontainers."""
+    """Provide a database URL, using CI service or testcontainers."""
     if _is_ci():
         async_url, _ = _ci_db_urls()
-        original_db_url = os.environ.get("DATABASE_URL")
         original_migration_url = os.environ.get("MIGRATION_DATABASE_URL")
-        os.environ["DATABASE_URL"] = async_url
         os.environ["MIGRATION_DATABASE_URL"] = async_url
         try:
-            subprocess.run(
-                ["alembic", "upgrade", "heads"],
-                check=True,
-                cwd=str(Path(__file__).resolve().parent.parent),
-            )
             yield async_url
         finally:
-            if original_db_url is None:
-                os.environ.pop("DATABASE_URL", None)
-            else:
-                os.environ["DATABASE_URL"] = original_db_url
-            if original_migration_url is None:
-                os.environ.pop("MIGRATION_DATABASE_URL", None)
-            else:
-                os.environ["MIGRATION_DATABASE_URL"] = original_migration_url
+            os.environ["MIGRATION_DATABASE_URL"] = original_migration_url
     else:
         from docker.errors import DockerException
         from testcontainers.postgres import PostgresContainer
@@ -73,26 +58,12 @@ def migrated_db_url() -> Generator[str, None, None]:
         try:
             with PostgresContainer("postgres:16") as pg:
                 url = pg.get_connection_url(driver="asyncpg")
-                original_db_url = os.environ.get("DATABASE_URL")
                 original_migration_url = os.environ.get("MIGRATION_DATABASE_URL")
-                os.environ["DATABASE_URL"] = url
                 os.environ["MIGRATION_DATABASE_URL"] = url
                 try:
-                    subprocess.run(
-                        ["alembic", "upgrade", "heads"],
-                        check=True,
-                        cwd=str(Path(__file__).resolve().parent.parent),
-                    )
                     yield url
                 finally:
-                    if original_db_url is None:
-                        os.environ.pop("DATABASE_URL", None)
-                    else:
-                        os.environ["DATABASE_URL"] = original_db_url
-                    if original_migration_url is None:
-                        os.environ.pop("MIGRATION_DATABASE_URL", None)
-                    else:
-                        os.environ["MIGRATION_DATABASE_URL"] = original_migration_url
+                    os.environ["MIGRATION_DATABASE_URL"] = original_migration_url
         except DockerException:
             pytest.skip(
                 "Docker daemon not reachable. Start Docker Desktop or configure DOCKER_HOST."
