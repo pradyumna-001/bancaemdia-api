@@ -132,7 +132,7 @@ testpaths = ["tests"]
 python_files = ["test_*.py"]
 python_classes = ["Test*"]
 python_functions = ["test_*"]
-addopts = "-n 8 --dist loadscope --tb=short -q --strict-markers"
+addopts = "-n 8 --tb=short -q --strict-markers"
 markers = [
     "unit: Unit tests (no I/O)",
     "integration: Integration tests (Testcontainers)",
