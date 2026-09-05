@@ -15,6 +15,8 @@ from bancaemdia.domain.registros import Aposta
 from bancaemdia.repositories.aposta_repo import ApostaRepo
 from bancaemdia.repositories.usuario_repo import UsuarioRepo
 
+pytestmark = pytest.mark.xdist_group("postgres")
+
 Como = Callable[[AsyncEngine, int | None], AbstractAsyncContextManager[AsyncSession]]
 
 

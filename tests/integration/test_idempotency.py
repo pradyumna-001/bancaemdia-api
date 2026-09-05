@@ -17,6 +17,8 @@ from bancaemdia.repositories.coleta_casa_repo import ColetaCasaRepo
 
 ORIGENS = ("telegram", "print", "manual", "planilha", "casa")
 
+pytestmark = pytest.mark.xdist_group("postgres")
+
 Como = Callable[[AsyncEngine, int | None], AbstractAsyncContextManager[AsyncSession]]
 
 
