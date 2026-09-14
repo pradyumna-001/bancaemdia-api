@@ -43,6 +43,15 @@ class TestSettingsValidation:
             Settings(_env_file=None)
 
 
+class TestAnthropicModelDefaults:
+    def test_haiku_reads_and_sonnet_escalates(self, monkeypatch):
+        monkeypatch.delenv("ANTHROPIC_MODEL", raising=False)
+        monkeypatch.delenv("ANTHROPIC_ESCALATION_MODEL", raising=False)
+        s = Settings(_env_file=None)
+        assert s.ANTHROPIC_MODEL == "claude-haiku-4-5"
+        assert s.ANTHROPIC_ESCALATION_MODEL == "claude-sonnet-5"
+
+
 class TestCelerySettingsDefaults:
     def test_default_to_compose_redis(self, monkeypatch):
         monkeypatch.delenv("CELERY_BROKER_URL", raising=False)

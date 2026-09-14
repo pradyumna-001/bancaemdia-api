@@ -26,6 +26,7 @@ dependencies = [
     "python-jose[cryptography]>=3.3.0",
     "passlib[bcrypt]>=1.7.4",
     "httpx>=0.27.2",
+    "anthropic>=1.5.0",
     "redis>=5.0.8",
     "celery>=5.4.0",
     "pybreaker>=0.8.1",
