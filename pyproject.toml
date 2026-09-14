@@ -122,6 +122,10 @@ module = ["pydantic.*", "sqlalchemy.*"]
 ignore_missing_imports = true
 
 [[tool.mypy.overrides]]
+module = ["celery.*", "kombu.*"]
+ignore_missing_imports = true
+
+[[tool.mypy.overrides]]
 module = ["bancaemdia.config"]
 disallow_any_generics = false
 disallow_subclassing_any = false

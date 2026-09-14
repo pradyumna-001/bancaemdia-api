@@ -43,6 +43,15 @@ class TestSettingsValidation:
             Settings(_env_file=None)
 
 
+class TestCelerySettingsDefaults:
+    def test_default_to_compose_redis(self, monkeypatch):
+        monkeypatch.delenv("CELERY_BROKER_URL", raising=False)
+        monkeypatch.delenv("CELERY_RESULT_BACKEND", raising=False)
+        s = Settings(_env_file=None)
+        assert s.CELERY_BROKER_URL == "redis://redis:6379/0"
+        assert s.CELERY_RESULT_BACKEND == "redis://redis:6379/1"
+
+
 class TestGetSettingsSingleton:
     def test_returns_same_instance(self):
         assert get_settings() is get_settings()
