@@ -52,6 +52,22 @@ class TestAnthropicModelDefaults:
         assert s.ANTHROPIC_ESCALATION_MODEL == "claude-sonnet-5"
 
 
+class TestAnthropicRateLimitDefaults:
+    def test_match_the_issue(self, monkeypatch):
+        monkeypatch.delenv("ANTHROPIC_RATE_USER", raising=False)
+        monkeypatch.delenv("ANTHROPIC_RATE_GLOBAL", raising=False)
+        monkeypatch.delenv("ANTHROPIC_WINDOW", raising=False)
+        s = Settings(_env_file=None)
+        assert s.ANTHROPIC_RATE_USER == 10
+        assert s.ANTHROPIC_RATE_GLOBAL == 100
+        assert s.ANTHROPIC_WINDOW == 60
+
+    def test_zero_window_is_rejected(self, monkeypatch):
+        monkeypatch.setenv("ANTHROPIC_WINDOW", "0")
+        with pytest.raises(ValidationError):
+            Settings(_env_file=None)
+
+
 class TestCelerySettingsDefaults:
     def test_default_to_compose_redis(self, monkeypatch):
         monkeypatch.delenv("CELERY_BROKER_URL", raising=False)
