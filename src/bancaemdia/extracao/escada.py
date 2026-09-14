@@ -4,12 +4,14 @@ from datetime import datetime
 from enum import StrEnum
 from typing import Protocol
 
+from bancaemdia.cache.extracao_cache import ExtracaoCache, chave_de_imagem
 from bancaemdia.domain.conferencias import CONFIANCA_MINIMA, Origem, Parecer, Veredito, conferir
 from bancaemdia.extracao.cliente import Leitura, LeituraFalhouError, TipoDeImagem
 from bancaemdia.extracao.modelos import ExtracaoBilhete
 
 
 class Degrau(StrEnum):
+    CACHE = "CACHE"
     BARATO = "BARATO"
     CARO = "CARO"
 
@@ -21,6 +23,8 @@ class EscalonamentoFalhouError(Exception):
 
 
 class Leitor(Protocol):
+    modelo_escalonamento: str
+
     def ler(
         self,
         imagem: bytes,
@@ -98,11 +102,20 @@ def extrair(
     casas_do_link: Iterable[str] = (),
     odds_do_texto: Iterable[float] = (),
     confianca_minima: float = CONFIANCA_MINIMA,
+    cache: ExtracaoCache | None = None,
 ) -> Extraida:
     casas = tuple(casas_do_link)
     odds = tuple(odds_do_texto)
+    chave = chave_de_imagem(imagem, legenda)
 
-    leitura = leitor.ler(imagem, tipo, legenda=legenda, postada_em=postada_em)
+    guardada = None if cache is None else cache.buscar(chave)
+    if guardada is None:
+        leitura = leitor.ler(imagem, tipo, legenda=legenda, postada_em=postada_em)
+        if cache is not None:
+            cache.guardar(chave, leitura, substituir=False)
+    else:
+        leitura = Leitura(tuple(guardada.cupons), guardada.modelo)
+
     bilhetes = sem_ilegiveis(leitura.bilhetes)
     pareceres = conferir_cupons(
         bilhetes,
@@ -111,8 +124,10 @@ def extrair(
         odds_do_texto=odds,
         postada_em=postada_em,
     )
-    if all(pode_parar_aqui(p) for p in pareceres):
-        return Extraida(bilhetes, pareceres, Degrau.BARATO, leitura.custo_usd)
+    veio_do_topo = guardada is not None and guardada.modelo == leitor.modelo_escalonamento
+    if veio_do_topo or all(pode_parar_aqui(p) for p in pareceres):
+        degrau = Degrau.BARATO if guardada is None else Degrau.CACHE
+        return Extraida(bilhetes, pareceres, degrau, leitura.custo_usd)
 
     try:
         melhor = leitor.ler(imagem, tipo, legenda=legenda, postada_em=postada_em, escalonar=True)
@@ -120,6 +135,8 @@ def extrair(
         raise EscalonamentoFalhouError(leitura.custo_usd + erro.custo_usd) from erro
     except Exception as erro:
         raise EscalonamentoFalhouError(leitura.custo_usd) from erro
+    if cache is not None:
+        cache.guardar(chave, melhor)
     bilhetes = sem_ilegiveis(melhor.bilhetes)
     pareceres = conferir_cupons(
         bilhetes,

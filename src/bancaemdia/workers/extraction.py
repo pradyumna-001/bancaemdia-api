@@ -1,9 +1,12 @@
 import base64
+import threading
 from datetime import datetime
 
 import anthropic
 import pybreaker
+from celery import signals
 
+from bancaemdia.cache.extracao_cache import get_cache
 from bancaemdia.extracao.cliente import VERSAO_PROMPT, get_leitor, tipo_da_imagem
 from bancaemdia.extracao.rodada import ler_mensagem
 from bancaemdia.workers.celery_app import app
@@ -38,6 +41,7 @@ def extrair_bilhete(
         postada_em=datetime.fromisoformat(postada_em) if postada_em else None,
         casas_do_link=casas_do_link or (),
         odds_do_texto=odds_do_texto or (),
+        cache=get_cache(),
     )
     return {
         "usuario_id": usuario_id,
@@ -56,3 +60,14 @@ extrair_bilhete_task = app.task(
     retry_jitter=False,
     max_retries=3,
 )(extrair_bilhete)
+
+
+def limpar_cache_de_versoes_antigas(**kwargs: object) -> threading.Thread:
+    tarefa = threading.Thread(
+        target=get_cache().limpar_versoes_antigas, name="limpar-cache-extracao", daemon=True
+    )
+    tarefa.start()
+    return tarefa
+
+
+signals.worker_ready.connect(limpar_cache_de_versoes_antigas)

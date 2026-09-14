@@ -4,6 +4,7 @@ from datetime import datetime
 
 import anthropic
 
+from bancaemdia.cache.extracao_cache import ExtracaoCache
 from bancaemdia.domain.conferencias import CONFIANCA_MINIMA, Veredito
 from bancaemdia.extracao.cliente import LeituraFalhouError, TipoDeImagem
 from bancaemdia.extracao.escada import Degrau, EscalonamentoFalhouError, Leitor, extrair
@@ -70,6 +71,7 @@ def ler_mensagem(
     casas_do_link: Iterable[str] = (),
     odds_do_texto: Iterable[float] = (),
     confianca_minima: float = CONFIANCA_MINIMA,
+    cache: ExtracaoCache | None = None,
 ) -> LeituraDaMensagem:
     try:
         saida = extrair(
@@ -81,6 +83,7 @@ def ler_mensagem(
             casas_do_link=casas_do_link,
             odds_do_texto=odds_do_texto,
             confianca_minima=confianca_minima,
+            cache=cache,
         )
     except LeituraFalhouError as erro:
         return leitura_que_falhou(erro, erro.custo_usd)
