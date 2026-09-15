@@ -12,9 +12,9 @@ from celery import signals
 from celery.utils.time import get_exponential_backoff_interval
 
 from bancaemdia.cache.extracao_cache import ExtracaoCache
-from bancaemdia.extracao import cliente
 from bancaemdia.extracao.cliente import VERSAO_PROMPT, Leitura
 from bancaemdia.extracao.modelos import ExtracaoBilhete, Selecao
+from bancaemdia.resilience import circuit_breaker
 from bancaemdia.workers import celery_app, extraction
 
 
@@ -123,7 +123,7 @@ def test_retries_wait_longer_than_an_open_breaker() -> None:
     ]
 
     assert esperas == [60, 120, 240]
-    assert esperas[0] >= cliente.anthropic_breaker.reset_timeout
+    assert esperas[0] >= circuit_breaker.RESET_TIMEOUT
 
 
 def test_extrair_bilhete_reads_the_image_and_returns_json(monkeypatch) -> None:
@@ -232,3 +232,25 @@ def test_task_runs_eagerly(monkeypatch) -> None:
     resultado = extraction.extrair_bilhete_task.apply(kwargs=_argumentos()).get()
 
     assert resultado["degrau"] == "BARATO"
+
+
+def test_open_breaker_sends_the_task_back_to_the_queue(monkeypatch) -> None:
+    tentativas = []
+
+    class Leitor:
+        modelo_escalonamento = "claude-sonnet-5"
+
+        def ler(self, imagem, tipo="image/jpeg", *, legenda="", postada_em=None, escalonar=False):
+            tentativas.append(imagem)
+            raise pybreaker.CircuitBreakerError(
+                "Timeout not elapsed yet, circuit breaker still open"
+            )
+
+    monkeypatch.setattr(extraction, "get_leitor", Leitor)
+    monkeypatch.setattr(extraction, "get_cache", _cache)
+    monkeypatch.setattr(extraction, "get_limiter", lambda: _limitador([]))
+
+    resultado = extraction.extrair_bilhete_task.apply(kwargs=_argumentos())
+
+    assert len(tentativas) == 1 + extraction.extrair_bilhete_task.max_retries
+    assert isinstance(resultado.result, pybreaker.CircuitBreakerError)

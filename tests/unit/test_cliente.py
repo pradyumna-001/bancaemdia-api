@@ -7,11 +7,13 @@ import anthropic
 import httpx2
 import pybreaker
 import pytest
+from prometheus_client import REGISTRY
 from pydantic import TypeAdapter
 
 from bancaemdia.config import get_settings
 from bancaemdia.extracao import cliente
 from bancaemdia.extracao.modelos import Cupons, ExtracaoBilhete
+from bancaemdia.resilience import circuit_breaker
 
 CUPOM = {
     "casa": "Betano",
@@ -84,7 +86,7 @@ def _leitor(*respostas, max_retries=0, breaker=None):
         client,
         "claude-haiku-4-5",
         "claude-sonnet-5",
-        breaker=breaker or cliente.novo_breaker(),
+        breaker=breaker or circuit_breaker.new_anthropic_breaker(),
         pausa=lambda _: None,
     )
     return leitor, pedidos
@@ -286,7 +288,7 @@ def test_network_errors_are_retried_by_the_sdk_only() -> None:
 
 
 def test_breaker_opens_after_five_server_failures() -> None:
-    breaker = cliente.novo_breaker()
+    breaker = circuit_breaker.new_anthropic_breaker()
     leitor, pedidos = _leitor(_erro(500), breaker=breaker)
 
     for _ in range(4):
@@ -299,6 +301,9 @@ def test_breaker_opens_after_five_server_failures() -> None:
 
     assert len(pedidos) == 5
     assert breaker.current_state == "open"
+    assert REGISTRY.get_sample_value(
+        "circuit_breaker_state", {"breaker": "anthropic"}
+    ) == pytest.approx(1.0)
 
 
 @pytest.mark.parametrize(
@@ -312,7 +317,7 @@ def test_breaker_opens_after_five_server_failures() -> None:
     ],
 )
 def test_breaker_ignores_timeouts_bad_requests_and_bad_json(resposta, erro) -> None:
-    breaker = cliente.novo_breaker()
+    breaker = circuit_breaker.new_anthropic_breaker()
     leitor, _ = _leitor(resposta, breaker=breaker)
 
     for _ in range(6):
@@ -322,16 +327,19 @@ def test_breaker_ignores_timeouts_bad_requests_and_bad_json(resposta, erro) -> N
     assert breaker.current_state == "closed"
 
 
-def test_novo_breaker_matches_the_issue() -> None:
-    breaker = cliente.novo_breaker()
+def test_leitor_without_a_breaker_gets_its_own() -> None:
+    leitor = cliente.LeitorDeBilhetes(None, "claude-haiku-4-5", "claude-sonnet-5")
 
-    assert breaker.fail_max == 5
-    assert breaker.reset_timeout == 60
-    assert anthropic.APITimeoutError in breaker.excluded_exceptions
-    assert cliente.novo_breaker() is not breaker
+    assert leitor.breaker.name == "anthropic"
+    assert (
+        leitor.breaker
+        is not cliente.LeitorDeBilhetes(None, "claude-haiku-4-5", "claude-sonnet-5").breaker
+    )
 
 
 def test_get_leitor_reads_settings(monkeypatch) -> None:
+    compartilhado = circuit_breaker.new_anthropic_breaker()
+    monkeypatch.setattr(cliente, "get_anthropic_breaker", lambda: compartilhado)
     monkeypatch.setenv("ANTHROPIC_API_KEY", "sk-ant-test")
     monkeypatch.setenv("ANTHROPIC_TIMEOUT", "12")
     monkeypatch.setenv("ANTHROPIC_MAX_RETRIES", "4")
@@ -348,4 +356,4 @@ def test_get_leitor_reads_settings(monkeypatch) -> None:
     assert leitor.client.max_retries == 4
     assert leitor.client.timeout == 12
     assert (leitor.modelo, leitor.modelo_escalonamento) == ("claude-haiku-4-5", "claude-opus-5")
-    assert leitor.breaker is cliente.anthropic_breaker
+    assert leitor.breaker is compartilhado

@@ -15,6 +15,7 @@ from tenacity import Retrying, retry_if_exception_type, stop_after_attempt, wait
 
 from bancaemdia.config import get_settings
 from bancaemdia.extracao.modelos import Cupons, ExtracaoBilhete
+from bancaemdia.resilience.circuit_breaker import get_anthropic_breaker, new_anthropic_breaker
 
 TipoDeImagem = Literal["image/jpeg", "image/png", "image/gif", "image/webp"]
 
@@ -58,23 +59,6 @@ class Leitura:
     tokens_cache_lidos: int = 0
     tokens_cache_gravados: int = 0
     custo_usd: float = 0.0
-
-
-def novo_breaker() -> pybreaker.CircuitBreaker:
-    return pybreaker.CircuitBreaker(
-        fail_max=5,
-        reset_timeout=60,
-        exclude=[
-            anthropic.APITimeoutError,
-            anthropic.BadRequestError,
-            anthropic.RequestTooLargeError,
-            anthropic.UnprocessableEntityError,
-        ],
-        name="anthropic",
-    )
-
-
-anthropic_breaker = novo_breaker()
 
 
 def carregar_prompt() -> str:
@@ -163,7 +147,7 @@ class LeitorDeBilhetes:
         client: anthropic.Anthropic,
         modelo: str,
         modelo_escalonamento: str,
-        breaker: pybreaker.CircuitBreaker = anthropic_breaker,
+        breaker: pybreaker.CircuitBreaker | None = None,
         pausa: Callable[[float], None] = time.sleep,
     ) -> None:
         for nome in (modelo, modelo_escalonamento):
@@ -172,7 +156,7 @@ class LeitorDeBilhetes:
         self.client = client
         self.modelo = modelo
         self.modelo_escalonamento = modelo_escalonamento
-        self.breaker = breaker
+        self.breaker = new_anthropic_breaker() if breaker is None else breaker
         self.pausa = pausa
         self.prompt = carregar_prompt()
 
@@ -253,4 +237,9 @@ def get_leitor() -> LeitorDeBilhetes:
         timeout=settings.ANTHROPIC_TIMEOUT,
         max_retries=settings.ANTHROPIC_MAX_RETRIES,
     )
-    return LeitorDeBilhetes(client, settings.ANTHROPIC_MODEL, settings.ANTHROPIC_ESCALATION_MODEL)
+    return LeitorDeBilhetes(
+        client,
+        settings.ANTHROPIC_MODEL,
+        settings.ANTHROPIC_ESCALATION_MODEL,
+        breaker=get_anthropic_breaker(),
+    )
