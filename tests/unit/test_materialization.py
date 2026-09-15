@@ -13,6 +13,7 @@ from sqlalchemy.pool import NullPool
 
 from bancaemdia.config import get_settings
 from bancaemdia.domain import materializar
+from bancaemdia.domain.coleta_casa import ApostaInvalidaError
 from bancaemdia.domain.conferencias import GRAVES, Origem, conferir
 from bancaemdia.domain.event_bus import ApostaCriada
 from bancaemdia.extracao import rodada
@@ -585,3 +586,167 @@ def test_get_engine_uses_the_database_url_without_a_pool(monkeypatch) -> None:
 
     assert (engine.url.host, engine.url.port) == ("db-host", 5433)
     assert isinstance(engine.pool, NullPool)
+
+
+def _betano(id_="20753556039", *, resultado="Lose", ganho=0.0, odd=1.90, **extra):
+    bruto = {
+        "id": id_,
+        "bonusType": 0,
+        "totalAmount": 160.0,
+        "totalAmountWithCurrency": {"amount": 160.0, "currencyCode": "BRL"},
+        "totalOdds": odd,
+        "finalWinnings": ganho,
+        "placedAt": 1785708161930,
+        "finalBetResult": resultado,
+        "settledAt": 1785716993030,
+        "legs": [
+            {
+                "legItems": [
+                    {
+                        "eventId": "86389413",
+                        "eventName": "Internacional - Corinthians",
+                        "startTime": 1785709800000,
+                        "selections": [{"description": "Mais de 41.5", "odds": odd}],
+                    }
+                ]
+            }
+        ],
+        **extra,
+    }
+    if resultado is None:
+        del bruto["finalBetResult"], bruto["settledAt"]
+    return bruto
+
+
+def _guardada(monkeypatch, bruto, nome="Betano"):
+    class Guardada:
+        def __init__(self):
+            self.bruto = bruto
+            self.processadas = []
+
+    guardada = Guardada()
+
+    class ColetaCasaRepo:
+        async def get_by_id_for_update(self, session, usuario_id, id_):
+            if id_ != 11:
+                return None
+            return SimpleNamespace(
+                id=11, usuario_id=usuario_id, casa_id=1, bruto_json=guardada.bruto
+            )
+
+        async def set_processado(self, session, usuario_id, id_):
+            guardada.processadas.append(id_)
+
+    class CasaRepo:
+        async def get_nome_by_id(self, session, casa_id):
+            return nome
+
+    monkeypatch.setattr(materialization, "ColetaCasaRepo", ColetaCasaRepo)
+    monkeypatch.setattr(materialization, "CasaRepo", CasaRepo)
+    return guardada
+
+
+def test_house_bet_becomes_a_bet_with_its_result_and_the_house_as_source(monkeypatch) -> None:
+    banco = _banco(contas=[_conta(3)])
+    _instalar(monkeypatch, banco)
+    guardada = _guardada(monkeypatch, _betano())
+    apostas = _sample("batch_bets_processed_total", stage="materialization")
+
+    resultado = materialization.materializar_coleta(7, 11)
+
+    chave = "c:betano:20753556039"
+    assert resultado == {
+        "usuario_id": 7,
+        "coleta_id": 11,
+        "aposta": chave,
+        "criada": True,
+        "eventos": 2,
+        "revisao": False,
+    }
+    assert [(e["tipo"], e["fonte"], e["aposta_chave"]) for e in banco.eventos] == [
+        ("APOSTA_CRIADA", "casa", chave),
+        ("RESULTADO_REGISTRADO", "casa", chave),
+    ]
+    assert banco.eventos[0]["chat_id"] is None
+    (aposta,) = banco.upserts
+    jogo = datetime(2026, 8, 2, 22, 30, tzinfo=UTC)
+    assert (aposta["origem"], aposta["estado"], aposta["retorno_centavos"]) == ("casa", "RED", 0)
+    assert (aposta["stake_centavos"], aposta["data_aposta"], aposta["conta_casa_id"]) == (
+        16000,
+        jogo,
+        3,
+    )
+    assert banco.contas_buscadas == [("Betano", jogo)]
+    assert guardada.processadas == [11]
+    assert banco.publicados == [ApostaCriada(7, chave, "casa", False)]
+    assert _sample("batch_bets_processed_total", stage="materialization") == pytest.approx(
+        apostas + 1
+    )
+
+
+def test_open_house_bet_that_settles_gets_the_result_the_house_paid(monkeypatch) -> None:
+    banco = _banco()
+    _instalar(monkeypatch, banco)
+    guardada = _guardada(monkeypatch, _betano(resultado=None))
+    materialization.materializar_coleta(7, 11)
+    guardada.bruto = _betano(resultado="Win", ganho=304.0)
+
+    segunda = materialization.materializar_coleta(7, 11)
+
+    assert (segunda["criada"], segunda["eventos"]) == (False, 1)
+    assert [e["tipo"] for e in banco.eventos] == ["APOSTA_CRIADA", "RESULTADO_REGISTRADO"]
+    assert banco.eventos[1]["payload_json"]["retorno_centavos"] == 30400
+    assert (banco.upserts[-1]["estado"], banco.upserts[-1]["retorno_centavos"]) == ("GREEN", 30400)
+    assert "conta_casa_id" not in banco.upserts[-1]
+    assert len(banco.publicados) == 1
+
+
+def test_held_house_bet_opens_one_review_for_its_row(monkeypatch) -> None:
+    banco = _banco()
+    _instalar(monkeypatch, banco)
+    _guardada(monkeypatch, _betano(bonusType=3))
+    criadas = _sample("revisao_pendente_created_total", reason="outro")
+
+    materialization.materializar_coleta(7, 11)
+    materialization.materializar_coleta(7, 11)
+
+    (revisao,) = banco.revisoes
+    assert "bonusType=3" in revisao["motivo"]
+    assert revisao["extracao_bruta"] == {"aposta_chave": "c:betano:20753556039", "coleta_id": 11}
+    assert revisao["midia_hash"] is None
+    assert _sample("revisao_pendente_created_total", reason="outro") == pytest.approx(criadas + 1)
+
+
+def test_house_bet_the_product_cannot_count_fails_without_retry(monkeypatch) -> None:
+    banco = _banco()
+    _instalar(monkeypatch, banco)
+    guardada = _guardada(monkeypatch, _betano(odd=1.0))
+
+    with pytest.raises(ApostaInvalidaError, match=r"1\.01"):
+        materialization.materializar_coleta(7, 11)
+
+    assert ApostaInvalidaError not in materialization.RETRY_ON
+    assert (banco.eventos, guardada.processadas) == ([], [])
+
+
+def test_missing_row_or_house_without_a_reader_writes_nothing(monkeypatch) -> None:
+    banco = _banco()
+    _instalar(monkeypatch, banco)
+    _guardada(monkeypatch, _betano())
+
+    sem_linha = materialization.materializar_coleta(7, 99)
+    _guardada(monkeypatch, {"ticket": 1}, nome="bet365")
+    sem_leitor = materialization.materializar_coleta(7, 11)
+
+    assert sem_linha["aposta"] is None
+    assert sem_leitor["aposta"] is None
+    assert banco.eventos == []
+
+
+def test_coleta_task_is_routed_and_retried_like_readings() -> None:
+    task = materialization.materializar_coleta_task
+
+    assert task.name == "materialization.materializar_coleta"
+    assert celery_app.app.amqp.router.route({}, task.name)["queue"].name == "materialization"
+    assert set(task.autoretry_for) == set(materialization.RETRY_ON)
+    assert task.max_retries == 3

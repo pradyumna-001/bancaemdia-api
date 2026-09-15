@@ -51,6 +51,13 @@ queue_depth_errors = Counter(
     "celery_queue_depth_error", "Redis errors while reading Celery queue depths"
 )
 
+coleta_received = Counter(
+    "coleta_received",
+    "House bets received from the browser extension, by outcome",
+    ["casa", "status"],
+)
+coleta_dedup = Counter("coleta_dedup", "House bets resent with the same content")
+
 cache_hits = Counter("extraction_cache_hit", "Extraction readings served from the Redis cache")
 cache_misses = Counter("extraction_cache_miss", "Extraction readings not found in the Redis cache")
 cache_errors = Counter(

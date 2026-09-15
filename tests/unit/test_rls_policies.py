@@ -11,6 +11,8 @@ from bancaemdia.models import Base
 
 ROOT = Path(__file__).resolve().parents[2]
 BASELINE = "be7d60cb5437"
+RLS = "faf3ac7240ef"
+TOKEN_LOOKUP = "3c1f0a9d7b21"
 USUARIO_ATUAL = "NULLIF(current_setting('app.current_user_id', true), '')::bigint"
 POR_USUARIO = {
     "bancas",
@@ -46,9 +48,7 @@ def _config(buffer: io.StringIO | None = None) -> Config:
 
 
 def _rls_revision() -> str:
-    head = ScriptDirectory.from_config(_config()).get_current_head()
-    assert head is not None
-    return head
+    return RLS
 
 
 def _upgrade_sql(alvo: str) -> str:
@@ -143,6 +143,30 @@ def test_downgrade_removes_every_policy_and_disables_rls() -> None:
         assert f"DROP POLICY {nome} ON usuarios" in sql
     assert "ALTER TABLE usuarios DISABLE ROW LEVEL SECURITY" in sql
     assert sql.count("DROP POLICY ") == len(POR_USUARIO) + 4
+
+
+def test_token_lookup_follows_the_rls_revision_and_is_the_head() -> None:
+    script = ScriptDirectory.from_config(_config())
+
+    assert script.get_current_head() == TOKEN_LOOKUP
+    assert script.get_revision(TOKEN_LOOKUP).down_revision == RLS
+
+
+def test_coleta_token_is_readable_by_whoever_offers_its_hash() -> None:
+    sql = _upgrade_sql(f"{RLS}:{TOKEN_LOOKUP}")
+
+    assert (
+        "CREATE POLICY coleta_token_por_hash ON coleta_token FOR SELECT"
+        " USING (token_hash = NULLIF(current_setting('app.coleta_token_hash', true), ''))"
+    ) in sql
+    assert sql.count("CREATE POLICY ") == 1
+
+
+def test_downgrade_drops_the_token_lookup_policy() -> None:
+    sql = _downgrade_sql(f"{TOKEN_LOOKUP}:{RLS}")
+
+    assert "DROP POLICY coleta_token_por_hash ON coleta_token" in sql
+    assert sql.count("DROP POLICY ") == 1
 
 
 def test_head_upgrade_chains_both_revisions() -> None:

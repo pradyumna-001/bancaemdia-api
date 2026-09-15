@@ -1,4 +1,6 @@
-from sqlalchemy import select
+from datetime import datetime
+
+from sqlalchemy import func, select, update
 from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -19,6 +21,26 @@ class ColetaCasaRepo:
         obj = (await session.execute(stmt)).scalar_one_or_none()
         return None if obj is None else ColetaCasa(**colunas(obj))
 
+    async def get_by_id_for_update(
+        self, session: AsyncSession, usuario_id: int, id_: int
+    ) -> ColetaCasa | None:
+        stmt = (
+            select(models.ColetaCasa)
+            .where(models.ColetaCasa.usuario_id == usuario_id, models.ColetaCasa.id == id_)
+            .with_for_update()
+        )
+        obj = (await session.execute(stmt)).scalar_one_or_none()
+        return None if obj is None else ColetaCasa(**colunas(obj))
+
+    async def count_received_since(
+        self, session: AsyncSession, usuario_id: int, desde: datetime
+    ) -> int:
+        stmt = select(func.count()).where(
+            models.ColetaCasa.usuario_id == usuario_id, models.ColetaCasa.recebido_em >= desde
+        )
+        quantas: int = (await session.execute(stmt)).scalar_one()
+        return quantas
+
     async def upsert_idempotent(
         self, session: AsyncSession, dados: dict[str, object]
     ) -> ColetaCasa | None:
@@ -35,3 +57,10 @@ class ColetaCasaRepo:
         )
         obj = (await session.execute(stmt.returning(models.ColetaCasa))).scalar_one_or_none()
         return None if obj is None else ColetaCasa(**colunas(obj))
+
+    async def set_processado(self, session: AsyncSession, usuario_id: int, id_: int) -> None:
+        await session.execute(
+            update(models.ColetaCasa)
+            .where(models.ColetaCasa.usuario_id == usuario_id, models.ColetaCasa.id == id_)
+            .values(processado_em=func.now())
+        )

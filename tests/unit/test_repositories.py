@@ -11,7 +11,9 @@ from bancaemdia import models
 from bancaemdia.domain import registros
 from bancaemdia.repositories.aposta_repo import ApostaRepo
 from bancaemdia.repositories.base import colunas
+from bancaemdia.repositories.casa_repo import CasaRepo
 from bancaemdia.repositories.coleta_casa_repo import ColetaCasaRepo
+from bancaemdia.repositories.coleta_token_repo import ColetaTokenRepo
 from bancaemdia.repositories.conta_casa_repo import ContaCasaRepo
 from bancaemdia.repositories.evento_repo import EventoRepo
 from bancaemdia.repositories.movimento_repo import MovimentoRepo
@@ -42,7 +44,7 @@ class _Session:
         self.objs = list(objs)
         self.statements: list[Any] = []
 
-    async def execute(self, statement: Any) -> _Result:
+    async def execute(self, statement: Any, params: Any = None) -> _Result:
         self.statements.append(statement)
         return _Result(self.objs)
 
@@ -363,6 +365,61 @@ async def test_coleta_casa_lookup_and_idempotent_upsert() -> None:
 async def test_coleta_casa_upsert_returns_none_when_nothing_changed() -> None:
     dados = {"usuario_id": 1, "casa_id": 2, "identidade": "B123", "hash_conteudo": "abc"}
     assert await ColetaCasaRepo().upsert_idempotent(_Session(), dados) is None
+
+
+async def test_coleta_casa_is_locked_by_id_counted_by_day_and_marked_processed() -> None:
+    session = _Session(_coleta())
+    coleta = await ColetaCasaRepo().get_by_id_for_update(session, 1, 8)
+    assert coleta is not None and coleta.identidade == "B123"
+    assert "coletas_casa.id = %(id_1)s" in _sql(session.statements[0])
+    assert _sql(session.statements[0]).endswith("FOR UPDATE")
+    assert await ColetaCasaRepo().get_by_id_for_update(_Session(), 1, 9) is None
+
+    contagem = _Session(3)
+    assert await ColetaCasaRepo().count_received_since(contagem, 1, AGORA) == 3
+    assert "count(*)" in _sql(contagem.statements[0])
+    assert "coletas_casa.recebido_em >= %(recebido_em_1)s" in _sql(contagem.statements[0])
+
+    marcada = _Session()
+    await ColetaCasaRepo().set_processado(marcada, 1, 8)
+    sql = _sql(marcada.statements[0])
+    assert "UPDATE coletas_casa SET processado_em=now()" in sql
+    assert "coletas_casa.usuario_id = %(usuario_id_1)s" in sql
+
+
+async def test_coleta_token_lookup_offers_its_hash_to_the_row_policy() -> None:
+    session = _Session(7)
+
+    assert await ColetaTokenRepo().get_usuario_id_by_hash(session, "abc") == 7
+    assert "set_config('app.coleta_token_hash', :hash, true)" in str(session.statements[0])
+    sql = _sql(session.statements[1])
+    assert "coleta_token.token_hash = %(token_hash_1)s" in sql
+    assert "coleta_token.ativo IS true" in sql
+    assert "coleta_token.expira_em IS NULL OR coleta_token.expira_em > now()" in sql
+    assert await ColetaTokenRepo().get_usuario_id_by_hash(_Session(), "abc") is None
+
+
+async def test_coleta_token_is_created_and_deactivated_per_user() -> None:
+    criado = _Session(5)
+    assert await ColetaTokenRepo().create(criado, 1, "abc", AGORA) == 5
+    assert "INSERT INTO coleta_token" in _sql(criado.statements[0])
+    assert _params(criado.statements[0])["token_hash"] == "abc"
+
+    desativados = _Session(1, 2)
+    assert await ColetaTokenRepo().deactivate_by_usuario(desativados, 1) == 2
+    sql = _sql(desativados.statements[0])
+    assert "UPDATE coleta_token SET ativo=%(ativo)s" in sql
+    assert "coleta_token.ativo IS true" in sql
+
+
+async def test_casa_is_found_by_its_official_name_and_by_id() -> None:
+    por_nome = _Session(2)
+    assert await CasaRepo().get_id_by_nome(por_nome, "Betano") == 2
+    assert "casas.nome = %(nome_1)s" in _sql(por_nome.statements[0])
+
+    por_id = _Session("Betano")
+    assert await CasaRepo().get_nome_by_id(por_id, 2) == "Betano"
+    assert "casas.id = %(id_1)s" in _sql(por_id.statements[0])
 
 
 def _revisao() -> models.RevisaoPendente:
