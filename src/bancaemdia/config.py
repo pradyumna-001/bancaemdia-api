@@ -16,6 +16,12 @@ class Settings(BaseSettings):
         ..., description="Read-replica DSN; same as primary in local dev"
     )
     REDIS_URL: str = Field(..., description="Redis connection URL")
+    CELERY_BROKER_URL: str = Field(
+        default="redis://redis:6379/0", description="Celery broker URL (Redis db 0)"
+    )
+    CELERY_RESULT_BACKEND: str = Field(
+        default="redis://redis:6379/1", description="Celery result backend URL (Redis db 1)"
+    )
     ANTHROPIC_API_KEY: str | None = Field(default=None, description="Anthropic API key")
     ANTHROPIC_TIMEOUT: int = Field(
         default=30, description="HTTP timeout in seconds for Anthropic client"
