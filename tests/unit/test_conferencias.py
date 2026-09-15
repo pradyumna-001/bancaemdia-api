@@ -189,6 +189,12 @@ def test_digit_transposition_is_caught() -> None:
     assert "coerência das odds" in _falhas(conferir(_multipla(1.58, 1.98, odd_total=3.66)))
 
 
+def test_tipo_takes_the_values_the_model_returns() -> None:
+    lidos = ("simples", "multipla", "criar_aposta", "sistema")
+
+    assert [TipoBilhete(tipo) for tipo in lidos] == list(TipoBilhete)
+
+
 def test_criar_aposta_does_not_multiply() -> None:
     selecoes = tuple(
         Selecao(mercado, escolha, linha=linha, odd=odd, evento="Bolívar x Grêmio")
@@ -204,7 +210,7 @@ def test_criar_aposta_does_not_multiply() -> None:
     assert bilhete.odds_devem_multiplicar is False
     parecer = conferir(bilhete)
     assert parecer.veredito == Veredito.APROVADO
-    assert _conferencia(parecer, "coerência das odds").mensagem == "não se aplica a CRIAR_APOSTA"
+    assert _conferencia(parecer, "coerência das odds").mensagem == "não se aplica a criar_aposta"
 
 
 def test_criar_aposta_without_leg_odds_is_aprovado() -> None:
@@ -215,7 +221,7 @@ def test_sistema_does_not_multiply() -> None:
     bilhete = _multipla(1.5, 2.0, odd_total=9.9, tipo=TipoBilhete.SISTEMA)
     assert bilhete.odds_devem_multiplicar is False
     assert _conferencia(conferir(bilhete), "coerência das odds").mensagem == (
-        "não se aplica a SISTEMA"
+        "não se aplica a sistema"
     )
 
 

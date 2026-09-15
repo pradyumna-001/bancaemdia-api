@@ -7,9 +7,14 @@ from enum import StrEnum
 
 ODD_MINIMA = 1.01
 ODD_MAXIMA = 1000.0
+# Teto de uma perna, definido pelo dono ("no máximo do máximo 50"): a faixa larga deixou
+# passar 51,95 no lugar de 1,95, sozinha 47% do lucro. Passar dele pede confirmação.
 ODD_MAXIMA_POR_PERNA = 50.0
+# Com várias pernas o teto não discrimina: em 29/07/2026 as 4 odds que ele marcava (até 476)
+# eram legítimas. O 51.950 quem pega é a faixa, acima de 1000; aqui fica só um piso alto.
 ODD_MAXIMA_MULTIPLA = 500.0
 CONFIANCA_MINIMA = 0.80
+# A casa mostra a odd com 2 decimais, então o valor real está a no máximo 0,005 do exibido.
 MEIA_CASA = 0.005
 TOLERANCIA_DA_ODD_CITADA = 0.02
 JANELA_DO_JOGO = range(-2, 31)
@@ -22,25 +27,36 @@ RE_LIXO_NO_EVENTO = re.compile(
     re.IGNORECASE,
 )
 RE_MERCADO_NO_EVENTO = re.compile(
+    # Procurado no texto sem espaços, porque o OCR cola palavras ("Menosde 1.5Assaltos").
     r"retorn|aposta|maisde|menosde|assaltos?|rounds?|metodode|"
     r"handicap|escanteios?|cart[oõ]es|resultadofinal|totalde|desarmes?|"
     r"jogador|finaliza|assist|substituicao|"
+    # Tarja de promoção da casa lida como time: `20%SUPERTURBINADA x Jared Cann`.
     r"turbinada|superodd|goldenboost|supersub|limpartudo|escolhercasa|"
     r"criaraposta|dicasdeaposta|desafio|"
+    # Nome de mercado num lado do confronto (29/07/2026): `Corinthians x Vencedor do encontro`.
+    # `treinolivre` saiu: `Treino Livre 2` é o evento numa aposta de F1, e marcá-lo tirava
+    # R$ 50 de uma aposta legítima do ROI.
     r"vencedor|resultado|classificaca|classificatorio|chancedupla|"
     r"combinacaovencedora|top\dpilotos|melhorposicao|"
     r"temporegulamentar|terminaentre|"
+    # Cabeçalho da tela da casa no lugar do jogo, a causa mais comum de evento ruim
+    # (15 de 34 em 29/07/2026): `AOVIVO Volta Redonda RJ x Sao Goncalo Rj`.
     r"aovivo|especiaisdodia|especiais|longoprazo|supercombinada|"
+    # Mercado de jogador grudado no confronto em card de promoção:
+    # `Argentina x Cabo Verde-Lionel Messi`.
     r"marcaou|d[aá]assist|darassist|amarcar|marca\d|todosganham",
     re.IGNORECASE,
 )
 
 
 class TipoBilhete(StrEnum):
-    SIMPLES = "SIMPLES"
-    MULTIPLA = "MULTIPLA"
-    CRIAR_APOSTA = "CRIAR_APOSTA"
-    SISTEMA = "SISTEMA"
+    """Em minúsculas porque o valor vem de fora: a IA, o OCR e o cache devolvem `"multipla"`."""
+
+    SIMPLES = "simples"
+    MULTIPLA = "multipla"
+    CRIAR_APOSTA = "criar_aposta"
+    SISTEMA = "sistema"
 
 
 class Origem(StrEnum):
@@ -51,6 +67,8 @@ class Origem(StrEnum):
 class Forca(StrEnum):
     PROVA = "PROVA"
     ERRO = "ERRO"
+    # Leitura completa, número fora do comum. Decisão do dono (28/07/2026): "não é pra eliminar
+    # se passar disso, é pra devolver pro usuário como revisão, já com tudo preenchido".
     CONFIRMAR = "CONFIRMAR"
     TEXTO = "TEXTO"
     DUVIDA = "DUVIDA"
@@ -296,6 +314,10 @@ def _faixa_das_odds(bilhete: Bilhete) -> ConferenciaResultado:
 
 
 def _teto_de_odd(bilhete: Bilhete) -> ConferenciaResultado:
+    """Suspeita, não prova: odd 101 em "Messi marca 3+ gols e Argentina vence" era legítima.
+
+    Por isso a força é CONFIRMAR: sobe o degrau e não tira a aposta do ROI.
+    """
     pernas = len(bilhete.selecoes)
     teto = teto_de_odd(pernas)
     passou = bilhete.odd_total is None or not pernas or bilhete.odd_total <= teto
@@ -315,6 +337,11 @@ def _teto_de_odd(bilhete: Bilhete) -> ConferenciaResultado:
 
 
 def _odd_nao_e_a_linha(bilhete: Bilhete, origem: Origem | None) -> ConferenciaResultado:
+    """No OCR, odd igual à linha é a troca que já custou caro (odd 1,5 em "mais de 1,5 gols").
+
+    Na IA é coincidência comum em aposta de jogador: das graves da auditoria de 29-30/07/2026,
+    as seis conferidas na foto eram legítimas. Por isso ali a força é CONFIRMAR.
+    """
     odd_total = bilhete.odd_total
     linhas = {s.linha for s in bilhete.selecoes if s.linha is not None}
     iguais = [] if odd_total is None else [x for x in linhas if abs(x - odd_total) < MEIA_CASA]
@@ -353,6 +380,8 @@ def _coerencia_das_odds(bilhete: Bilhete) -> ConferenciaResultado:
         mensagem = "sem dados para conferir"
     else:
         produto = math.prod(odds)
+        # Limite derivado, não calibrado à mão: o erro relativo do produto é no máximo a soma dos
+        # arredondamentos de cada odd e da total. Simulado: 0% de falso alarme em 200 mil bilhetes.
         tolerancia = sum(MEIA_CASA / o for o in odds if o) + MEIA_CASA / odd_total
         diferenca = abs(produto - odd_total) / odd_total
         passou = diferenca <= tolerancia
