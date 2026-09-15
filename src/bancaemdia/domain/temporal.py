@@ -107,6 +107,9 @@ class SaldoDaCasa:
 
     @property
     def saldo_centavos(self) -> int | None:
+        """`None` não é zero: sem lançamento de caixa (ou com conta que não fecha) o saldo é
+        desconhecido, e só as apostas dariam um negativo inventado. Regra do dono: nada deve
+        ser obrigatório para o usuário."""
         if not self.tem_caixa:
             return None
         return self._bruto if self._bruto >= 0 else None

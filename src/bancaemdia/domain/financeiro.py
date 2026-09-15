@@ -81,6 +81,8 @@ class Aposta:
             case Estado.ANULADA:
                 return 0 if self.freebet else base
             case Estado.MEIO_GREEN:
+                # A comissão incide sobre o ganho, e meio-green tem ganho: descontar só no GREEN
+                # deixava o retorno maior do que a casa pagou (auditoria de 30/07/2026).
                 return round((gross + (0 if self.freebet else base)) / 2) - self.comissao_centavos
             case Estado.MEIO_RED:
                 return 0 if self.freebet else round(base / 2)
@@ -88,6 +90,10 @@ class Aposta:
 
 
 def resolver_retorno(aposta: Aposta) -> Aposta:
+    """Retorno informado pelo usuário (cashout, correção à mão) é fato, não conta.
+
+    Nenhuma mudança posterior de odd ou stake pode recalcular e apagar o valor digitado.
+    """
     if aposta.retorno_informado or aposta.estado == Estado.PENDENTE:
         return aposta
     return replace(aposta, retorno_centavos=aposta.retorno_calculado())
@@ -193,6 +199,8 @@ def resumir(apostas: Iterable[Aposta], so_selecionadas: bool = True) -> Resumo:
         resumo.retorno_centavos += aposta.retorno_centavos or 0
         resumo.lucro_centavos += lucro
         if aposta.freebet:
+            # A freebet entra no denominador do ROI pelo valor de face: sem isso, três freebets
+            # vencedoras ao lado de uma aposta real perdida davam ROI de 200% (medido).
             resumo.base_roi_centavos += aposta.valor_aposta_centavos
             resumo.freebets += 1
         else:
