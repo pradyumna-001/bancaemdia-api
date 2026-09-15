@@ -15,6 +15,34 @@ class RevisaoPendenteRepo:
         ).scalar_one()
         return RevisaoPendente(**colunas(obj))
 
+    async def resolve_superseded(
+        self, session: AsyncSession, usuario_id: int, aposta_chave: str, motivo: str | None
+    ) -> int:
+        stmt = update(models.RevisaoPendente).where(
+            models.RevisaoPendente.usuario_id == usuario_id,
+            models.RevisaoPendente.extracao_bruta["aposta_chave"].astext == aposta_chave,
+            models.RevisaoPendente.resolvido_em.is_(None),
+        )
+        if motivo is not None:
+            stmt = stmt.where(models.RevisaoPendente.motivo != motivo)
+        stmt = stmt.values(resolvido_em=func.now()).returning(models.RevisaoPendente.id)
+        return len(list((await session.execute(stmt)).scalars()))
+
+    async def has_open(
+        self, session: AsyncSession, usuario_id: int, aposta_chave: str, motivo: str
+    ) -> bool:
+        stmt = (
+            select(models.RevisaoPendente.id)
+            .where(
+                models.RevisaoPendente.usuario_id == usuario_id,
+                models.RevisaoPendente.motivo == motivo,
+                models.RevisaoPendente.resolvido_em.is_(None),
+                models.RevisaoPendente.extracao_bruta["aposta_chave"].astext == aposta_chave,
+            )
+            .limit(1)
+        )
+        return (await session.execute(stmt)).scalar_one_or_none() is not None
+
     async def list_by_usuario(
         self, session: AsyncSession, usuario_id: int, apenas_abertas: bool = True
     ) -> list[RevisaoPendente]:

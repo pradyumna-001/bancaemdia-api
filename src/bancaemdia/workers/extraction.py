@@ -77,6 +77,7 @@ def extrair_bilhete(
         "usuario_id": usuario_id,
         "chat_id": chat_id,
         "message_id": message_id,
+        "postada_em": postada_em,
         "versao_prompt": VERSAO_PROMPT,
         **leitura.para_json(),
     }

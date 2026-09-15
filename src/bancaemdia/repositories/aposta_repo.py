@@ -67,6 +67,22 @@ class ApostaRepo:
         obj = (await session.execute(stmt.returning(models.Aposta))).scalar_one()
         return Aposta(**colunas(obj))
 
+    async def upsert_materializada(
+        self, session: AsyncSession, dados: dict[str, object]
+    ) -> Aposta | None:
+        stmt = insert(models.Aposta).values(**dados, atualizada_em=func.clock_timestamp())
+        mutaveis = {
+            campo: getattr(stmt.excluded, campo) for campo in dados if campo not in IMUTAVEIS
+        }
+        stmt = stmt.on_conflict_do_update(
+            index_elements=["usuario_id", "chave"],
+            index_where=text("chave IS NOT NULL"),
+            set_={**mutaveis, "atualizada_em": stmt.excluded.atualizada_em},
+            where=stmt.excluded.atualizada_em > models.Aposta.atualizada_em,
+        )
+        obj = (await session.execute(stmt.returning(models.Aposta))).scalar_one_or_none()
+        return None if obj is None else Aposta(**colunas(obj))
+
     async def update_estado(
         self,
         session: AsyncSession,

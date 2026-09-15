@@ -141,6 +141,7 @@ def test_extrair_bilhete_reads_the_image_and_returns_json(monkeypatch) -> None:
         "usuario_id": 7,
         "chat_id": 100,
         "message_id": 200,
+        "postada_em": "2026-07-24T16:00:00",
         "versao_prompt": VERSAO_PROMPT,
         "bilhete": _bom().model_dump(mode="json"),
         "motivo": None,

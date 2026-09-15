@@ -1,6 +1,6 @@
 from datetime import datetime
 
-from sqlalchemy import insert, select, update
+from sqlalchemy import insert, or_, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from bancaemdia import models
@@ -22,6 +22,28 @@ class ContaCasaRepo:
             .order_by(models.ContaCasa.id)
             .limit(1)
         )
+        obj = (await session.execute(stmt)).scalar_one_or_none()
+        return None if obj is None else ContaCasa(**colunas(obj))
+
+    async def get_vigente_by_nome_da_casa(
+        self, session: AsyncSession, usuario_id: int, nome: str, data: datetime | None = None
+    ) -> ContaCasa | None:
+        stmt = (
+            select(models.ContaCasa)
+            .join(models.Casa, models.Casa.id == models.ContaCasa.casa_id)
+            .where(
+                models.ContaCasa.usuario_id == usuario_id,
+                models.Casa.nome == nome,
+                models.ContaCasa.ativa.is_(True),
+            )
+            .order_by(models.ContaCasa.id)
+            .limit(1)
+        )
+        if data is not None:
+            stmt = stmt.where(
+                or_(models.ContaCasa.desde.is_(None), models.ContaCasa.desde <= data),
+                or_(models.ContaCasa.ate.is_(None), models.ContaCasa.ate >= data),
+            )
         obj = (await session.execute(stmt)).scalar_one_or_none()
         return None if obj is None else ContaCasa(**colunas(obj))
 
