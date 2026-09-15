@@ -5,7 +5,9 @@ import json
 import anthropic
 import httpx2
 import pytest
+from prometheus_client import REGISTRY
 
+from bancaemdia.cache.extracao_cache import ExtracaoCache
 from bancaemdia.extracao import cliente, rodada
 from bancaemdia.extracao.cliente import Leitura, LeituraFalhouError
 from bancaemdia.extracao.escada import Degrau
@@ -31,6 +33,8 @@ def _ruim():
 
 def _leitor(barato=None, caro=None, erro=None):
     class Leitor:
+        modelo_escalonamento = "claude-sonnet-5"
+
         def ler(self, imagem, tipo="image/jpeg", *, legenda="", postada_em=None, escalonar=False):
             if erro is not None:
                 raise erro
@@ -39,6 +43,23 @@ def _leitor(barato=None, caro=None, erro=None):
             return Leitura(tuple(barato), "claude-haiku-4-5", custo_usd=0.012)
 
     return Leitor()
+
+
+def _cache():
+    class Redis:
+        def __init__(self):
+            self.dados = {}
+
+        def get(self, nome):
+            return self.dados.get(nome)
+
+        def set(self, nome, valor, ex=None, nx=False):
+            if nx and nome in self.dados:
+                return None
+            self.dados[nome] = valor.encode()
+            return True
+
+    return ExtracaoCache(Redis())
 
 
 def _erro_da_api(classe, status):
@@ -198,3 +219,23 @@ def test_para_json_is_json_serializable() -> None:
         "custo_usd": 0.0,
         "nao_e_aposta": False,
     }
+
+
+def test_reprocessing_the_same_image_hits_the_cache_without_calling_anthropic() -> None:
+    leitor, pedidos = _leitor_de_verdade(
+        ("claude-haiku-4-5", _mensagem(json.dumps({"cupons": [_bom().model_dump()]}))),
+    )
+    cache = _cache()
+    hits = REGISTRY.get_sample_value("extraction_cache_hit_total") or 0.0
+
+    primeira = rodada.ler_mensagem(leitor, b"foto", legenda="1u", cache=cache)
+    segunda = rodada.ler_mensagem(leitor, b"foto", legenda="1u", cache=cache)
+
+    assert pedidos == ["claude-haiku-4-5"]
+    assert (primeira.degrau, segunda.degrau) == (Degrau.BARATO, Degrau.CACHE)
+    assert primeira.custo_usd == pytest.approx(
+        cliente.calcular_custo("claude-haiku-4-5", 1000, 400)
+    )
+    assert segunda.custo_usd == pytest.approx(0.0)
+    assert segunda.bilhete == primeira.bilhete
+    assert REGISTRY.get_sample_value("extraction_cache_hit_total") == pytest.approx(hits + 1)

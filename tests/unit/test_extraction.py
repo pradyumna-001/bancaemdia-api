@@ -2,12 +2,16 @@ from __future__ import annotations
 
 import base64
 import json
+import threading
 from datetime import datetime
 
 import anthropic
 import pybreaker
+import pytest
+from celery import signals
 from celery.utils.time import get_exponential_backoff_interval
 
+from bancaemdia.cache.extracao_cache import ExtracaoCache
 from bancaemdia.extracao import cliente
 from bancaemdia.extracao.cliente import VERSAO_PROMPT, Leitura
 from bancaemdia.extracao.modelos import ExtracaoBilhete, Selecao
@@ -27,6 +31,8 @@ def _bom():
 
 def _leitor():
     class Leitor:
+        modelo_escalonamento = "claude-sonnet-5"
+
         def __init__(self):
             self.chamadas = []
 
@@ -35,6 +41,23 @@ def _leitor():
             return Leitura((_bom(),), "claude-haiku-4-5", custo_usd=0.012)
 
     return Leitor()
+
+
+def _cache():
+    class Redis:
+        def __init__(self):
+            self.dados = {}
+
+        def get(self, nome):
+            return self.dados.get(nome)
+
+        def set(self, nome, valor, ex=None, nx=False):
+            if nx and nome in self.dados:
+                return None
+            self.dados[nome] = valor.encode()
+            return True
+
+    return ExtracaoCache(Redis())
 
 
 def _argumentos():
@@ -97,6 +120,7 @@ def test_retries_wait_longer_than_an_open_breaker() -> None:
 def test_extrair_bilhete_reads_the_image_and_returns_json(monkeypatch) -> None:
     leitor = _leitor()
     monkeypatch.setattr(extraction, "get_leitor", lambda: leitor)
+    monkeypatch.setattr(extraction, "get_cache", _cache)
 
     resultado = extraction.extrair_bilhete(**_argumentos())
 
@@ -121,6 +145,7 @@ def test_extrair_bilhete_reads_the_image_and_returns_json(monkeypatch) -> None:
 def test_extrair_bilhete_defaults_to_no_date_and_no_hints(monkeypatch) -> None:
     leitor = _leitor()
     monkeypatch.setattr(extraction, "get_leitor", lambda: leitor)
+    monkeypatch.setattr(extraction, "get_cache", _cache)
 
     resultado = extraction.extrair_bilhete(7, base64.b64encode(b"foto").decode("ascii"))
 
@@ -128,8 +153,43 @@ def test_extrair_bilhete_defaults_to_no_date_and_no_hints(monkeypatch) -> None:
     assert resultado["chat_id"] is None
 
 
+def test_same_image_sent_again_comes_from_the_cache(monkeypatch) -> None:
+    leitor = _leitor()
+    cache = _cache()
+    monkeypatch.setattr(extraction, "get_leitor", lambda: leitor)
+    monkeypatch.setattr(extraction, "get_cache", lambda: cache)
+
+    primeira = extraction.extrair_bilhete(**_argumentos())
+    segunda = extraction.extrair_bilhete(**{**_argumentos(), "chat_id": 999, "message_id": 1})
+
+    assert len(leitor.chamadas) == 1
+    assert (primeira["degrau"], segunda["degrau"]) == ("BARATO", "CACHE")
+    assert segunda["custo_usd"] == pytest.approx(0.0)
+    assert segunda["bilhete"] == primeira["bilhete"]
+
+
+def test_worker_ready_clears_old_prompt_versions_in_the_background(monkeypatch) -> None:
+    feito = threading.Event()
+
+    class Cache:
+        def limpar_versoes_antigas(self):
+            feito.set()
+            return 0
+
+    monkeypatch.setattr(extraction, "get_cache", Cache)
+
+    signals.worker_ready.send(sender=None)
+    tarefa = extraction.limpar_cache_de_versoes_antigas()
+    tarefa.join(timeout=5)
+
+    assert feito.wait(timeout=5)
+    assert tarefa.daemon
+    assert tarefa.name == "limpar-cache-extracao"
+
+
 def test_task_runs_eagerly(monkeypatch) -> None:
     monkeypatch.setattr(extraction, "get_leitor", _leitor)
+    monkeypatch.setattr(extraction, "get_cache", _cache)
 
     resultado = extraction.extrair_bilhete_task.apply(kwargs=_argumentos()).get()
 

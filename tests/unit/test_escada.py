@@ -6,6 +6,7 @@ import anthropic
 import httpx2
 import pytest
 
+from bancaemdia.cache.extracao_cache import ExtracaoCache, chave_de_imagem
 from bancaemdia.domain.conferencias import Forca, Veredito
 from bancaemdia.extracao import escada
 from bancaemdia.extracao.cliente import Leitura, LeituraFalhouError
@@ -42,6 +43,8 @@ def _ilegivel():
 
 def _leitor(barato, caro=None, erro_caro=None):
     class Leitor:
+        modelo_escalonamento = "claude-sonnet-5"
+
         def __init__(self):
             self.chamadas = []
 
@@ -54,6 +57,23 @@ def _leitor(barato, caro=None, erro_caro=None):
             return Leitura(tuple(barato), "claude-haiku-4-5", custo_usd=0.012)
 
     return Leitor()
+
+
+def _cache():
+    class Redis:
+        def __init__(self):
+            self.dados = {}
+
+        def get(self, nome):
+            return self.dados.get(nome)
+
+        def set(self, nome, valor, ex=None, nx=False):
+            if nx and nome in self.dados:
+                return None
+            self.dados[nome] = valor.encode()
+            return True
+
+    return ExtracaoCache(Redis())
 
 
 def _extrair(leitor, **opcoes):
@@ -213,3 +233,107 @@ def test_sem_ilegiveis_keeps_the_first_when_all_are_illegible() -> None:
 
     assert escada.sem_ilegiveis([primeiro, _ilegivel()]) == (primeiro,)
     assert escada.sem_ilegiveis([_bom()]) == (_bom(),)
+
+
+def test_cached_reading_that_checks_costs_nothing() -> None:
+    cache = _cache()
+    cache.guardar(chave_de_imagem(b"foto", "1u"), Leitura((_bom(),), "claude-haiku-4-5"))
+    leitor = _leitor([_bom()])
+
+    saida = _extrair(leitor, cache=cache)
+
+    assert saida.degrau is escada.Degrau.CACHE
+    assert saida.custo_usd == pytest.approx(0.0)
+    assert saida.bilhetes == (_bom(),)
+    assert leitor.chamadas == []
+
+
+def test_paid_reading_is_stored_and_the_next_run_is_free() -> None:
+    cache = _cache()
+    leitor = _leitor([_bom()])
+
+    primeira = _extrair(leitor, cache=cache)
+    segunda = _extrair(leitor, cache=cache)
+
+    assert (primeira.degrau, segunda.degrau) == (escada.Degrau.BARATO, escada.Degrau.CACHE)
+    assert segunda.bilhetes == primeira.bilhetes
+    assert len(leitor.chamadas) == 1
+
+
+def test_other_caption_is_another_reading() -> None:
+    cache = _cache()
+    leitor = _leitor([_bom()])
+
+    _extrair(leitor, cache=cache)
+    saida = escada.extrair(leitor, b"foto", legenda="2u odd 3.10", cache=cache)
+
+    assert saida.degrau is escada.Degrau.BARATO
+    assert len(leitor.chamadas) == 2
+
+
+def test_cached_reading_that_does_not_check_escalates_without_paying_the_cheap_model() -> None:
+    cache = _cache()
+    cache.guardar(chave_de_imagem(b"foto", "1u"), Leitura((_ruim(),), "claude-haiku-4-5"))
+    leitor = _leitor([_ruim()], [_bom()])
+
+    saida = _extrair(leitor, cache=cache)
+    depois = _extrair(leitor, cache=cache)
+
+    assert saida.degrau is escada.Degrau.CARO
+    assert saida.custo_usd == pytest.approx(0.06)
+    assert [c[-1] for c in leitor.chamadas] == [True]
+    assert depois.degrau is escada.Degrau.CACHE
+    assert depois.bilhetes == (_bom(),)
+
+
+def test_cached_reading_from_the_escalation_model_is_final() -> None:
+    cache = _cache()
+    cache.guardar(chave_de_imagem(b"foto", "1u"), Leitura((_ruim(),), "claude-sonnet-5"))
+    leitor = _leitor([_bom()])
+
+    saida = _extrair(leitor, cache=cache)
+
+    assert saida.degrau is escada.Degrau.CACHE
+    assert saida.parecer.veredito is Veredito.ESCALONAR
+    assert leitor.chamadas == []
+
+
+def test_cheap_reading_survives_a_failed_escalation() -> None:
+    cache = _cache()
+
+    with pytest.raises(escada.EscalonamentoFalhouError):
+        _extrair(_leitor([_ruim()], erro_caro=LeituraFalhouError("cortada")), cache=cache)
+    leitor = _leitor([_ruim()], [_bom()])
+    saida = _extrair(leitor, cache=cache)
+
+    assert [c[-1] for c in leitor.chamadas] == [True]
+    assert saida.degrau is escada.Degrau.CARO
+
+
+def test_cheap_reading_never_replaces_a_reading_stored_meanwhile() -> None:
+    cache = _cache()
+    chave = chave_de_imagem(b"foto", "1u")
+
+    class Leitor:
+        modelo_escalonamento = "claude-sonnet-5"
+
+        def ler(self, imagem, tipo="image/jpeg", *, legenda="", postada_em=None, escalonar=False):
+            cache.guardar(chave, Leitura((_bom(),), "claude-sonnet-5"))
+            return Leitura((_bom(),), "claude-haiku-4-5", custo_usd=0.012)
+
+    _extrair(Leitor(), cache=cache)
+
+    assert cache.buscar(chave).modelo == "claude-sonnet-5"
+
+
+def test_same_print_forwarded_on_another_day_reuses_the_reading() -> None:
+    cache = _cache()
+    leitor = _leitor([_bom()])
+
+    _extrair(leitor, cache=cache)
+    saida = escada.extrair(
+        leitor, b"foto", "image/png", legenda="1u", postada_em=datetime(2026, 7, 26, 9), cache=cache
+    )
+
+    assert saida.degrau is escada.Degrau.CACHE
+    assert len(leitor.chamadas) == 1
