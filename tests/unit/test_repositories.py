@@ -38,6 +38,9 @@ class _Result:
     def scalars(self) -> Any:
         return iter(self.objs)
 
+    def all(self) -> list[Any]:
+        return self.objs
+
 
 class _Session:
     def __init__(self, *objs: Any) -> None:
@@ -385,6 +388,61 @@ async def test_coleta_casa_is_locked_by_id_counted_by_day_and_marked_processed()
     sql = _sql(marcada.statements[0])
     assert "UPDATE coletas_casa SET processado_em=now()" in sql
     assert "coletas_casa.usuario_id = %(usuario_id_1)s" in sql
+
+
+async def test_coleta_casa_is_locked_by_its_house_identity() -> None:
+    session = _Session(_coleta())
+
+    coleta = await ColetaCasaRepo().get_by_identidade_for_update(session, 1, 2, "B123")
+
+    assert coleta is not None and coleta.id == 8
+    sql = _sql(session.statements[0])
+    assert "coletas_casa.identidade = %(identidade_1)s" in sql
+    assert sql.endswith("FOR UPDATE")
+    assert await ColetaCasaRepo().get_by_identidade_for_update(_Session(), 1, 2, "X") is None
+
+
+async def test_coleta_casa_is_read_by_id_and_listed_by_house_after_a_cursor() -> None:
+    session = _Session(_coleta())
+    coleta = await ColetaCasaRepo().get_by_id(session, 1, 8)
+    assert coleta is not None and coleta.identidade == "B123"
+    assert "FOR UPDATE" not in _sql(session.statements[0])
+    assert await ColetaCasaRepo().get_by_id(_Session(), 1, 9) is None
+
+    lista = _Session(_coleta())
+    (linha,) = await ColetaCasaRepo().list_by_casa(lista, 1, 2, 4, 1000)
+    assert linha.bruto_json == {"estado": "open"}
+    sql = _sql(lista.statements[0])
+    assert "coletas_casa.casa_id = %(casa_id_1)s" in sql
+    assert "coletas_casa.id > %(id_1)s" in sql
+    assert "ORDER BY coletas_casa.id" in sql
+    assert _params(lista.statements[0])["id_1"] == 4
+
+
+async def test_bets_are_counted_by_origin_with_their_messages_and_reviews() -> None:
+    session = _Session(("telegram", 5, 2, 4, 1))
+
+    contagens = await ApostaRepo().count_by_origem(session, 1, ONTEM, AGORA)
+
+    assert contagens == [registros.ApostasPorOrigem("telegram", 5, 2, 4, 1)]
+    sql = _sql(session.statements[0])
+    assert "count(DISTINCT (apostas.chat_id, apostas.message_id))" in sql
+    assert "FILTER (WHERE apostas.revisao_grave IS true)" in sql
+    assert "apostas.data_aposta >= %(data_aposta_1)s" in sql
+    assert "apostas.data_aposta < %(data_aposta_2)s" in sql
+    assert "GROUP BY apostas.origem" in sql
+
+
+async def test_active_users_are_listed_by_id_after_a_cursor() -> None:
+    session = _Session(4, 9)
+
+    assert await UsuarioRepo().list_active_ids(session, 3, 2) == [4, 9]
+
+    sql = _sql(session.statements[0])
+    assert "usuarios.id > %(id_1)s" in sql
+    assert "usuarios.ativo IS true" in sql
+    assert "ORDER BY usuarios.id" in sql
+    assert "LIMIT" in sql
 
 
 async def test_coleta_token_lookup_offers_its_hash_to_the_row_policy() -> None:

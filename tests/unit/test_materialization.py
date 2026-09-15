@@ -631,11 +631,18 @@ def _guardada(monkeypatch, bruto, nome="Betano"):
             if id_ != 11:
                 return None
             return SimpleNamespace(
-                id=11, usuario_id=usuario_id, casa_id=1, bruto_json=guardada.bruto
+                id=11,
+                usuario_id=usuario_id,
+                casa_id=1,
+                bruto_json=guardada.bruto,
+                recebido_em=datetime(2026, 8, 4, tzinfo=UTC),
             )
 
         async def set_processado(self, session, usuario_id, id_):
             guardada.processadas.append(id_)
+
+        async def get_by_identidade_for_update(self, session, usuario_id, casa_id, identidade):
+            return None
 
     class CasaRepo:
         async def get_nome_by_id(self, session, casa_id):
@@ -743,10 +750,175 @@ def test_missing_row_or_house_without_a_reader_writes_nothing(monkeypatch) -> No
     assert banco.eventos == []
 
 
-def test_coleta_task_is_routed_and_retried_like_readings() -> None:
-    task = materialization.materializar_coleta_task
-
-    assert task.name == "materialization.materializar_coleta"
+@pytest.mark.parametrize(
+    ("task", "nome"),
+    [
+        (materialization.materializar_coleta_task, "materialization.materializar_coleta"),
+        (materialization.materializar_coletas_task, "materialization.materializar_coletas"),
+    ],
+)
+def test_coleta_tasks_are_routed_and_retried_like_readings(task, nome) -> None:
+    assert task.name == nome
     assert celery_app.app.amqp.router.route({}, task.name)["queue"].name == "materialization"
     assert set(task.autoretry_for) == set(materialization.RETRY_ON)
     assert task.max_retries == 3
+
+
+def _historico_guardado(monkeypatch, *linhas):
+    class Guardado:
+        def __init__(self):
+            self.linhas = {
+                id_: SimpleNamespace(
+                    id=id_,
+                    usuario_id=7,
+                    casa_id=1,
+                    bruto_json=bruto,
+                    recebido_em=datetime(2026, 8, 4, tzinfo=UTC) + timedelta(hours=horas),
+                )
+                for id_, bruto, horas in linhas
+            }
+            self.identidades = {}
+            self.travadas = []
+            self.processadas = []
+
+    guardado = Guardado()
+
+    class ColetaCasaRepo:
+        async def get_by_id_for_update(self, session, usuario_id, id_):
+            guardado.travadas.append(id_)
+            return guardado.linhas.get(id_)
+
+        async def get_by_identidade_for_update(self, session, usuario_id, casa_id, identidade):
+            id_ = next((i for i, dela in guardado.identidades.items() if dela == identidade), None)
+            if id_ is not None:
+                guardado.travadas.append(id_)
+            return guardado.linhas.get(id_)
+
+        async def set_processado(self, session, usuario_id, id_):
+            guardado.processadas.append(id_)
+
+    class CasaRepo:
+        async def get_nome_by_id(self, session, casa_id):
+            return "Betano"
+
+    monkeypatch.setattr(materialization, "ColetaCasaRepo", ColetaCasaRepo)
+    monkeypatch.setattr(materialization, "CasaRepo", CasaRepo)
+    return guardado
+
+
+def test_house_history_is_applied_in_capture_order_not_id_order(monkeypatch) -> None:
+    banco = _banco()
+    _instalar(monkeypatch, banco)
+    guardado = _historico_guardado(
+        monkeypatch,
+        (21, _betano(resultado="Win", ganho=304.0), 2),
+        (22, _betano(resultado=None), 1),
+    )
+
+    resultado = materialization.materializar_coletas(7, [22, 21])
+
+    assert (resultado["coleta_ids"], resultado["criada"], resultado["eventos"]) == (
+        [22, 21],
+        True,
+        2,
+    )
+    assert [e["tipo"] for e in banco.eventos] == ["APOSTA_CRIADA", "RESULTADO_REGISTRADO"]
+    assert (banco.upserts[-1]["estado"], banco.upserts[-1]["retorno_centavos"]) == ("GREEN", 30400)
+    assert (guardado.travadas, guardado.processadas) == ([21, 22], [22, 21])
+    assert len(banco.publicados) == 1
+
+
+def test_existing_house_bet_gets_only_the_newest_capture_of_its_history(monkeypatch) -> None:
+    banco = _banco()
+    _instalar(monkeypatch, banco)
+    _historico_guardado(
+        monkeypatch,
+        (21, _betano(resultado=None), 1),
+        (22, _betano(resultado="Win", ganho=304.0), 2),
+    )
+    materialization.materializar_coletas(7, [21, 22])
+
+    segunda = materialization.materializar_coletas(7, [21, 22])
+
+    assert (segunda["criada"], segunda["eventos"]) == (False, 0)
+    assert len(banco.eventos) == 2
+    assert banco.upserts[-1]["estado"] == "GREEN"
+
+
+def test_capture_the_product_cannot_count_is_skipped_until_one_creates_the_bet(monkeypatch) -> None:
+    banco = _banco()
+    _instalar(monkeypatch, banco)
+    _historico_guardado(monkeypatch, (21, _betano(odd=1.0), 1), (22, _betano(), 2))
+
+    resultado = materialization.materializar_coletas(7, [21, 22])
+
+    assert (resultado["criada"], resultado["eventos"]) == (True, 2)
+    assert banco.eventos[0]["payload_json"]["odd"] == pytest.approx(1.9)
+    assert (banco.upserts[-1]["estado"], banco.upserts[-1]["retorno_centavos"]) == ("RED", 0)
+
+
+def test_existing_bet_takes_the_house_row_that_arrived_after_its_history_was_listed(
+    monkeypatch,
+) -> None:
+    banco = _banco()
+    _instalar(monkeypatch, banco)
+    guardado = _historico_guardado(
+        monkeypatch,
+        (21, _betano(resultado=None), 1),
+        (22, _betano(resultado="Win", ganho=304.0), 2),
+        (30, _betano(), 3),
+    )
+    guardado.identidades[30] = "20753556039"
+    materialization.materializar_coletas(7, [30])
+
+    atrasada = materialization.materializar_coletas(7, [21, 22])
+
+    assert atrasada["eventos"] == 0
+    assert (banco.upserts[-1]["estado"], banco.upserts[-1]["retorno_centavos"]) == ("RED", 0)
+    assert guardado.processadas[-3:] == [21, 22, 30]
+
+
+def test_warning_of_an_older_capture_reaches_an_existing_bet_and_its_review(monkeypatch) -> None:
+    banco = _banco()
+    _instalar(monkeypatch, banco)
+    _historico_guardado(
+        monkeypatch, (21, _betano(bonusType=3, resultado=None), 1), (30, _betano(), 3)
+    )
+    materialization.materializar_coletas(7, [30])
+
+    resultado = materialization.materializar_coletas(7, [21, 30])
+
+    assert [e["tipo"] for e in banco.eventos[-1:]] == ["CORRECAO_MANUAL"]
+    assert (resultado["eventos"], resultado["revisao"]) == (1, True)
+    assert (banco.upserts[-1]["estado"], banco.upserts[-1]["revisao_grave"]) == ("RED", True)
+    (revisao,) = banco.revisoes
+    assert "bonusType=3" in revisao["motivo"]
+    assert revisao["extracao_bruta"]["coleta_id"] == 21
+
+
+def test_review_of_a_new_bet_points_at_the_capture_that_carried_the_warning(monkeypatch) -> None:
+    banco = _banco()
+    _instalar(monkeypatch, banco)
+    _historico_guardado(
+        monkeypatch,
+        (21, _betano(bonusType=3, resultado=None), 1),
+        (22, _betano(resultado="Win", ganho=304.0), 2),
+    )
+
+    materialization.materializar_coletas(7, [21, 22])
+
+    (revisao,) = banco.revisoes
+    assert revisao["extracao_bruta"] == {"aposta_chave": "c:betano:20753556039", "coleta_id": 21}
+
+
+def test_history_with_no_capture_the_product_can_count_fails_without_retry(monkeypatch) -> None:
+    banco = _banco()
+    _instalar(monkeypatch, banco)
+    guardado = _historico_guardado(
+        monkeypatch, (21, _betano(odd=1.0), 1), (22, _betano(odd=1.0, resultado=None), 2)
+    )
+
+    with pytest.raises(ApostaInvalidaError, match=r"1\.01"):
+        materialization.materializar_coletas(7, [21, 22])
+
+    assert (banco.eventos, banco.upserts, guardado.processadas) == ([], [], [])

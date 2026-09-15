@@ -78,6 +78,15 @@ class Aposta:
 
 
 @dataclass(frozen=True)
+class ApostasPorOrigem:
+    origem: str
+    apostas: int
+    apostas_em_revisao: int
+    mensagens: int
+    mensagens_em_revisao: int
+
+
+@dataclass(frozen=True)
 class Evento:
     id: int
     usuario_id: int

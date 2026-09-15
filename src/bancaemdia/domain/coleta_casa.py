@@ -186,14 +186,12 @@ def eventos_do_resultado(coletada: Coletada, atual: dict[str, Any]) -> list[Even
     # O aviso viaja com a liquidação: a aposta que liquida com motivo de retenção não pode entrar
     # contando na capa sem marca, e o motivo que ela já tem não é sobrescrito.
     if coletada.motivo_retencao and not atual.get("revisao_motivo"):
-        eventos.append(
-            EventoNovo(
-                "CORRECAO_MANUAL",
-                FONTE,
-                {"revisao_motivo": coletada.motivo_retencao, "revisao_grave": True},
-            )
-        )
+        eventos.append(evento_do_aviso(coletada.motivo_retencao))
     return eventos
+
+
+def evento_do_aviso(motivo: str) -> EventoNovo:
+    return EventoNovo("CORRECAO_MANUAL", FONTE, {"revisao_motivo": motivo, "revisao_grave": True})
 
 
 def recado_sem_leitor(casa: str, quantas: int, leitores: Iterable[str]) -> str:

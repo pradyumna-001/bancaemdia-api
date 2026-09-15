@@ -21,6 +21,50 @@ class ColetaCasaRepo:
         obj = (await session.execute(stmt)).scalar_one_or_none()
         return None if obj is None else ColetaCasa(**colunas(obj))
 
+    async def get_by_identidade_for_update(
+        self, session: AsyncSession, usuario_id: int, casa_id: int, identidade: str
+    ) -> ColetaCasa | None:
+        stmt = (
+            select(models.ColetaCasa)
+            .where(
+                models.ColetaCasa.usuario_id == usuario_id,
+                models.ColetaCasa.casa_id == casa_id,
+                models.ColetaCasa.identidade == identidade,
+            )
+            .with_for_update()
+        )
+        obj = (await session.execute(stmt)).scalar_one_or_none()
+        return None if obj is None else ColetaCasa(**colunas(obj))
+
+    async def get_by_id(
+        self, session: AsyncSession, usuario_id: int, id_: int
+    ) -> ColetaCasa | None:
+        stmt = select(models.ColetaCasa).where(
+            models.ColetaCasa.usuario_id == usuario_id, models.ColetaCasa.id == id_
+        )
+        obj = (await session.execute(stmt)).scalar_one_or_none()
+        return None if obj is None else ColetaCasa(**colunas(obj))
+
+    async def list_by_casa(
+        self,
+        session: AsyncSession,
+        usuario_id: int,
+        casa_id: int,
+        depois_de: int = 0,
+        limite: int = 1000,
+    ) -> list[ColetaCasa]:
+        stmt = (
+            select(models.ColetaCasa)
+            .where(
+                models.ColetaCasa.usuario_id == usuario_id,
+                models.ColetaCasa.casa_id == casa_id,
+                models.ColetaCasa.id > depois_de,
+            )
+            .order_by(models.ColetaCasa.id)
+            .limit(limite)
+        )
+        return [ColetaCasa(**colunas(obj)) for obj in (await session.execute(stmt)).scalars()]
+
     async def get_by_id_for_update(
         self, session: AsyncSession, usuario_id: int, id_: int
     ) -> ColetaCasa | None:

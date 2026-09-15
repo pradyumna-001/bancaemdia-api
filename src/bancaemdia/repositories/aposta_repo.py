@@ -1,11 +1,11 @@
 from datetime import datetime
 
-from sqlalchemy import func, select, text, update
+from sqlalchemy import distinct, func, select, text, tuple_, update
 from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from bancaemdia import models
-from bancaemdia.domain.registros import Aposta
+from bancaemdia.domain.registros import Aposta, ApostasPorOrigem
 from bancaemdia.repositories.base import colunas
 
 IMUTAVEIS = frozenset({"id", "usuario_id", "chave", "criada_em"})
@@ -53,6 +53,29 @@ class ApostaRepo:
         if limite is not None:
             stmt = stmt.limit(limite)
         return [Aposta(**colunas(obj)) for obj in (await session.execute(stmt)).scalars()]
+
+    async def count_by_origem(
+        self,
+        session: AsyncSession,
+        usuario_id: int,
+        desde: datetime | None = None,
+        ate: datetime | None = None,
+    ) -> list[ApostasPorOrigem]:
+        mensagem = distinct(tuple_(models.Aposta.chat_id, models.Aposta.message_id))
+        em_revisao = models.Aposta.revisao_grave.is_(True)
+        stmt = select(
+            models.Aposta.origem,
+            func.count(),
+            func.count().filter(em_revisao),
+            func.count(mensagem),
+            func.count(mensagem).filter(em_revisao),
+        ).where(models.Aposta.usuario_id == usuario_id)
+        if desde is not None:
+            stmt = stmt.where(models.Aposta.data_aposta >= desde)
+        if ate is not None:
+            stmt = stmt.where(models.Aposta.data_aposta < ate)
+        stmt = stmt.group_by(models.Aposta.origem).order_by(models.Aposta.origem)
+        return [ApostasPorOrigem(*linha) for linha in (await session.execute(stmt)).all()]
 
     async def upsert_idempotent(self, session: AsyncSession, dados: dict[str, object]) -> Aposta:
         stmt = insert(models.Aposta).values(**dados)
