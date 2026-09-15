@@ -34,33 +34,12 @@ jobs:
         with:
           python-version: "3.12"
           cache: "pip"
-      - run: pip install mypy pydantic sqlalchemy types-requests
+      - run: pip install -e ".[dev]"
       - run: mypy src/ --strict --ignore-missing-imports
 
   test:
     name: Test (pytest)
     runs-on: ubuntu-latest
-    services:
-      postgres:
-        image: postgres:16
-        env:
-          POSTGRES_USER: bancaemdia
-          POSTGRES_PASSWORD: ${{ secrets.POSTGRES_PASSWORD }}
-          POSTGRES_DB: bancaemdia
-        ports: [5432:5432]
-        options: >-
-          --health-cmd "pg_isready -U bancaemdia -d bancaemdia"
-          --health-interval 5s
-          --health-timeout 5s
-          --health-retries 10
-      redis:
-        image: redis:7-alpine
-        ports: [6379:6379]
-        options: >-
-          --health-cmd "redis-cli ping"
-          --health-interval 5s
-          --health-timeout 5s
-          --health-retries 10
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
@@ -70,18 +49,15 @@ jobs:
       - run: pip install -e ".[dev]"
       - run: pytest -n 8 --tb=short -q --cov=src/bancaemdia --cov-fail-under=80
         env:
-          DATABASE_URL: postgresql+asyncpg://bancaemdia:${{ secrets.POSTGRES_PASSWORD }}@localhost:5432/bancaemdia
-          DATABASE_URL_REPLICA: postgresql+asyncpg://bancaemdia:${{ secrets.POSTGRES_PASSWORD }}@localhost:5432/bancaemdia
+          DATABASE_URL: postgresql+asyncpg://user:pass@localhost:5432/bancaemdia
+          DATABASE_URL_REPLICA: postgresql+asyncpg://user:pass@localhost:5432/bancaemdia
           REDIS_URL: redis://localhost:6379/0
           APP_ENV: testing
           LOG_LEVEL: DEBUG
-          JWT_SECRET_KEY: ${{ secrets.JWT_SECRET_KEY }}
+          JWT_SECRET_KEY: test-secret
           JWT_ALGORITHM: RS256
           JWT_AUDIENCE: bancaemdia-api
           JWT_ISSUER: bancaemdia-api
-          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
-          ANTHROPIC_TIMEOUT: 30
-          ANTHROPIC_MAX_RETRIES: 3
           RATE_LIMIT_STORAGE: memory://
           STATEMENT_TIMEOUT_PRIMARY: 5000
           STATEMENT_TIMEOUT_REPLICA: 30000
