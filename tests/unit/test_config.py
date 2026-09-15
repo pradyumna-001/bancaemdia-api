@@ -77,6 +77,18 @@ class TestCelerySettingsDefaults:
         assert s.CELERY_RESULT_BACKEND == "redis://redis:6379/1"
 
 
+class TestWorkerMetricsPort:
+    def test_is_off_by_default(self, monkeypatch):
+        monkeypatch.delenv("WORKER_METRICS_PORT", raising=False)
+        s = Settings(_env_file=None)
+        assert s.WORKER_METRICS_PORT is None
+
+    def test_reads_the_port(self, monkeypatch):
+        monkeypatch.setenv("WORKER_METRICS_PORT", "9808")
+        s = Settings(_env_file=None)
+        assert s.WORKER_METRICS_PORT == 9808
+
+
 class TestGetSettingsSingleton:
     def test_returns_same_instance(self):
         assert get_settings() is get_settings()

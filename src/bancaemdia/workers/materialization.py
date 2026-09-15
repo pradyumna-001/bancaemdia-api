@@ -1,11 +1,11 @@
 import asyncio
+import re
 from dataclasses import dataclass
 from datetime import datetime, timedelta, timezone
 from functools import lru_cache
 from typing import Any
 
 import asyncpg.exceptions
-from prometheus_client import Counter, Histogram
 from pydantic import BaseModel, Field, ValidationError, field_validator
 from sqlalchemy import text
 from sqlalchemy.exc import InterfaceError, OperationalError
@@ -13,6 +13,7 @@ from sqlalchemy.ext.asyncio import AsyncEngine, AsyncSession, create_async_engin
 from sqlalchemy.pool import NullPool
 
 from bancaemdia.config import get_settings
+from bancaemdia.domain.conferencias import GRAVES, Bilhete, Origem, conferir
 from bancaemdia.domain.event_bus import ApostaCriada, get_event_bus
 from bancaemdia.domain.financeiro import Aposta as ApostaFinanceira
 from bancaemdia.domain.materializar import (
@@ -26,22 +27,31 @@ from bancaemdia.domain.materializar import (
 )
 from bancaemdia.domain.temporal import VALOR_UNIDADE_PADRAO_CENTAVOS
 from bancaemdia.extracao.modelos import ExtracaoBilhete
+from bancaemdia.observability.metrics import (
+    batch_bets_processed,
+    materialization_duration,
+    materialization_failures,
+    observe_stage,
+    revisao_pendente_created,
+)
 from bancaemdia.repositories.aposta_repo import ApostaRepo
 from bancaemdia.repositories.conta_casa_repo import ContaCasaRepo
 from bancaemdia.repositories.evento_repo import EventoRepo
 from bancaemdia.repositories.revisao_pendente_repo import RevisaoPendenteRepo
 from bancaemdia.repositories.unidade_repo import UnidadeRepo
-from bancaemdia.workers.celery_app import app
+from bancaemdia.workers.celery_app import MATERIALIZATION_QUEUE, app
 
 MOTIVO_GRAVE_PADRAO = "conferência grave"
 FUSO_DO_BRASIL = timezone(timedelta(hours=-3))
-
-materialization_duration = Histogram(
-    "materialization_duration_seconds", "Seconds to materialize one extraction reading"
+CONFERENCIAS_GRAVES = frozenset(
+    c.nome for c in conferir(Bilhete(), origem=Origem.IA).conferencias if c.forca in GRAVES
 )
-materialization_failures = Counter(
-    "materialization_failed", "Extraction readings that failed to materialize", ["reason"]
+PREFIXOS_DA_METRICA = (
+    ("a foto tem ", "cupons sem stake"),
+    ("a leitura falhou", "leitura falhou"),
+    (MOTIVO_GRAVE_PADRAO, MOTIVO_GRAVE_PADRAO),
 )
+MOTIVO_SEM_CATEGORIA = "outro"
 
 
 class GravacaoConcorrenteError(Exception):
@@ -100,8 +110,23 @@ class Gravada:
     origem: str
     criada: bool
     eventos: int
-    revisao: bool
+    revisao: str | None
     revisao_grave: bool
+
+
+def motivo_da_metrica(motivo: str) -> str:
+    # O motivo é texto livre e junta, na ordem do `conferir`, conferências que não abrem revisão
+    # sozinhas. O rótulo é a primeira grave (a extração confere como IA), para as séries do
+    # Prometheus terem limite e o painel não culpar uma conferência que só avisou.
+    partes = re.split(r"; | · ", motivo)
+    for parte in partes:
+        nome = parte.split(": ", 1)[0]
+        if nome in CONFERENCIAS_GRAVES:
+            return nome
+    for prefixo, rotulo in PREFIXOS_DA_METRICA:
+        if any(parte.startswith(prefixo) for parte in partes):
+            return rotulo
+    return MOTIVO_SEM_CATEGORIA
 
 
 @lru_cache
@@ -214,7 +239,7 @@ async def _gravar(
         # Como no projeto antigo, a fila segue a leitura: motivo novo substitui o velho, e a aposta
         # que ficou limpa sai da fila.
         await revisoes.resolve_superseded(session, usuario_id, nova.chave, motivo)
-    revisao = False
+    revisao = None
     if (
         motivo is not None
         and (criada or motivo_mudou)
@@ -229,7 +254,7 @@ async def _gravar(
                 "extracao_bruta": {"aposta_chave": nova.chave, "extracao": extracao_json},
             },
         )
-        revisao = True
+        revisao = motivo
     return Gravada(nova.chave, nova.origem, criada, len(novos), revisao, grave)
 
 
@@ -264,6 +289,8 @@ async def gravar_leitura(
             async with session.begin():
                 gravada = await _gravar(session, usuario_id, nova, extracao_json, midia_hash)
             gravadas.append(gravada)
+            if gravada.revisao is not None:
+                revisao_pendente_created.labels(reason=motivo_da_metrica(gravada.revisao)).inc()
             if gravada.criada:
                 get_event_bus().publish(
                     ApostaCriada(usuario_id, gravada.chave, gravada.origem, gravada.revisao_grave)
@@ -274,7 +301,7 @@ async def gravar_leitura(
 def materializar_aposta(
     usuario_id: int, extracao_json: dict[str, Any], midia_hash: str | None = None
 ) -> dict[str, object]:
-    with materialization_duration.time():
+    with observe_stage(MATERIALIZATION_QUEUE), materialization_duration.time():
         try:
             extracao = ExtracaoDoJson.model_validate(extracao_json)
         except ValidationError:
@@ -290,12 +317,13 @@ def materializar_aposta(
         except Exception:
             materialization_failures.labels(reason="inesperado").inc()
             raise
+        batch_bets_processed.labels(stage=MATERIALIZATION_QUEUE).inc(len(gravadas))
     return {
         "usuario_id": usuario_id,
         "apostas": [g.chave for g in gravadas],
         "criadas": sum(g.criada for g in gravadas),
         "eventos": sum(g.eventos for g in gravadas),
-        "revisoes": sum(g.revisao for g in gravadas),
+        "revisoes": sum(g.revisao is not None for g in gravadas),
     }
 
 

@@ -10,14 +10,16 @@ from bancaemdia.cache.extracao_cache import get_cache
 from bancaemdia.extracao.cliente import (
     VERSAO_PROMPT,
     Leitura,
+    LeituraFalhouError,
     TipoDeImagem,
     get_leitor,
     tipo_da_imagem,
 )
 from bancaemdia.extracao.escada import Leitor
 from bancaemdia.extracao.rodada import ler_mensagem
+from bancaemdia.observability.metrics import anthropic_cost, batch_bets_processed, observe_stage
 from bancaemdia.rate_limit.anthropic_limiter import AnthropicLimiter, get_limiter
-from bancaemdia.workers.celery_app import app
+from bancaemdia.workers.celery_app import EXTRACTION_QUEUE, app
 
 RETRY_ON = (
     anthropic.APIConnectionError,
@@ -47,9 +49,17 @@ class LeitorLimitado:
         escalonar: bool = False,
     ) -> Leitura:
         self.limiter.acquire(self.usuario_id)
-        return self.leitor.ler(
-            imagem, tipo, legenda=legenda, postada_em=postada_em, escalonar=escalonar
-        )
+        custo = anthropic_cost.labels(usuario_id=str(self.usuario_id))
+        try:
+            leitura = self.leitor.ler(
+                imagem, tipo, legenda=legenda, postada_em=postada_em, escalonar=escalonar
+            )
+        except LeituraFalhouError as erro:
+            # Resposta cortada, recusa ou JSON incompleto também foram cobrados.
+            custo.inc(erro.custo_usd)
+            raise
+        custo.inc(leitura.custo_usd)
+        return leitura
 
 
 def extrair_bilhete(
@@ -63,16 +73,18 @@ def extrair_bilhete(
     chat_id: int | None = None,
     message_id: int | None = None,
 ) -> dict[str, object]:
-    leitura = ler_mensagem(
-        LeitorLimitado(get_leitor(), get_limiter(), usuario_id),
-        base64.b64decode(imagem_base64),
-        tipo_da_imagem(nome_do_arquivo),
-        legenda=legenda,
-        postada_em=datetime.fromisoformat(postada_em) if postada_em else None,
-        casas_do_link=casas_do_link or (),
-        odds_do_texto=odds_do_texto or (),
-        cache=get_cache(),
-    )
+    with observe_stage(EXTRACTION_QUEUE):
+        leitura = ler_mensagem(
+            LeitorLimitado(get_leitor(), get_limiter(), usuario_id),
+            base64.b64decode(imagem_base64),
+            tipo_da_imagem(nome_do_arquivo),
+            legenda=legenda,
+            postada_em=datetime.fromisoformat(postada_em) if postada_em else None,
+            casas_do_link=casas_do_link or (),
+            odds_do_texto=odds_do_texto or (),
+            cache=get_cache(),
+        )
+        batch_bets_processed.labels(stage=EXTRACTION_QUEUE).inc(leitura.quantidade_de_apostas)
     return {
         "usuario_id": usuario_id,
         "chat_id": chat_id,

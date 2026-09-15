@@ -3,14 +3,13 @@ from collections.abc import Callable
 from functools import lru_cache
 
 import redis
-from prometheus_client import Counter, Histogram
 
 from bancaemdia.config import get_settings
+from bancaemdia.observability.metrics import rate_limit_errors, rate_limit_exceeded, rate_limit_wait
 
 USER_KEY = "rl:anthropic:user:{user_id}"
 GLOBAL_KEY = "rl:anthropic:global"
 TIMEOUT_SECONDS = 2.0
-WAIT_BUCKETS = (0.5, 1.0, 2.5, 5.0, 10.0, 30.0, 60.0, 120.0, 300.0)
 
 TOKEN_BUCKET = """
 local limit = tonumber(ARGV[1])
@@ -29,20 +28,6 @@ redis.call("HSET", KEYS[1], "tokens", available, "updated_at", now)
 redis.call("PEXPIRE", KEYS[1], math.ceil((limit - available) * window * 1000 / limit))
 return math.max(0, math.floor(-available * window * 1000 / limit))
 """
-
-rate_limit_wait = Histogram(
-    "rate_limit_wait_seconds",
-    "Seconds a request waited for Anthropic rate-limit tokens",
-    buckets=WAIT_BUCKETS,
-)
-rate_limit_exceeded = Counter(
-    "rate_limit_exceeded",
-    "Requests that found an Anthropic rate-limit bucket empty and had to wait",
-    ["scope"],
-)
-rate_limit_errors = Counter(
-    "rate_limit_error", "Redis errors that let an Anthropic request through unmetered"
-)
 
 
 class AnthropicLimiter:

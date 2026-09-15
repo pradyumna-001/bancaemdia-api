@@ -10,9 +10,10 @@ import pybreaker
 import pytest
 from celery import signals
 from celery.utils.time import get_exponential_backoff_interval
+from prometheus_client import REGISTRY
 
 from bancaemdia.cache.extracao_cache import ExtracaoCache
-from bancaemdia.extracao.cliente import VERSAO_PROMPT, Leitura
+from bancaemdia.extracao.cliente import VERSAO_PROMPT, Leitura, LeituraFalhouError
 from bancaemdia.extracao.modelos import ExtracaoBilhete, Selecao
 from bancaemdia.resilience import circuit_breaker
 from bancaemdia.workers import celery_app, extraction
@@ -235,6 +236,67 @@ def test_task_runs_eagerly(monkeypatch) -> None:
     assert resultado["degrau"] == "BARATO"
 
 
+def _sample(name, **labels):
+    return REGISTRY.get_sample_value(name, labels) or 0.0
+
+
+def test_every_paid_reading_is_billed_to_its_user_even_when_it_fails(monkeypatch) -> None:
+    class Leitor:
+        modelo_escalonamento = "claude-sonnet-5"
+
+        def ler(self, imagem, tipo="image/jpeg", *, legenda="", postada_em=None, escalonar=False):
+            if escalonar:
+                raise LeituraFalhouError("resposta cortada", custo_usd=0.03)
+            ruim = _bom().model_copy(update={"odd_total": 9.9})
+            return Leitura((ruim,), "claude-haiku-4-5", custo_usd=0.012)
+
+    monkeypatch.setattr(extraction, "get_leitor", Leitor)
+    monkeypatch.setattr(extraction, "get_cache", _cache)
+    monkeypatch.setattr(extraction, "get_limiter", lambda: _limitador([]))
+    custo = _sample("anthropic_cost_usd_total", usuario_id="4242")
+
+    resultado = extraction.extrair_bilhete(**{**_argumentos(), "usuario_id": 4242})
+
+    assert resultado["grave"] is True
+    assert _sample("anthropic_cost_usd_total", usuario_id="4242") == pytest.approx(custo + 0.042)
+
+
+def test_cache_hit_bills_nothing(monkeypatch) -> None:
+    cache = _cache()
+    monkeypatch.setattr(extraction, "get_leitor", _leitor)
+    monkeypatch.setattr(extraction, "get_cache", lambda: cache)
+    monkeypatch.setattr(extraction, "get_limiter", lambda: _limitador([]))
+    extraction.extrair_bilhete(**{**_argumentos(), "usuario_id": 4343})
+    custo = _sample("anthropic_cost_usd_total", usuario_id="4343")
+
+    extraction.extrair_bilhete(**{**_argumentos(), "usuario_id": 4343})
+
+    assert _sample("anthropic_cost_usd_total", usuario_id="4343") == pytest.approx(custo)
+
+
+def test_extraction_counts_the_bets_it_read_and_times_the_stage(monkeypatch) -> None:
+    class Leitor:
+        modelo_escalonamento = "claude-sonnet-5"
+
+        def ler(self, imagem, tipo="image/jpeg", *, legenda="", postada_em=None, escalonar=False):
+            outro = _bom().model_copy(update={"odd_total": 2.5})
+            return Leitura((_bom(), outro), "claude-haiku-4-5", custo_usd=0.012)
+
+    monkeypatch.setattr(extraction, "get_leitor", Leitor)
+    monkeypatch.setattr(extraction, "get_cache", _cache)
+    monkeypatch.setattr(extraction, "get_limiter", lambda: _limitador([]))
+    apostas = _sample("batch_bets_processed_total", stage="extraction")
+    tempos = _sample("batch_job_duration_seconds_count", stage="extraction", status="success")
+
+    resultado = extraction.extrair_bilhete(**_argumentos())
+
+    assert len(resultado["cupons"]) == 2
+    assert _sample("batch_bets_processed_total", stage="extraction") == pytest.approx(apostas + 2)
+    assert _sample(
+        "batch_job_duration_seconds_count", stage="extraction", status="success"
+    ) == pytest.approx(tempos + 1)
+
+
 def test_open_breaker_sends_the_task_back_to_the_queue(monkeypatch) -> None:
     tentativas = []
 
@@ -250,8 +312,12 @@ def test_open_breaker_sends_the_task_back_to_the_queue(monkeypatch) -> None:
     monkeypatch.setattr(extraction, "get_leitor", Leitor)
     monkeypatch.setattr(extraction, "get_cache", _cache)
     monkeypatch.setattr(extraction, "get_limiter", lambda: _limitador([]))
+    falhas = _sample("batch_failed_total", stage="extraction", reason="CircuitBreakerError")
 
     resultado = extraction.extrair_bilhete_task.apply(kwargs=_argumentos())
 
     assert len(tentativas) == 1 + extraction.extrair_bilhete_task.max_retries
     assert isinstance(resultado.result, pybreaker.CircuitBreakerError)
+    assert _sample(
+        "batch_failed_total", stage="extraction", reason="CircuitBreakerError"
+    ) == pytest.approx(falhas + len(tentativas))

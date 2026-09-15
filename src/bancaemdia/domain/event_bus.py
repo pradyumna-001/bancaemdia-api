@@ -4,11 +4,7 @@ from dataclasses import dataclass
 from functools import lru_cache
 from typing import Any
 
-from prometheus_client import Counter
-
-event_handler_failures = Counter(
-    "event_handler_failed", "In-process event handlers that raised", ["event"]
-)
+from bancaemdia.observability.metrics import event_handler_failures
 
 
 @dataclass(frozen=True)
