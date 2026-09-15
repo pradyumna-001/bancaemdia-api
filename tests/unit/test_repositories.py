@@ -395,3 +395,64 @@ async def test_revisao_pendente_create_list_and_resolve() -> None:
     assert sql.startswith("UPDATE revisao_pendente SET resolvido_em=now()")
     assert "revisao_pendente.id = %(id_1)s AND revisao_pendente.resolvido_em IS NULL" in sql
     assert await RevisaoPendenteRepo().resolve(_Session(), 1, 6) is None
+
+
+async def test_revisao_pendente_open_review_is_found_by_bet_and_reason() -> None:
+    session = _Session(6)
+
+    assert await RevisaoPendenteRepo().has_open(session, 1, "t:1:1:0", "odd") is True
+    sql = _sql(session.statements[0])
+    assert "revisao_pendente.extracao_bruta ->>" in sql
+    assert "revisao_pendente.motivo = %(motivo_1)s" in sql
+    assert "revisao_pendente.resolvido_em IS NULL" in sql
+    assert await RevisaoPendenteRepo().has_open(_Session(), 1, "t:1:1:0", "odd") is False
+
+
+async def test_revisao_pendente_superseded_reviews_of_a_bet_are_resolved() -> None:
+    session = _Session(6, 7)
+
+    assert await RevisaoPendenteRepo().resolve_superseded(session, 1, "t:1:1:0", "odd") == 2
+    sql = _sql(session.statements[0])
+    assert sql.startswith("UPDATE revisao_pendente SET resolvido_em=now()")
+    assert "revisao_pendente.extracao_bruta ->>" in sql
+    assert "revisao_pendente.resolvido_em IS NULL" in sql
+    assert "revisao_pendente.motivo != %(motivo_1)s" in sql
+
+    await RevisaoPendenteRepo().resolve_superseded(session, 1, "t:1:1:0", None)
+    assert "motivo !=" not in _sql(session.statements[1])
+
+
+async def test_aposta_upsert_materializada_only_lets_a_newer_write_in() -> None:
+    session = _Session(_aposta())
+    dados = {"usuario_id": 1, "chave": "t:1:1:0", "origem": "telegram", "odd": 1.9}
+
+    aposta = await ApostaRepo().upsert_materializada(session, dados)
+
+    assert aposta is not None
+    assert aposta.chave == "t:1:1:0"
+    sql = _sql(session.statements[0])
+    assert "clock_timestamp()" in sql
+    assert "DO UPDATE SET" in sql
+    assert "odd = excluded.odd" in sql
+    assert "atualizada_em = excluded.atualizada_em" in sql
+    assert "usuario_id = excluded.usuario_id" not in sql
+    assert "WHERE excluded.atualizada_em > apostas.atualizada_em" in sql
+    assert await ApostaRepo().upsert_materializada(_Session(), dados) is None
+
+
+async def test_conta_casa_is_found_by_the_house_name_and_the_bet_date() -> None:
+    session = _Session(_conta())
+
+    conta = await ContaCasaRepo().get_vigente_by_nome_da_casa(session, 1, "Betano")
+
+    assert conta == registros.ContaCasa(3, 1, 2, "", ONTEM, None, True)
+    sql = _sql(session.statements[0])
+    assert "JOIN casas ON casas.id = contas_casa.casa_id" in sql
+    assert "casas.nome = %(nome_1)s" in sql
+    assert "contas_casa.desde IS NULL" not in sql
+
+    await ContaCasaRepo().get_vigente_by_nome_da_casa(session, 1, "Betano", AGORA)
+    sql = _sql(session.statements[1])
+    assert "contas_casa.desde IS NULL OR contas_casa.desde <=" in sql
+    assert "contas_casa.ate IS NULL OR contas_casa.ate >=" in sql
+    assert await ContaCasaRepo().get_vigente_by_nome_da_casa(_Session(), 1, "Betano") is None
