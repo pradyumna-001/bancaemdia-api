@@ -27,6 +27,12 @@ class Settings(BaseSettings):
         default=30, description="HTTP timeout in seconds for Anthropic client"
     )
     ANTHROPIC_MAX_RETRIES: int = Field(default=3, description="Max retries on transient errors")
+    ANTHROPIC_MODEL: str = Field(
+        default="claude-haiku-4-5", description="Model for the first read of a betting slip"
+    )
+    ANTHROPIC_ESCALATION_MODEL: str = Field(
+        default="claude-sonnet-5", description="Model for re-reading slips whose read did not check"
+    )
     JWT_SECRET_KEY: str = Field(..., description="JWT signing secret key")
     JWT_ALGORITHM: str = Field(default="RS256", description="JWT signing algorithm")
     JWT_JWKS_URL: str | None = Field(

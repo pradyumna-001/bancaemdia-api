@@ -15,7 +15,7 @@ DEAD_LETTER_QUEUE = "dead_letter"
 
 QUEUE_PREFETCH = {EXTRACTION_QUEUE: 4, MATERIALIZATION_QUEUE: 2}
 
-app = Celery("bancaemdia")
+app = Celery("bancaemdia", include=["bancaemdia.workers.extraction"])
 app.conf.update(
     broker_url=settings.CELERY_BROKER_URL,
     result_backend=settings.CELERY_RESULT_BACKEND,
