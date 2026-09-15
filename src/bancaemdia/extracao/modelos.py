@@ -27,7 +27,7 @@ class ExtracaoBilhete(BaseModel):
     def para_bilhete(self) -> conferencias.Bilhete:
         return conferencias.Bilhete(
             casa=self.casa,
-            tipo=conferencias.TipoBilhete(self.tipo.upper()),
+            tipo=conferencias.TipoBilhete(self.tipo),
             evento=self.evento,
             selecoes=tuple(
                 conferencias.Selecao(
