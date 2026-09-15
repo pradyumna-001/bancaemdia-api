@@ -26,7 +26,7 @@ class ContaCasa(Base):
 
     id: Mapped[int] = mapped_column(BigInteger, primary_key=True)
     usuario_id: Mapped[int] = mapped_column(BigInteger, ForeignKey("usuarios.id"))
-    casa_id: Mapped[int] = mapped_column(BigInteger)
+    casa_id: Mapped[int] = mapped_column(BigInteger, ForeignKey("casas.id"))
     apelido: Mapped[str] = mapped_column(String, server_default=text("''"))
     desde: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     ate: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))

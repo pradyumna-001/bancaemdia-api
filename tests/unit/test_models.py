@@ -48,7 +48,7 @@ def _fk_targets(modelo: type[Base]) -> dict[str, str]:
 
 
 def test_seven_core_tables_are_registered() -> None:
-    assert set(Base.metadata.tables) == TABELAS
+    assert TABELAS <= set(Base.metadata.tables)
     assert {m.__tablename__ for m in MODELOS} == TABELAS
 
 
@@ -59,8 +59,8 @@ def test_create_all_emits_one_create_table_per_model() -> None:
 
 
 def test_primary_keys_are_bigserial() -> None:
-    ddl = _ddl()
-    assert ddl.count("id BIGSERIAL NOT NULL") == len(TABELAS)
+    for nome in TABELAS:
+        assert "id BIGSERIAL NOT NULL" in _create_table(nome)
 
 
 def test_partitioned_tables_carry_the_partition_key_in_the_primary_key() -> None:
@@ -78,7 +78,10 @@ def test_other_tables_are_not_partitioned() -> None:
 
 def test_every_centavos_column_is_bigint() -> None:
     colunas = [
-        c for t in Base.metadata.tables.values() for c in t.columns if c.name.endswith("_centavos")
+        c
+        for nome in TABELAS
+        for c in Base.metadata.tables[nome].columns
+        if c.name.endswith("_centavos")
     ]
     assert len(colunas) == 6
     assert all(isinstance(c.type, BigInteger) for c in colunas)
@@ -110,10 +113,14 @@ def test_foreign_keys_between_core_tables() -> None:
     assert _fk_targets(Movimento)["conta_casa_id"] == "contas_casa.id"
 
 
-def test_canonical_references_wait_for_their_tables() -> None:
-    for coluna in ("tipster_id", "time_casa_id", "time_fora_id", "mercado_id", "competicao_id"):
-        assert not Aposta.__table__.c[coluna].foreign_keys
-    assert not ContaCasa.__table__.c.casa_id.foreign_keys
+def test_foreign_keys_to_canonical_tables() -> None:
+    assert _fk_targets(ContaCasa)["casa_id"] == "casas.id"
+    alvos = _fk_targets(Aposta)
+    assert alvos["tipster_id"] == "tipsters.id"
+    assert alvos["time_casa_id"] == "times.id"
+    assert alvos["time_fora_id"] == "times.id"
+    assert alvos["mercado_id"] == "mercados.id"
+    assert alvos["competicao_id"] == "competicoes.id"
 
 
 def test_apostas_check_constraints() -> None:
