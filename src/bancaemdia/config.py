@@ -33,6 +33,15 @@ class Settings(BaseSettings):
     ANTHROPIC_ESCALATION_MODEL: str = Field(
         default="claude-sonnet-5", description="Model for re-reading slips whose read did not check"
     )
+    ANTHROPIC_RATE_USER: int = Field(
+        default=10, gt=0, description="Anthropic requests allowed per user per window"
+    )
+    ANTHROPIC_RATE_GLOBAL: int = Field(
+        default=100, gt=0, description="Anthropic requests allowed across all users per window"
+    )
+    ANTHROPIC_WINDOW: int = Field(
+        default=60, gt=0, description="Anthropic rate-limit window in seconds"
+    )
     JWT_SECRET_KEY: str = Field(..., description="JWT signing secret key")
     JWT_ALGORITHM: str = Field(default="RS256", description="JWT signing algorithm")
     JWT_JWKS_URL: str | None = Field(

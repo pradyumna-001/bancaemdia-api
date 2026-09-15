@@ -60,6 +60,15 @@ def _cache():
     return ExtracaoCache(Redis())
 
 
+def _limitador(eventos):
+    class Limitador:
+        def acquire(self, user_id, tokens=1):
+            eventos.append(("acquire", user_id, tokens))
+            return 0.0
+
+    return Limitador()
+
+
 def _argumentos():
     return {
         "usuario_id": 7,
@@ -121,6 +130,7 @@ def test_extrair_bilhete_reads_the_image_and_returns_json(monkeypatch) -> None:
     leitor = _leitor()
     monkeypatch.setattr(extraction, "get_leitor", lambda: leitor)
     monkeypatch.setattr(extraction, "get_cache", _cache)
+    monkeypatch.setattr(extraction, "get_limiter", lambda: _limitador([]))
 
     resultado = extraction.extrair_bilhete(**_argumentos())
 
@@ -146,6 +156,7 @@ def test_extrair_bilhete_defaults_to_no_date_and_no_hints(monkeypatch) -> None:
     leitor = _leitor()
     monkeypatch.setattr(extraction, "get_leitor", lambda: leitor)
     monkeypatch.setattr(extraction, "get_cache", _cache)
+    monkeypatch.setattr(extraction, "get_limiter", lambda: _limitador([]))
 
     resultado = extraction.extrair_bilhete(7, base64.b64encode(b"foto").decode("ascii"))
 
@@ -158,6 +169,7 @@ def test_same_image_sent_again_comes_from_the_cache(monkeypatch) -> None:
     cache = _cache()
     monkeypatch.setattr(extraction, "get_leitor", lambda: leitor)
     monkeypatch.setattr(extraction, "get_cache", lambda: cache)
+    monkeypatch.setattr(extraction, "get_limiter", lambda: _limitador([]))
 
     primeira = extraction.extrair_bilhete(**_argumentos())
     segunda = extraction.extrair_bilhete(**{**_argumentos(), "chat_id": 999, "message_id": 1})
@@ -166,6 +178,31 @@ def test_same_image_sent_again_comes_from_the_cache(monkeypatch) -> None:
     assert (primeira["degrau"], segunda["degrau"]) == ("BARATO", "CACHE")
     assert segunda["custo_usd"] == pytest.approx(0.0)
     assert segunda["bilhete"] == primeira["bilhete"]
+
+
+def test_each_paid_reading_takes_a_rate_limit_token_first(monkeypatch) -> None:
+    eventos = []
+    cache = _cache()
+
+    class Leitor:
+        modelo_escalonamento = "claude-sonnet-5"
+
+        def ler(self, imagem, tipo="image/jpeg", *, legenda="", postada_em=None, escalonar=False):
+            eventos.append(("ler", escalonar))
+            if escalonar:
+                return Leitura((_bom(),), "claude-sonnet-5", custo_usd=0.06)
+            ruim = _bom().model_copy(update={"odd_total": 9.9})
+            return Leitura((ruim,), "claude-haiku-4-5", custo_usd=0.012)
+
+    monkeypatch.setattr(extraction, "get_leitor", Leitor)
+    monkeypatch.setattr(extraction, "get_cache", lambda: cache)
+    monkeypatch.setattr(extraction, "get_limiter", lambda: _limitador(eventos))
+
+    primeira = extraction.extrair_bilhete(**_argumentos())
+    segunda = extraction.extrair_bilhete(**_argumentos())
+
+    assert (primeira["degrau"], segunda["degrau"]) == ("CARO", "CACHE")
+    assert eventos == [("acquire", 7, 1), ("ler", False), ("acquire", 7, 1), ("ler", True)]
 
 
 def test_worker_ready_clears_old_prompt_versions_in_the_background(monkeypatch) -> None:
@@ -190,6 +227,7 @@ def test_worker_ready_clears_old_prompt_versions_in_the_background(monkeypatch) 
 def test_task_runs_eagerly(monkeypatch) -> None:
     monkeypatch.setattr(extraction, "get_leitor", _leitor)
     monkeypatch.setattr(extraction, "get_cache", _cache)
+    monkeypatch.setattr(extraction, "get_limiter", lambda: _limitador([]))
 
     resultado = extraction.extrair_bilhete_task.apply(kwargs=_argumentos()).get()
 

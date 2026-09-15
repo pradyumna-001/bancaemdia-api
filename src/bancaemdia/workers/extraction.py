@@ -7,8 +7,16 @@ import pybreaker
 from celery import signals
 
 from bancaemdia.cache.extracao_cache import get_cache
-from bancaemdia.extracao.cliente import VERSAO_PROMPT, get_leitor, tipo_da_imagem
+from bancaemdia.extracao.cliente import (
+    VERSAO_PROMPT,
+    Leitura,
+    TipoDeImagem,
+    get_leitor,
+    tipo_da_imagem,
+)
+from bancaemdia.extracao.escada import Leitor
 from bancaemdia.extracao.rodada import ler_mensagem
+from bancaemdia.rate_limit.anthropic_limiter import AnthropicLimiter, get_limiter
 from bancaemdia.workers.celery_app import app
 
 RETRY_ON = (
@@ -20,6 +28,28 @@ RETRY_ON = (
     anthropic.DeadlineExceededError,
     pybreaker.CircuitBreakerError,
 )
+
+
+class LeitorLimitado:
+    def __init__(self, leitor: Leitor, limiter: AnthropicLimiter, usuario_id: int) -> None:
+        self.leitor = leitor
+        self.limiter = limiter
+        self.usuario_id = usuario_id
+        self.modelo_escalonamento = leitor.modelo_escalonamento
+
+    def ler(
+        self,
+        imagem: bytes,
+        tipo: TipoDeImagem = "image/jpeg",
+        *,
+        legenda: str = "",
+        postada_em: datetime | None = None,
+        escalonar: bool = False,
+    ) -> Leitura:
+        self.limiter.acquire(self.usuario_id)
+        return self.leitor.ler(
+            imagem, tipo, legenda=legenda, postada_em=postada_em, escalonar=escalonar
+        )
 
 
 def extrair_bilhete(
@@ -34,7 +64,7 @@ def extrair_bilhete(
     message_id: int | None = None,
 ) -> dict[str, object]:
     leitura = ler_mensagem(
-        get_leitor(),
+        LeitorLimitado(get_leitor(), get_limiter(), usuario_id),
         base64.b64decode(imagem_base64),
         tipo_da_imagem(nome_do_arquivo),
         legenda=legenda,
