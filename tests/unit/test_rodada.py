@@ -12,6 +12,7 @@ from bancaemdia.extracao import cliente, rodada
 from bancaemdia.extracao.cliente import Leitura, LeituraFalhouError
 from bancaemdia.extracao.escada import Degrau
 from bancaemdia.extracao.modelos import ExtracaoBilhete, Selecao
+from bancaemdia.resilience import circuit_breaker
 
 URL = "https://api.anthropic.com/v1/messages"
 
@@ -85,7 +86,7 @@ def _leitor_de_verdade(*respostas_por_modelo):
         client,
         "claude-haiku-4-5",
         "claude-sonnet-5",
-        breaker=cliente.novo_breaker(),
+        breaker=circuit_breaker.new_anthropic_breaker(),
         pausa=lambda _: None,
     )
     return leitor, pedidos
