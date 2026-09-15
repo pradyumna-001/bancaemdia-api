@@ -2,12 +2,14 @@ from __future__ import annotations
 
 import pytest
 from celery import signals
+from celery.concurrency import prefork
 from kombu.exceptions import OperationalError
 
+from bancaemdia.config import get_settings
 from bancaemdia.workers import celery_app
 
 
-def _worker(*queues, prefetch_multiplier=3):
+def _worker(*queues, prefetch_multiplier=3, pool_cls="solo"):
     class Queues:
         consume_from = dict.fromkeys(queues)
 
@@ -26,6 +28,7 @@ def _worker(*queues, prefetch_multiplier=3):
 
     Amqp.queues = Queues()
     Worker.prefetch_multiplier = prefetch_multiplier
+    Worker.pool_cls = pool_cls
     return Worker()
 
 
@@ -216,6 +219,84 @@ def test_check_worker_health_false_when_no_worker_answers(monkeypatch) -> None:
     monkeypatch.setattr(celery_app.app, "control", control)
 
     assert celery_app.check_worker_health(timeout=0.5) is False
+
+
+@pytest.mark.parametrize(("port", "expected"), [(None, []), ("9808", [9808])])
+def test_worker_serves_metrics_only_when_a_port_is_set(monkeypatch, port, expected) -> None:
+    started = []
+
+    def start_http_server(port, registry):
+        started.append(port)
+        assert registry.get_sample_value("extraction_cache_hit_total") is not None
+
+    if port is None:
+        monkeypatch.delenv("WORKER_METRICS_PORT", raising=False)
+    else:
+        monkeypatch.setenv("WORKER_METRICS_PORT", port)
+    monkeypatch.delenv("PROMETHEUS_MULTIPROC_DIR", raising=False)
+    monkeypatch.setattr(celery_app, "start_http_server", start_http_server)
+    get_settings.cache_clear()
+    try:
+        signals.worker_init.send(sender=_worker("extraction"))
+    finally:
+        get_settings.cache_clear()
+
+    assert started == expected
+
+
+@pytest.mark.parametrize(
+    "pool_cls", ["prefork", "processes", "celery.concurrency.prefork:TaskPool", prefork.TaskPool]
+)
+def test_prefork_worker_refuses_to_serve_metrics_without_multiprocess_mode(
+    monkeypatch, pool_cls
+) -> None:
+    started = []
+    monkeypatch.setenv("WORKER_METRICS_PORT", "9808")
+    monkeypatch.delenv("PROMETHEUS_MULTIPROC_DIR", raising=False)
+    monkeypatch.setattr(
+        celery_app, "start_http_server", lambda port, registry: started.append(port)
+    )
+    get_settings.cache_clear()
+    try:
+        with pytest.raises(RuntimeError, match="PROMETHEUS_MULTIPROC_DIR"):
+            celery_app.start_metrics_server(_worker("extraction", pool_cls=pool_cls))
+    finally:
+        get_settings.cache_clear()
+
+    assert started == []
+
+
+def test_prefork_worker_serves_the_multiprocess_files(monkeypatch, tmp_path) -> None:
+    started = []
+    monkeypatch.setenv("WORKER_METRICS_PORT", "9808")
+    monkeypatch.setenv("PROMETHEUS_MULTIPROC_DIR", str(tmp_path))
+    monkeypatch.setattr(
+        celery_app, "start_http_server", lambda port, registry: started.append(port)
+    )
+    get_settings.cache_clear()
+    try:
+        celery_app.start_metrics_server(_worker("extraction", pool_cls="prefork"))
+    finally:
+        get_settings.cache_clear()
+
+    assert started == [9808]
+
+
+def test_get_queue_depth_collector_reads_the_broker_url_with_short_timeouts(monkeypatch) -> None:
+    monkeypatch.setenv("CELERY_BROKER_URL", "redis://broker-host:6381/2")
+    get_settings.cache_clear()
+    celery_app.get_queue_depth_collector.cache_clear()
+    try:
+        collector = celery_app.get_queue_depth_collector()
+    finally:
+        get_settings.cache_clear()
+        celery_app.get_queue_depth_collector.cache_clear()
+
+    options = collector.client.connection_pool.connection_kwargs
+    assert (options["host"], options["port"], options["db"]) == ("broker-host", 6381, 2)
+    assert options["socket_timeout"] == celery_app.TIMEOUT_SECONDS
+    assert options["socket_connect_timeout"] == celery_app.TIMEOUT_SECONDS
+    assert collector.queues == ("extraction", "materialization", "dead_letter")
 
 
 def test_check_worker_health_false_when_broker_is_down(monkeypatch) -> None:

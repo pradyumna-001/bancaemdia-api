@@ -4,9 +4,9 @@ from functools import lru_cache
 import anthropic
 import pybreaker
 import redis
-from prometheus_client import Gauge
 
 from bancaemdia.config import get_settings
+from bancaemdia.observability.metrics import circuit_breaker_state
 
 ANTHROPIC = "anthropic"
 STATE_KEY = "anthropic:pybreaker:state"
@@ -23,10 +23,6 @@ ANTHROPIC_EXCLUDE = (
     anthropic.BadRequestError,
     anthropic.RequestTooLargeError,
     anthropic.UnprocessableEntityError,
-)
-
-circuit_breaker_state = Gauge(
-    "circuit_breaker_state", "Circuit breaker state: 0=closed, 1=open, 2=half-open", ["breaker"]
 )
 
 

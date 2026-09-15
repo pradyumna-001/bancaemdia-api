@@ -5,24 +5,18 @@ from contextlib import suppress
 from functools import lru_cache
 
 import redis
-from prometheus_client import Counter
 from pydantic import BaseModel, ValidationError
 
 from bancaemdia.config import get_settings
 from bancaemdia.extracao.cliente import VERSAO_PROMPT, Leitura
 from bancaemdia.extracao.modelos import ExtracaoBilhete
+from bancaemdia.observability.metrics import cache_errors, cache_hits, cache_misses
 
 PREFIXO = "ext"
 TTL_SEGUNDOS = 30 * 86400
 TIMEOUT_SEGUNDOS = 2.0
 LOTE_DE_LIMPEZA = 500
 RE_VERSAO = re.compile(r"^(.*)_v(\d+)$")
-
-cache_hits = Counter("extraction_cache_hit", "Extraction readings served from the Redis cache")
-cache_misses = Counter("extraction_cache_miss", "Extraction readings not found in the Redis cache")
-cache_errors = Counter(
-    "extraction_cache_error", "Redis errors and unreadable entries in the extraction cache"
-)
 
 
 class LeituraGuardada(BaseModel):

@@ -75,6 +75,8 @@ def _leitor(*respostas, max_retries=0, breaker=None):
         resposta = fila.pop(0) if len(fila) > 1 else fila[0]
         if resposta == "timeout":
             raise httpx2.ReadTimeout("slow", request=request)
+        if resposta == "sem rede":
+            raise httpx2.ConnectError("refused", request=request)
         return resposta
 
     client = anthropic.Anthropic(
@@ -325,6 +327,55 @@ def test_breaker_ignores_timeouts_bad_requests_and_bad_json(resposta, erro) -> N
             leitor.ler(b"foto")
 
     assert breaker.current_state == "closed"
+
+
+def _calls(status):
+    return (
+        REGISTRY.get_sample_value(
+            "anthropic_request_duration_seconds_count",
+            {"model": "claude-haiku-4-5", "status": status},
+        )
+        or 0.0
+    )
+
+
+@pytest.mark.parametrize(
+    ("resposta", "status"),
+    [
+        (_cupons(CUPOM), "200"),
+        (_erro(529), "529"),
+        (_erro(400), "400"),
+        ("timeout", "timeout"),
+        ("sem rede", "connection_error"),
+    ],
+)
+def test_every_call_is_timed_by_model_and_status(resposta, status) -> None:
+    leitor, _ = _leitor(resposta)
+    calls = _calls(status)
+
+    try:
+        leitor.ler(b"foto")
+    except anthropic.APIError:
+        pass
+
+    assert _calls(status) == pytest.approx(calls + 1)
+
+
+def test_call_refused_by_the_open_breaker_is_not_timed() -> None:
+    breaker = circuit_breaker.new_anthropic_breaker()
+    leitor, pedidos = _leitor(_erro(500), breaker=breaker)
+    for _ in range(4):
+        with pytest.raises(anthropic.InternalServerError):
+            leitor.ler(b"foto")
+    with pytest.raises(pybreaker.CircuitBreakerError):
+        leitor.ler(b"foto")
+    calls = _calls("500")
+
+    with pytest.raises(pybreaker.CircuitBreakerError):
+        leitor.ler(b"foto")
+
+    assert len(pedidos) == 5
+    assert _calls("500") == pytest.approx(calls)
 
 
 def test_leitor_without_a_breaker_gets_its_own() -> None:

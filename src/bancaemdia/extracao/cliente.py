@@ -15,6 +15,7 @@ from tenacity import Retrying, retry_if_exception_type, stop_after_attempt, wait
 
 from bancaemdia.config import get_settings
 from bancaemdia.extracao.modelos import Cupons, ExtracaoBilhete
+from bancaemdia.observability.metrics import observe_anthropic_request
 from bancaemdia.resilience.circuit_breaker import get_anthropic_breaker, new_anthropic_breaker
 
 TipoDeImagem = Literal["image/jpeg", "image/png", "image/gif", "image/webp"]
@@ -198,7 +199,7 @@ class LeitorDeBilhetes:
     def _chamar(
         self, modelo: str, conteudo: list[ContentBlockParam], usos: list[Usage]
     ) -> Cupons | None:
-        with self.breaker.calling():
+        with self.breaker.calling(), observe_anthropic_request(modelo):
             resposta = self.client.messages.create(
                 model=modelo,
                 max_tokens=MAX_TOKENS,

@@ -12,7 +12,10 @@ from sqlalchemy.exc import OperationalError
 from sqlalchemy.pool import NullPool
 
 from bancaemdia.config import get_settings
+from bancaemdia.domain import materializar
+from bancaemdia.domain.conferencias import GRAVES, Origem, conferir
 from bancaemdia.domain.event_bus import ApostaCriada
+from bancaemdia.extracao import rodada
 from bancaemdia.extracao.modelos import ExtracaoBilhete, Selecao
 from bancaemdia.workers import celery_app, materialization
 
@@ -436,6 +439,138 @@ def test_post_date_without_a_timezone_is_brazil_time() -> None:
     assert sem_fuso is not None and sem_fuso.utcoffset() == BRASIL
     assert com_fuso == datetime(2026, 7, 24, 16, tzinfo=UTC)
     assert materialization._data(None) is None
+
+
+def _sample(name, **labels):
+    return REGISTRY.get_sample_value(name, labels) or 0.0
+
+
+def _multipla_acima_do_teto():
+    return _bom(
+        tipo="multipla",
+        selecoes=[
+            Selecao(mercado="Resultado", escolha="Velez", odd=1.5, evento="Velez x Instituto"),
+            Selecao(mercado="Resultado", escolha="Boca", odd=2.0, evento="Boca x River"),
+        ],
+        odd_total=900.0,
+    )
+
+
+def test_review_opened_is_counted_once_by_its_first_grave_conference(monkeypatch) -> None:
+    _instalar(monkeypatch, _banco())
+    parecer = conferir(_multipla_acima_do_teto().para_bilhete(), origem=Origem.IA)
+    grave = _extracao(motivo=parecer.motivo, grave=parecer.grave)
+    criadas = _sample("revisao_pendente_created_total", reason="coerência das odds")
+
+    materialization.materializar_aposta(7, grave, "h")
+    materialization.materializar_aposta(7, grave, "h")
+
+    assert parecer.grave
+    assert parecer.falhas[0].forca not in GRAVES
+    assert _sample("revisao_pendente_created_total", reason="coerência das odds") == (
+        pytest.approx(criadas + 1)
+    )
+
+
+def test_review_reason_label_is_a_grave_conference_or_a_fixed_word() -> None:
+    parecer = conferir(_multipla_acima_do_teto().para_bilhete(), origem=Origem.IA)
+    duvida = conferir(_bom(confianca=0.3).para_bilhete(), origem=Origem.IA)
+    bom = _bom().model_dump(mode="json")
+    duvidoso = {"bilhete": _bom(confianca=0.3).model_dump(mode="json"), "motivo": duvida.motivo}
+
+    def motivo_lido(extracao):
+        leitura = materialization.ExtracaoDoJson.model_validate(extracao).para_leitura()
+        (nova, *_) = materializar.apostas_da_leitura(
+            leitura, chat_id=1, message_id=2, valor_unidade_centavos=10_000
+        )
+        return nova.revisao_motivo
+
+    casos = {
+        parecer.motivo: "coerência das odds",
+        rodada.leitura_que_falhou(RuntimeError("boom")).motivo: "leitura falhou",
+        motivo_lido(_extracao(cupons=[duvidoso, {"bilhete": bom}])): "cupons sem stake",
+        motivo_lido(_extracao(bilhete=_bom(casa="Rodri").model_dump(mode="json"))): "outro",
+        materialization.MOTIVO_GRAVE_PADRAO: "conferência grave",
+        "apaguei porque era repetida": "outro",
+    }
+
+    assert {motivo: materialization.motivo_da_metrica(motivo) for motivo in casos} == casos
+    assert not duvida.grave
+    assert materialization.CONFERENCIAS_GRAVES == {
+        "campos essenciais",
+        "coerência das odds",
+        "data do jogo",
+        "evento plausível",
+        "faixa das odds",
+        "legibilidade",
+        "odd turbinada",
+    }
+
+
+def test_materialization_counts_the_bets_it_wrote_and_times_the_stage(monkeypatch) -> None:
+    _instalar(monkeypatch, _banco())
+    cupom = {"bilhete": _bom().model_dump(mode="json"), "motivo": None, "grave": False}
+    apostas = _sample("batch_bets_processed_total", stage="materialization")
+    tempos = _sample("batch_job_duration_seconds_count", stage="materialization", status="success")
+
+    materialization.materializar_aposta(7, _extracao(cupons=[cupom, cupom]), "h")
+
+    assert _sample("batch_bets_processed_total", stage="materialization") == pytest.approx(
+        apostas + 2
+    )
+    assert _sample(
+        "batch_job_duration_seconds_count", stage="materialization", status="success"
+    ) == pytest.approx(tempos + 1)
+
+
+def test_invalid_payload_fails_the_stage_with_its_exception(monkeypatch) -> None:
+    _instalar(monkeypatch, _banco())
+    falhas = _sample("batch_failed_total", stage="materialization", reason="ValidationError")
+
+    with pytest.raises(ValidationError):
+        materialization.materializar_aposta(7, _extracao(chat_id=None), "h")
+
+    assert _sample(
+        "batch_failed_total", stage="materialization", reason="ValidationError"
+    ) == pytest.approx(falhas + 1)
+
+
+def test_extraction_counts_as_many_bets_as_materialization_writes() -> None:
+    bom, ilegivel = _bom(), _bom(ilegivel=True)
+    formatos = [
+        (bilhete, motivo, nao_e_aposta, cupons)
+        for bilhete in (None, bom, ilegivel)
+        for motivo in (None, "a leitura falhou (APIError)")
+        for nao_e_aposta in (False, True)
+        for cupons in (
+            (),
+            (bom,),
+            (ilegivel,),
+            (bom, bom),
+            (bom, ilegivel),
+            (ilegivel, ilegivel),
+            (bom, bom, ilegivel),
+        )
+    ]
+
+    for bilhete, motivo, nao_e_aposta, cupons in formatos:
+        leitura = rodada.LeituraDaMensagem(
+            bilhete=bilhete,
+            motivo=motivo,
+            cupons=tuple(rodada.CupomLido(c) for c in cupons),
+            nao_e_aposta=nao_e_aposta,
+        )
+        recebida = materialization.ExtracaoDoJson.model_validate({
+            "chat_id": 1,
+            "message_id": 2,
+            **leitura.para_json(),
+        }).para_leitura()
+        novas = materializar.apostas_da_leitura(
+            recebida, chat_id=1, message_id=2, valor_unidade_centavos=10_000
+        )
+
+        assert leitura.quantidade_de_apostas == len(novas), leitura
+    assert len(formatos) == 84
 
 
 def test_get_engine_uses_the_database_url_without_a_pool(monkeypatch) -> None:

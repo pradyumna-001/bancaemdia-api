@@ -52,6 +52,22 @@ class LeituraDaMensagem:
             "nao_e_aposta": self.nao_e_aposta,
         }
 
+    @property
+    def quantidade_de_apostas(self) -> int:
+        # A mesma conta de `materializar.apostas_da_leitura`: a vazão e o custo por aposta contam
+        # as apostas que esta leitura vai virar, não as chamadas nem as mensagens.
+        if self.nao_e_aposta:
+            return 0
+        uteis = [c for c in self.cupons if not c.bilhete.ilegivel]
+        if len(uteis) > 1:
+            return len(uteis)
+        bilhete = uteis[0].bilhete if uteis else self.bilhete
+        if bilhete is None and self.cupons:
+            bilhete = self.cupons[0].bilhete
+        if bilhete is None:
+            return 1 if self.motivo else 0
+        return 0 if bilhete.ilegivel else 1
+
 
 def leitura_que_falhou(erro: BaseException, custo_usd: float = 0.0) -> LeituraDaMensagem:
     return LeituraDaMensagem(
