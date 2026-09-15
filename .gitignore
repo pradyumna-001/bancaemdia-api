@@ -47,9 +47,6 @@ Thumbs.db
 *.log
 logs/
 
-# Alembic
-alembic/versions/
-
 # Testcontainers
 .testcontainers/
 
