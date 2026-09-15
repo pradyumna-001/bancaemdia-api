@@ -5,8 +5,10 @@ from fastapi import FastAPI, status
 from fastapi.concurrency import run_in_threadpool
 from fastapi.responses import JSONResponse, Response
 from prometheus_client import CONTENT_TYPE_LATEST, generate_latest
+from slowapi.errors import RateLimitExceeded
 from sqlalchemy import text
 
+from bancaemdia.api.v1 import coleta
 from bancaemdia.db.session import check_db_health, engine
 from bancaemdia.middleware.rls import RLSMiddleware
 from bancaemdia.observability.metrics import metrics_registry
@@ -25,6 +27,9 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
 
 
 app = FastAPI(title="Bancaemdia API")
+app.state.limiter = coleta.limiter
+app.add_exception_handler(RateLimitExceeded, coleta.limite_estourado)
+app.include_router(coleta.router)
 
 
 app.add_middleware(RLSMiddleware)

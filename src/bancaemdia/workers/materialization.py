@@ -1,6 +1,6 @@
 import asyncio
 import re
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from datetime import datetime, timedelta, timezone
 from functools import lru_cache
 from typing import Any
@@ -12,7 +12,15 @@ from sqlalchemy.exc import InterfaceError, OperationalError
 from sqlalchemy.ext.asyncio import AsyncEngine, AsyncSession, create_async_engine
 from sqlalchemy.pool import NullPool
 
+from bancaemdia.coleta.leitores import LEITORES
 from bancaemdia.config import get_settings
+from bancaemdia.domain.coleta_casa import (
+    casa_da_coleta,
+    chave_casa,
+    eventos_da_criacao,
+    eventos_do_resultado,
+    validar,
+)
 from bancaemdia.domain.conferencias import GRAVES, Bilhete, Origem, conferir
 from bancaemdia.domain.event_bus import ApostaCriada, get_event_bus
 from bancaemdia.domain.financeiro import Aposta as ApostaFinanceira
@@ -25,6 +33,7 @@ from bancaemdia.domain.materializar import (
     eventos_da_releitura,
     projetar,
 )
+from bancaemdia.domain.registros import ColetaCasa
 from bancaemdia.domain.temporal import VALOR_UNIDADE_PADRAO_CENTAVOS
 from bancaemdia.extracao.modelos import ExtracaoBilhete
 from bancaemdia.observability.metrics import (
@@ -35,6 +44,8 @@ from bancaemdia.observability.metrics import (
     revisao_pendente_created,
 )
 from bancaemdia.repositories.aposta_repo import ApostaRepo
+from bancaemdia.repositories.casa_repo import CasaRepo
+from bancaemdia.repositories.coleta_casa_repo import ColetaCasaRepo
 from bancaemdia.repositories.conta_casa_repo import ContaCasaRepo
 from bancaemdia.repositories.evento_repo import EventoRepo
 from bancaemdia.repositories.revisao_pendente_repo import RevisaoPendenteRepo
@@ -151,6 +162,31 @@ async def _set_current_user(session: AsyncSession, usuario_id: int) -> None:
     )
 
 
+async def _historico(
+    session: AsyncSession, usuario_id: int, chave: str
+) -> list[tuple[str, str, dict[str, Any]]]:
+    # Entrega "pelo menos uma vez": duas cópias da mesma aposta não podem decidir juntas que
+    # ela é nova.
+    await session.execute(
+        text("SELECT pg_advisory_xact_lock(hashtextextended(:chave, 0))"),
+        {"chave": f"{usuario_id}:{chave}"},
+    )
+    return [
+        (e.tipo, e.fonte, e.payload_json)
+        for e in await EventoRepo().list_by_aposta_chave(session, usuario_id, chave)
+    ]
+
+
+def _financeira(estado: dict[str, Any]) -> ApostaFinanceira:
+    return ApostaFinanceira(
+        stake_unidades=float(estado.get("stake_unidades") or 0.0),
+        valor_unidade_centavos=int(
+            estado.get("valor_unidade_centavos") or VALOR_UNIDADE_PADRAO_CENTAVOS
+        ),
+        freebet=bool(estado.get("freebet")),
+    )
+
+
 async def _gravar(
     session: AsyncSession,
     usuario_id: int,
@@ -159,17 +195,7 @@ async def _gravar(
     midia_hash: str | None,
 ) -> Gravada:
     await _set_current_user(session, usuario_id)
-    # Entrega "pelo menos uma vez": duas cópias da mesma aposta não podem decidir juntas que
-    # ela é nova.
-    await session.execute(
-        text("SELECT pg_advisory_xact_lock(hashtextextended(:chave, 0))"),
-        {"chave": f"{usuario_id}:{nova.chave}"},
-    )
-    eventos = EventoRepo()
-    historico = [
-        (e.tipo, e.fonte, e.payload_json)
-        for e in await eventos.list_by_aposta_chave(session, usuario_id, nova.chave)
-    ]
+    historico = await _historico(session, usuario_id, nova.chave)
     atual, protegidos = projetar(historico)
     criada = not any(tipo == "APOSTA_CRIADA" for tipo, _, _ in historico)
     novos = (
@@ -177,6 +203,7 @@ async def _gravar(
         if criada
         else eventos_da_releitura(nova, atual, protegidos)
     )
+    eventos = EventoRepo()
     for evento in novos:
         da_mensagem = evento.tipo == "APOSTA_CRIADA"
         await eventos.append(
@@ -195,13 +222,7 @@ async def _gravar(
 
     estado, _ = projetar([*historico, *((e.tipo, e.fonte, e.payload) for e in novos)])
     data_aposta = _data(estado.get("data_aposta"))
-    financeira = ApostaFinanceira(
-        stake_unidades=float(estado.get("stake_unidades") or 0.0),
-        valor_unidade_centavos=int(
-            estado.get("valor_unidade_centavos") or VALOR_UNIDADE_PADRAO_CENTAVOS
-        ),
-        freebet=bool(estado.get("freebet")),
-    )
+    financeira = _financeira(estado)
     dados: dict[str, object] = {
         "usuario_id": usuario_id,
         "chave": nova.chave,
@@ -231,6 +252,31 @@ async def _gravar(
     if aposta is None:
         raise GravacaoConcorrenteError(f"outra gravação mais nova de {nova.chave} chegou antes")
 
+    revisao = await _revisar(
+        session,
+        usuario_id,
+        nova.chave,
+        estado,
+        novos,
+        criada,
+        midia_hash,
+        {"aposta_chave": nova.chave, "extracao": extracao_json},
+    )
+    return Gravada(
+        nova.chave, nova.origem, criada, len(novos), revisao, bool(estado.get("revisao_grave"))
+    )
+
+
+async def _revisar(
+    session: AsyncSession,
+    usuario_id: int,
+    chave: str,
+    estado: dict[str, Any],
+    novos: list[EventoNovo],
+    criada: bool,
+    midia_hash: str | None,
+    extracao_bruta: dict[str, Any],
+) -> str | None:
     grave = bool(estado.get("revisao_grave"))
     motivo = (estado.get("revisao_motivo") or MOTIVO_GRAVE_PADRAO) if grave else None
     motivo_mudou = any(e.tipo == "CORRECAO_MANUAL" and "revisao_motivo" in e.payload for e in novos)
@@ -238,24 +284,23 @@ async def _gravar(
     if motivo_mudou:
         # Como no projeto antigo, a fila segue a leitura: motivo novo substitui o velho, e a aposta
         # que ficou limpa sai da fila.
-        await revisoes.resolve_superseded(session, usuario_id, nova.chave, motivo)
-    revisao = None
+        await revisoes.resolve_superseded(session, usuario_id, chave, motivo)
     if (
-        motivo is not None
-        and (criada or motivo_mudou)
-        and not await revisoes.has_open(session, usuario_id, nova.chave, motivo)
+        motivo is None
+        or not (criada or motivo_mudou)
+        or await revisoes.has_open(session, usuario_id, chave, motivo)
     ):
-        await revisoes.create(
-            session,
-            {
-                "usuario_id": usuario_id,
-                "midia_hash": midia_hash,
-                "motivo": motivo,
-                "extracao_bruta": {"aposta_chave": nova.chave, "extracao": extracao_json},
-            },
-        )
-        revisao = motivo
-    return Gravada(nova.chave, nova.origem, criada, len(novos), revisao, grave)
+        return None
+    await revisoes.create(
+        session,
+        {
+            "usuario_id": usuario_id,
+            "midia_hash": midia_hash,
+            "motivo": motivo,
+            "extracao_bruta": extracao_bruta,
+        },
+    )
+    return motivo
 
 
 async def gravar_leitura(
@@ -335,3 +380,130 @@ materializar_aposta_task = app.task(
     retry_jitter=False,
     max_retries=3,
 )(materializar_aposta)
+
+
+async def _gravar_coletada(
+    session: AsyncSession, usuario_id: int, coleta: ColetaCasa, casa: str, nome_da_casa: str
+) -> Gravada:
+    coletada = replace(LEITORES[casa](coleta.bruto_json), casa=casa)
+    chave = chave_casa(casa, coletada.identidade)
+    historico = await _historico(session, usuario_id, chave)
+    atual, _ = projetar(historico)
+    criada = not any(tipo == "APOSTA_CRIADA" for tipo, _, _ in historico)
+    data_aposta = _data(coletada.data_aposta)
+    if criada:
+        # A unidade vigente é a do dia que conta para a aposta da casa, o do jogo.
+        unidade = (
+            None
+            if data_aposta is None
+            else await UnidadeRepo().get_vigente(session, usuario_id, data_aposta)
+        )
+        valor_unidade = VALOR_UNIDADE_PADRAO_CENTAVOS if unidade is None else unidade.valor_centavos
+        validar(coletada, valor_unidade)
+        novos = eventos_da_criacao(coletada, valor_unidade)
+    else:
+        novos = eventos_do_resultado(coletada, atual)
+    eventos = EventoRepo()
+    for evento in novos:
+        await eventos.append(
+            session,
+            {
+                "usuario_id": usuario_id,
+                "tipo": evento.tipo,
+                "fonte": evento.fonte,
+                "payload_json": evento.payload,
+                "confianca": evento.confianca,
+                "chat_id": None,
+                "message_id": None,
+                "aposta_chave": chave,
+            },
+        )
+
+    estado, _ = projetar([*historico, *((e.tipo, e.fonte, e.payload) for e in novos)])
+    financeira = _financeira(estado)
+    dados: dict[str, object] = {
+        "usuario_id": usuario_id,
+        "chave": chave,
+        "origem": "casa",
+        "data_aposta": _data(estado.get("data_aposta")),
+        "stake_unidades": financeira.stake_unidades,
+        "stake_centavos": financeira.stake_centavos,
+        "valor_aposta_centavos": financeira.valor_aposta_centavos,
+        "odd": estado.get("odd"),
+        "freebet": financeira.freebet,
+        "estado": estado.get("estado", "PENDENTE"),
+        "retorno_centavos": estado.get("retorno_centavos"),
+        "revisao_grave": bool(estado.get("revisao_grave")),
+    }
+    if criada:
+        conta = await ContaCasaRepo().get_vigente_by_nome_da_casa(
+            session, usuario_id, nome_da_casa, data_aposta
+        )
+        dados["conta_casa_id"] = None if conta is None else conta.id
+    if await ApostaRepo().upsert_materializada(session, dados) is None:
+        raise GravacaoConcorrenteError(f"outra gravação mais nova de {chave} chegou antes")
+
+    revisao = await _revisar(
+        session,
+        usuario_id,
+        chave,
+        estado,
+        novos,
+        criada,
+        None,
+        {"aposta_chave": chave, "coleta_id": coleta.id},
+    )
+    return Gravada(chave, "casa", criada, len(novos), revisao, bool(estado.get("revisao_grave")))
+
+
+async def gravar_coleta(engine: AsyncEngine, usuario_id: int, coleta_id: int) -> Gravada | None:
+    async with (
+        engine.connect() as conexao,
+        AsyncSession(bind=conexao, expire_on_commit=False) as session,
+    ):
+        async with session.begin():
+            await _set_current_user(session, usuario_id)
+            coletas = ColetaCasaRepo()
+            # A linha é travada antes de ser lida: uma tarefa atrasada processa a captura mais nova,
+            # nunca a velha por cima dela, e a rota só grava outra captura depois deste commit.
+            coleta = await coletas.get_by_id_for_update(session, usuario_id, coleta_id)
+            if coleta is None:
+                return None
+            nome_da_casa = await CasaRepo().get_nome_by_id(session, coleta.casa_id)
+            casa = None if nome_da_casa is None else casa_da_coleta(nome_da_casa)
+            if nome_da_casa is None or casa is None:
+                return None
+            gravada = await _gravar_coletada(session, usuario_id, coleta, casa, nome_da_casa)
+            await coletas.set_processado(session, usuario_id, coleta.id)
+        if gravada.revisao is not None:
+            revisao_pendente_created.labels(reason=motivo_da_metrica(gravada.revisao)).inc()
+        if gravada.criada:
+            get_event_bus().publish(
+                ApostaCriada(usuario_id, gravada.chave, "casa", gravada.revisao_grave)
+            )
+    return gravada
+
+
+def materializar_coleta(usuario_id: int, coleta_id: int) -> dict[str, object]:
+    with observe_stage(MATERIALIZATION_QUEUE):
+        gravada = asyncio.run(gravar_coleta(get_engine(), usuario_id, coleta_id))
+        if gravada is not None:
+            batch_bets_processed.labels(stage=MATERIALIZATION_QUEUE).inc()
+    return {
+        "usuario_id": usuario_id,
+        "coleta_id": coleta_id,
+        "aposta": None if gravada is None else gravada.chave,
+        "criada": gravada is not None and gravada.criada,
+        "eventos": 0 if gravada is None else gravada.eventos,
+        "revisao": gravada is not None and gravada.revisao is not None,
+    }
+
+
+materializar_coleta_task = app.task(
+    name="materialization.materializar_coleta",
+    autoretry_for=RETRY_ON,
+    retry_backoff=30,
+    retry_backoff_max=600,
+    retry_jitter=False,
+    max_retries=3,
+)(materializar_coleta)

@@ -46,6 +46,15 @@ class Settings(BaseSettings):
     ANTHROPIC_WINDOW: int = Field(
         default=60, gt=0, description="Anthropic rate-limit window in seconds"
     )
+    COLETA_TOKEN_SECRET: str = Field(
+        ..., description="HMAC key for the browser extension's coleta tokens"
+    )
+    COLETA_RATE_LIMIT: str = Field(
+        default="10/minute", description="Coleta sends allowed per extension token"
+    )
+    COLETA_DAILY_LIMIT: int = Field(
+        default=5000, ge=0, description="Raw house bets stored per user per day; 0 disables"
+    )
     JWT_SECRET_KEY: str = Field(..., description="JWT signing secret key")
     JWT_ALGORITHM: str = Field(default="RS256", description="JWT signing algorithm")
     JWT_JWKS_URL: str | None = Field(

@@ -277,3 +277,89 @@ def test_failed_resend_only_fills_the_date() -> None:
     (evento,) = materializar.eventos_da_releitura(nova, atual, set())
 
     assert evento.payload == {"data_aposta": "2026-07-24T16:00:00"}
+
+
+def _da_casa(*resultados):
+    criada = (
+        "APOSTA_CRIADA",
+        "casa",
+        {"origem": "casa", "odd": 1.9, "stake_unidades": 1.6, "valor_unidade_centavos": 10_000},
+    )
+    return materializar.projetar([criada, *resultados])[0]
+
+
+def test_paid_value_from_the_house_is_a_fact() -> None:
+    estado = _da_casa((
+        "RESULTADO_REGISTRADO",
+        "casa",
+        {"estado": "GREEN", "retorno_centavos": 29000},
+    ))
+
+    assert (estado["estado"], estado["retorno_centavos"], estado["retorno_informado"]) == (
+        "GREEN",
+        29000,
+        True,
+    )
+
+
+def test_result_without_a_paid_value_follows_the_formula() -> None:
+    estado = _da_casa(("RESULTADO_REGISTRADO", "casa", {"estado": "GREEN", "comissao_centavos": 0}))
+
+    assert (estado["retorno_centavos"], estado["retorno_informado"]) == (30400, False)
+
+
+def test_reopened_bet_clears_the_return_and_the_fact_mark() -> None:
+    estado = _da_casa(
+        ("CASHOUT_REGISTRADO", "casa", {"retorno_centavos": 95}),
+        ("RESULTADO_REGISTRADO", "casa", {"estado": "PENDENTE", "retorno_centavos": None}),
+    )
+
+    assert (estado["estado"], estado["retorno_centavos"], estado["retorno_informado"]) == (
+        "PENDENTE",
+        None,
+        False,
+    )
+
+
+def test_cashout_keeps_what_was_received_even_when_the_stake_changes() -> None:
+    estado = _da_casa(
+        ("CASHOUT_REGISTRADO", "casa", {"retorno_centavos": 95}),
+        ("STAKE_ALTERADA", "manual", {"de": 1.6, "para": 3.2}),
+    )
+
+    assert (estado["estado"], estado["retorno_centavos"]) == ("CASHOUT", 95)
+
+
+def test_stake_changed_after_the_result_recalculates_the_return() -> None:
+    estado = _da_casa(
+        ("RESULTADO_REGISTRADO", "export", {"estado": "GREEN"}),
+        ("STAKE_ALTERADA", "manual", {"de": 1.6, "para": 3.2}),
+    )
+
+    assert estado["retorno_centavos"] == 60800
+
+
+def test_return_fixed_by_hand_is_a_fact() -> None:
+    estado = _da_casa(
+        ("RESULTADO_REGISTRADO", "casa", {"estado": "GREEN"}),
+        ("CORRECAO_MANUAL", "manual", {"retorno_centavos": 12345}),
+        ("ODD_ALTERADA", "export", {"de": 1.9, "para": 2.5}),
+    )
+
+    assert (estado["retorno_centavos"], estado["retorno_informado"]) == (12345, True)
+
+
+def test_unknown_state_has_no_return() -> None:
+    estado = _da_casa(("RESULTADO_REGISTRADO", "casa", {"estado": "MEIO"}))
+
+    assert estado["retorno_centavos"] is None
+
+
+def test_telegram_history_without_results_gains_no_result_fields() -> None:
+    estado, _ = materializar.projetar([
+        ("APOSTA_CRIADA", "ia", {"origem": "telegram", "odd": 1.82, "stake_unidades": 0.0}),
+        ("ODD_ALTERADA", "export", {"de": 1.82, "para": 1.9}),
+    ])
+
+    assert "estado" not in estado
+    assert "retorno_centavos" not in estado

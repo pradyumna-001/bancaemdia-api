@@ -5,6 +5,7 @@ from dataclasses import dataclass, field
 from typing import Any
 
 from bancaemdia.domain.conferencias import Bilhete
+from bancaemdia.domain.financeiro import Aposta, Estado
 from bancaemdia.domain.vocabulario import CASAS
 
 SEM_SELECAO_LIDA = "(sem seleção lida)"
@@ -270,6 +271,19 @@ def apostas_da_leitura(
     return [nova(0, bilhete, casa, motivo, grave)]
 
 
+def _retorno_calculado(estado: dict[str, Any]) -> int | None:
+    if estado.get("estado") not in set(Estado):
+        return None
+    return Aposta(
+        stake_unidades=float(estado.get("stake_unidades") or 0.0),
+        valor_unidade_centavos=int(estado.get("valor_unidade_centavos") or 0),
+        odd=estado.get("odd"),
+        estado=Estado(estado["estado"]),
+        freebet=bool(estado.get("freebet")),
+        comissao_centavos=int(estado.get("comissao_centavos") or 0),
+    ).retorno_calculado()
+
+
 def projetar(eventos: Iterable[tuple[str, str, dict[str, Any]]]) -> tuple[dict[str, Any], set[str]]:
     estado: dict[str, Any] = {"odd": None, "stake_unidades": 0.0, "revisao_grave": False}
     protegidos: set[str] = set()
@@ -280,6 +294,23 @@ def projetar(eventos: Iterable[tuple[str, str, dict[str, Any]]]) -> tuple[dict[s
             estado["odd"] = payload.get("para")
         elif tipo == "STAKE_ALTERADA":
             estado["stake_unidades"] = payload.get("para", estado["stake_unidades"])
+        elif tipo == "RESULTADO_REGISTRADO":
+            estado["estado"] = payload.get("estado", estado.get("estado", "PENDENTE"))
+            estado["comissao_centavos"] = payload.get(
+                "comissao_centavos", estado.get("comissao_centavos", 0)
+            )
+            # O que a casa pagou vira fato e não é recalculado; sem valor, quem manda é a fórmula,
+            # e a marca volta, para uma aposta que foi cashout e depois ganhou não congelar.
+            estado["retorno_informado"] = payload.get("retorno_centavos") is not None
+            estado["retorno_centavos"] = (
+                payload["retorno_centavos"]
+                if estado["retorno_informado"]
+                else _retorno_calculado(estado)
+            )
+        elif tipo == "CASHOUT_REGISTRADO":
+            estado["estado"] = "CASHOUT"
+            estado["retorno_centavos"] = payload.get("retorno_centavos", 0)
+            estado["retorno_informado"] = True
         elif tipo == "APOSTA_CANCELADA" and payload.get("motivo") not in (None, "", MOTIVO_APAGADA):
             # Quem apagou a aposta não tem nada a revisar: foi decisão dela, e a fila não pede
             # que confirme a própria decisão.
@@ -287,8 +318,14 @@ def projetar(eventos: Iterable[tuple[str, str, dict[str, Any]]]) -> tuple[dict[s
             estado["revisao_grave"] = False
         elif tipo == "CORRECAO_MANUAL":
             estado.update(payload)
+            if payload.get("retorno_centavos") is not None:
+                estado["retorno_informado"] = True
             if fonte in FONTES_DA_PESSOA:
                 protegidos.update(payload)
+        # Stake ou odd que mudam depois do resultado mudam o retorno: congelado, o lucro saía
+        # errado em silêncio quando o tipster editava a stake depois de marcar o green.
+        if not estado.get("retorno_informado") and estado.get("estado", "PENDENTE") != "PENDENTE":
+            estado["retorno_centavos"] = _retorno_calculado(estado)
     return estado, protegidos
 
 
