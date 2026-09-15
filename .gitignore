@@ -13,6 +13,7 @@ __pycache__/
 .ruff_cache/
 .coverage
 coverage.xml
+test-results.xml
 *.cover
 .hypothesis/
 .tox/
@@ -46,9 +47,6 @@ Thumbs.db
 # Logs
 *.log
 logs/
-
-# Alembic
-alembic/versions/
 
 # Testcontainers
 .testcontainers/
