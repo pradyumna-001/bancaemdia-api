@@ -131,6 +131,10 @@ module = ["asyncpg.*"]
 ignore_missing_imports = true
 
 [[tool.mypy.overrides]]
+module = ["jose.*"]
+ignore_missing_imports = true
+
+[[tool.mypy.overrides]]
 module = ["bancaemdia.observability.metrics"]
 disallow_untyped_calls = false
 

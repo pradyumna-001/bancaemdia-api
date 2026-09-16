@@ -89,6 +89,18 @@ class TestWorkerMetricsPort:
         assert s.WORKER_METRICS_PORT == 9808
 
 
+class TestJwtExpiryMinutes:
+    def test_defaults_to_an_hour(self, monkeypatch):
+        monkeypatch.delenv("JWT_EXPIRY_MINUTES", raising=False)
+        s = Settings(_env_file=None)
+        assert s.JWT_EXPIRY_MINUTES == 60
+
+    def test_zero_is_rejected(self, monkeypatch):
+        monkeypatch.setenv("JWT_EXPIRY_MINUTES", "0")
+        with pytest.raises(ValidationError):
+            Settings(_env_file=None)
+
+
 class TestGetSettingsSingleton:
     def test_returns_same_instance(self):
         assert get_settings() is get_settings()
