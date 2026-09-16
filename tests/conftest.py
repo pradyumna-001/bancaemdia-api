@@ -16,6 +16,7 @@ os.environ.setdefault(
 os.environ.setdefault("REDIS_URL", "redis://localhost:6379/0")
 os.environ.setdefault("SECRET_KEY", "TEST_SECRET_KEY_REPLACE_IN_PRODUCTION")
 os.environ.setdefault("JWT_SECRET_KEY", "TEST_JWT_SECRET")
+os.environ.setdefault("COLETA_TOKEN_SECRET", "TEST_COLETA_TOKEN_SECRET")
 os.environ.setdefault("JWT_AUDIENCE", "test")
 os.environ.setdefault("JWT_ISSUER", "test")
 os.environ.setdefault("APP_ENV", "development")

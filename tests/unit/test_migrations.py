@@ -36,11 +36,12 @@ def _downgrade_sql() -> str:
     return buffer.getvalue()
 
 
-def test_the_baseline_is_the_only_revision() -> None:
-    revisions = list(ScriptDirectory.from_config(_config()).walk_revisions())
-    assert [r.revision for r in revisions] == [BASELINE]
-    assert revisions[0].down_revision is None
-    assert "baseline_028_from_sqlite" in revisions[0].doc
+def test_the_baseline_is_the_root_revision() -> None:
+    script = ScriptDirectory.from_config(_config())
+    assert script.get_base() == BASELINE
+    baseline = script.get_revision(BASELINE)
+    assert baseline.down_revision is None
+    assert "baseline_028_from_sqlite" in baseline.doc
 
 
 def test_upgrade_creates_every_model_table_once() -> None:

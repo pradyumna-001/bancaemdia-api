@@ -1,0 +1,219 @@
+{
+  "contrato": 1,
+  "casa": "betfair",
+  "capturado_em": "2026-09-10T22:00:00Z",
+  "apostas": [
+    {
+      "__typename": "BetCardGroup",
+      "urn": "ppb:tbd:card:bet:group:2700000001|sbk",
+      "full": {
+        "edges": [
+          {
+            "node": {
+              "__typename": "SportsbookBetCard",
+              "bet": {
+                "urn": "ppb:sbkBet:2700000001",
+                "__typename": "SportsbookBet",
+                "betReceiptId": "O/22600000/0000001",
+                "id": "2700000001",
+                "isSettled": true,
+                "profitAndLoss": 0,
+                "isOddsBoosted": false,
+                "betType": "SGL",
+                "isEachWay": false,
+                "isSGM": false,
+                "currentSize": 39.95,
+                "numLines": 1,
+                "currentSizePerLine": 39.95,
+                "result": "LOST",
+                "resultType": "CONFIRMED",
+                "cashoutQuote": null,
+                "bonus": 0,
+                "product": "SPORTSBOOK",
+                "betPrice": null,
+                "originalBetPrice": null,
+                "legs": [{"urn": "ppb:sbkBetLeg:2700000001/0", "__typename": "BetLeg"}],
+                "lowestEventStartTime": "2026-08-05T22:30:00.000Z"
+              }
+            }
+          },
+          {
+            "node": {
+              "__typename": "SportsbookExpandableLegCardGroup",
+              "full": {
+                "edges": [
+                  {
+                    "node": {
+                      "__typename": "SportsbookBetLegCardGroup",
+                      "full": {
+                        "edges": [
+                          {
+                            "node": {
+                              "__typename": "BetLegCard",
+                              "leg": {
+                                "__typename": "BetLeg",
+                                "type": "SS",
+                                "result": "LOST",
+                                "legNumber": 1,
+                                "parts": [
+                                  {
+                                    "marketBetUrn": "ppb:marketBet:924.500000001",
+                                    "marketId": "924.500000001",
+                                    "sportId": "1",
+                                    "eventUrn": "ppb:event:35800001",
+                                    "price": {"decimal": 4.5, "__typename": "SportsbookOdds"},
+                                    "originalPrice": {"decimal": 4.5},
+                                    "priceType": "LIVE",
+                                    "eventDescription": "Gremio x Mirassol",
+                                    "eventMarketDescription": "Mercados de cartão vermelho",
+                                    "marketType": "RED_CARD_MARKETS",
+                                    "selectionId": 12300001,
+                                    "selectionName": "Um cartão vermelho na partida",
+                                    "handicap": null,
+                                    "rule4Deductions": 0,
+                                    "deadHeatWinDeductions": 0,
+                                    "participants": [],
+                                    "__typename": "LegPart"
+                                  }
+                                ]
+                              }
+                            }
+                          }
+                        ]
+                      }
+                    }
+                  }
+                ]
+              }
+            }
+          },
+          {
+            "node": {
+              "__typename": "FixtureCard",
+              "fixture": {
+                "__typename": "FootballFixture",
+                "home": {"name": "Gremio"},
+                "away": {"name": "Mirassol"},
+                "scheduledAt": "2026-08-05T22:30:00.000Z",
+                "score": {"home": 1, "away": 0}
+              },
+              "sportevent": {
+                "__typename": "SportsEvent",
+                "eventId": 35800001,
+                "name": "Gremio x Mirassol",
+                "openDate": "2026-08-05T22:30:00.000Z",
+                "sport": {"name": "Futebol", "sportId": 1}
+              }
+            }
+          }
+        ]
+      }
+    },
+    {
+      "__typename": "BetCardGroup",
+      "urn": "ppb:tbd:card:bet:group:2700000002|sbk",
+      "full": {
+        "edges": [
+          {
+            "node": {
+              "__typename": "SportsbookBetCard",
+              "bet": {
+                "urn": "ppb:sbkBet:2700000002",
+                "__typename": "SportsbookBet",
+                "betReceiptId": "O/22600000/0000002",
+                "id": "2700000002",
+                "isSettled": false,
+                "profitAndLoss": 0,
+                "isOddsBoosted": false,
+                "betType": "SGL",
+                "isEachWay": false,
+                "isSGM": false,
+                "currentSize": 20.0,
+                "numLines": 1,
+                "currentSizePerLine": 20.0,
+                "result": "OPEN",
+                "resultType": null,
+                "cashoutQuote": null,
+                "bonus": 0,
+                "product": "SPORTSBOOK",
+                "betPrice": {"decimal": 2.1},
+                "originalBetPrice": {"decimal": 2.1},
+                "legs": [{"urn": "ppb:sbkBetLeg:2700000002/0", "__typename": "BetLeg"}],
+                "lowestEventStartTime": "2026-09-12T19:00:00.000Z"
+              }
+            }
+          },
+          {
+            "node": {
+              "__typename": "SportsbookExpandableLegCardGroup",
+              "full": {
+                "edges": [
+                  {
+                    "node": {
+                      "__typename": "SportsbookBetLegCardGroup",
+                      "full": {
+                        "edges": [
+                          {
+                            "node": {
+                              "__typename": "BetLegCard",
+                              "leg": {
+                                "__typename": "BetLeg",
+                                "type": "SS",
+                                "result": "OPEN",
+                                "legNumber": 1,
+                                "parts": [
+                                  {
+                                    "marketBetUrn": "ppb:marketBet:924.500000002",
+                                    "marketId": "924.500000002",
+                                    "sportId": "1",
+                                    "eventUrn": "ppb:event:35800002",
+                                    "price": {"decimal": 2.1, "__typename": "SportsbookOdds"},
+                                    "originalPrice": {"decimal": 2.1},
+                                    "priceType": "EARLY",
+                                    "eventDescription": "Cruzeiro x Botafogo",
+                                    "eventMarketDescription": "Resultado final",
+                                    "marketType": "MATCH_ODDS",
+                                    "selectionId": 12300002,
+                                    "selectionName": "Cruzeiro",
+                                    "handicap": null,
+                                    "rule4Deductions": 0,
+                                    "deadHeatWinDeductions": 0,
+                                    "participants": [],
+                                    "__typename": "LegPart"
+                                  }
+                                ]
+                              }
+                            }
+                          }
+                        ]
+                      }
+                    }
+                  }
+                ]
+              }
+            }
+          },
+          {
+            "node": {
+              "__typename": "FixtureCard",
+              "fixture": {
+                "__typename": "FootballFixture",
+                "home": {"name": "Cruzeiro"},
+                "away": {"name": "Botafogo"},
+                "scheduledAt": "2026-09-12T19:00:00.000Z",
+                "score": {"home": null, "away": null}
+              },
+              "sportevent": {
+                "__typename": "SportsEvent",
+                "eventId": 35800002,
+                "name": "Cruzeiro x Botafogo",
+                "openDate": "2026-09-12T19:00:00.000Z",
+                "sport": {"name": "Futebol", "sportId": 1}
+              }
+            }
+          }
+        ]
+      }
+    }
+  ]
+}
