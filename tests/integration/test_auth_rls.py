@@ -128,6 +128,7 @@ def cliente(banco, chave, monkeypatch):
         class_=AsyncSession,
     )
     monkeypatch.setattr(db_session, "SessionLocal", sessoes)
+    monkeypatch.setattr(db_session, "ReplicaSession", sessoes)
     monkeypatch.setattr(auth_middleware, "get_jwks_cache", lambda: cache)
     rotas = Rotas()
     monkeypatch.setattr(
