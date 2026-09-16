@@ -62,6 +62,9 @@ class Settings(BaseSettings):
     )
     JWT_AUDIENCE: str = Field(..., description="Expected JWT audience claim")
     JWT_ISSUER: str = Field(..., description="Expected JWT issuer claim")
+    JWT_EXPIRY_MINUTES: int = Field(
+        default=60, gt=0, description="Access token lifetime in minutes, for the token issuer"
+    )
     APP_ENV: str = Field(..., description="Runtime environment: development | staging | production")
     LOG_LEVEL: str = Field(default="INFO", description="Structured log level")
     OTEL_EXPORTER_OTLP_ENDPOINT: str | None = Field(

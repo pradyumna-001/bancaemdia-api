@@ -9,6 +9,7 @@ from slowapi.errors import RateLimitExceeded
 from sqlalchemy import text
 
 from bancaemdia.api.v1 import coleta
+from bancaemdia.auth.middleware import JWTAuthMiddleware
 from bancaemdia.db.session import check_db_health, engine
 from bancaemdia.middleware.rls import RLSMiddleware
 from bancaemdia.observability.metrics import metrics_registry
@@ -33,6 +34,9 @@ app.include_router(coleta.router)
 
 
 app.add_middleware(RLSMiddleware)
+# O Starlette roda primeiro o último middleware registrado: a autenticação vem depois do RLS aqui para
+# rodar antes dele. Na ordem inversa a rota responde 200 sem enxergar as linhas do usuário (medido).
+app.add_middleware(JWTAuthMiddleware)
 
 
 @app.get("/health")
