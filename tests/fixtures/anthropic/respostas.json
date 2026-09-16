@@ -1,0 +1,96 @@
+{
+  "simples": {
+    "stop_reason": "end_turn",
+    "cupons": [
+      {
+        "casa": "Betano",
+        "tipo": "simples",
+        "evento": "Velez x Instituto",
+        "selecoes": [
+          {"mercado": "Handicap", "escolha": "Instituto", "linha": null, "odd": 1.82, "evento": null}
+        ],
+        "odd_total": 1.82,
+        "odd_original": null,
+        "quando": null,
+        "ilegivel": false,
+        "confianca": 0.95
+      }
+    ]
+  },
+  "odd_corrigida": {
+    "stop_reason": "end_turn",
+    "cupons": [
+      {
+        "casa": "Betano",
+        "tipo": "simples",
+        "evento": "Velez x Instituto",
+        "selecoes": [
+          {"mercado": "Handicap", "escolha": "Instituto", "linha": null, "odd": 1.95, "evento": null}
+        ],
+        "odd_total": 1.95,
+        "odd_original": null,
+        "quando": null,
+        "ilegivel": false,
+        "confianca": 0.95
+      }
+    ]
+  },
+  "dois_cupons": {
+    "stop_reason": "end_turn",
+    "cupons": [
+      {
+        "casa": "Betano",
+        "tipo": "simples",
+        "evento": "Flamengo x Palmeiras",
+        "selecoes": [
+          {"mercado": "Resultado final", "escolha": "Flamengo", "linha": null, "odd": 2.1, "evento": null}
+        ],
+        "odd_total": 2.1,
+        "odd_original": null,
+        "quando": null,
+        "ilegivel": false,
+        "confianca": 0.93
+      },
+      {
+        "casa": "Betano",
+        "tipo": "simples",
+        "evento": "Santos x Bahia",
+        "selecoes": [
+          {"mercado": "Ambas marcam", "escolha": "Sim", "linha": null, "odd": 1.75, "evento": null}
+        ],
+        "odd_total": 1.75,
+        "odd_original": null,
+        "quando": null,
+        "ilegivel": false,
+        "confianca": 0.93
+      }
+    ]
+  },
+  "odds_incoerentes": {
+    "stop_reason": "end_turn",
+    "cupons": [
+      {
+        "casa": "Betano",
+        "tipo": "multipla",
+        "evento": null,
+        "selecoes": [
+          {"mercado": "Resultado final", "escolha": "Gremio", "linha": null, "odd": 1.5, "evento": "Gremio x Mirassol"},
+          {"mercado": "Resultado final", "escolha": "Ceara", "linha": null, "odd": 2.0, "evento": "Ceara x Vitoria"}
+        ],
+        "odd_total": 9.9,
+        "odd_original": null,
+        "quando": null,
+        "ilegivel": false,
+        "confianca": 0.9
+      }
+    ]
+  },
+  "ilegivel": {
+    "stop_reason": "end_turn",
+    "cupons": []
+  },
+  "recusa": {
+    "stop_reason": "refusal",
+    "cupons": null
+  }
+}
