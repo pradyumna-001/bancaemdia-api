@@ -196,6 +196,99 @@ async def test_aposta_list_applies_every_filter() -> None:
     assert _params(session.statements[0])["param_1"] == 20
 
 
+async def test_aposta_get_by_chave_for_update_locks_the_row() -> None:
+    session = _Session(_aposta())
+
+    aposta = await ApostaRepo().get_by_chave_for_update(session, 1, "t:1:1:0")
+
+    assert aposta is not None and aposta.chave == "t:1:1:0"
+    assert "FOR UPDATE" in _sql(session.statements[0])
+
+
+async def test_aposta_page_counts_the_filter_in_the_same_query() -> None:
+    class _Linha:
+        def __init__(self, aposta: Any, total: int) -> None:
+            self.aposta = aposta
+            self.total = total
+
+        def __getitem__(self, indice: int) -> Any:
+            return self.aposta
+
+    class _Session2(_Session):
+        async def execute(self, statement: Any, params: Any = None) -> Any:
+            self.statements.append(statement)
+
+            class _R:
+                def all(self) -> list[Any]:
+                    return [_Linha(_aposta(), 137)]
+
+            return _R()
+
+    session = _Session2()
+
+    apostas, total = await ApostaRepo().list_page(session, 1, {}, 3, 25)
+
+    assert (len(apostas), total) == (1, 137)
+    sql = _sql(session.statements[0])
+    # O total vem na mesma ida ao banco, e a apagada fica de fora até alguém pedir.
+    assert "count(*) OVER ()" in sql
+    assert "AND apostas.selecionada" in sql
+    assert "LIMIT %(param_1)s OFFSET %(param_2)s" in sql
+    assert "ORDER BY apostas.criada_em DESC, apostas.id DESC" in sql
+
+
+async def test_aposta_page_applies_every_filter_of_the_list() -> None:
+    session = _Session()
+
+    await ApostaRepo().list_page(
+        session,
+        1,
+        {
+            "estado": "GREEN",
+            "origem": "telegram",
+            "tipster_id": 2,
+            "mercado_id": 3,
+            "competicao_id": 4,
+            "revisao_grave": True,
+            "casa_id": 5,
+            "desde": AGORA,
+            "ate": AGORA,
+            "incluir_apagadas": True,
+        },
+        1,
+        10,
+    )
+
+    sql = _sql(session.statements[0])
+    for coluna in ("estado", "origem", "tipster_id", "mercado_id", "competicao_id"):
+        assert f"apostas.{coluna} = " in sql
+    assert "apostas.revisao_grave = " in sql
+    # A aposta guarda a conta da casa, não a casa: o filtro por casa passa pelas contas.
+    assert "apostas.conta_casa_id IN (SELECT contas_casa.id" in sql
+    assert "apostas.data_aposta >= " in sql and "apostas.data_aposta < " in sql
+    # Com `incluir_apagadas`, a coluna sai do filtro (ela continua na lista de colunas lidas).
+    assert "WHERE" in sql and "AND apostas.selecionada" not in sql
+
+
+async def test_revisao_lists_the_open_ones_of_one_bet() -> None:
+    session = _Session()
+
+    await RevisaoPendenteRepo().list_abertas_by_aposta_chave(session, 1, "t:1:1:0")
+
+    sql = _sql(session.statements[0])
+    assert "revisao_pendente.resolvido_em IS NULL" in sql
+    assert "extracao_bruta ->> %(extracao_bruta_1)s" in sql
+
+
+async def test_conta_casa_get_by_id_is_scoped_to_the_person() -> None:
+    session = _Session()
+
+    await ContaCasaRepo().get_by_id(session, 1, 42)
+
+    sql = _sql(session.statements[0])
+    assert "contas_casa.usuario_id = " in sql and "contas_casa.id = " in sql
+
+
 async def test_aposta_upsert_updates_only_mutable_columns_on_the_key() -> None:
     session = _Session(_aposta(odd=2.1))
     dados = {"usuario_id": 1, "chave": "t:1:1:0", "odd": 2.1, "stake_centavos": 10_000}

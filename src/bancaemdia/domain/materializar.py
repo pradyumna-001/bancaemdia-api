@@ -38,6 +38,15 @@ CAMPOS_DA_CRIACAO = (
     "midia_hash",
     "comissao_centavos",
     "mercado_bruto",
+    # Os identificadores do vocabulário: a projeção precisa falar deles para a escolha da pessoa
+    # sobreviver a uma releitura, e para a aposta criada à mão nascer ligada à conta da casa.
+    "conta_casa_id",
+    "tipster_id",
+    "time_casa_id",
+    "time_fora_id",
+    "mercado_id",
+    "competicao_id",
+    "data_jogo",
 )
 
 # Grafias do tipster e erros de leitura vistos em bilhetes com link; `rei do pitaco` é a mesma
@@ -285,7 +294,12 @@ def _retorno_calculado(estado: dict[str, Any]) -> int | None:
 
 
 def projetar(eventos: Iterable[tuple[str, str, dict[str, Any]]]) -> tuple[dict[str, Any], set[str]]:
-    estado: dict[str, Any] = {"odd": None, "stake_unidades": 0.0, "revisao_grave": False}
+    estado: dict[str, Any] = {
+        "odd": None,
+        "stake_unidades": 0.0,
+        "revisao_grave": False,
+        "selecionada": True,
+    }
     protegidos: set[str] = set()
     for tipo, fonte, payload in eventos:
         if tipo == "APOSTA_CRIADA":
@@ -316,6 +330,13 @@ def projetar(eventos: Iterable[tuple[str, str, dict[str, Any]]]) -> tuple[dict[s
             # que confirme a própria decisão.
             estado["revisao_motivo"] = payload["motivo"]
             estado["revisao_grave"] = False
+        elif tipo == "APOSTA_CANCELADA":
+            # Apagar não é revisar: a aposta sai das contas e das listas, e o histórico fica.
+            estado["selecionada"] = False
+        elif tipo == "SELECAO_ALTERADA":
+            # O caminho de volta do apagar, como no projeto antigo: apagar sem desfazer é porta de
+            # uma direção só.
+            estado["selecionada"] = bool(payload.get("selecionada", True))
         elif tipo == "CORRECAO_MANUAL":
             estado.update(payload)
             if payload.get("retorno_centavos") is not None:
