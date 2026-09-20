@@ -7,9 +7,11 @@ from fastapi.responses import JSONResponse, Response
 from prometheus_client import CONTENT_TYPE_LATEST, generate_latest
 from slowapi.errors import RateLimitExceeded
 from sqlalchemy import text
+from starlette.middleware.body_limit import RequestBodyLimitMiddleware
 
-from bancaemdia.api.v1 import coleta
+from bancaemdia.api.v1 import coleta, upload
 from bancaemdia.auth.middleware import JWTAuthMiddleware
+from bancaemdia.config import get_settings
 from bancaemdia.db.session import check_db_health, engine, replica_engine
 from bancaemdia.middleware.rls import RLSMiddleware
 from bancaemdia.middleware.router import RouterMiddleware
@@ -33,8 +35,15 @@ app = FastAPI(title="Bancaemdia API")
 app.state.limiter = coleta.limiter
 app.add_exception_handler(RateLimitExceeded, coleta.limite_estourado)
 app.include_router(coleta.router)
+app.include_router(upload.router)
 
 
+# O teto de tamanho é registrado primeiro para rodar por DENTRO dos outros: por fora de um
+# BaseHTTPMiddleware o 413 dele vira 500 (medido).
+app.add_middleware(
+    RequestBodyLimitMiddleware,
+    max_body_size=get_settings().UPLOAD_MAX_BYTES + upload.MARGEM_DO_FORMULARIO,
+)
 # O roteador precisa do usuário que a autenticação põe no pedido: registrado primeiro, ele roda por
 # último, depois da autenticação e do RLS.
 app.add_middleware(RouterMiddleware)

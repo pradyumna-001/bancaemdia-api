@@ -3,33 +3,49 @@ from __future__ import annotations
 import asyncio
 import base64
 import hashlib
+import io
 import json
 import os
 import time
+import zipfile
 from collections import Counter
 from collections.abc import Awaitable, Callable, Iterable, Iterator
 from contextlib import AbstractAsyncContextManager
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
+from types import SimpleNamespace
 from uuid import uuid4
 
 import anthropic
+import httpx
 import httpx2
 import pytest
 import redis
+from cryptography.hazmat.primitives.asymmetric import rsa
+from cryptography.hazmat.primitives.serialization import (
+    Encoding,
+    NoEncryption,
+    PrivateFormat,
+    PublicFormat,
+)
 from fastapi.testclient import TestClient
+from jose import jwk, jwt
 from prometheus_client import REGISTRY
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncEngine, AsyncSession, create_async_engine
 from sqlalchemy.pool import NullPool
 
-from bancaemdia import main
+from bancaemdia import main, models
 from bancaemdia.api.v1 import coleta
+from bancaemdia.auth import jwt as auth_jwt
+from bancaemdia.auth import middleware as auth_middleware
 from bancaemdia.cache.extracao_cache import ExtracaoCache
 from bancaemdia.config import get_settings
 from bancaemdia.db.seed import seed_canonical
 from bancaemdia.db.session import get_db
 from bancaemdia.domain.materializar import casa_canonica
 from bancaemdia.extracao.cliente import LeitorDeBilhetes, calcular_custo
+from bancaemdia.extracao.precos import USD_POR_BILHETE_REFERENCIA
 from bancaemdia.rate_limit.anthropic_limiter import AnthropicLimiter
 from bancaemdia.repositories.aposta_repo import ApostaRepo
 from bancaemdia.repositories.casa_repo import CasaRepo
@@ -39,6 +55,7 @@ from bancaemdia.repositories.evento_repo import EventoRepo
 from bancaemdia.repositories.revisao_pendente_repo import RevisaoPendenteRepo
 from bancaemdia.resilience.circuit_breaker import new_anthropic_breaker
 from bancaemdia.workers import celery_app, extraction, materialization
+from bancaemdia.workers import upload as upload_worker
 
 # The limiter's global bucket is one Redis key for every user, and test_rate_limit_redis counts on
 # that bucket: the two modules take turns.
@@ -393,6 +410,14 @@ async def _token(engine: AsyncEngine, como: Como, usuario: int) -> str:
     return token
 
 
+@pytest.fixture(scope="module")
+def chave():
+    par = rsa.generate_private_key(public_exponent=65537, key_size=2048)
+    privada = par.private_bytes(Encoding.PEM, PrivateFormat.PKCS8, NoEncryption()).decode()
+    publica = par.public_key().public_bytes(Encoding.PEM, PublicFormat.SubjectPublicKeyInfo)
+    return privada, {**jwk.construct(publica, "RS256").to_dict(), "kid": "k1"}
+
+
 def _sessoes(url: str):
     class Sessoes:
         async def abrir(self):
@@ -486,10 +511,137 @@ async def test_house_sends_reach_the_materialization_queue_and_become_bets(
     assert guardadas == {"betano": 2, "betfair": 2, "bet365": 1, "sportingbet": 1, "novibet": 1}
 
 
-def test_a_telegram_export_uploaded_to_the_api_is_read_and_reported_complete() -> None:
-    pytest.skip(
-        "POST /upload, the Telegram export reader and /webhook/upload-complete arrive with"
-        " issue #26, and the export ZIP fixture with them"
+def _zip_do_export(mensagens: list[tuple[int, bytes]]) -> bytes:
+    cruas = [
+        {
+            "id": message_id,
+            "type": "message",
+            "date": POSTADA_EM,
+            "from": "girafalles",
+            "text": "1u",
+            "photo": f"photos/photo_{message_id}.jpg",
+        }
+        for message_id, _ in mensagens
+    ]
+    buffer = io.BytesIO()
+    with zipfile.ZipFile(buffer, "w", zipfile.ZIP_DEFLATED) as arquivo:
+        arquivo.writestr(
+            "ChatExport_2026-09-10/result.json",
+            json.dumps({"name": "Canal", "type": "private_channel", "id": CHAT, "messages": cruas}),
+        )
+        for message_id, imagem in mensagens:
+            arquivo.writestr(f"ChatExport_2026-09-10/photos/photo_{message_id}.jpg", imagem)
+    return buffer.getvalue()
+
+
+@pytest.fixture
+def api_do_upload(banco, chave, monkeypatch):
+    _, publica = chave
+
+    def responder(request):
+        return httpx.Response(200, json={"keys": [publica]})
+
+    cache = auth_jwt.JWKSCache("https://issuer.test/jwks", "RS256", httpx.MockTransport(responder))
+    monkeypatch.setattr(auth_middleware, "get_jwks_cache", lambda: cache)
+    monkeypatch.setitem(main.app.dependency_overrides, get_db, _sessoes(banco.url_app))
+    cliente = TestClient(main.app)
+    # O trabalhador avisa o fim pela mesma API, com o segredo combinado.
+    monkeypatch.setattr(upload_worker, "get_webhook_client", lambda: cliente)
+    return cliente
+
+
+def _cabecalho_do_usuario(privada, usuario_id):
+    settings = get_settings()
+    corpo = {
+        "sub": str(usuario_id),
+        "aud": settings.JWT_AUDIENCE,
+        "iss": settings.JWT_ISSUER,
+        "exp": int(time.time()) + 60,
+    }
+    return {"Authorization": f"Bearer {jwt.encode(corpo, privada, 'RS256', headers={'kid': 'k1'})}"}
+
+
+async def test_a_telegram_export_uploaded_to_the_api_is_read_and_reported_complete(
+    banco,
+    engine_app: AsyncEngine,
+    como: Como,
+    novo_usuario: NovoUsuario,
+    ia,
+    api_do_upload,
+    chave,
+    monkeypatch,
+) -> None:
+    privada, _ = chave
+    usuario = await novo_usuario()
+    mensagens = _mensagens(ia, LOTE)
+    fila = _fila()
+    cadeias = []
+    monkeypatch.setattr(celery_app.app, "send_task", fila.send_task)
+
+    def registrar_cadeia(*args, **kwargs):
+        # A corrente é montada de verdade e guardada; quem a roda é o teste, fora do laço do
+        # trabalhador (publicar de dentro dele aninharia dois asyncio.run).
+        cadeias.append(extraction.cadeia_do_bilhete(*args, **kwargs))
+        return SimpleNamespace(apply_async=lambda: None)
+
+    monkeypatch.setattr(upload_worker, "cadeia_do_bilhete", registrar_cadeia)
+
+    resposta = await asyncio.to_thread(
+        api_do_upload.post,
+        "/api/v1/upload",
+        files={"file": ("ChatExport.zip", _zip_do_export(mensagens))},
+        headers=_cabecalho_do_usuario(privada, usuario),
+    )
+    job_id = resposta.json()["job_id"]
+    [(nome, kwargs, _)] = fila.tarefas
+    fila.tarefas.clear()
+    await asyncio.to_thread(_rodar, nome, kwargs)
+    for cadeia in cadeias:
+        await asyncio.to_thread(lambda c=cadeia: c.apply().get())
+    avisos = [(n, k) for n, k, _ in fila.tarefas if n == "materialization.notificar_upload"]
+    for nome_do_aviso, kwargs_do_aviso in avisos:
+        await asyncio.to_thread(_rodar, nome_do_aviso, kwargs_do_aviso)
+    estado = await asyncio.to_thread(
+        api_do_upload.get,
+        f"/api/v1/upload/{job_id}",
+        headers=_cabecalho_do_usuario(privada, usuario),
+    )
+
+    async with como(engine_app, usuario) as session:
+        apostas = {a.chave: a for a in await ApostaRepo().list_by_usuario(session, usuario)}
+        guardadas = (
+            await session.execute(
+                select(models.Mensagem.message_id).where(models.Mensagem.chat_id == CHAT)
+            )
+        ).scalars()
+        fotos = (
+            await session.execute(
+                select(models.MidiaArquivo.conteudo).join(
+                    models.Midia, models.Midia.hash == models.MidiaArquivo.hash
+                )
+            )
+        ).scalars()
+    assert resposta.status_code == 202
+    assert resposta.json()["estimated_bets"] == 10
+    assert resposta.json()["estimated_cost_usd"] == pytest.approx(10 * USD_POR_BILHETE_REFERENCIA)
+    assert nome == "materialization.processar_upload"
+    assert len(cadeias) == 10
+    assert sorted(guardadas) == [m for m, _ in mensagens]
+    assert {imagem for _, imagem in mensagens} <= set(fotos)
+    assert sorted(apostas) == sorted([*(f"t:{CHAT}:{m}:0" for m in range(1, 10)), f"t:{CHAT}:7:1"])
+    assert {a.origem for a in apostas.values()} == {"telegram"}
+    assert len(avisos) == 1
+    corpo = estado.json()
+    assert corpo["status"] == "completed"
+    assert corpo["bets_processed"] == 10
+    assert corpo["bets_failed"] == 0
+    assert corpo["progress"]["pending"] == 0
+    assert corpo["progress"]["read"] == 10
+    assert corpo["cost_usd"] == pytest.approx(
+        sum(
+            calcular_custo(modelo, USO["input_tokens"], USO["output_tokens"])
+            for modelo in ia.pedidos
+        )
     )
 
 
