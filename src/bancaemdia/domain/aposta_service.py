@@ -1,4 +1,5 @@
 from datetime import datetime
+from math import isfinite
 from typing import Any
 
 from bancaemdia.domain.materializar import MOTIVO_APAGADA, EventoNovo
@@ -72,8 +73,10 @@ def mudancas(atual: dict[str, Any], pedido: dict[str, Any]) -> dict[str, Any]:
     }
 
 
-def _numero(valor: object) -> bool:
-    return isinstance(valor, int | float) and not isinstance(valor, bool)
+def _numero_finito(valor: object) -> bool:
+    return (isinstance(valor, int) and not isinstance(valor, bool)) or (
+        isinstance(valor, float) and isfinite(valor)
+    )
 
 
 def validar_correcao(pedido: dict[str, Any], atual: dict[str, Any]) -> None:
@@ -83,17 +86,17 @@ def validar_correcao(pedido: dict[str, Any], atual: dict[str, Any]) -> None:
     problemas: list[str] = []
     if "odd" in pedido:
         odd = pedido["odd"]
-        if not _numero(odd) or odd < ODD_MINIMA:
+        if not _numero_finito(odd) or odd < ODD_MINIMA:
             problemas.append(f"a odd tem de ser pelo menos {ODD_MINIMA}")
         elif odd > ODD_MAXIMA:
             problemas.append(f"odd {odd:g} é alta demais para ser real")
     if "stake_unidades" in pedido:
         stake = pedido["stake_unidades"]
-        if not _numero(stake) or stake <= 0:
+        if not _numero_finito(stake) or stake <= 0:
             problemas.append("a stake em unidades tem de ser positiva")
     if "comissao_centavos" in pedido:
         comissao = pedido["comissao_centavos"]
-        if not _numero(comissao) or comissao < 0:
+        if not _numero_finito(comissao) or comissao < 0:
             problemas.append("a comissão não pode ser negativa")
     # Cada campo é conferido ANTES de virar evento: `eventos` não se apaga, e um valor com o tipo
     # errado só apareceria na hora de gravar a linha, como erro 500 e com o histórico já sujo.

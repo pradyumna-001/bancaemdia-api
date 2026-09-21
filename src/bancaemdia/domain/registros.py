@@ -157,6 +157,20 @@ class RevisaoPendente:
 
 
 @dataclass(frozen=True)
+class EstatisticasRevisao:
+    total: int
+    por_motivo: dict[str, int]
+    mais_antiga_em: datetime | None
+    idade_maxima_segundos: int
+
+
+@dataclass(frozen=True)
+class FotoRevisao:
+    conteudo: bytes
+    tipo: str
+
+
+@dataclass(frozen=True)
 class Upload:
     id: int
     job_id: UUID

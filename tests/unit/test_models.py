@@ -137,8 +137,9 @@ def test_allowed_values_match_the_original_schema() -> None:
     assert ORIGENS == ("telegram", "print", "manual", "planilha", "casa")
     assert TIPOS_DE_MOVIMENTO == ("DEPOSITO", "SAQUE", "TRANSFERENCIA", "BONUS", "AJUSTE")
     assert FONTES == ("export", "ia", "manual", "liquidacao", "planilha", "casa")
-    assert len(TIPOS_DE_EVENTO) == 11
+    assert len(TIPOS_DE_EVENTO) == 12
     assert "APOSTA_CRIADA" in TIPOS_DE_EVENTO
+    assert "REVISAO_RESOLVIDA" in TIPOS_DE_EVENTO
 
 
 def test_other_check_constraints() -> None:

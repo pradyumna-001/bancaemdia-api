@@ -11,7 +11,8 @@ from bancaemdia.models import Base
 
 ROOT = Path(__file__).resolve().parents[2]
 BASELINE = "be7d60cb5437"
-HEAD = "a4e7d2c9f103"
+TRANSFERENCIA = "a4e7d2c9f103"
+HEAD = "f2a9c4e7b106"
 PARTICIONADAS = {
     "eventos": "criado_em",
     "movimentos": "ocorrido_em",
@@ -43,6 +44,24 @@ def test_the_baseline_is_the_root_revision() -> None:
     baseline = script.get_revision(BASELINE)
     assert baseline.down_revision is None
     assert "baseline_028_from_sqlite" in baseline.doc
+
+
+def test_review_resolution_event_revision_follows_the_transfer_revision() -> None:
+    script = ScriptDirectory.from_config(_config())
+    revisao = script.get_revision(HEAD)
+
+    assert script.get_current_head() == HEAD
+    assert revisao.down_revision == TRANSFERENCIA
+    assert "007_revisao_resolvida_evento" in revisao.doc
+
+    upgrade = _upgrade_sql()
+    assert "ALTER TABLE eventos DROP CONSTRAINT ck_eventos_tipo" in upgrade
+    assert "REVISAO_RESOLVIDA" in upgrade
+
+    downgrade = _downgrade_sql()
+    regra_compativel = downgrade.index("ALTER TABLE eventos ADD CONSTRAINT ck_eventos_tipo")
+    # O rollback mantém a auditoria legível e não falha depois do primeiro uso.
+    assert "REVISAO_RESOLVIDA" in downgrade[regra_compativel : regra_compativel + 500]
 
 
 def test_upgrade_creates_every_model_table_once() -> None:

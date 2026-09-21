@@ -9,7 +9,7 @@ from slowapi.errors import RateLimitExceeded
 from sqlalchemy import text
 from starlette.middleware.body_limit import RequestBodyLimitMiddleware
 
-from bancaemdia.api.v1 import apostas, caixa, coleta, upload
+from bancaemdia.api.v1 import apostas, caixa, coleta, revisao, upload
 from bancaemdia.auth.middleware import JWTAuthMiddleware
 from bancaemdia.config import get_settings
 from bancaemdia.db.session import check_db_health, engine, replica_engine
@@ -38,6 +38,7 @@ app.include_router(coleta.router)
 app.include_router(upload.router)
 app.include_router(apostas.router)
 app.include_router(caixa.router)
+app.include_router(revisao.router)
 
 
 # O teto de tamanho é registrado primeiro para rodar por DENTRO dos outros: por fora de um
