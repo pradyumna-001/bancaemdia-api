@@ -3,7 +3,7 @@
 ## Milestone: **Week 6 — Telegram Intake + Calculator APIs + Advanced Analytics**
 
 **Target Date**: 7 days from Week 5 completion
-**Depends on**: Week 5 account-holder and collection foundations complete; Week 3 Issue 7 / GitHub #30 dashboard aggregates available
+**Depends on**: Week 5 account-holder foundations complete; existing extraction/materialization pipeline (#15 and #19); Week 3 Issue 7 / GitHub #30 dashboard aggregates available
 **Scope Boundary**: Backend and Telegram integration only — no website frontend, templates, pages, CSS, or JavaScript
 **Success Criteria**:
 - [ ] A user can link a private Telegram chat to exactly one Banca em Dia account through a short-lived, single-use code
@@ -12,7 +12,7 @@
 - [ ] A photo creates one resumable bet draft; it never creates a financial bet before explicit user confirmation
 - [ ] When extraction is incomplete, the bot asks only for the missing information and never asks the user to resend the photo
 - [ ] Replayed updates, repeated confirmations, worker restarts, and Telegram outages never duplicate a bet or lose a reply
-- [ ] All nine requested calculator APIs use pure `Decimal` domain functions, deterministic cent allocation, and explicit validation
+- [ ] All nine standard requested calculator APIs use one pure `Decimal` domain core, deterministic cent allocation, and explicit validation
 - [ ] The line-calculator work ends in an approved model/data decision; no Poisson assumption and no implementation issue before that gate passes
 - [ ] Advanced analytics adds only capabilities absent from GitHub #30 and keeps deposits/withdrawals separate from betting profit
 - [ ] Authenticated financial responses are never publicly cacheable
@@ -21,7 +21,7 @@
 
 ---
 
-## GitHub Issues (12 issues)
+## GitHub Issues (9 issues)
 
 ### Issue 1: Telegram Account Link — One-Time Code, Revocation & Tenant Binding
 **Labels**: `week-6`, `telegram`, `auth`, `security`
@@ -206,15 +206,24 @@
 
 ---
 
-### Issue 7: Calculator Core — Decimal Precision, Validation & Deterministic Allocation
-**Labels**: `week-6`, `calculators`, `domain`, `testing`
-**Size**: M (3-4 hours)
+### Issue 7: Standard Calculator APIs — Nine Calculators on One Decimal Core
+**Labels**: `week-6`, `calculators`, `domain`, `probability`, `allocation`, `risk`, `api`, `testing`
+**Size**: L (6-8 hours)
 
 **Files**:
 - `src/bancaemdia/domain/calculators/core.py`
+- `src/bancaemdia/domain/calculators/probability.py`
+- `src/bancaemdia/domain/calculators/allocation.py`
+- `src/bancaemdia/domain/calculators/planning.py`
 - `src/bancaemdia/api/v1/schemas/calculators.py`
 - `src/bancaemdia/api/v1/calculators.py`
 - `tests/unit/calculators/test_core.py`
+- `tests/unit/calculators/test_probability.py`
+- `tests/unit/calculators/test_allocation.py`
+- `tests/unit/calculators/test_planning.py`
+- `tests/contract/test_calculator_probability_api.py`
+- `tests/contract/test_calculator_allocation_api.py`
+- `tests/contract/test_calculator_planning_api.py`
 
 **Tasks**:
 - [ ] Implement calculator logic as pure functions with typed input/output; HTTP handlers only validate, call the domain, and serialize
@@ -231,22 +240,6 @@
 - [ ] Add a `/api/v1/calculadoras` router and a consistent response/error envelope for follow-up issues
 - [ ] If exposed without authentication for future acquisition pages, enforce strict per-IP limits and no persistence; frontend pages remain out of scope
 - [ ] Add example-based, boundary, invariant, and property tests for rounding and allocation
-
-**Acceptance**: Core tests prove no float use, invalid inputs fail consistently, and randomized allocations always return non-negative cent values whose sum equals the requested stake exactly
-
----
-
-### Issue 8: Probability Calculators — Implied Probability, Fair/No-Vig Market & RTP
-**Labels**: `week-6`, `calculators`, `probability`, `api`
-**Size**: M (3-4 hours)
-
-**Files**:
-- `src/bancaemdia/domain/calculators/probability.py`
-- `src/bancaemdia/api/v1/calculators.py`
-- `tests/unit/calculators/test_probability.py`
-- `tests/contract/test_calculator_probability_api.py`
-
-**Tasks**:
 - [ ] Add `POST /api/v1/calculadoras/probabilidade-implicita`:
   - Input decimal odd
   - Output `1 / odd` as fraction and percentage
@@ -263,22 +256,6 @@
 - [ ] Make clear in schemas that no-vig is margin removal, not a predictive estimate of the event's true probability
 - [ ] Add vectors for two-way, three-way, high-overround, zero-overround, and arbitrage markets
 - [ ] Add invariants: fair probabilities sum to exactly 1 within declared precision and results do not change under equivalent string scale (`2.0` vs `2.00`)
-
-**Acceptance**: Known vectors match independently calculated Decimal results; fair probabilities sum to 100% at the declared precision, and RTP refuses an incomplete market instead of inventing missing outcomes
-
----
-
-### Issue 9: Allocation Calculators — Surebet, Dutching & Stake Splitter
-**Labels**: `week-6`, `calculators`, `allocation`, `api`
-**Size**: L (4-5 hours)
-
-**Files**:
-- `src/bancaemdia/domain/calculators/allocation.py`
-- `src/bancaemdia/api/v1/calculators.py`
-- `tests/unit/calculators/test_allocation.py`
-- `tests/contract/test_calculator_allocation_api.py`
-
-**Tasks**:
 - [ ] Add `POST /api/v1/calculadoras/surebet` for all mutually exclusive outcomes:
   - Detect arbitrage through the inverse-odds sum
   - Allocate a total stake to equalize gross return
@@ -296,22 +273,6 @@
 - [ ] Require at least two distinct outcomes for surebet/dutching and positive total stake; reject weights that cannot satisfy the requested mode
 - [ ] Add examples for two/three outcomes, one-cent remainders, equal odds, no arbitrage, high odds, and reordered inputs
 - [ ] Add invariants: allocations sum to total, guaranteed profit is the minimum rounded scenario profit, and advertised surebet remains positive after cent rounding
-
-**Acceptance**: Every endpoint returns deterministic cent allocations that reconcile to the input total; a surebet is reported only when every rounded outcome remains profitable
-
----
-
-### Issue 10: Planning Calculators — Live Hedge, Target Profit & Bankroll Percentage
-**Labels**: `week-6`, `calculators`, `risk`, `api`
-**Size**: L (4-5 hours)
-
-**Files**:
-- `src/bancaemdia/domain/calculators/planning.py`
-- `src/bancaemdia/api/v1/calculators.py`
-- `tests/unit/calculators/test_planning.py`
-- `tests/contract/test_calculator_planning_api.py`
-
-**Tasks**:
 - [ ] Add `POST /api/v1/calculadoras/cobertura-ao-vivo`:
   - Input original cash stake/odd, current opposing odd, and optional commission
   - Solve the hedge stake for the reviewed objective (`equalize_profit` or `protect_stake`)
@@ -330,11 +291,11 @@
 - [ ] Add vectors for hedge gain/loss, commission, impossible protection, minimum cent, high percentage, and target-profit rounding
 - [ ] Add cross-checks showing the reported scenario profits can be recomputed from returned stakes/odds
 
-**Acceptance**: For every returned hedge, the two scenario profits recompute exactly at cent precision; target-profit and bankroll results declare rounding/unsupported cases instead of overstating certainty
+**Acceptance**: Core tests prove no float use, invalid inputs fail consistently, and randomized allocations always return non-negative cent values whose sum equals the requested stake exactly; known vectors match independently calculated Decimal results, fair probabilities sum to 100% at the declared precision, and RTP refuses an incomplete market instead of inventing missing outcomes; every endpoint returns deterministic cent allocations that reconcile to the input total and a surebet is reported only when every rounded outcome remains profitable; for every returned hedge, the two scenario profits recompute exactly at cent precision, and target-profit/bankroll results declare rounding and unsupported cases instead of overstating certainty
 
 ---
 
-### Issue 11: Line Calculator Discovery — Market Model, Dataset, Calibration & Go/No-Go
+### Issue 8: Line Calculator Discovery — Market Model, Dataset, Calibration & Go/No-Go
 **Labels**: `week-6`, `calculators`, `research`, `decision`
 **Size**: L (6-8 hours)
 
@@ -369,7 +330,7 @@
 
 ---
 
-### Issue 12: Advanced Analytics Backend — Cashflow-Safe Series, Missing Insights & Private Caching
+### Issue 9: Advanced Analytics Backend — Cashflow-Safe Series, Missing Insights & Private Caching
 **Labels**: `week-6`, `analytics`, `api`, `data-integrity`
 **Size**: L (6-8 hours)
 
@@ -418,18 +379,16 @@ graph TD
     1 --> 3[Conversational Draft]
     2 --> 3
     2 --> 4[Photo to Draft]
+    3 --> 4
     3 --> 5[Confirmation/Materialization]
     4 --> 5
     5 --> 6[Telegram Hardening/E2E]
 
-    W5 --> 7[Calculator Decimal Core]
-    7 --> 8[Probability/Fair/RTP]
-    7 --> 9[Surebet/Dutching/Splitter]
-    7 --> 10[Hedge/Target/Bankroll %]
-    W5 --> 11[Line Calculator Discovery]
+    W5 --> 7[Nine Standard Calculator APIs]
+    W5 --> 8[Line Calculator Discovery]
 
-    W3[Week 3 Issue 7 / GitHub #30] --> 12[Advanced Analytics]
-    W5 --> 12
+    W3[Week 3 Issue 7 / GitHub #30] --> 9[Advanced Analytics]
+    W5 --> 9
 ```
 
 ---
@@ -438,16 +397,16 @@ graph TD
 
 | Day | Issues | Notes |
 |-----|--------|-------|
-| 1 | 1, 2, 7, 11 | Link/transport foundations, Decimal core, and independent line-model discovery |
-| 2 | 3, 4, 8 | Draft state machine + photo extraction in parallel with probability calculators |
-| 3 | 5, 9 | Idempotent Telegram materialization + allocation calculators |
-| 4 | 6, 10 | Telegram hardening/E2E + planning calculators |
-| 5 | 12 | Cashflow-safe advanced analytics and cache correction |
-| 6 | 6, 8, 9, 10, 12 | Contract, security, reconciliation, and failure-path verification |
-| 7 | 11 | Dataset/model review and explicit Go/No-Go; no line implementation without approval |
+| 1 | 1, 2, 7, 8 | Link/transport foundations, standard calculator core/APIs, and independent line-model discovery |
+| 2 | 3, 7 | Draft state machine in parallel with standard calculators |
+| 3 | 4, 7 | Photo extraction into the established draft contract + standard calculator completion |
+| 4 | 5, 7 | Idempotent Telegram materialization + calculator contract and invariant tests |
+| 5 | 6, 9 | Telegram hardening/E2E + cashflow-safe advanced analytics and cache correction |
+| 6 | 6, 9 | Security, reconciliation, failure-path, and analytics verification |
+| 7 | 8, 9 | Dataset/model Go/No-Go and final analytics validation; no line implementation without approval |
 
 ---
 
 ## Review Gate Before Creating GitHub Issues
 
-This document is the proposal the administrator reviews in a pull request. It does **not** authorize automatic issue creation. After the PR is approved and merged, create the 12 GitHub issues from the reviewed text; changes requested in review must be reflected here first.
+This document is the proposal the administrator reviews in a pull request. It does **not** authorize automatic issue creation. After the PR is approved and merged, create the 9 GitHub issues from the reviewed text; changes requested in review must be reflected here first.

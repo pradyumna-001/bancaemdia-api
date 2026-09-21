@@ -85,10 +85,10 @@ All architectural decisions are documented in [`docs/adrs/`](docs/adrs/).
 | [020](docs/adrs/020-week6-telegram-calculators-analytics-issues.md) | Week 6 Proposed Issues | Private Telegram bot, calculators, advanced analytics |
 | [021](docs/adrs/021-week7-collection-integrity-extension-contract-issues.md) | Week 7 Proposed Issues | Extension contract, Casa × Telegram matching, reconciliation |
 | [022](docs/adrs/022-week8-bookmaker-coverage-issues.md) | Week 8 Proposed Issues | Living bookmaker catalog, readers, literal coverage gate |
-| [023](docs/adrs/023-week9-future-concurrency-validation-issues.md) | Week 9 Proposed Issues | Deferred simultaneous accounts and expansion validation |
-| [024](docs/adrs/024-extension-client-backlog.md) | Extension Client Proposed Issues | Client work tracked centrally in this repository |
+| [023](docs/adrs/023-week9-future-concurrency-validation-issues.md) | Week 9 Proposed Issue | End-to-end expansion validation; simultaneous accounts remain deferred |
+| [024](docs/adrs/024-extension-client-backlog.md) | Extension Client Work Map | Client responsibilities mapped to the central API issues |
 
-Weeks 5–9 are proposal documents submitted for administrator review. Their GitHub issues are created only after the proposal PR is approved and merged.
+Weeks 5–9 are proposal documents submitted for administrator review. Their GitHub issues are created only after the proposal PR is approved and merged; ADR 024 is a responsibility map and does not define additional issues.
 
 ### Reference Documents
 

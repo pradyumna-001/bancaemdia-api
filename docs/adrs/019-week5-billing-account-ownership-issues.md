@@ -18,7 +18,7 @@
 
 ---
 
-## GitHub Issues (11 issues)
+## GitHub Issues (8 issues)
 
 ### Issue 1: Billing Provider Preflight — Mercado Pago PF + Asaas Fallback
 **Labels**: `week-5`, `billing`, `payments`, `decision`
@@ -42,16 +42,20 @@
 
 ---
 
-### Issue 2: Billing Domain — 7-Day Trial + Subscription State
-**Labels**: `week-5`, `billing`, `domain`, `database`
+### Issue 2: Billing Foundation — 7-Day Trial, Subscription State & Configurable Price
+**Labels**: `week-5`, `billing`, `domain`, `database`, `catalog`
 
-**Size**: L (5-6 hours)
+**Size**: L (6-8 hours)
 
 **Files**:
 - `src/bancaemdia/models/assinatura.py`
 - `src/bancaemdia/domain/billing.py`
+- `src/bancaemdia/domain/billing_catalog.py`
 - `src/bancaemdia/repositories/assinatura_repo.py`
+- `src/bancaemdia/models/billing_price.py`
+- `src/bancaemdia/config.py`
 - `alembic/versions/xxx_billing_domain.py`
+- `alembic/versions/xxx_billing_catalog.py`
 - `tests/unit/test_billing_domain.py`
 
 **Tasks**:
@@ -63,23 +67,6 @@
 - [ ] Prevent login recreation, provider-customer recreation, or resubscription from granting a second trial
 - [ ] Apply RLS and append audit events for every access transition
 - [ ] Keep price, cadence, and provider-specific statuses outside the access decision
-
-**Acceptance**: Clock-controlled tests prove exactly seven cardless days per user, deterministic transition to `READ_ONLY`, no repeat trial, and no dependency on provider-specific values
-
----
-
-### Issue 3: Billing Catalog — Provider-Neutral Price Configuration
-**Labels**: `week-5`, `billing`, `config`, `catalog`
-
-**Size**: S (1-2 hours)
-
-**Files**:
-- `src/bancaemdia/models/billing_price.py`
-- `src/bancaemdia/domain/billing_catalog.py`
-- `src/bancaemdia/config.py`
-- `alembic/versions/xxx_billing_catalog.py`
-
-**Tasks**:
 - [ ] Represent one billable product without inventing Free/Pro/Team tiers
 - [ ] Configure amount, currency, frequency, effective dates, and provider plan reference outside source code
 - [ ] Allow the catalog to remain unpublished while price is undecided; unpublished catalog cannot create checkout
@@ -87,11 +74,11 @@
 - [ ] Validate positive integer centavos, `BRL`, supported cadence, and exactly one active public price
 - [ ] Expose a provider-neutral read model for a future client without implementing frontend here
 
-**Acceptance**: Price can be set or changed without a deploy; no guessed price/tier exists in code; checkout stays unavailable until a catalog entry is published
+**Acceptance**: Clock-controlled tests prove exactly seven cardless days per user, deterministic transition to `READ_ONLY`, no repeat trial, and no dependency on provider-specific values; price can be set or changed without a deploy, no guessed tier exists in code, and checkout stays unavailable until a catalog entry is published
 
 ---
 
-### Issue 4: Approved Billing Provider Adapter — Recurring Checkout + Customer Mapping
+### Issue 3: Approved Billing Provider Adapter — Recurring Checkout + Customer Mapping
 **Labels**: `week-5`, `billing`, `payments`, `integration`
 
 **Size**: L (6-8 hours)
@@ -117,7 +104,7 @@
 
 ---
 
-### Issue 5: Billing Webhooks — Idempotency, Retry & Reconciliation
+### Issue 4: Billing Webhooks — Idempotency, Retry & Reconciliation
 **Labels**: `week-5`, `billing`, `webhook`, `idempotency`
 
 **Size**: L (5-6 hours)
@@ -143,7 +130,7 @@
 
 ---
 
-### Issue 6: Access Enforcement — Trial Expiry, Read-Only Mode & Export
+### Issue 5: Access Enforcement — Trial Expiry, Read-Only Mode & Export
 **Labels**: `week-5`, `billing`, `access-control`, `export`
 
 **Size**: L (5-6 hours)
@@ -168,8 +155,8 @@
 
 ---
 
-### Issue 7: Titular Models — People, Bookmaker Accounts & Temporal Usage
-**Labels**: `week-5`, `models`, `database`, `temporal`
+### Issue 6: Titular Accounts — Models, Temporal Usage & Atomic Holder Switch
+**Labels**: `week-5`, `models`, `database`, `temporal`, `transactions`
 
 **Size**: L (6-8 hours)
 
@@ -178,7 +165,11 @@
 - `src/bancaemdia/models/conta_casa.py`
 - `src/bancaemdia/models/uso_conta_casa.py`
 - `src/bancaemdia/repositories/titular_repo.py`
+- `src/bancaemdia/repositories/uso_conta_casa_repo.py`
+- `src/bancaemdia/domain/titulares.py`
+- `src/bancaemdia/api/v1/titulares.py`
 - `alembic/versions/xxx_titulares_contas.py`
+- `tests/integration/test_troca_titular.py`
 
 **Tasks**:
 - [ ] Add user-scoped `Titular` with display name and archive state; do not store bookmaker passwords, cookies, or documents
@@ -188,23 +179,6 @@
 - [ ] Apply RLS, FKs, indexes, and repositories to every new per-user table
 - [ ] Enforce one open usage per user + bookmaker for version 1 with a named, isolated constraint/policy
 - [ ] Keep APIs and domain types collection-based so the named constraint can be relaxed in the future without rewriting history
-
-**Acceptance**: Migration preserves every existing bet/movement/account ID; two concurrent current usages are rejected today; multiple stable accounts and future explicit resolution require no schema redesign
-
----
-
-### Issue 8: Troca de Titular — Atomic Temporal Switch + Audit Events
-**Labels**: `week-5`, `accounts`, `temporal`, `transactions`
-
-**Size**: M (3-4 hours)
-
-**Files**:
-- `src/bancaemdia/domain/titulares.py`
-- `src/bancaemdia/repositories/uso_conta_casa_repo.py`
-- `src/bancaemdia/api/v1/titulares.py`
-- `tests/integration/test_troca_titular.py`
-
-**Tasks**:
 - [ ] Preview a change with bookmaker, source account, destination account, and user-selected effective timestamp
 - [ ] Show which existing bets would resolve differently before applying a retroactive switch
 - [ ] In one `FOR UPDATE` transaction, close X at `T` and open Y at `T`
@@ -213,11 +187,11 @@
 - [ ] Persist an append-only audit event and idempotency key for preview/apply retries
 - [ ] Keep bets placed before `T`, including still-open bets, attached to X
 
-**Acceptance**: Concurrent/retried switches produce one audited interval transition; before-`T` bets stay with X, after-`T` defaults to Y, and no account state is guessed
+**Acceptance**: Migration preserves every existing bet/movement/account ID; two concurrent current usages are rejected today; multiple stable accounts and future explicit resolution require no schema redesign; concurrent/retried switches produce one audited interval transition, before-`T` bets stay with X, after-`T` defaults to Y, and no account state is guessed
 
 ---
 
-### Issue 9: Bet Account Attribution — Event-Time Resolution + Review Queue
+### Issue 7: Bet Account Attribution — Event-Time Resolution + Review Queue
 **Labels**: `week-5`, `accounts`, `materialization`, `review`
 
 **Size**: L (5-6 hours)
@@ -241,16 +215,19 @@
 
 ---
 
-### Issue 10: Titulares API — CRUD, Availability Matrix & Usage History
-**Labels**: `week-5`, `api`, `accounts`, `matrix`
+### Issue 8: Titulares API — Availability Matrix, Usage History & Financials
+**Labels**: `week-5`, `api`, `accounts`, `matrix`, `analytics`, `financeiro`
 
-**Size**: L (5-6 hours)
+**Size**: L (6-8 hours)
 
 **Files**:
 - `src/bancaemdia/api/v1/titulares.py`
 - `src/bancaemdia/domain/titular_matrix.py`
+- `src/bancaemdia/domain/account_financials.py`
 - `src/bancaemdia/repositories/titular_repo.py`
+- `src/bancaemdia/repositories/account_financials_repo.py`
 - `tests/integration/test_titulares_api.py`
+- `tests/integration/test_account_financials.py`
 
 **Tasks**:
 - [ ] CRUD/archive holders and create/update their stable bookmaker accounts
@@ -260,23 +237,6 @@
 - [ ] Filter apostas and caixa by `titular_id` and `conta_casa_id`
 - [ ] Paginate/search user-owned holders and enforce RLS on every direction of the matrix
 - [ ] Keep responses chart/table-ready without implementing website UI
-
-**Acceptance**: API answers both “X already used Betano and Betfair” and “Betfair has Y and Z available, with A in use,” with no cross-user data or bookmaker credentials
-
----
-
-### Issue 11: Account & Holder Financials — Profit, Turnover, ROI & Exposure
-**Labels**: `week-5`, `analytics`, `accounts`, `financeiro`
-
-**Size**: L (5-6 hours)
-
-**Files**:
-- `src/bancaemdia/domain/account_financials.py`
-- `src/bancaemdia/repositories/account_financials_repo.py`
-- `src/bancaemdia/api/v1/titulares.py`
-- `tests/integration/test_account_financials.py`
-
-**Tasks**:
 - [ ] Compute bet profit, turnover, ROI, open exposure, bet count, and win rate per stable bookmaker account
 - [ ] Aggregate accounts into holder totals while retaining bookmaker breakdown
 - [ ] Keep deposits, withdrawals, bonuses, and transfers separate from betting profit; expose cash balance independently
@@ -285,4 +245,4 @@
 - [ ] Support period/bookmaker/holder/account filters using bet occurrence time and current financial rules
 - [ ] Keep queries available in post-trial read-only mode and protected by RLS
 
-**Acceptance**: Known fixtures reconcile exactly from bet → account → holder → user, with cash flow distinct from P&L and no historical result changing after a holder switch
+**Acceptance**: API answers both “X already used Betano and Betfair” and “Betfair has Y and Z available, with A in use,” with no cross-user data or bookmaker credentials; known fixtures reconcile exactly from bet → account → holder → user, with cash flow distinct from P&L and no historical result changing after a holder switch

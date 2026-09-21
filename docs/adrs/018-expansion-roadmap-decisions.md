@@ -101,9 +101,15 @@ Unknown platforms are handled by small follow-up issues grouped by real technica
 - #36 tests duplicates inside each origin; Casa × Telegram consolidation is a separate invariant.
 - #43 already owns the LGPD export; billing only guarantees it remains available in read-only mode.
 
+## Issue Granularity
+
+The expansion is organized as 30 reviewable issues. API and extension work share one issue when they produce a single end-to-end capability, while tests, documentation, operational gates, and ordinary setup remain tasks or acceptance criteria unless they have an independent deliverable or materially different risk.
+
+An issue remains separate when it owns a distinct transactional boundary, security boundary, research decision, migration, or independently reviewable release gate. In particular, Telegram photo extraction remains separate from confirmation because extraction may only create or update a draft, while confirmation is the sole idempotent transaction allowed to materialize financial data. This mirrors the existing separation between extraction (#15) and materialization (#19).
+
 ## Review and Creation Protocol
 
-1. The administrator reviews this PR and the issue bodies in ADRs 019–024.
+1. The administrator reviews this PR, the issue bodies in ADRs 019–023, and the extension responsibility map in ADR 024.
 2. Requested changes are made in the PR, preserving a readable review trail.
 3. Merge means the proposed roadmap is accepted.
 4. Immediately after merge, amend existing issue #30 to remove public caching from authenticated financial responses; this safety correction precedes its implementation or acceptance.

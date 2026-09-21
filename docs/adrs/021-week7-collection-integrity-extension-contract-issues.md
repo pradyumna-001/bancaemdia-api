@@ -25,42 +25,43 @@
 
 ## GitHub Issues (7 issues)
 
-### Issue 1: Extension Boundary — API Contract Ownership & Release Compatibility
-**Labels**: `week-7`, `extension`, `architecture`, `contract`
-**Size**: M (3-4 hours)
+### Issue 1: Extension Client Foundation — MV3 + TypeScript + Passive Capture
+**Labels**: `week-7`, `extension`, `client`, `architecture`
+**Size**: L (6-8 hours)
 
 **Files**:
-- `docs/architecture/browser-extension.md`
-- `docs/contracts/coleta-v2.md`
-- `docs/runbooks/extension-contract-release.md`
-- `openapi/extension-collection-v2.json`
-- `tests/contract/test_extension_contract_compatibility.py`
+- `bancaemdia-extension/package.json`
+- `bancaemdia-extension/tsconfig.json`
+- `bancaemdia-extension/manifest.json`
+- `bancaemdia-extension/src/background/`
+- `bancaemdia-extension/src/content/`
+- `bancaemdia-extension/src/injected/`
+- `bancaemdia-extension/src/contracts/`
+- `bancaemdia-extension/tests/`
+- `bancaemdia-extension/.github/workflows/ci.yml`
+- `bancaemdia-extension/docs/architecture/`
 
 **Tasks**:
-- [ ] Record the component boundary explicitly:
-  - `bancaemdia-extension` is an untrusted browser client that passively observes responses caused by the user's own navigation and submits sanitized captures inside versioned transport envelopes
-  - `bancaemdia-api` authenticates installations, owns the canonical JSON/OpenAPI contract, parses and validates captures, deduplicates, reconciles, and materializes financial state
-  - No settlement, balance, matching, holder, or financial-total rule is implemented only in the extension
-- [ ] Register the already-created private `wfcgit-hub/bancaemdia-extension` repository and its preserved subtree history as the client of this contract; repository migration, TypeScript scaffold, build, ZIP, and client CI belong only to the central `[Extension] Repository Scaffold` issue in ADR 024
-- [ ] Establish API-owned contract publishing:
-  - Canonical schemas and examples live in `bancaemdia-api`
-  - API CI validates runtime/schema equality and compatibility rules
-  - Extension CI consumes a pinned released contract version/hash rather than maintaining a divergent hand-written contract
-  - Compatibility tests cover current (`N`) and previous (`N-1`) contract versions
-  - Breaking changes require a new major contract version and a documented coexistence/deprecation window
-- [ ] Define the release compatibility record: API contract version, minimum/maximum extension version, schema hash, deprecation date, and rollback behavior
-- [ ] Define the metadata that the client release must publish—artifact version, checksum, supported contract/browser versions, permission set, and known bookmaker coverage—without implementing the client build in this issue
-- [ ] Record non-negotiable trust rules in the API contract: no credentials/session material, no automated bookmaker actions, exact-host provenance, bounded payloads, and explicit failure on unknown versions
-- [ ] Add contract fixtures that a mock client and ADR 024 client issues can consume without importing backend code
-- [ ] Make the dependency explicit: this API issue owns contract publication; ADR 024 Issues 1–6 own all extension-repository implementation
+- [ ] Complete the already-created private `wfcgit-hub/bancaemdia-extension` repository, preserving its imported subtree history while migrating the legacy JavaScript prototype to strict TypeScript
+- [ ] Separate service worker, isolated content script, page-world bridge, contracts, storage, and adapters into explicit modules with a reproducible lockfile
+- [ ] Configure lint, format, typecheck, unit tests, production build, dependency audit, and deterministic ZIP + SHA-256 artifact generation in CI
+- [ ] Keep the manifest minimal: no `<all_urls>`, cookies, browsing-history, remote executable code, or bookmaker host permission enabled by default
+- [ ] Document and enforce the trust boundary: passively observe only responses caused by the user's own navigation; never place bets, click controls, collect credentials, infer the bookmaker login, bypass protections, or call private endpoints independently
+- [ ] Add environment configuration for approved local/staging/production API origins without embedding secrets in the bundle
+- [ ] Port the minimum fetch/XHR observation path still required by the prototype without changing the response or behavior seen by the page
+- [ ] Validate page message source, per-installation nonce, exact hostname, endpoint matcher, HTTP method, content type, payload size, and adapter/schema version before forwarding any capture
+- [ ] Produce a structured-clone-safe envelope with capture ID, exact-host provenance, captured-at time, endpoint metadata, adapter/schema version, sanitization version, content hash, and the minimum raw body required for backend replay
+- [ ] Strip headers, cookies, authorization fields, storage tokens, credential-shaped values, and unrelated personal data before local persistence
+- [ ] Bound body size and message rate; unknown endpoints or schemas fail closed with metadata-only diagnostics
+- [ ] Add a redacted logger and tests proving page behavior is unchanged and session/credential material never enters envelopes, local storage, build artifacts, logs, or diagnostics
 
-**Acceptance**: The architecture and compatibility tests identify one owner for every responsibility, publish one API-owned N/N-1 contract and mock fixture set, and leave repository scaffold, build, ZIP, permissions, and client storage exclusively to the mapped ADR 024 issues
+**Acceptance**: CI produces a reproducible strict-TypeScript MV3 ZIP and checksum; an allowlisted fixture response is captured once into a sanitized, versioned envelope without altering the page, while unknown endpoints, undeclared hosts, and any credential/session material are rejected before persistence
 
 ---
 
-### Issue 2: Extension Authentication — Per-Installation Pairing, Rotation, Revocation & Multiple Devices
+### Issue 2: Extension Pairing — End-to-End Installation Identity, Rotation & Revocation
 **Labels**: `week-7`, `extension`, `auth`, `security`
-**Size**: L (5-6 hours)
+**Size**: L (6-8 hours)
 
 **Files**:
 - `src/bancaemdia/api/v1/coleta_pairing.py`
@@ -70,91 +71,73 @@
 - `alembic/versions/*_coleta_instalacoes.py`
 - `tests/integration/coleta/test_pairing.py`
 - `tests/security/test_coleta_tokens.py`
+- `bancaemdia-extension/src/pairing/`
+- `bancaemdia-extension/src/storage/credentials.ts`
+- `bancaemdia-extension/tests/pairing/`
 
 **Tasks**:
-- [ ] Replace the “one live token per user” assumption with a first-class `ColetaInstalacao` model:
-  - `id`, `usuario_id`, `instalacao_publica_id`, `nome_dispositivo`, `token_hash`, `token_prefix`, `criada_em`, `pareada_em`, `ultimo_uso_em`, `rotacionada_em`, `revogada_em`
-  - Unique `(usuario_id, instalacao_publica_id)` and RLS by `usuario_id`
-  - Multiple active installations are allowed for the same user
-- [ ] Issue a high-entropy token and store only a keyed cryptographic hash suitable for lookup and constant-time verification; return plaintext exactly once at pair/rotate time
-- [ ] Implement short-lived, single-use pairing codes:
-  - Authenticated user requests a code with a 30-minute maximum lifetime
-  - Extension exchanges code + locally generated `instalacao_publica_id` + device label for its token
-  - Store only the pairing-code hash; successful exchange, expiry, or revocation makes the code unusable
-  - Rate-limit code creation and exchange; do not reveal whether another user's code exists
-- [ ] Add backend endpoints (website UI is out of scope):
-  - `POST /api/v1/coleta/pairing-codes`
-  - `POST /api/v1/coleta/pair`
-  - `GET /api/v1/coleta/instalacoes`
-  - `POST /api/v1/coleta/instalacoes/{id}/rotate`
-  - `DELETE /api/v1/coleta/instalacoes/{id}` for revocation
-- [ ] Authenticate collection requests with the installation token and attach both `usuario_id` and `instalacao_id` to request context
-- [ ] Make rotation and revocation atomic:
-  - Rotation invalidates the prior token and emits an audit event
-  - Revocation affects only the selected installation; other paired devices remain active
-  - A revoked/rotated token returns a generic `401` and can never create a collection or session
-- [ ] Apply least-privilege token scope: installation tokens can call collection/session/status endpoints only, never normal user or admin endpoints
-- [ ] Redact token/code values from logs, traces, exception payloads, metrics labels, and audit diffs
-- [ ] Record safe audit metadata for pair, rotate, revoke, successful authentication, and repeated rejected authentication
-- [ ] Provide a migration path for legacy `ColetaToken` records without silently sharing one credential across multiple future devices
+- [ ] Replace the “one live token per user” assumption with a first-class, RLS-protected `ColetaInstalacao` that permits multiple independently managed installations per user
+- [ ] Persist installation identity, user, optional device label, token hash/prefix, creation/pairing/last-use/rotation/revocation timestamps, and unique `(usuario_id, instalacao_publica_id)` without storing browser fingerprints or bookmaker identity
+- [ ] Implement short-lived, single-use pairing codes: an authenticated user creates a code; the extension exchanges it with a locally generated opaque installation ID and optional label; plaintext codes/tokens are returned once and never persisted by the API
+- [ ] Rate-limit code creation/exchange, use neutral errors, make concurrent exchange consume the code exactly once, and keep the maximum code lifetime at 30 minutes
+- [ ] Add backend endpoints for pairing-code creation, exchange, installation listing, token rotation, and per-installation revocation; website UI remains out of scope
+- [ ] Issue high-entropy, least-privilege installation tokens stored only as keyed hashes server-side and usable only for collection/session/status endpoints
+- [ ] Authenticate collection requests into both `usuario_id` and `instalacao_id`; rotation atomically invalidates the prior token and revocation affects only the selected installation
+- [ ] Implement the approved pairing flow in the extension, store the credential only in extension-local storage inaccessible to page-world code, and attach installation/contract/idempotency metadata to authenticated requests
+- [ ] Require TLS and an approved API origin, reject credential-bearing redirects, support explicit disconnect/re-pair, and retain queued captures without transmitting when credentials expire or are revoked
+- [ ] Redact codes/tokens from logs, traces, errors, metrics, and audit diffs while recording safe pair/rotate/revoke/rejected-auth metadata
+- [ ] Provide a migration path for legacy `ColetaToken` rows without silently sharing one credential across multiple devices
+- [ ] Add cross-repository contract tests for wrong/expired/reused codes, concurrent exchange, cross-tenant tokens, multiple devices, rotation, revocation, reconnect, and retry
 
-**Acceptance**: User A can pair two devices, rotate one, and revoke the other without affecting unrelated devices; pairing codes are expiring/single-use, plaintext secrets are never persisted or logged, concurrent exchange yields one active token, and every token is tenant-bound and fails after rotation or revocation
+**Acceptance**: One code pairs exactly one opaque installation; a user can pair two devices, rotate one, and revoke the other independently; revoked or rotated credentials cannot send; queued data survives re-pairing; and no plaintext secret, bookmaker identity, or browser fingerprint is persisted or exposed to page code
 
 ---
 
-### Issue 3: Collection Contract v2 — Sessions, `coletar_desde`, Batch Delivery & Per-Item ACK
-**Labels**: `week-7`, `coleta-casa`, `api`, `contract`, `idempotency`
+### Issue 3: Collection Contract v2 — API Boundary, Sessions, Durable Outbox & Per-Item ACK
+**Labels**: `week-7`, `coleta-casa`, `extension`, `contract`, `idempotency`
 **Size**: L (6-8 hours)
 
 **Files**:
+- `docs/architecture/browser-extension.md`
+- `docs/contracts/coleta-v2.md`
+- `docs/runbooks/extension-contract-release.md`
+- `openapi/extension-collection-v2.json`
 - `src/bancaemdia/api/v1/coleta_sessoes.py`
 - `src/bancaemdia/api/v1/coleta.py`
 - `src/bancaemdia/schemas/coleta_v2.py`
 - `src/bancaemdia/models/coleta_sessao.py`
 - `src/bancaemdia/domain/coleta_casa.py`
 - `alembic/versions/*_coleta_contract_v2.py`
-- `openapi/extension-collection-v2.json`
 - `tests/contract/test_coleta_v2.py`
+- `tests/contract/test_extension_contract_compatibility.py`
+- `bancaemdia-extension/src/contracts/`
+- `bancaemdia-extension/src/outbox/`
+- `bancaemdia-extension/tests/outbox/`
 
 **Tasks**:
-- [ ] Add an explicit `ColetaSessao` owned by one installation with:
-  - `id`, `usuario_id`, `instalacao_id`, `contrato`, `coletar_desde`, `iniciada_em`, `encerrada_em`, `ultimo_lote_em`
-  - `coletar_desde` is supplied/confirmed when the session starts and is immutable afterward
-  - Reconnecting resumes the existing open session or starts a new explicit session; it never silently widens the boundary
-- [ ] Publish contract v2 with a versioned envelope:
-  - Batch: `contrato`, `batch_id`, `session_id`, `sent_at`, `items[]`
-  - Item: `client_event_id`, exact hostname, observed request/response metadata, `capturado_em`, raw response payload, client-computed content hash, and optional `conta_casa_ref`
-  - Bookmaker, ticket identity, lifecycle state, and canonical content hash are derived/verified by the API parser; client hints may be retained for diagnostics but are never authoritative
-  - Define maximum items and maximum encoded bytes per batch; reject oversized batches before enqueueing
-- [ ] Specify and contract-test the client delivery guarantees consumed by ADR 024 Issue 4, without implementing client storage in this API issue:
-  - A capture is durably queued client-side before delivery and uses a stable `client_event_id`
-  - Batches are bounded and each item remains queued until its own durable ACK
-  - Retry/backoff and permanent-rejection semantics are machine-readable
-  - An ACK for an older content version cannot authorize deletion of a newer capture for the same bookmaker ticket
-- [ ] Enforce the boundary server-side:
-  - An item whose source occurrence/ticket time is earlier than `coletar_desde` is acknowledged as `ignored_before_boundary`
-  - `capturado_em` alone must not make an old ticket eligible
-  - Missing or untrustworthy source time goes to explicit review; it is never silently treated as a new financial fact
-- [ ] Add idempotency at both transport and business levels:
-  - `(instalacao_id, client_event_id)` identifies the extension delivery event
-  - `(usuario_id, casa_id, identidade)` identifies the bookmaker ticket
-  - Same identity + same content hash is a no-op; valid later lifecycle content may advance the stored state; stale content cannot regress it
-- [ ] Return a deterministic durable acknowledgement for every item, even when a batch contains mixed outcomes:
-  - Submission ACK is `accepted`, `duplicate`, or `rejected`; `accepted` means the server durably owns the item, not that financial processing already succeeded
-  - Include `client_event_id`, server/job reference when one exists, stable machine-readable reason, and `retryable` boolean
-  - Item status exposes terminal processing outcome such as `materialized`, `updated`, `ignored_before_boundary`, `needs_review`, or `failed`
-  - The extension retries only unacknowledged or explicitly retryable items, never the entire accepted subset
-- [ ] Validate optional `conta_casa_ref`:
-  - It must belong to the authenticated user and match the collected bookmaker
-  - It is retained through raw collection and materialization
-  - When absent, the backend may resolve only an unambiguous temporally valid account
-  - If more than one account can be valid, do not pick the first row: send the item to review
-  - The optional field prepares future simultaneous-account collection without enabling that behavior in this milestone
-- [ ] Preserve the received raw bookmaker payload byte-for-byte (or losslessly with a verified content hash) for replay and parser evolution
-- [ ] Keep contract v1 behavior available for its documented compatibility window; add `N`/`N-1` contract tests that prevent v2 changes from altering v1 silently
-- [ ] Emit metrics by contract version and ACK result without using user IDs, ticket IDs, or tokens as metric labels
+- [ ] Record one explicit component boundary:
+  - `bancaemdia-extension` is an untrusted client that captures, sanitizes, queues, and submits versioned transport envelopes
+  - `bancaemdia-api` authenticates installations, owns and publishes the canonical contract, parses captures, derives bookmaker/ticket identity, deduplicates, reconciles, and materializes financial state
+  - Settlement, balances, matching, holder assignment, and financial totals never exist only in the extension
+- [ ] Publish canonical schemas/examples from the API and make API CI verify schema/runtime equality; extension CI consumes a pinned released version/hash instead of maintaining a divergent contract
+- [ ] Support current (`N`) and previous (`N-1`) contract versions; breaking changes require a new major version, coexistence/deprecation window, compatibility record, and rollback behavior
+- [ ] Publish release metadata covering API contract/schema hash, supported extension/browser range, artifact checksum, permission set, known coverage, and deprecation date
+- [ ] Encode non-negotiable trust rules: exact-host provenance, bounded payloads, no credential/session material, no automated bookmaker action, and explicit rejection of unknown versions
+- [ ] Add `ColetaSessao`, owned by one installation, with immutable `coletar_desde`; reconnect resumes the explicit open session or starts a new one without silently widening the boundary
+- [ ] Define contract v2 batch and item envelopes with contract/batch/session identifiers, stable `client_event_id`, exact hostname, observed transport metadata, `capturado_em`, raw sanitized payload, content hash, and optional `conta_casa_ref`
+- [ ] Keep bookmaker, ticket identity, lifecycle state, and canonical hash authoritative only after API parsing; client hints are diagnostic, never financial truth
+- [ ] Persist every sanitized envelope in an IndexedDB outbox before delivery; stable capture IDs and hashes must survive service-worker suspension, browser restart, reconnect, and repeated observation
+- [ ] Send bounded batches and retain each item until its own durable ACK; implement capped exponential backoff with jitter, offline awareness, `Retry-After`, poison-item quarantine, storage limits that never silently discard unsent financial captures, and metadata-only diagnostics
+- [ ] Preserve per-host ordering when lifecycle reconstruction requires it while allowing fair progress across hosts
+- [ ] Enforce `coletar_desde` from trustworthy source occurrence/ticket time: older items become `ignored_before_boundary`; capture time alone never makes an old ticket eligible; missing/untrustworthy time goes to review
+- [ ] Apply transport idempotency by `(instalacao_id, client_event_id)` and business idempotency by `(usuario_id, casa_id, identidade)`; identical content is a no-op, a valid later lifecycle may advance state, and stale content cannot regress it
+- [ ] Return one deterministic per-item submission ACK—`accepted`, `duplicate`, or `rejected`—with stable reason, retryability, and job reference, plus terminal status such as `materialized`, `updated`, `ignored_before_boundary`, `needs_review`, or `failed`
+- [ ] Ensure an ACK for an older content version cannot delete a newer queued capture and retry only unacknowledged or explicitly retryable items, never the already accepted subset
+- [ ] Validate optional `conta_casa_ref` ownership, bookmaker, and temporal validity; absent or ambiguous resolution goes to review rather than a first-active fallback, preserving future simultaneous-account compatibility without enabling it now
+- [ ] Preserve raw bookmaker payload losslessly with a verified hash for replay/parser evolution and emit low-cardinality metrics by contract/ACK result
+- [ ] Add shared mock fixtures and cross-repository tests for mixed ACKs, partial retries, timeout after server commit, duplicate ACK, worker/browser restart, 401/429/5xx, oversized/malformed payload, storage pressure, poison isolation, boundary cases, contract downgrade, and v1/v2 compatibility
 
-**Acceptance**: A mixed batch returns one stable ACK per ordered input and each accepted item reaches a terminal status; retries create no duplicate collection/finance, pre-boundary tickets never enter totals, invalid account references fail safely, and v1/v2 suites prove the published schema matches runtime behavior
+**Acceptance**: A captured item is durably queued before transmission, a mixed batch receives one stable ACK per ordered item, accepted captures reach a terminal status, retries/restarts create no duplicate collection or financial fact, pre-boundary and ambiguous-account items fail safely, and API plus extension CI prove the published N/N-1 schema matches runtime behavior
 
 ---
 
@@ -334,9 +317,9 @@
 
 ```mermaid
 graph TD
-    W6[Week 6 Complete] --> 1[Extension Architecture & Repository]
-    W6 --> 2[Per-Installation Authentication]
-    1 --> 3[Collection Contract v2]
+    W6[Week 6 Complete] --> 1[Client Foundation & Passive Capture]
+    W6 --> 2[End-to-End Pairing]
+    1 --> 3[Contract v2 & Durable Delivery]
     2 --> 3
     3 --> 4[Casa × Telegram Candidate Engine]
     4 --> 5[Single Financial Fact Consolidation]
@@ -354,9 +337,9 @@ graph TD
 
 | Day | Issues | Notes |
 |-----|--------|-------|
-| 1 | 1, 2 | Repository/contract boundary and installation security can begin in parallel |
-| 2 | 2, 3 | Finish device lifecycle, then implement sessions and the v2 envelope |
-| 3 | 3, 4 | Stabilize per-item ACK/idempotency before candidate generation |
+| 1 | 1, 2 | Client foundation and end-to-end installation pairing can begin in parallel |
+| 2 | 1, 2 | Finish passive capture, token lifecycle, and cross-repository contract tests |
+| 3 | 3 | Publish contract v2 and stabilize sessions, outbox, per-item ACK, and idempotency |
 | 4 | 4 | Validate deterministic candidates and false-positive fixtures |
 | 5 | 5 | Consolidate only exact matches into one financial fact |
 | 6 | 6 | Reuse the online domain path for reviewed historical reconciliation |
@@ -370,6 +353,8 @@ Before these issue bodies are created in GitHub, the administrator must approve 
 
 - The extension belongs in `wfcgit-hub/bancaemdia-extension`, separate from the API and from the website frontend
 - The API repository owns collection contract v2 and its compatibility policy
+- All seven issues are tracked centrally in `bancaemdia-api`; GitHub Issues remain disabled in the extension repository
+- ADR 024 is a responsibility map only and does not duplicate issue bodies
 - ZIP + SHA-256 is the initial distribution mechanism; store publication is not part of Week 7
 - Collection starts at an explicit `coletar_desde` boundary
 - `conta_casa_ref` is optional preparation for future simultaneous-account support; Week 7 does not claim to solve automatic simultaneous-account identification

@@ -5,34 +5,44 @@
 **Target Date**: iterative after Week 7; the milestone closes by coverage evidence, not by an arbitrary domain count
 **Depends on**: Week 7 extension pairing, durable collection, Casa × Telegram matching, and the extension repository contract being approved
 **Scope boundary**: backend and extension integration only; no website frontend work
+**Tracking rule**: each central issue below is a vertical delivery and may be completed by linked pull requests in both `bancaemdia-api` and `wfcgit-hub/bancaemdia-extension`; routine backend/client halves are not separate issues
 **Success Criteria**:
 - [ ] A versioned catalog tracks each bookmaker by brand and exact domain, independently from its legal entity
 - [ ] Regulatory status and technical support status are separate, auditable fields
 - [ ] Federal, court-authorized, state/DF, and user-confirmed accessible sources can all add candidates without falsely classifying them
-- [ ] Every reader runs against sanitized raw fixtures and an expected canonical result
-- [ ] The six inherited readers have regression coverage before new adapters are added
-- [ ] bet365 WebSocket traffic is captured passively without credentials, cookies, or wagering automation
-- [ ] New adapters are delivered in reviewable batches of 3–5 domains, grouped by platform when possible
-- [ ] The milestone cannot be marked complete while any domain the user can open and log into remains without verified support
+- [ ] The extension can request only reviewed exact-host permissions present in its installed manifest and the signed runtime catalog
+- [ ] Every reader and client adapter runs against sanitized raw fixtures and an expected contract result
+- [ ] The six inherited integrations have end-to-end regression coverage before new adapters are added
+- [ ] bet365 WebSocket traffic is captured passively and reconstructed without credentials, cookies, or wagering automation
+- [ ] New adapters are delivered in reviewable batches of 3–5 domains, grouped by proven platform compatibility when possible
+- [ ] The milestone cannot be marked complete while any domain the user can open and log into remains without verified end-to-end support
 
 ---
 
-## GitHub Issues (6 issues)
+## GitHub Issues (5 issues)
 
-### Issue 1: Bookmaker Catalog — Brand + Domain + Independent Regulatory and Support Status
-**Labels**: `week-8`, `bookmaker-coverage`, `catalog`, `compliance`
-**Size**: L (5-6 hours)
+### Issue 1: Bookmaker Catalog & Client Permissions — Signed Exact-Host Control
+**Labels**: `week-8`, `bookmaker-coverage`, `catalog`, `permissions`, `security`, `compliance`
+**Size**: L (8-10 hours)
 
 **Files**:
-- `src/bancaemdia/coleta/catalogo.py`
-- `src/bancaemdia/models/casa_dominio.py`
-- `src/bancaemdia/api/v1/admin/casas.py`
-- `src/bancaemdia/api/v1/coleta_catalogo.py`
-- `src/bancaemdia/services/catalogo_assinatura.py`
-- `scripts/sincronizar_catalogo_casas.py`
-- `tests/unit/coleta/test_catalogo_casas.py`
-- `tests/contract/test_catalogo_extensao.py`
-- `docs/runbooks/catalogo-casas.md`
+- API repository:
+  - `src/bancaemdia/coleta/catalogo.py`
+  - `src/bancaemdia/models/casa_dominio.py`
+  - `src/bancaemdia/api/v1/admin/casas.py`
+  - `src/bancaemdia/api/v1/coleta_catalogo.py`
+  - `src/bancaemdia/services/catalogo_assinatura.py`
+  - `scripts/sincronizar_catalogo_casas.py`
+  - `tests/unit/coleta/test_catalogo_casas.py`
+  - `tests/contract/test_catalogo_extensao.py`
+  - `docs/runbooks/catalogo-casas.md`
+- Extension repository (`wfcgit-hub/bancaemdia-extension`):
+  - `manifest.json`
+  - `src/background/catalog.ts`
+  - `src/background/permissions.ts`
+  - `src/contracts/catalog.ts`
+  - `tests/integration/permissions.test.ts`
+  - `docs/adrs/004-host-permissions.md`
 
 **Tasks**:
 - [ ] Model a catalog entry by `marca + hostname_exato`; do not treat a legal company, platform provider, or wildcard domain as one technical integration
@@ -42,155 +52,194 @@
 - [ ] Ingest the official SPA/MF national authorization page and downloadable spreadsheet from `gov.br`, preserving a dated snapshot and source hash
 - [ ] Ingest the separate SPA/MF list of authorizations granted by court order; never mix it with the ordinary national list
 - [ ] Add a source registry for state and Federal District regulators because there is no single authoritative national feed for state-only authorizations
+- [ ] Maintain a 26-state + Federal District source matrix: each jurisdiction records its official regulator/lottery source, or dated evidence that no applicable list was found or the source was unavailable, plus a recheck date; an unconfigured jurisdiction cannot disappear from coverage totals
 - [ ] Permit a manual candidate when the user can open and log into a domain; record who confirmed access, exact hostname, date, jurisdiction if known, and evidence without secrets
 - [ ] Keep `desconhecido` as a valid regulatory state for an accessible manual entry; technical accessibility must never be presented as legal authorization
 - [ ] Exclude mere applicants from the authorized set and retain suspended, revoked, expired, redirected, and domain-changed records for audit history
 - [ ] Normalize redirects to the final exact hostname while preserving aliases and the redirect chain; never grant a broad `*.example` scope from one verified host
 - [ ] Add an idempotent sync command with dry-run diff (`added`, `changed`, `removed_from_source`, `manual_unchanged`) and no destructive deletion
 - [ ] Expose an admin-only read API/export for the coverage campaign; all writes remain audited and RLS-safe
-- [ ] Publish an installation-authenticated, read-only technical projection for ADR 024 Issue 5 with `catalog_version`, issue/expiry time, exact host pattern, adapter/schema version, support/rollout state, minimum extension version, and no provider credentials or unnecessary regulatory/person data
+- [ ] Publish an installation-authenticated, read-only technical projection with `catalog_version`, issue/expiry time, exact host pattern, adapter/schema version, support/rollout state, minimum extension version, and no provider credentials or unnecessary regulatory/person data
 - [ ] Serialize the technical projection canonically and sign it with a configured asymmetric key; include `key_id`, support current/next trust roots for rotation, publish ETag/cache rules, and retain a last-known-good version for bounded offline use
-- [ ] Treat the extension manifest as a build-time upper bound: the runtime catalog may disable or narrow declared `optional_host_permissions`, but a new exact domain absent from the manifest requires a reviewed extension build/release and explicit browser grant before support can become active
-- [ ] Add contract fixtures shared with the central `[Extension] Host Permissions` issue and tests for expiry, bad signature, key rotation, downgrade, revoked host, unsupported client version, and cross-environment catalogs
+- [ ] Generate a reviewed build-time `optional_host_permissions` upper bound from exact catalog hosts; at runtime request one declared host only after explicit user action
+- [ ] Treat the runtime catalog as narrowing-only: it may disable a declared host but can never grant an origin absent from the installed manifest
+- [ ] Require a new reviewed extension build/release, version bump, and explicit browser grant before activating any newly cataloged exact domain that the installed manifest does not declare
+- [ ] Never request `<all_urls>` or infer that one approved brand/domain authorizes sister brands, redirects, mirrors, or an entire top-level wildcard
+- [ ] Verify catalog signature/integrity, expiry, environment, and downgrade rules before applying it in the extension
+- [ ] Reconcile granted permissions with the active catalog and stop capture immediately when a host is revoked or marked `regressao`
+- [ ] Preserve locally queued envelopes from a formerly allowed host for safe upload while preventing any new capture there
+- [ ] Show permission state using extension-owned UI only; no website frontend work belongs to this issue
+- [ ] Add shared contract fixtures and tests for add/remove/redirect/domain change, stale/offline catalog, bad signature, key rotation, downgrade, revoked host, unsupported extension version, permission denial, and cross-environment catalogs
+- [ ] Keep regulatory status informational and separate: extension capture is controlled exclusively by technical support plus explicit browser permission
 - [ ] Document the authoritative federal, judicial, and each configured state/DF source URL and its expected refresh method
 
-**Acceptance**: A dry run produces an auditable brand-by-domain catalog from federal, judicial, configured state/DF, and manual accessible sources; legal evidence never silently changes technical status; and the client projection is signed, versioned, rotation-tested, exact-host-only, and incapable of granting a host outside the reviewed manifest build
+**Acceptance**: A dry run produces an auditable brand-by-domain catalog from federal, judicial, configured state/DF, and manual accessible sources; legal evidence never silently changes technical status; and the extension captures only on an exact host present in both the signed, valid runtime catalog and the installed build's reviewed `optional_host_permissions`, after explicit user grant
 
 ---
 
-### Issue 2: Reader Harness — Sanitized Fixtures, Golden Results & Schema-Drift Detection
-**Labels**: `week-8`, `bookmaker-coverage`, `readers`, `testing`
-**Size**: L (5-6 hours)
+### Issue 2: Reader & Adapter Harness — Golden Results, Safe Fixtures & Schema Drift
+**Labels**: `week-8`, `bookmaker-coverage`, `readers`, `adapters`, `testing`, `security`
+**Size**: L (8-10 hours)
 
 **Files**:
-- `src/bancaemdia/coleta/readers/base.py`
-- `src/bancaemdia/coleta/readers/registry.py`
-- `src/bancaemdia/coleta/readers/errors.py`
-- `tests/coleta/harness.py`
-- `tests/fixtures/coleta/`
-- `tests/coleta/test_reader_contract.py`
+- API repository:
+  - `src/bancaemdia/coleta/readers/base.py`
+  - `src/bancaemdia/coleta/readers/registry.py`
+  - `src/bancaemdia/coleta/readers/errors.py`
+  - `tests/coleta/harness.py`
+  - `tests/fixtures/coleta/`
+  - `tests/coleta/test_reader_contract.py`
+- Extension repository (`wfcgit-hub/bancaemdia-extension`):
+  - `src/adapters/types.ts`
+  - `src/adapters/registry.ts`
+  - `src/adapters/sanitize.ts`
+  - `src/adapters/matchers.ts`
+  - `tests/adapters/contract.ts`
+  - `tests/fixtures/`
+  - `docs/ADAPTER_AUTHORING.md`
 
 **Tasks**:
-- [ ] Define one reader contract from a captured envelope to canonical bets, including `marca`, exact `hostname`, source endpoint/frame, capture time, external identity, state, stake, odds, return, selections, and raw schema version
-- [ ] Require each adapter fixture set to contain sanitized raw input plus an explicit golden canonical output; fixtures must contain no token, cookie, account identifier, personal data, or reusable session material
+- [ ] Define one API reader contract from a captured envelope to canonical bets, including `marca`, exact `hostname`, source endpoint/frame, capture time, external identity, state, stake, odds, return, selections, and raw schema version
+- [ ] Define one typed extension adapter contract for exact hostnames, capture channel (`fetch`, `xhr`, `websocket`), endpoint/frame matching, sanitization, schema version, and envelope metadata
+- [ ] Keep business parsing and financial materialization in the backend; extension adapters identify and sanitize transport payloads only
+- [ ] Route by final exact hostname and adapter version in both registries; reject ambiguous matches and never select a first/default adapter
+- [ ] Require each integration fixture set to contain sanitized raw input, expected client envelope, and explicit golden canonical output; fixtures must contain no token, cookie, account identifier, personal data, or reusable session material
 - [ ] Cover relevant lifecycle states: open, settled green/red, void, cashout, partial result where supported, and an explicitly unsupported sample
 - [ ] Cover single and multiple bets, decimals and Brazilian currency formatting, missing optional fields, repeated capture, and open → settled update
 - [ ] Validate deterministic identity and content hashes so replaying a fixture is an idempotent no-op and an updated state modifies the same bet
-- [ ] Introduce typed errors (`schema_drift`, `unsupported_market`, `incomplete_payload`, `wrong_host`, `unsafe_payload`) instead of silently returning an empty result
-- [ ] Quarantine unknown schema versions and emit an observable metric/event without materializing partial financial data
-- [ ] Produce a machine-readable contract report per adapter: fixture count, covered states, last real capture date, pass/fail, and drift reason
-- [ ] Add a fixture-sanitization test that fails CI on common credential, cookie, email, phone, CPF, and account-number patterns
-- [ ] Add the harness to CI and make a reader change fail when its golden output changes without an explicitly reviewed fixture update
+- [ ] Provide reusable extension helpers for safe JSON/text decoding, size limits, field allow/deny lists, content hashing, and structured redaction
+- [ ] Introduce typed backend errors (`schema_drift`, `unsupported_market`, `incomplete_payload`, `wrong_host`, `unsafe_payload`) instead of silently returning an empty result
+- [ ] Fail closed on unknown client schema/content type and quarantine unknown backend schema versions; emit observable drift diagnostics without forwarding guessed payloads or materializing partial financial data
+- [ ] Add one shared client contract harness that every adapter must pass and one backend reader harness that consumes its sanitized envelope
+- [ ] Produce a machine-readable capability/contract report per integration: fixture count, covered states, last real capture date, client/backend versions, pass/fail, and drift reason
+- [ ] Add fixture safety scanning that fails CI on cookies, bearer tokens, emails, phones, CPF, account numbers, high-entropy session-like values, and other credential-shaped content
+- [ ] Add both harnesses to their repositories' CI; changing an envelope or golden output requires an explicitly reviewed fixture/version update
+- [ ] Document how to add one exact domain, collect the minimum sample, sanitize it, write fixtures, declare permissions, and coordinate its extension adapter with its backend reader version
 
-**Acceptance**: Every registered reader passes the same deterministic contract suite, unsafe fixtures fail CI, and a breaking payload change is reported as schema drift instead of creating incomplete or duplicate financial records
+**Acceptance**: Any new exact-domain integration can be added through the documented adapter/reader contracts; unsafe fixtures and ambiguous routing fail CI; schema drift is quarantined; and the client-to-backend golden replay is deterministic without moving canonical financial parsing into the extension
 
 ---
 
-### Issue 3: Existing Readers — Regression Baseline for Six Bookmakers
-**Labels**: `week-8`, `bookmaker-coverage`, `readers`, `regression`
-**Size**: L (6-8 hours)
+### Issue 3: Existing Six Bookmakers — End-to-End Regression Baseline
+**Labels**: `week-8`, `bookmaker-coverage`, `readers`, `extension`, `regression`
+**Size**: XL (12-16 hours)
 
 **Files**:
-- `src/bancaemdia/coleta/readers/betano.py`
-- `src/bancaemdia/coleta/readers/superbet.py`
-- `src/bancaemdia/coleta/readers/betmgm.py`
-- `src/bancaemdia/coleta/readers/betfair.py`
-- `src/bancaemdia/coleta/readers/kambi.py`
-- `src/bancaemdia/coleta/readers/altenar.py`
-- `tests/fixtures/coleta/{betano,superbet,betmgm,betfair,kto,esportiva}/`
-- `tests/coleta/test_readers_existentes.py`
+- API repository:
+  - `src/bancaemdia/coleta/readers/{betano,superbet,betmgm,betfair,kambi,altenar}.py`
+  - `tests/fixtures/coleta/{betano,superbet,betmgm,betfair,kto,esportiva}/`
+  - `tests/coleta/test_readers_existentes.py`
+- Extension repository (`wfcgit-hub/bancaemdia-extension`):
+  - `src/adapters/{betano,superbet,betmgm,betfair,kambi,altenar}.ts`
+  - `tests/fixtures/{betano,superbet,betmgm,betfair,kto,esportiva}/`
+  - `tests/adapters/existing-six.test.ts`
 
 **Tasks**:
-- [ ] Port or normalize the inherited readers for Betano, Superbet, BetMGM, Betfair, KTO on Kambi, and Esportiva on Altenar onto the common reader contract
-- [ ] Verify each exact production hostname against the catalog; a fixture from one hostname must not silently authorize another brand or mirror
-- [ ] Obtain at least one fresh, sanitized, user-provided capture per bookmaker rather than trusting only legacy payloads
-- [ ] Preserve legacy fixtures for historical replay and label their capture date/schema; do not overwrite them with current samples
-- [ ] Add golden fixtures for every lifecycle/state that the captured platform actually exposes, including multiple and cashout where available
-- [ ] Prove open → settled identity stability and duplicate no-op behavior for all six readers
-- [ ] Verify amounts remain centavo-exact and that locale conversion never uses binary floating point for financial values
-- [ ] Fail explicitly when a legacy reader cannot interpret the current payload; route the collection to review and mark that domain `regressao`
-- [ ] Publish the generated contract report and update each domain's technical status only after CI and a real sanitized sample pass
+- [ ] Port or normalize the inherited backend readers and passive client transport matchers for Betano, Superbet, BetMGM, Betfair, KTO/Kambi, and Esportiva/Altenar onto the common contracts
+- [ ] Confirm each exact current production hostname and endpoint with a fresh sanitized capture supplied by the user; a fixture from one hostname must not authorize another brand or mirror
+- [ ] Preserve dated legacy fixtures for historical replay and regression, but do not treat them as proof that a current site still works or overwrite them with current samples
+- [ ] Capture only response bodies required by the matching backend reader; remove headers, cookies, session fields, user identifiers, and unrelated account data
+- [ ] Add end-to-end golden fixtures for every lifecycle/state the captured platform actually exposes, including initial history, repeated observation, open → settled, multiple, and cashout where available
+- [ ] Prove stable external identity and duplicate no-op behavior from extension envelope through backend materialization for all six integrations
+- [ ] Verify amounts remain centavo-exact and locale conversion never uses binary floating point for financial values
+- [ ] Coordinate exact-host catalog entries, client adapter/schema versions, backend reader versions, and generated capability reports
+- [ ] Verify one failing adapter/reader is quarantined independently and cannot stop capture, upload, or processing for the other houses
+- [ ] Fail explicitly when a legacy integration cannot interpret the current payload; route the collection to review and mark only that exact domain `regressao`
+- [ ] Mark a hostname `suportado` only after extension tests, backend golden-reader tests, and one end-to-end sanitized real replay all pass
 
-**Acceptance**: Betano, Superbet, BetMGM, Betfair, KTO/Kambi, and Esportiva/Altenar each pass the shared harness using a fresh sanitized capture while all legacy fixtures remain replayable
+**Acceptance**: Betano, Superbet, BetMGM, Betfair, KTO/Kambi, and Esportiva/Altenar each produce safe versioned envelopes from fresh real captures and pass deterministic extension-to-backend replay without session data, duplicate financial facts, or cross-adapter failure, while legacy fixtures remain replayable
 
 ---
 
-### Issue 4: bet365 Reader — Passive WebSocket Capture + Stateful Reconstruction
-**Labels**: `week-8`, `bookmaker-coverage`, `bet365`, `websocket`
-**Size**: L (6-8 hours)
+### Issue 4: bet365 — Passive WebSocket Capture & Stateful End-to-End Reconstruction
+**Labels**: `week-8`, `bookmaker-coverage`, `extension`, `bet365`, `websocket`, `security`
+**Size**: XL (12-16 hours)
 
 **Files**:
-- `src/bancaemdia/coleta/readers/bet365.py`
-- `src/bancaemdia/coleta/readers/websocket.py`
-- `tests/fixtures/coleta/bet365/`
-- `tests/coleta/test_bet365_reader.py`
-- `docs/runbooks/bet365-capture.md`
+- API repository:
+  - `src/bancaemdia/coleta/readers/bet365.py`
+  - `src/bancaemdia/coleta/readers/websocket.py`
+  - `tests/fixtures/coleta/bet365/`
+  - `tests/coleta/test_bet365_reader.py`
+  - `docs/runbooks/bet365-capture.md`
+- Extension repository (`wfcgit-hub/bancaemdia-extension`):
+  - `src/injected/websocket-bridge.ts`
+  - `src/adapters/bet365.ts`
+  - `src/contracts/websocket-envelope.ts`
+  - `tests/fixtures/bet365/`
+  - `tests/integration/bet365-websocket.test.ts`
+  - `docs/adrs/005-websocket-capture.md`
 
 **Tasks**:
 - [ ] Document, from sanitized real captures, which WebSocket frames build the user's open and settled bet history; do not assume the legacy protocol is still current
-- [ ] Accept an ordered envelope of relevant frames from the extension and reconstruct a snapshot without depending on cookies, auth headers, local-storage tokens, or account identifiers
-- [ ] Handle frame fragmentation, keep-alives, repeated snapshots, incremental updates, reconnects, and out-of-order delivery with bounded state and expiry
-- [ ] Ignore unrelated live-score/odds traffic and whitelist only the minimal message shapes required for the user's own bet records
+- [ ] Instrument WebSocket observation in page world without changing constructor semantics, send behavior, event delivery, or data returned to site code
+- [ ] Match only the documented exact bet365 host and minimum frame signatures needed for the user's bet history; ignore unrelated odds, live-score, and other connection traffic before persistence
+- [ ] Forward ordered, bounded, timestamped frame envelopes with connection-local sequence IDs so the backend can reconstruct state
+- [ ] Accept those envelopes in the backend and reconstruct snapshots without depending on cookies, auth headers, local-storage tokens, handshake secrets, or account identifiers
+- [ ] Handle the text/binary formats actually observed, frame fragmentation metadata, keep-alives, repeated snapshots, incremental updates, reconnects, duplicate/out-of-order frames, and service-worker suspension with bounded state and expiry
+- [ ] Remove or reject handshake URLs/parameters, cookies, auth tokens, account identifiers, and unrelated frame fields before the extension outbox
+- [ ] Do not transmit frames sent by the page unless a reviewed real sample proves they are strictly required; passive receive-side capture is the default
 - [ ] Create a stable external identity across open → settled updates and keep content hashing separate from identity hashing
 - [ ] Add sanitized golden fixtures for single, multiple, open, green/red, void, and cashout when those states are observable in the user's captures
-- [ ] Detect protocol/schema drift explicitly, quarantine the batch, and mark bet365 as `regressao` without materializing guessed values
-- [ ] Enforce passive capture: no bet placement, clicks, credential collection, login inference, anti-bot bypass, or page modification
-- [ ] Record browser/site version, exact hostname, capture date, and fixture sanitization evidence in the reader report
+- [ ] Detect unknown frame signatures/protocol drift, pause and quarantine only the bet365 integration, mark its exact domain `regressao`, and never forward or materialize guessed values
+- [ ] Enforce passive capture end to end: no bet placement, clicks, credential collection, login inference, anti-bot bypass, page modification, or unrelated outgoing actions
+- [ ] Add transparency tests proving site WebSocket behavior is unchanged and unrelated connections/frames never enter the outbox
+- [ ] Record browser/site version, exact hostname, capture date, adapter/reader versions, and fixture sanitization evidence in the capability report
 
-**Acceptance**: A sanitized sequence of real bet365 WebSocket frames deterministically produces idempotent canonical bets and open → settled updates, while unrelated frames and schema drift produce no financial writes
-
----
-
-### Issue 5: Adapter Campaign — Dynamic Batches of 3–5 Domains by Platform
-**Labels**: `week-8`, `bookmaker-coverage`, `adapters`, `campaign`
-**Size**: L (6-8 hours per generated batch)
-
-**Files**:
-- `docs/bookmaker-coverage/batches/`
-- `src/bancaemdia/coleta/readers/`
-- `tests/fixtures/coleta/`
-- `scripts/relatorio_cobertura_casas.py`
-- `.github/ISSUE_TEMPLATE/bookmaker-adapter-batch.md`
-
-**Tasks**:
-- [ ] Generate the next batch from catalog entries with status `precisa_captura` or `em_desenvolvimento`, prioritizing shared platforms/protocols and never popularity alone
-- [ ] Keep each delivery unit to 3–5 exact domains; list brand, hostname, source of candidacy, platform hypothesis, and current evidence in the batch issue
-- [ ] Require the user to log in and produce only the minimum sanitized captures needed for each domain; document precise capture steps and missing states
-- [ ] Reuse a platform reader only after fixtures prove the payload contract is compatible; brand similarity or a common vendor name is not proof
-- [ ] For every domain, add host routing, adapter/reader, sanitized raw fixtures, golden outputs, drift behavior, and contract report
-- [ ] Track inaccessible, geo-blocked, maintenance, or account-unavailable domains as evidence-backed blockers with a recheck date; do not mark them supported
-- [ ] Split an outlier protocol into its own follow-up issue rather than making a batch unreviewable
-- [ ] Update technical support status only after the exact hostname passes CI and a replay against its real sanitized capture
-- [ ] Repeat batches until the literal coverage gate in Issue 6 has no accessible/login-capable pending domain
-
-**Acceptance**: Each batch closes only when 3–5 named exact domains have independently passing real fixtures and reports, or each unfinished domain is split into a traceable blocker/follow-up without being labeled supported
+**Acceptance**: Relevant sanitized real bet365 frames reach the durable outbox in deterministic order and reconstruct idempotent canonical bets plus open → settled updates without changing site behavior; credentials, outgoing actions, unrelated traffic, and unknown schemas produce no financial write
 
 ---
 
-### Issue 6: Literal Coverage Gate — Every Domain the User Can Open and Log Into
-**Labels**: `week-8`, `bookmaker-coverage`, `validation`, `release-gate`
-**Size**: L (5-6 hours, repeated until green)
+### Issue 5: All Remaining Bookmakers — Adapter Campaign, Manual Evidence & Literal Coverage Gate
+**Labels**: `week-8`, `bookmaker-coverage`, `extension`, `adapters`, `campaign`, `validation`, `release-gate`
+**Size**: XL (iterative; reviewable PR batches of 3–5 exact domains)
 
 **Files**:
-- `scripts/validar_cobertura_total.py`
-- `docs/bookmaker-coverage/COVERAGE.md`
-- `docs/bookmaker-coverage/evidence/`
-- `tests/integration/coleta/test_coverage_gate.py`
-- `.github/workflows/bookmaker-coverage.yml`
+- API repository:
+  - `docs/bookmaker-coverage/batches/`
+  - `docs/bookmaker-coverage/COVERAGE.md`
+  - `docs/bookmaker-coverage/evidence/`
+  - `src/bancaemdia/coleta/readers/`
+  - `tests/fixtures/coleta/`
+  - `scripts/relatorio_cobertura_casas.py`
+  - `scripts/validar_cobertura_total.py`
+  - `tests/integration/coleta/test_coverage_gate.py`
+  - `.github/workflows/bookmaker-coverage.yml`
+- Extension repository (`wfcgit-hub/bancaemdia-extension`):
+  - `src/adapters/`
+  - `tests/fixtures/`
+  - `docs/runbooks/manual-capture.md`
+  - `docs/runbooks/sanitization.md`
+  - `docs/templates/bookmaker-capture.md`
+  - `scripts/validate-fixture-safety.ts`
+  - `scripts/build-coverage-report.ts`
+  - `.github/workflows/fixture-safety.yml`
 
 **Tasks**:
-- [ ] Define the target set as the union of federal, court-authorized, all configured state/DF sources, and manual domains the user confirms can be opened and logged into on their computer
-- [ ] Evaluate each exact final hostname independently, including alternate domains and brands owned by the same legal entity
-- [ ] Require, for every accessible/login-capable domain: technical status `suportado`, a recent sanitized real capture, passing reader contract, and a documented capture date
-- [ ] Do not permit waivers based on low popularity, shared ownership, assumed shared platform, or lack of automated discovery
-- [ ] Permit `bloqueado_externo` only with dated evidence that the user cannot currently open or log in (for example geo-block, closed registration, maintenance, or unavailable account) and schedule revalidation
-- [ ] Treat `desconhecido`, `nao_avaliado`, `precisa_captura`, `em_desenvolvimento`, and `regressao` as gate failures whenever the user can access the domain
-- [ ] Verify the catalog has no domain with technical support inherited from a wildcard, redirect alias, or another brand's fixture
-- [ ] Produce a human-readable matrix and JSON artifact containing totals, blockers, last capture age, missing states, reader version, and source evidence
-- [ ] Run the gate in CI as an informational report during the rolling campaign and as a required check when the milestone is proposed for completion
+- [ ] Define the target set as the union of federal, court-authorized, the complete state/DF source matrix, and manual domains the user confirms can be opened and logged into on their computer
+- [ ] Generate the next reviewable PR batch from entries with status `precisa_captura` or `em_desenvolvimento`, prioritizing proven shared platforms/protocols and never popularity alone
+- [ ] Keep each routine delivery unit to 3–5 exact domains and track it as a checklist/linked PR inside this central campaign issue; list brand, hostname, source of candidacy, platform hypothesis, and current evidence
+- [ ] Define a user-assisted capture protocol for one exact domain: grant permission, open the user's own bet history, capture only minimum required states, disable capture, review locally, sanitize, and submit evidence
+- [ ] Never ask the user to share a password, cookie, bearer token, full HAR, browser profile, private key, reusable session, or unsanitized personal/account data
+- [ ] Provide capture checklists for single, multiple, open, settled green/red, void, and cashout; mark unavailable states truthfully instead of fabricating fixtures
+- [ ] Require the user to produce only the minimum sanitized captures needed for each domain and document precise steps plus missing states
+- [ ] Run automated secret/PII detection and mandatory human review before any fixture enters Git history
+- [ ] Record brand, exact final hostname/redirect chain, platform hypothesis, browser/extension version, capture date, adapter/reader versions, sanitization version, and candidacy evidence
+- [ ] Reuse a platform adapter/reader only after fixtures prove the payload contract is compatible; shared ownership, brand similarity, or a common vendor name is not proof
+- [ ] For every domain, add exact-host routing and permission, client adapter, backend reader, sanitized raw fixture, expected envelope, golden output, drift behavior, capability report, and end-to-end replay
+- [ ] Update technical support status only after the exact hostname passes client CI, backend CI, and replay against its real sanitized capture
+- [ ] Evaluate alternate domains and brands owned by the same legal entity independently; technical support must never be inherited from a wildcard, redirect alias, or another brand's fixture
+- [ ] Track inaccessible, geo-blocked, maintenance, closed-registration, or account-unavailable domains as `bloqueado_externo` only with dated evidence and a recheck date; do not mark them supported or silently omit them
+- [ ] Treat `desconhecido`, `nao_avaliado`, `precisa_captura`, `em_desenvolvimento`, and `regressao` as gate failures whenever the user can access and log into the domain
+- [ ] Do not permit waivers based on low popularity, shared ownership, assumed platform, or lack of automated discovery
+- [ ] Preserve locally queued evidence safely when a host is disabled; never resume new capture until catalog, permission, and integration status are valid again
+- [ ] Split only a proven outlier protocol into its own follow-up issue; routine batches and backend/client halves remain within this campaign to avoid recreating micro-issues
+- [ ] Generate a human-readable matrix and JSON artifact with totals, blockers, last capture age, missing states, adapter/reader versions, source evidence, and cross-repository PR references
+- [ ] Run the literal coverage gate in CI as informational during the rolling campaign and as a required check when milestone completion is proposed
+- [ ] Repeat reviewable batches until every accessible/login-capable exact domain is `suportado` with a recent sanitized real capture and passing end-to-end replay
 - [ ] Keep legal/regulatory wording factual: the gate proves technical coverage of the defined accessible set, not authorization, endorsement, or permanence
 
-**Acceptance**: The milestone report has zero accessible/login-capable domains outside `suportado`, every supported hostname has recent sanitized evidence and passing tests, and all currently inaccessible domains have dated blocker evidence instead of being silently omitted
+**Acceptance**: The milestone report has zero accessible/login-capable exact domains outside `suportado`; every supported hostname has explicit permission, recent secret-free evidence, passing client and backend contracts, and deterministic end-to-end replay; and every currently inaccessible domain has dated blocker evidence plus a recheck date
 
 ---
 
@@ -198,18 +247,16 @@
 
 ```mermaid
 graph TD
-    W7[Week 7 Contract Approved] --> 1[Living Catalog]
-    W7 --> 2[Reader Harness]
-    2 --> 3[Six Existing Readers]
-    2 --> 4[bet365 WebSocket]
-    1 --> 5[Adapter Batches 3-5]
+    W7[Week 7 Contract Approved] --> 1[Catalog + Client Permissions]
+    W7 --> 2[Reader + Adapter Harness]
+    1 --> 3[Six Existing Houses E2E]
+    2 --> 3
+    1 --> 4[bet365 E2E]
+    2 --> 4
+    1 --> 5[Remaining-Domain Campaign + Gate]
     2 --> 5
     3 --> 5
     4 --> 5
-    1 --> 6[Literal Coverage Gate]
-    3 --> 6
-    4 --> 6
-    5 --> 6
 ```
 
 ## Authoritative Source Policy
