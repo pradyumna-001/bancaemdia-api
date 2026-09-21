@@ -11,7 +11,7 @@ from bancaemdia.models import Base
 
 ROOT = Path(__file__).resolve().parents[2]
 BASELINE = "be7d60cb5437"
-HEAD = "9c2d5e7f1a08"
+HEAD = "a4e7d2c9f103"
 PARTICIONADAS = {
     "eventos": "criado_em",
     "movimentos": "ocorrido_em",

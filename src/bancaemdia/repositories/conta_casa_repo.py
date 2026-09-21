@@ -32,6 +32,31 @@ class ContaCasaRepo:
         obj = (await session.execute(stmt)).scalar_one_or_none()
         return None if obj is None else ContaCasa(**colunas(obj))
 
+    async def get_many_for_update(
+        self, session: AsyncSession, usuario_id: int, ids: list[int]
+    ) -> list[ContaCasa]:
+        # Toda transferência trava as contas na mesma ordem, mesmo que a chamada as tenha recebido
+        # ao contrário. Isso evita que duas transferências cruzadas esperem uma pela outra.
+        ids_ordenados = sorted(set(ids))
+        stmt = (
+            select(models.ContaCasa)
+            .where(
+                models.ContaCasa.usuario_id == usuario_id,
+                models.ContaCasa.id.in_(ids_ordenados),
+            )
+            .order_by(models.ContaCasa.id)
+            .with_for_update()
+        )
+        return [ContaCasa(**colunas(obj)) for obj in (await session.execute(stmt)).scalars()]
+
+    async def list_by_usuario(self, session: AsyncSession, usuario_id: int) -> list[ContaCasa]:
+        stmt = (
+            select(models.ContaCasa)
+            .where(models.ContaCasa.usuario_id == usuario_id)
+            .order_by(models.ContaCasa.id)
+        )
+        return [ContaCasa(**colunas(obj)) for obj in (await session.execute(stmt)).scalars()]
+
     async def get_vigente_by_nome_da_casa(
         self, session: AsyncSession, usuario_id: int, nome: str, data: datetime | None = None
     ) -> ContaCasa | None:
