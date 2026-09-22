@@ -5,6 +5,7 @@ variable "private_subnet_ids" { type = list(string) }
 variable "private_cidrs" { type = list(string) }
 variable "security_group_id" { type = string }
 variable "api_target_group_arn" { type = string }
+variable "canary_target_group_arn" { type = string }
 variable "api_hostname" { type = string }
 variable "image_uri" { type = string }
 variable "deploy_enabled" { type = bool }

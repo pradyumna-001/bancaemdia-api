@@ -2,7 +2,7 @@
 
 **Owner:** release operator with the on-call engineer present. **Gate:** this procedure becomes
 executable after the CD workflow and AWS environments described in [the index](../RUNBOOKS.md)
-exist. The SHA and environment inputs shown here are the contract to implement in issue #42.
+are configured and rehearsed. The workflow is documented in [cd.md](cd.md).
 
 ## Before dispatch
 

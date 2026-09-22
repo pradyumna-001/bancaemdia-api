@@ -8,7 +8,7 @@ on:
         required: true
         default: all
         type: choice
-        options: [all, steady, spike, coleta, painel]
+        options: [all, steady, spike, coleta, painel, cd-smoke]
   schedule:
     - cron: '0 3 * * 0'
   pull_request:
@@ -73,7 +73,9 @@ jobs:
           set -euo pipefail
           test -n "$BASE_URL" || { echo 'STAGING_BASE_URL is required'; exit 1; }
           test -n "${JWT_TOKENS_JSON}${JWT_TOKENS_JSON_1}" || { echo 'Staging JWT tokens are required'; exit 1; }
-          test -n "$COLETA_TOKENS_JSON" || { echo 'STAGING_COLETA_TOKENS_JSON is required'; exit 1; }
+          if [ "$LOAD_PROFILE" != 'cd-smoke' ]; then
+            test -n "$COLETA_TOKENS_JSON" || { echo 'STAGING_COLETA_TOKENS_JSON is required'; exit 1; }
+          fi
       - name: Run staging load profile and enforce thresholds
         run: k6 run k6/load-test.js
       - name: Upload HTML and JSON results

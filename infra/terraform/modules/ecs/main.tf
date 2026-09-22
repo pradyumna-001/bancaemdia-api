@@ -147,6 +147,44 @@ resource "aws_ecs_service" "service" {
     enable   = true
     rollback = true
   }
+  deployment_minimum_healthy_percent = 50
+  deployment_maximum_percent         = 200
+  lifecycle {
+    # Deployments pin task revisions; Terraform only owns service topology.
+    ignore_changes = [task_definition]
+  }
+  depends_on = [aws_ecs_cluster_capacity_providers.this, aws_iam_role_policy_attachment.execution, aws_iam_role_policy.secrets]
+  tags       = var.tags
+}
+
+resource "aws_ecs_service" "canary" {
+  count           = var.deploy_enabled ? 1 : 0
+  name            = "${var.name}-api-canary"
+  cluster         = aws_ecs_cluster.this.id
+  task_definition = aws_ecs_task_definition.service["api"].arn
+  desired_count   = 0
+  capacity_provider_strategy {
+    capacity_provider = "FARGATE"
+    weight            = 1
+  }
+  network_configuration {
+    subnets          = var.private_subnet_ids
+    security_groups  = [var.security_group_id]
+    assign_public_ip = false
+  }
+  load_balancer {
+    target_group_arn = var.canary_target_group_arn
+    container_name   = "api"
+    container_port   = 8000
+  }
+  health_check_grace_period_seconds = 120
+  deployment_circuit_breaker {
+    enable   = true
+    rollback = true
+  }
+  lifecycle {
+    ignore_changes = [task_definition, desired_count]
+  }
   depends_on = [aws_ecs_cluster_capacity_providers.this, aws_iam_role_policy_attachment.execution, aws_iam_role_policy.secrets]
   tags       = var.tags
 }
