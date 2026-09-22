@@ -147,6 +147,13 @@ async def registrar(
                 "bruto_json": bruto,
             },
         )
+        # Another request may have inserted this identity after our first read. The unique
+        # constraint serializes the writes; look it up again when the upsert was a no-op so the
+        # response counts it as known and a failed publication can still be retried.
+        if existente is None and gravada is None:
+            existente = await coletas.get_by_identidade(
+                session, usuario_id, casa_id, coletada.identidade
+            )
         chave = chave_casa(casa, coletada.identidade)
         # Já é aposta nossa: o que pode faltar é o resultado, e ele não passa de novo pela régua da
         # criação, como no projeto antigo.

@@ -154,9 +154,14 @@ class ApostaRepo:
     async def upsert_materializada(
         self, session: AsyncSession, dados: dict[str, object]
     ) -> Aposta | None:
-        stmt = insert(models.Aposta).values(**dados, atualizada_em=func.clock_timestamp())
+        # Replays can carry their source timestamp. A stale replay must not replace a newer row;
+        # live materialization uses the database clock when the source has no timestamp.
+        valores = {**dados, "atualizada_em": dados.get("atualizada_em", func.clock_timestamp())}
+        stmt = insert(models.Aposta).values(**valores)
         mutaveis = {
-            campo: getattr(stmt.excluded, campo) for campo in dados if campo not in IMUTAVEIS
+            campo: getattr(stmt.excluded, campo)
+            for campo in dados
+            if campo not in IMUTAVEIS and campo != "atualizada_em"
         }
         stmt = stmt.on_conflict_do_update(
             index_elements=["usuario_id", "chave"],
