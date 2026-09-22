@@ -1,7 +1,7 @@
-"""007_revisao_resolvida_evento
+"""008_revisao_resolvida_evento
 
 Revision ID: f2a9c4e7b106
-Revises: a4e7d2c9f103
+Revises: c7b1e9a42d60
 Create Date: 2026-09-21 16:00:00
 
 """
@@ -11,7 +11,7 @@ from collections.abc import Sequence
 from alembic import op
 
 revision: str = "f2a9c4e7b106"
-down_revision: str | None = "a4e7d2c9f103"
+down_revision: str | None = "c7b1e9a42d60"
 branch_labels: str | Sequence[str] | None = None
 depends_on: str | Sequence[str] | None = None
 
