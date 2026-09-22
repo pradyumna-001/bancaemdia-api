@@ -1,24 +1,30 @@
 import argparse
 import asyncio
+import base64
 from collections.abc import Sequence
 from dataclasses import dataclass, field
 from datetime import date, datetime, time, timedelta
 
 import structlog
 from kombu.exceptions import OperationalError
+from sqlalchemy import func, select, tuple_
 from sqlalchemy.ext.asyncio import AsyncEngine, AsyncSession
 
+from bancaemdia import models
 from bancaemdia.coleta.leitores import LEITORES
 from bancaemdia.coleta.leitura import ColetaInvalidaError
 from bancaemdia.domain.coleta_casa import casa_da_coleta, casa_do_envio
 from bancaemdia.domain.materializar import casa_canonica
 from bancaemdia.domain.registros import ApostasPorOrigem
+from bancaemdia.domain.upload import casas_por_url, odds_citadas
 from bancaemdia.extracao.cliente import VERSAO_PROMPT
 from bancaemdia.extracao.precos import ORIGEM_DA_REFERENCIA, USD_POR_BILHETE_REFERENCIA, em_reais
 from bancaemdia.repositories.aposta_repo import ApostaRepo
 from bancaemdia.repositories.casa_repo import CasaRepo
 from bancaemdia.repositories.coleta_casa_repo import ColetaCasaRepo
+from bancaemdia.repositories.mensagem_repo import MidiaArquivoRepo
 from bancaemdia.repositories.usuario_repo import UsuarioRepo
+from bancaemdia.workers.extraction import cadeia_do_bilhete
 from bancaemdia.workers.materialization import (
     FUSO_DO_BRASIL,
     _set_current_user,
@@ -31,12 +37,7 @@ ESCOPO_REVISAO = "revisao"
 ESCOPO_TUDO = "tudo"
 PAGINA = 1000
 LOTE = 100
-SEM_FOTOS = (
-    "nada foi enviado para a IA: as fotos passaram a ser guardadas no envio do export (issue #26),"
-    " mas a releitura pelo Telegram ainda não foi ligada a elas. O custo é o teto: o que já foi"
-    " lido com este prompt sai do cache de graça, menos a leitura que não passa mais nas"
-    " conferências"
-)
+SEM_FOTOS = "custo estimado antes da fila; fotos ausentes são registradas e puladas"
 SEM_SIM = "nada foi enviado — rode de novo com --sim para reprocessar"
 NADA_GUARDADO = (
     "não havia nada guardado desta casa: o histórico dela nunca foi aberto com a extensão ligada"
@@ -75,6 +76,8 @@ class Plano:
     bilhetes: int = 0
     fora_do_escopo: int = 0
     sem_releitura: dict[str, int] = field(default_factory=dict)
+    midias_ausentes: int = 0
+    enfileiradas: int = 0
 
     def somar(self, contagens: Sequence[ApostasPorOrigem], escopo: str) -> None:
         self.usuarios += 1
@@ -163,34 +166,228 @@ async def reprocessar_usuario(
     ate: datetime | None = None,
     versao_prompt: str | None = None,
     escopo: str = ESCOPO_REVISAO,
+    *,
+    sim: bool = False,
+    chunk_size: int = PAGINA,
 ) -> Plano:
     conferir_versao(versao_prompt)
     await _conferir_usuario(engine, usuario_id)
+    if sim:
+        return await reler_todas(
+            engine,
+            versao_prompt or VERSAO_PROMPT,
+            escopo,
+            chunk_size=chunk_size,
+            sim=True,
+            usuario_id=usuario_id,
+            desde=desde,
+            ate=ate,
+        )
     plano = Plano()
     await _planejar(engine, usuario_id, desde, ate, escopo, plano)
     return plano
 
 
 async def reler_todas(
-    engine: AsyncEngine, versao_prompt: str, escopo: str = ESCOPO_REVISAO
+    engine: AsyncEngine,
+    versao_prompt: str,
+    escopo: str = ESCOPO_REVISAO,
+    *,
+    chunk_size: int = PAGINA,
+    sim: bool = False,
+    usuario_id: int | None = None,
+    desde: datetime | None = None,
+    ate: datetime | None = None,
 ) -> Plano:
     conferir_versao(versao_prompt)
+    if chunk_size < 1:
+        raise ValueError("chunk_size deve ser positivo")
     plano = Plano()
     depois_de = 0
+    limites: list[tuple[int, int]] = []
     while True:
         # Não há papel que atravesse a RLS: a lista de usuários é aberta, e cada um é contado com a
         # própria identidade. Página pelo id, porque OFFSET pula linhas quando alguém grava no meio.
-        async with AsyncSession(engine) as session:
-            ids = await UsuarioRepo().list_active_ids(session, depois_de, PAGINA)
-        for usuario_id in ids:
-            await _planejar(engine, usuario_id, None, None, escopo, plano)
+        if usuario_id is None:
+            async with AsyncSession(engine) as session:
+                ids = await UsuarioRepo().list_active_ids(session, depois_de, PAGINA)
+        else:
+            ids = [usuario_id]
+        for atual_id in ids:
+            await _planejar(engine, atual_id, desde, ate, escopo, plano)
+            async with AsyncSession(engine) as session, session.begin():
+                await _set_current_user(session, atual_id)
+                ultimo = await session.scalar(
+                    select(func.max(models.UploadBilhete.id)).where(
+                        models.UploadBilhete.usuario_id == atual_id
+                    )
+                )
+            if ultimo is not None:
+                limites.append((atual_id, int(ultimo)))
             if plano.usuarios % LOTE == 0:
                 structlog.get_logger().info(
                     "reler_todas_progresso", usuarios=plano.usuarios, bilhetes=plano.bilhetes
                 )
-        if len(ids) < PAGINA:
-            return plano
+        if usuario_id is not None or len(ids) < PAGINA:
+            break
         depois_de = ids[-1]
+
+    # Count actual media candidates, bounded by the high-water mark, before publishing anything.
+    candidatos = 0
+    for usuario_id, ultimo in limites:
+        depois: tuple[int, int] | None = None
+        while True:
+            async with AsyncSession(engine) as session, session.begin():
+                await _set_current_user(session, usuario_id)
+                pagina = await _pagina_midias(
+                    session, usuario_id, ultimo, depois, escopo, chunk_size, desde, ate
+                )
+                for bilhete in pagina:
+                    if bilhete.midia_hash is None:
+                        plano.midias_ausentes += 1
+                    else:
+                        candidatos += 1
+            if len(pagina) < chunk_size:
+                break
+            depois = (pagina[-1].chat_id, pagina[-1].message_id)
+    plano.bilhetes = candidatos
+    structlog.get_logger().info(
+        "releitura_custo_antes_da_fila",
+        versao_prompt=versao_prompt,
+        bilhetes=candidatos,
+        midias_sem_hash=plano.midias_ausentes,
+        custo_estimado_usd=round(plano.custo_usd, 2),
+        custo_estimado_brl=round(em_reais(plano.custo_usd), 2),
+    )
+    if not sim:
+        return plano
+
+    for usuario_id, ultimo in limites:
+        depois = None
+        while True:
+            async with AsyncSession(engine) as session, session.begin():
+                await _set_current_user(session, usuario_id)
+                pagina = await _pagina_midias(
+                    session, usuario_id, ultimo, depois, escopo, chunk_size, desde, ate
+                )
+            for bilhete in pagina:
+                if bilhete.midia_hash is None:
+                    continue
+                async with AsyncSession(engine) as session, session.begin():
+                    await _set_current_user(session, usuario_id)
+                    mensagem = (
+                        await session.execute(
+                            select(models.Mensagem).where(
+                                models.Mensagem.chat_id == bilhete.chat_id,
+                                models.Mensagem.message_id == bilhete.message_id,
+                            )
+                        )
+                    ).scalar_one_or_none()
+                    dados = await MidiaArquivoRepo().get_by_hash(session, bilhete.midia_hash)
+                    midia = (
+                        await session.execute(
+                            select(models.Midia).where(models.Midia.hash == bilhete.midia_hash)
+                        )
+                    ).scalar_one_or_none()
+                if mensagem is None or dados is None or midia is None:
+                    plano.midias_ausentes += 1
+                    structlog.get_logger().warning(
+                        "releitura_midia_ausente",
+                        usuario_id=usuario_id,
+                        chat_id=bilhete.chat_id,
+                        message_id=bilhete.message_id,
+                        midia_hash=bilhete.midia_hash,
+                    )
+                    continue
+                texto = mensagem.texto
+                try:
+                    cadeia_do_bilhete(
+                        usuario_id,
+                        base64.b64encode(dados).decode("ascii"),
+                        nome_do_arquivo=f"{bilhete.midia_hash}.{midia.tipo.rsplit('/', 1)[-1]}",
+                        legenda=texto,
+                        postada_em=mensagem.data
+                        .astimezone(FUSO_DO_BRASIL)
+                        .replace(tzinfo=None)
+                        .isoformat(),
+                        casas_do_link=casas_por_url(texto),
+                        odds_do_texto=odds_citadas(texto),
+                        chat_id=bilhete.chat_id,
+                        message_id=bilhete.message_id,
+                        midia_hash=bilhete.midia_hash,
+                        versao_prompt=versao_prompt,
+                    ).apply_async()
+                except OperationalError as erro:
+                    raise FilaForaDoArError(
+                        f"fila caiu após {plano.enfileiradas} bilhetes; retome com --sim"
+                    ) from erro
+                plano.enfileiradas += 1
+                if plano.enfileiradas % LOTE == 0:
+                    structlog.get_logger().info(
+                        "releitura_progresso",
+                        enfileiradas=plano.enfileiradas,
+                        estimadas=candidatos,
+                    )
+            if len(pagina) < chunk_size:
+                break
+            depois = (pagina[-1].chat_id, pagina[-1].message_id)
+    return plano
+
+
+async def _pagina_midias(
+    session: AsyncSession,
+    usuario_id: int,
+    ultimo: int,
+    depois: tuple[int, int] | None,
+    escopo: str,
+    tamanho: int,
+    desde: datetime | None = None,
+    ate: datetime | None = None,
+) -> list[models.UploadBilhete]:
+    # The tenant-owned upload row proves access to the globally deduplicated message/media.
+    agrupados = (
+        select(
+            models.UploadBilhete.chat_id.label("chat_id"),
+            models.UploadBilhete.message_id.label("message_id"),
+            func.coalesce(
+                func.max(models.UploadBilhete.id).filter(
+                    models.UploadBilhete.midia_hash.is_not(None)
+                ),
+                func.max(models.UploadBilhete.id),
+            ).label("ultimo_id"),
+        )
+        .where(
+            models.UploadBilhete.usuario_id == usuario_id,
+            models.UploadBilhete.id <= ultimo,
+        )
+        .group_by(models.UploadBilhete.chat_id, models.UploadBilhete.message_id)
+        .subquery()
+    )
+    stmt = select(models.UploadBilhete).join(
+        agrupados, models.UploadBilhete.id == agrupados.c.ultimo_id
+    )
+    if depois is not None:
+        stmt = stmt.where(tuple_(agrupados.c.chat_id, agrupados.c.message_id) > depois)
+    if escopo == ESCOPO_REVISAO or desde is not None or ate is not None:
+        aposta = select(models.Aposta.id).where(
+            models.Aposta.usuario_id == usuario_id,
+            models.Aposta.chat_id == agrupados.c.chat_id,
+            models.Aposta.message_id == agrupados.c.message_id,
+        )
+        if escopo == ESCOPO_REVISAO:
+            aposta = aposta.where(models.Aposta.revisao_grave.is_(True))
+        if desde is not None:
+            aposta = aposta.where(models.Aposta.data_aposta >= desde)
+        if ate is not None:
+            aposta = aposta.where(models.Aposta.data_aposta < ate)
+        stmt = stmt.where(aposta.exists())
+    return list(
+        (
+            await session.execute(
+                stmt.order_by(agrupados.c.chat_id, agrupados.c.message_id).limit(tamanho)
+            )
+        ).scalars()
+    )
 
 
 def _enfileirar(usuario_id: int, coleta_ids: list[int]) -> None:
@@ -309,6 +506,8 @@ def _mostrar_plano(evento: str, plano: Plano, escopo: str, **contexto: object) -
         bilhetes_para_a_ia=plano.bilhetes,
         fora_do_escopo=plano.fora_do_escopo,
         sem_releitura=plano.sem_releitura,
+        midias_ausentes=plano.midias_ausentes,
+        enfileiradas=plano.enfileiradas,
         custo_estimado_brl=round(em_reais(plano.custo_usd), 2),
         custo_estimado_usd=round(plano.custo_usd, 2),
         preco_por_bilhete=ORIGEM_DA_REFERENCIA,
@@ -362,6 +561,7 @@ def analisador() -> argparse.ArgumentParser:
         "reler-todas", parents=[modo], help="as apostas do Telegram de todos os usuários"
     )
     todas.add_argument("--versao-prompt", required=True)
+    todas.add_argument("--chunk-size", type=int, default=PAGINA)
     todas.add_argument(
         "--tudo", action="store_true", help="todas as apostas, não só as marcadas para revisão"
     )
@@ -386,10 +586,17 @@ async def _rodar(opcoes: argparse.Namespace) -> int:
                 _fim_do_dia(opcoes.ate),
                 opcoes.versao_prompt,
                 escopo,
+                sim=opcoes.sim,
             )
             _mostrar_plano("reprocessar_usuario", plano, escopo, usuario_id=opcoes.usuario_id)
         elif opcoes.comando == "reler-todas":
-            plano = await reler_todas(engine, opcoes.versao_prompt, escopo)
+            plano = await reler_todas(
+                engine,
+                opcoes.versao_prompt,
+                escopo,
+                chunk_size=opcoes.chunk_size,
+                sim=opcoes.sim,
+            )
             _mostrar_plano("reler_todas", plano, escopo)
         elif opcoes.coleta_id is not None:
             reprocesso = await reprocessar_coleta(
@@ -407,6 +614,7 @@ async def _rodar(opcoes: argparse.Namespace) -> int:
         ColetaInvalidaError,
         ColetaNaoEncontradaError,
         FilaForaDoArError,
+        ValueError,
     ) as recusa:
         structlog.get_logger().error("reprocessamento_recusado", recado=str(recusa))
         return 1

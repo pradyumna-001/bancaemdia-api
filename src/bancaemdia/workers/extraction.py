@@ -96,7 +96,10 @@ def extrair_bilhete(
     odds_do_texto: list[float] | None = None,
     chat_id: int | None = None,
     message_id: int | None = None,
+    versao_prompt: str = VERSAO_PROMPT,
 ) -> dict[str, object]:
+    if versao_prompt != VERSAO_PROMPT:
+        raise ValueError(f"prompt {versao_prompt!r} não está publicado neste worker")
     with observe_stage(EXTRACTION_QUEUE):
         leitura = ler_mensagem(
             LeitorLimitado(
@@ -120,7 +123,7 @@ def extrair_bilhete(
         "chat_id": chat_id,
         "message_id": message_id,
         "postada_em": postada_em,
-        "versao_prompt": VERSAO_PROMPT,
+        "versao_prompt": versao_prompt,
         **leitura.para_json(),
     }
 
@@ -159,7 +162,10 @@ def cadeia_do_bilhete(
     message_id: int,
     midia_hash: str,
     upload_id: int | None = None,
+    versao_prompt: str = VERSAO_PROMPT,
 ) -> Signature:
+    if versao_prompt != VERSAO_PROMPT:
+        raise ValueError(f"prompt {versao_prompt!r} não está publicado neste worker")
     # A leitura entra como primeiro argumento posicional da gravação: `materializar_aposta` tem o
     # usuário nessa posição e a corrente trocaria os dois sem erro nenhum (medido).
     leitura = app.signature(
@@ -174,6 +180,7 @@ def cadeia_do_bilhete(
             "odds_do_texto": odds_do_texto,
             "chat_id": chat_id,
             "message_id": message_id,
+            "versao_prompt": versao_prompt,
         },
     )
     gravacao = app.signature(

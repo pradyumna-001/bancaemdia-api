@@ -39,6 +39,7 @@ from bancaemdia.domain.materializar import (
 )
 from bancaemdia.domain.registros import ColetaCasa
 from bancaemdia.domain.temporal import VALOR_UNIDADE_PADRAO_CENTAVOS
+from bancaemdia.extracao.cliente import VERSAO_PROMPT
 from bancaemdia.extracao.modelos import ExtracaoBilhete
 from bancaemdia.observability.metrics import (
     apostas_created_total,
@@ -204,13 +205,25 @@ async def _gravar(
 ) -> Gravada:
     await _set_current_user(session, usuario_id)
     historico = await _historico(session, usuario_id, nova.chave)
+    versao_prompt = extracao_json.get("versao_prompt")
+    if versao_prompt is not None and versao_prompt != VERSAO_PROMPT:
+        raise ValueError(f"prompt {versao_prompt!r} não está publicado neste worker")
     atual, protegidos = projetar(historico)
     criada = not any(tipo == "APOSTA_CRIADA" for tipo, _, _ in historico)
     novos = (
-        [EventoNovo("APOSTA_CRIADA", "ia", nova.payload, nova.confianca)]
+        [
+            EventoNovo(
+                "APOSTA_CRIADA",
+                "ia",
+                {**nova.payload, "versao_prompt": versao_prompt},
+                nova.confianca,
+            )
+        ]
         if criada
         else eventos_da_releitura(nova, atual, protegidos)
     )
+    if not criada and versao_prompt is not None and versao_prompt != atual.get("versao_prompt"):
+        novos.append(EventoNovo("CORRECAO_MANUAL", "ia", {"versao_prompt": versao_prompt}))
     eventos = EventoRepo()
     for evento in novos:
         da_mensagem = evento.tipo == "APOSTA_CRIADA"
