@@ -14,6 +14,7 @@ from bancaemdia.db.session import get_db
 from bancaemdia.domain.aposta_service import (
     CAMPOS_DE_ID,
     ApostaInvalidaError,
+    erro_de_id,
     eventos_da_correcao,
     eventos_da_exclusao,
     eventos_da_restauracao,
@@ -209,6 +210,13 @@ def _data_do_estado(valor: object) -> datetime | None:
 async def _conferir_ids(
     session: AsyncSession, usuario_id: int, pedido: dict[str, Any]
 ) -> str | None:
+    # Confira o payload inteiro antes da primeira consulta: asyncpg não consegue codificar um
+    # inteiro fora do BIGINT, e um campo inválido no fim do pedido não pode deixar consultas ou
+    # locks parciais pelo caminho.
+    for campo in CAMPOS_DE_ID:
+        if campo in pedido and (recado := erro_de_id(campo, pedido[campo])) is not None:
+            return recado
+
     conta_casa_id = pedido.get("conta_casa_id")
     if (
         conta_casa_id is not None
