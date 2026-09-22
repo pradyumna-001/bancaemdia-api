@@ -15,6 +15,15 @@ class Usuario:
 
 
 @dataclass(frozen=True)
+class Banca:
+    id: int
+    usuario_id: int
+    nome: str
+    saldo_inicial_centavos: int | None
+    criado_em: datetime
+
+
+@dataclass(frozen=True)
 class ContaCasa:
     id: int
     usuario_id: int
@@ -43,6 +52,37 @@ class Movimento:
     valor_centavos: int
     ocorrido_em: datetime
     descricao: str | None
+    transferencia_id: UUID | None = None
+
+
+@dataclass(frozen=True)
+class MovimentoRequisicao:
+    id: int
+    usuario_id: int
+    chave_idempotencia: str
+    requisicao_hash: str
+    resposta_json: dict[str, Any]
+    criado_em: datetime
+
+
+@dataclass(frozen=True)
+class LinhaExtrato:
+    origem: str
+    id: int
+    conta_casa_id: int | None
+    tipo: str
+    data_referencia: datetime
+    data_referencia_origem: str
+    valor_centavos: int | None
+    transferencia_id: UUID | None
+    ocorrido_em: datetime | None
+    descricao: str | None
+    chave: str | None
+    estado: str | None
+    stake_centavos: int | None
+    retorno_centavos: int | None
+    resultado_liquido_centavos: int | None
+    revisao_grave: bool | None
 
 
 @dataclass(frozen=True)

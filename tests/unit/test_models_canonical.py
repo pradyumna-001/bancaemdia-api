@@ -23,6 +23,7 @@ from bancaemdia.models.mercado import FAMILIAS, Mercado
 from bancaemdia.models.midia import Midia
 from bancaemdia.models.midia_arquivo import MidiaArquivo
 from bancaemdia.models.movimento import Movimento
+from bancaemdia.models.movimento_requisicao import MovimentoRequisicao
 from bancaemdia.models.revisao_pendente import RevisaoPendente
 from bancaemdia.models.time import Time
 from bancaemdia.models.tipster import Tipster
@@ -42,6 +43,7 @@ SUPORTE = (
     ColetaToken,
     RevisaoPendente,
     MidiaArquivo,
+    MovimentoRequisicao,
 )
 UPLOAD = (Upload, UploadBilhete, UploadArquivo)
 POR_USUARIO = (
@@ -52,6 +54,7 @@ POR_USUARIO = (
     Upload,
     UploadBilhete,
     UploadArquivo,
+    MovimentoRequisicao,
 )
 
 
@@ -80,9 +83,9 @@ def _indexes(modelo: type[Base]) -> dict[str, list[str]]:
     return {i.name: [c.name for c in i.columns] for i in modelo.__table__.indexes}
 
 
-def test_all_twenty_six_tables_are_registered() -> None:
+def test_all_twenty_seven_tables_are_registered() -> None:
     esperadas = {m.__tablename__ for m in NUCLEO + CANONICOS + SUPORTE + UPLOAD}
-    assert len(esperadas) == 26
+    assert len(esperadas) == 27
     assert set(Base.metadata.tables) == esperadas
     assert {m.__tablename__ for m in CANONICOS} == {
         "casas",
@@ -103,6 +106,7 @@ def test_all_twenty_six_tables_are_registered() -> None:
         "coleta_token",
         "revisao_pendente",
         "midia_arquivos",
+        "movimento_requisicoes",
     }
     assert {m.__tablename__ for m in UPLOAD} == {"uploads", "upload_bilhetes", "upload_arquivos"}
 
@@ -169,6 +173,7 @@ def test_jsonb_columns() -> None:
         ExtracaoCache.__table__.c.resultado_json,
         ColetaCasa.__table__.c.bruto_json,
         RevisaoPendente.__table__.c.extracao_bruta,
+        MovimentoRequisicao.__table__.c.resposta_json,
     ):
         assert isinstance(coluna.type, JSONB)
     assert "apelidos JSONB DEFAULT '[]'::jsonb NOT NULL" in _create_table("times")

@@ -194,6 +194,7 @@ def test_event_and_ledger_indexes() -> None:
     assert movimentos == {
         "idx_movimentos_usuario": ["usuario_id", "ocorrido_em"],
         "idx_movimentos_conta": ["conta_casa_id", "ocorrido_em"],
+        "idx_movimentos_transferencia": ["usuario_id", "transferencia_id"],
     }
     unidades = {i.name: [c.name for c in i.columns] for i in Unidade.__table__.indexes}
     assert unidades == {"idx_unidades_usuario": ["usuario_id", "vigente_de"]}

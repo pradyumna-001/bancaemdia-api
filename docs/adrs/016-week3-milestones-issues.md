@@ -170,6 +170,17 @@
 
 **Acceptance**: Movimentos created atomically; balances correct; temporal queries work
 
+**Implementation decision (2026-09-21)**:
+- Emit the existing `MOVIMENTO_REGISTRADO` event. `MOVIMENTO_CAIXA` is not part of
+  `ck_eventos_tipo` and would be rejected by the database.
+- Keep `domain.temporal.saldo` as the single balance rule instead of adding a cached
+  `ContaCasa` column. A cache updated only by cash endpoints would become stale when a bet is
+  created, settled, corrected, or deselected, and could count stake/returns twice.
+- Return the per-account calculated balances and expose each bank total as unavailable, with an
+  explicit reason, until the schema has an unambiguous `ContaCasa` → `Banca` relationship.
+- Represent a transfer as two atomic, opposite `Movimento` rows linked by `transferencia_id`.
+  This preserves the ledger and avoids an unsafe foreign key to the partitioned composite key.
+
 ---
 
 ### Issue 6: Revisão Pendente Endpoints — Review Queue
