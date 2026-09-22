@@ -11,6 +11,7 @@ from kombu.exceptions import OperationalError
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from bancaemdia.api.contracts import COLETA_ERROR_RESPONSES, CollectionResponse
 from bancaemdia.coleta.leitores import LEITORES
 from bancaemdia.coleta.leitura import ColetaInvalidaError
 from bancaemdia.config import get_settings
@@ -54,7 +55,7 @@ def hash_do_token(token: str) -> str:
     return hmac.new(segredo, token.encode(), hashlib.sha256).hexdigest()
 
 
-router = APIRouter()
+router = APIRouter(responses=COLETA_ERROR_RESPONSES)
 
 
 def erro(status_code: int, mensagem: str) -> JSONResponse:
@@ -186,8 +187,8 @@ def _enfileirar(usuario_id: int, fila: list[int]) -> None:
         celery.send_task(TAREFA, kwargs={"usuario_id": usuario_id, "coleta_id": coleta_id})
 
 
-@router.post("/api/v1/coleta")
-@router.post("/coleta")
+@router.post("/api/v1/coleta", response_model=CollectionResponse)
+@router.post("/coleta", response_model=CollectionResponse)
 async def receber_coleta(request: Request, session: AsyncSession = Depends(get_db)) -> JSONResponse:
     token = request.headers.get(TOKEN_HEADER)
     tokens = ColetaTokenRepo()

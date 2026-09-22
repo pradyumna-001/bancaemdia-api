@@ -9,6 +9,14 @@ from pydantic import BaseModel, ConfigDict
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from bancaemdia.api.contracts import (
+    AUTHENTICATED_ERROR_RESPONSES,
+    BetChangedResponse,
+    BetCreatedResponse,
+    BetDetailResponse,
+    BetsPageResponse,
+    ErrorResponse,
+)
 from bancaemdia.api.deps import get_current_user
 from bancaemdia.db.session import get_db
 from bancaemdia.domain.aposta_service import (
@@ -44,7 +52,7 @@ SO_EM_REVISAO = (
     " POST /api/v1/apostas/{chave}/resultado"
 )
 
-router = APIRouter()
+router = APIRouter(responses=AUTHENTICATED_ERROR_RESPONSES)
 
 
 class Correcao(BaseModel):
@@ -54,6 +62,8 @@ class Correcao(BaseModel):
 
 
 class Resultado(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
     estado: str
     retorno_centavos: int | None = None
     cashout_valor_centavos: int | None = None
@@ -61,6 +71,8 @@ class Resultado(BaseModel):
 
 
 class ApostaManual(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
     casa: str | None = None
     data_aposta: str | None = None
     odd: float | None = None
@@ -225,7 +237,7 @@ async def _historico(session: AsyncSession, usuario_id: int, chave: str) -> list
     ]
 
 
-@router.get("/api/v1/apostas")
+@router.get("/api/v1/apostas", response_model=BetsPageResponse)
 async def listar_apostas(
     usuario: Annotated[Usuario, Depends(get_current_user)],
     session: Annotated[AsyncSession, Depends(get_db)],
@@ -266,7 +278,11 @@ async def listar_apostas(
     })
 
 
-@router.get("/api/v1/apostas/{chave}")
+@router.get(
+    "/api/v1/apostas/{chave}",
+    response_model=BetDetailResponse,
+    responses={404: {"model": ErrorResponse, "description": "Bet not found."}},
+)
 async def ver_aposta(
     chave: str,
     usuario: Annotated[Usuario, Depends(get_current_user)],
@@ -347,7 +363,14 @@ async def _escrever(
     })
 
 
-@router.patch("/api/v1/apostas/{chave}")
+@router.patch(
+    "/api/v1/apostas/{chave}",
+    response_model=BetChangedResponse,
+    responses={
+        404: {"model": ErrorResponse, "description": "Bet not found."},
+        409: {"model": ErrorResponse, "description": "Bet is being updated concurrently."},
+    },
+)
 async def corrigir_aposta(
     chave: str,
     correcao: Correcao,
@@ -371,7 +394,14 @@ async def corrigir_aposta(
     return await _escrever(session, usuario, chave, monta)
 
 
-@router.post("/api/v1/apostas/{chave}/resultado")
+@router.post(
+    "/api/v1/apostas/{chave}/resultado",
+    response_model=BetChangedResponse,
+    responses={
+        404: {"model": ErrorResponse, "description": "Bet not found."},
+        409: {"model": ErrorResponse, "description": "Bet is being updated concurrently."},
+    },
+)
 async def registrar_resultado(
     chave: str,
     resultado: Resultado,
@@ -404,7 +434,14 @@ async def registrar_resultado(
     return await _escrever(session, usuario, chave, monta)
 
 
-@router.delete("/api/v1/apostas/{chave}")
+@router.delete(
+    "/api/v1/apostas/{chave}",
+    response_model=BetChangedResponse,
+    responses={
+        404: {"model": ErrorResponse, "description": "Bet not found."},
+        409: {"model": ErrorResponse, "description": "Bet is being updated concurrently."},
+    },
+)
 async def apagar_aposta(
     chave: str,
     usuario: Annotated[Usuario, Depends(get_current_user)],
@@ -417,7 +454,14 @@ async def apagar_aposta(
     return await _escrever(session, usuario, chave, monta)
 
 
-@router.post("/api/v1/apostas/{chave}/restaurar")
+@router.post(
+    "/api/v1/apostas/{chave}/restaurar",
+    response_model=BetChangedResponse,
+    responses={
+        404: {"model": ErrorResponse, "description": "Bet not found."},
+        409: {"model": ErrorResponse, "description": "Bet is being updated concurrently."},
+    },
+)
 async def restaurar_aposta(
     chave: str,
     usuario: Annotated[Usuario, Depends(get_current_user)],
@@ -429,7 +473,12 @@ async def restaurar_aposta(
     return await _escrever(session, usuario, chave, monta)
 
 
-@router.post("/api/v1/apostas", status_code=status.HTTP_201_CREATED)
+@router.post(
+    "/api/v1/apostas",
+    status_code=status.HTTP_201_CREATED,
+    response_model=BetCreatedResponse,
+    responses={409: {"model": ErrorResponse, "description": "Bet key collision."}},
+)
 async def criar_aposta(
     manual: ApostaManual,
     usuario: Annotated[Usuario, Depends(get_current_user)],
