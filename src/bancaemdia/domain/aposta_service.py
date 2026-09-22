@@ -40,6 +40,8 @@ CAMPOS_DE_ID = (
 )
 CAMPOS_DE_DATA = ("data_aposta", "data_jogo")
 CAMPOS_DE_TEXTO = ("casa", "evento", "descricao", "revisao_motivo")
+ID_BIGINT_MINIMO = -(2**63)
+ID_BIGINT_MAXIMO = 2**63 - 1
 ODD_MINIMA = 1.01
 ODD_MAXIMA = 1000.0
 FONTE_DA_PESSOA = "manual"
@@ -79,6 +81,16 @@ def _numero_finito(valor: object) -> bool:
     )
 
 
+def erro_de_id(campo: str, valor: object) -> str | None:
+    if valor is None:
+        return None
+    if not isinstance(valor, int) or isinstance(valor, bool):
+        return f"{campo} tem de ser um número"
+    if not ID_BIGINT_MINIMO <= valor <= ID_BIGINT_MAXIMO:
+        return f"{campo} tem de caber em um BIGINT"
+    return None
+
+
 def validar_correcao(pedido: dict[str, Any], atual: dict[str, Any]) -> None:
     fora = sorted(campo for campo in pedido if campo not in CAMPOS_CORRIGIVEIS)
     if fora:
@@ -101,12 +113,8 @@ def validar_correcao(pedido: dict[str, Any], atual: dict[str, Any]) -> None:
     # Cada campo é conferido ANTES de virar evento: `eventos` não se apaga, e um valor com o tipo
     # errado só apareceria na hora de gravar a linha, como erro 500 e com o histórico já sujo.
     for campo in CAMPOS_DE_ID:
-        if (
-            campo in pedido
-            and pedido[campo] is not None
-            and (not isinstance(pedido[campo], int) or isinstance(pedido[campo], bool))
-        ):
-            problemas.append(f"{campo} tem de ser um número")
+        if campo in pedido and (problema := erro_de_id(campo, pedido[campo])) is not None:
+            problemas.append(problema)
     for campo in CAMPOS_DE_DATA:
         if campo in pedido and pedido[campo] is not None and not _e_data(pedido[campo]):
             problemas.append(f"{campo} tem de ser uma data como 2026-09-20T21:00:00")
