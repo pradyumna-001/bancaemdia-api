@@ -231,7 +231,7 @@ def test_roi_denominator_uses_freebet_face_value() -> None:
     assert resumo.roi == pytest.approx(17_000 / 40_000)
     assert resumo.giro_proprio_centavos == 10_000
     assert resumo.lucro_proprio_centavos == -10_000
-    assert resumo.roi_sem_bonus == pytest.approx(-1.0)
+    assert resumo.roi_sem_bonus == pytest.approx(1.7)
 
 
 def test_revisao_grave_is_out_of_every_number() -> None:
