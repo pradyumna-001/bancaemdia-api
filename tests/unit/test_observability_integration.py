@@ -16,6 +16,7 @@ from bancaemdia import main
 from bancaemdia.api.v1 import apostas, caixa, coleta, upload
 from bancaemdia.auth.middleware import JWTAuthMiddleware
 from bancaemdia.domain.registros import Movimento
+from bancaemdia.middleware.rate_limit import AuthRateLimitMiddleware, RateLimitMiddleware
 from bancaemdia.middleware.rls import RLSMiddleware
 from bancaemdia.middleware.router import RouterMiddleware
 from bancaemdia.observability.logging import (
@@ -69,8 +70,10 @@ def test_main_wires_observability_around_auth_and_domain_middleware() -> None:
         layers.index(RequestIdMiddleware)
         < layers.index(UnhandledErrorMiddleware)
         < layers.index(PrometheusInstrumentatorMiddleware)
+        < layers.index(AuthRateLimitMiddleware)
         < layers.index(JWTAuthMiddleware)
         < layers.index(UserLogContextMiddleware)
+        < layers.index(RateLimitMiddleware)
         < layers.index(RLSMiddleware)
         < layers.index(RouterMiddleware)
         < layers.index(RequestBodyLimitMiddleware)

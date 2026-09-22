@@ -1,7 +1,14 @@
+import re
 from functools import lru_cache
+from ipaddress import ip_network
 
-from pydantic import Field
+from pydantic import Field, field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
+
+_RATE_LIMIT_PATTERN = re.compile(
+    r"^[1-9]\d*/(?:[1-9]\d*)?(?:second|minute|hour|day)s?$",
+    re.IGNORECASE,
+)
 
 
 class Settings(BaseSettings):
@@ -89,12 +96,59 @@ class Settings(BaseSettings):
         default=1000, gt=0, description="Largest total queued task count considered ready"
     )
     RATE_LIMIT_STORAGE: str = Field(default="memory://", description="Rate-limit backend URL")
+    RATE_LIMIT_STORAGE_TIMEOUT_SECONDS: float = Field(
+        default=0.2,
+        gt=0,
+        le=2,
+        description="Connect and command timeout for a Redis rate-limit backend",
+    )
+    RATE_LIMIT_TRUSTED_PROXY_CIDRS: str = Field(
+        default="",
+        description="Comma-separated networks whose forwarded client chain may be trusted",
+    )
+    API_RATE_LIMIT: str = Field(
+        default="100/minute", description="Requests allowed across API v1 per authenticated user"
+    )
+    AUTH_RATE_LIMIT: str = Field(
+        default="20/minute", description="Requests allowed across authentication endpoints"
+    )
+    UPLOAD_RATE_LIMIT: str = Field(
+        default="1/5minutes", description="Telegram upload requests allowed per user"
+    )
+    COLETA_IP_RATE_LIMIT: str = Field(
+        default="60/minute",
+        description="Coleta requests allowed per client across extension tokens",
+    )
     STATEMENT_TIMEOUT_PRIMARY: int = Field(
         default=5000, description="Query timeout in ms for primary DB"
     )
     STATEMENT_TIMEOUT_REPLICA: int = Field(
         default=30000, description="Query timeout in ms for replica DB"
     )
+
+    @field_validator(
+        "COLETA_RATE_LIMIT",
+        "API_RATE_LIMIT",
+        "AUTH_RATE_LIMIT",
+        "UPLOAD_RATE_LIMIT",
+        "COLETA_IP_RATE_LIMIT",
+    )
+    @classmethod
+    def validate_rate_limit(cls, value: str) -> str:
+        if _RATE_LIMIT_PATTERN.fullmatch(value.strip()) is None:
+            raise ValueError("rate limit must look like '100/minute' or '1/5minutes'")
+        return value.strip().lower()
+
+    @field_validator("RATE_LIMIT_TRUSTED_PROXY_CIDRS")
+    @classmethod
+    def validate_trusted_proxy_cidrs(cls, value: str) -> str:
+        networks = [part.strip() for part in value.split(",") if part.strip()]
+        for network in networks:
+            try:
+                ip_network(network, strict=False)
+            except ValueError as exc:
+                raise ValueError(f"invalid trusted proxy network: {network}") from exc
+        return ",".join(networks)
 
 
 @lru_cache

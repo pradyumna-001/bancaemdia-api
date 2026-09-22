@@ -8,7 +8,6 @@ from fastapi import APIRouter, Depends, Request, status
 from fastapi.concurrency import run_in_threadpool
 from fastapi.responses import JSONResponse
 from kombu.exceptions import OperationalError
-from slowapi import Limiter
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -29,6 +28,7 @@ from bancaemdia.domain.coleta_casa import (
 )
 from bancaemdia.domain.materializar import casa_canonica
 from bancaemdia.domain.temporal import VALOR_UNIDADE_PADRAO_CENTAVOS
+from bancaemdia.middleware.rate_limit import coleta_limiter, coleta_token_digest
 from bancaemdia.observability.metrics import coleta_dedup, coleta_received
 from bancaemdia.observability.tracing import custom_span
 from bancaemdia.repositories.aposta_repo import ApostaRepo
@@ -43,24 +43,17 @@ TAMANHO_MAXIMO = 5 * 1024 * 1024
 APOSTAS_POR_ENVIO = 1000
 TAREFA = "materialization.materializar_coleta"
 
+# Compatibility names used by the existing coleta tests and by older integrations. Enforcement is
+# now centralized in RateLimitMiddleware, but both names still reference the same implementation.
+limiter = coleta_limiter
+chave_do_limite = coleta_token_digest
+
 
 def hash_do_token(token: str) -> str:
     segredo = get_settings().COLETA_TOKEN_SECRET.encode()
     return hmac.new(segredo, token.encode(), hashlib.sha256).hexdigest()
 
 
-def chave_do_limite(request: Request) -> str:
-    # O limite é por token da extensão, não por IP; o token cru não vira chave de armazenamento.
-    return hashlib.sha256((request.headers.get(TOKEN_HEADER) or "").encode()).hexdigest()
-
-
-def limite_de_envios() -> str:
-    return get_settings().COLETA_RATE_LIMIT
-
-
-limiter = Limiter(
-    key_func=chave_do_limite, storage_uri=get_settings().RATE_LIMIT_STORAGE, swallow_errors=True
-)
 router = APIRouter()
 
 
@@ -68,14 +61,6 @@ def erro(status_code: int, mensagem: str) -> JSONResponse:
     # A extensão mostra o campo `erro` e trata tudo que não é 200 como falha, guardando o que
     # capturou para o próximo envio.
     return JSONResponse(status_code=status_code, content={"erro": mensagem})
-
-
-def limite_estourado(request: Request, exc: Exception) -> JSONResponse:
-    return erro(
-        status.HTTP_429_TOO_MANY_REQUESTS,
-        "a extensão mandou envios demais em pouco tempo — ela tenta de novo no próximo envio,"
-        " e nada se perdeu",
-    )
 
 
 async def _set_current_user(session: AsyncSession, usuario_id: int) -> None:
@@ -203,7 +188,6 @@ def _enfileirar(usuario_id: int, fila: list[int]) -> None:
 
 @router.post("/api/v1/coleta")
 @router.post("/coleta")
-@limiter.limit(limite_de_envios)
 async def receber_coleta(request: Request, session: AsyncSession = Depends(get_db)) -> JSONResponse:
     token = request.headers.get(TOKEN_HEADER)
     tokens = ColetaTokenRepo()
