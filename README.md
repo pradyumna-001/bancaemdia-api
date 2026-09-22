@@ -297,6 +297,10 @@ make typecheck         # MyPy
 | **Alerts** | CloudWatch → SNS → Slack/PagerDuty | See ADR-008 |
 | **Health** | `/health` (liveness) + `/ready` (readiness) | :8000/health |
 
+`/ready` gates API traffic only on PostgreSQL and Redis. Anthropic availability and Celery queue
+depth are still probed concurrently and shown as `report_only` components (`degraded` on failure),
+but they do not drain otherwise healthy API pods during a provider outage or worker backlog.
+
 ---
 
 ## Security & Compliance

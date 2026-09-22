@@ -20,6 +20,7 @@ from bancaemdia.domain.upload import (
 )
 from bancaemdia.extracao.cliente import tipo_da_imagem
 from bancaemdia.observability.metrics import batch_bets_processed, observe_stage
+from bancaemdia.observability.tracing import custom_span, set_custom_span_attributes
 from bancaemdia.repositories.mensagem_repo import MensagemRepo, MidiaArquivoRepo, MidiaRepo
 from bancaemdia.repositories.upload_repo import UploadArquivoRepo, UploadBilheteRepo, UploadRepo
 from bancaemdia.workers.celery_app import app
@@ -71,42 +72,46 @@ async def _guardar_export(
         await uploads.set_status(session, usuario_id, upload_id, "processing")
 
         por_mensagem: dict[int, str] = {}
-        with ExportTelegram(io.BytesIO(conteudo), upload.filename) as export:
-            mensagens = list(export.mensagens())
-            bilhetes = bilhetes_do_export(export)
-            com_foto = {bilhete.mensagem.message_id for bilhete in bilhetes}
-            for mensagem in mensagens:
-                # Uma foto por vez: guardar as de um export inteiro de uma vez poria centenas de
-                # megabytes na memória do trabalhador.
-                dados = export.bytes_da_foto(mensagem) if mensagem.message_id in com_foto else None
-                midia_hash = None if dados is None else hashlib.sha256(dados).hexdigest()
-                # A data do export vem sem fuso, na hora local de quem postou, como a gravação da
-                # aposta já supõe.
-                data = (
-                    mensagem.data
-                    if mensagem.data.tzinfo
-                    else mensagem.data.replace(tzinfo=FUSO_DO_BRASIL)
-                )
-                mensagem_id, _ = await MensagemRepo().save(
-                    session,
-                    chat_id=mensagem.chat_id,
-                    message_id=mensagem.message_id,
-                    data=data,
-                    autor=mensagem.autor,
-                    texto=mensagem.texto,
-                    editada_em=mensagem.editada_em,
-                    midia_hash=midia_hash,
-                )
-                if midia_hash is not None and dados is not None:
-                    await MidiaRepo().upsert_idempotent(
-                        session,
-                        midia_hash,
-                        tipo_da_imagem(mensagem.caminho_foto or ""),
-                        len(dados),
-                        mensagem_id,
+        with custom_span("upload.parse", file_size=len(conteudo)) as span:
+            with ExportTelegram(io.BytesIO(conteudo), upload.filename) as export:
+                mensagens = list(export.mensagens())
+                set_custom_span_attributes(span, "upload.parse", message_count=len(mensagens))
+                bilhetes = bilhetes_do_export(export)
+                com_foto = {bilhete.mensagem.message_id for bilhete in bilhetes}
+                for mensagem in mensagens:
+                    # Uma foto por vez: guardar as de um export inteiro de uma vez poria centenas
+                    # de megabytes na memória do trabalhador.
+                    dados = (
+                        export.bytes_da_foto(mensagem) if mensagem.message_id in com_foto else None
                     )
-                    await MidiaArquivoRepo().upsert_idempotent(session, midia_hash, dados)
-                    por_mensagem[mensagem.message_id] = midia_hash
+                    midia_hash = None if dados is None else hashlib.sha256(dados).hexdigest()
+                    # A data do export vem sem fuso, na hora local de quem postou, como a gravação da
+                    # aposta já supõe.
+                    data = (
+                        mensagem.data
+                        if mensagem.data.tzinfo
+                        else mensagem.data.replace(tzinfo=FUSO_DO_BRASIL)
+                    )
+                    mensagem_id, _ = await MensagemRepo().save(
+                        session,
+                        chat_id=mensagem.chat_id,
+                        message_id=mensagem.message_id,
+                        data=data,
+                        autor=mensagem.autor,
+                        texto=mensagem.texto,
+                        editada_em=mensagem.editada_em,
+                        midia_hash=midia_hash,
+                    )
+                    if midia_hash is not None and dados is not None:
+                        await MidiaRepo().upsert_idempotent(
+                            session,
+                            midia_hash,
+                            tipo_da_imagem(mensagem.caminho_foto or ""),
+                            len(dados),
+                            mensagem_id,
+                        )
+                        await MidiaArquivoRepo().upsert_idempotent(session, midia_hash, dados)
+                        por_mensagem[mensagem.message_id] = midia_hash
 
         restante = await _restante_do_dia(session, usuario_id)
         linhas: list[dict[str, object]] = []

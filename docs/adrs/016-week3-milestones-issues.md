@@ -318,8 +318,10 @@ actually exists:
   - Exporter: OTLP → CloudWatch / Jaeger / Grafana Tempo
 - [ ] **Health Checks**:
   - `GET /health` (liveness): process alive, returns `{"status": "ok"}`
-  - `GET /ready` (readiness): PG primary writable, PG replica readable, Anthropic reachable (HEAD), Redis ping, Celery queue depth < threshold
-  - Returns 503 if not ready
+  - `GET /ready` (readiness): PG primary writable, PG replica readable and Redis ping are
+    required; Anthropic availability and Celery queue depth are report-only components
+  - Returns 503 only when a required API dependency is not ready; report-only failures remain
+    visible as `degraded` without removing API pods from rotation
 
 **Acceptance**: 
 - Logs in CloudWatch are JSON, searchable by `request_id` / `usuario_id`

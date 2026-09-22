@@ -213,6 +213,8 @@ def test_registry_with_a_multiprocess_dir_sums_the_files_of_every_process(
         "batch_bets_processed_total", {"stage": "extraction"}
     ) == pytest.approx(7.0)
     assert registry.get_sample_value("extraction_cache_hit_total") is None
+    assert registry.get_sample_value("process_cpu_seconds_total") is not None
+    assert registry.get_sample_value("process_memory_bytes") is not None
 
 
 def test_metrics_endpoint_exposes_the_pipeline_metrics(monkeypatch) -> None:

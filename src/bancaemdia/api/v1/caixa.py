@@ -23,6 +23,7 @@ from bancaemdia.domain.caixa_service import (
 )
 from bancaemdia.domain.registros import Banca, ContaCasa, LinhaExtrato, Movimento, Usuario
 from bancaemdia.domain.temporal import SaldoDaCasa
+from bancaemdia.observability.metrics import caixa_movimentos_total
 from bancaemdia.repositories.banca_repo import BancaRepo
 from bancaemdia.repositories.conta_casa_repo import ContaCasaRepo
 from bancaemdia.repositories.evento_repo import EventoRepo
@@ -450,6 +451,8 @@ async def registrar_movimento(
     except Exception:
         await session.rollback()
         raise
+    for movimento in movimentos:
+        caixa_movimentos_total.labels(tipo=movimento.tipo).inc()
     return JSONResponse(
         status_code=status.HTTP_201_CREATED,
         content=resposta,

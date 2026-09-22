@@ -36,12 +36,14 @@ dependencies = [
     "openpyxl>=3.1.5",
     "structlog>=25.1.0",
     "prometheus-client>=0.20.0",
+    "prometheus-fastapi-instrumentator>=7.1.0",
     "opentelemetry-api>=1.28.0",
     "opentelemetry-sdk>=1.28.0",
     "opentelemetry-instrumentation-fastapi>=0.49b0",
     "opentelemetry-instrumentation-sqlalchemy>=0.49b0",
     "opentelemetry-instrumentation-httpx>=0.49b0",
     "opentelemetry-instrumentation-redis>=0.49b0",
+    "opentelemetry-instrumentation-celery>=0.49b0",
     "opentelemetry-exporter-otlp>=1.28.0",
 ]
 
@@ -97,7 +99,7 @@ known-third-party = [
     "fastapi", "uvicorn", "sqlalchemy", "asyncpg", "alembic",
     "pydantic", "pydantic_settings", "jose", "passlib", "httpx",
     "redis", "celery", "pybreaker", "tenacity", "slowapi",
-    "structlog", "prometheus_client", "opentelemetry",
+    "structlog", "prometheus_client", "prometheus_fastapi_instrumentator", "opentelemetry",
 ]
 sections = { "FUTURE" = [], "STDLIB" = [], "THIRDPARTY" = [], "FIRSTPARTY" = [], "LOCALFOLDER" = [] }
 

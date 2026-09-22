@@ -28,6 +28,7 @@ from bancaemdia.domain.materializar import EventoNovo, casa_canonica, projetar
 from bancaemdia.domain.registros import Aposta, Usuario
 from bancaemdia.domain.temporal import VALOR_UNIDADE_PADRAO_CENTAVOS
 from bancaemdia.models import Competicao, Mercado, Time, Tipster
+from bancaemdia.observability.metrics import apostas_created_total
 from bancaemdia.repositories.aposta_repo import ApostaRepo
 from bancaemdia.repositories.casa_repo import CasaRepo
 from bancaemdia.repositories.conta_casa_repo import ContaCasaRepo
@@ -520,6 +521,9 @@ async def criar_aposta(
         await session.rollback()
         return erro(status.HTTP_409_CONFLICT, OCUPADA)
     await session.commit()
+    apostas_created_total.labels(
+        origem="manual", estado=str(depois.get("estado") or "PENDENTE")
+    ).inc()
     corpo: dict[str, Any] = {"aposta": linha_da_aposta(gravada, depois), "casa_id": casa_id}
     if conta is None:
         # O filtro por casa passa pelas contas: sem conta, a aposta existe e não aparece nele.
