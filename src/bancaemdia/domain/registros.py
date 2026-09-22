@@ -56,6 +56,16 @@ class Movimento:
 
 
 @dataclass(frozen=True)
+class MovimentoRequisicao:
+    id: int
+    usuario_id: int
+    chave_idempotencia: str
+    requisicao_hash: str
+    resposta_json: dict[str, Any]
+    criado_em: datetime
+
+
+@dataclass(frozen=True)
 class LinhaExtrato:
     origem: str
     id: int
