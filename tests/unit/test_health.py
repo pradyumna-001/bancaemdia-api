@@ -6,12 +6,14 @@ import json
 import httpx
 import pytest
 
+from bancaemdia.observability import health
 from bancaemdia.observability.health import (
     CELERY_PRIORITY_SEPARATOR,
     CheckResult,
     DependencyNotReadyError,
     ReadinessChecker,
     ReadinessReport,
+    build_readiness_checker,
     celery_queue_key,
     check_anthropic,
     check_celery_queue_depth,
@@ -96,6 +98,7 @@ async def test_readiness_runs_all_checks_concurrently() -> None:
     checker = ReadinessChecker(
         {name: make_check(name) for name in ("primary", "replica", "redis", "ai", "queue")},
         timeout_seconds=0.5,
+        report_only={"ai", "queue"},
     )
 
     pending = asyncio.create_task(checker.check())
@@ -107,6 +110,107 @@ async def test_readiness_runs_all_checks_concurrently() -> None:
     assert report.ready is True
     assert report.status_code == 200
     assert report.as_dict()["status"] == "ready"
+    assert report.as_dict()["checks"]["primary"]["impact"] == "required"
+    assert report.as_dict()["checks"]["ai"]["impact"] == "report_only"
+
+
+async def test_report_only_failures_are_degraded_without_blocking_readiness() -> None:
+    async def available() -> dict[str, object]:
+        await asyncio.sleep(0)
+        return {"mode": "ok"}
+
+    async def unavailable() -> dict[str, object]:
+        await asyncio.sleep(0)
+        raise DependencyNotReadyError("provider_error", {"http_status": 503})
+
+    checker = ReadinessChecker(
+        {
+            "postgres_primary": available,
+            "redis": available,
+            "anthropic": unavailable,
+            "celery_queue_depth": unavailable,
+        },
+        timeout_seconds=0.5,
+        report_only={"anthropic", "celery_queue_depth"},
+    )
+
+    report = await checker.check()
+    payload = report.as_dict()
+
+    assert report.ready is True
+    assert report.status_code == 200
+    assert payload["status"] == "ready"
+    assert payload["checks"]["postgres_primary"]["status"] == "ok"
+    assert payload["checks"]["postgres_primary"]["impact"] == "required"
+    assert payload["checks"]["anthropic"] == {
+        "status": "degraded",
+        "latency_ms": payload["checks"]["anthropic"]["latency_ms"],
+        "impact": "report_only",
+        "details": {"reason": "provider_error", "http_status": 503},
+    }
+    assert payload["checks"]["celery_queue_depth"]["status"] == "degraded"
+    assert payload["checks"]["celery_queue_depth"]["impact"] == "report_only"
+
+
+def test_readiness_rejects_invalid_report_only_configuration() -> None:
+    async def available() -> dict[str, object]:
+        await asyncio.sleep(0)
+        return {}
+
+    with pytest.raises(ValueError, match="not configured: typo"):
+        ReadinessChecker(
+            {"postgres": available},
+            timeout_seconds=0.5,
+            report_only={"typo"},
+        )
+
+    with pytest.raises(ValueError, match="at least one required check"):
+        ReadinessChecker(
+            {"anthropic": available},
+            timeout_seconds=0.5,
+            report_only={"anthropic"},
+        )
+
+
+async def test_production_checker_keeps_anthropic_and_queue_report_only(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    request_redis = FakeRedis()
+    worker_redis = FakeRedis(sizes={"extraction": 5})
+
+    def redis_from_url(url: str, **kwargs: object) -> FakeRedis:
+        assert kwargs == {"socket_timeout": 0.5, "socket_connect_timeout": 0.5}
+        return worker_redis if url == "redis://workers" else request_redis
+
+    monkeypatch.setattr(health.redis.Redis, "from_url", staticmethod(redis_from_url))
+    checker = build_readiness_checker(
+        primary_engine=FakeEngine(FakeConnection(True)),  # type: ignore[arg-type]
+        replica_engine=FakeEngine(FakeConnection(True, True)),  # type: ignore[arg-type]
+        redis_url="redis://request-paths",
+        celery_broker_url="redis://workers",
+        anthropic_api_key=None,
+        timeout_seconds=0.5,
+        celery_queue_depth_limit=5,
+    )
+
+    report = await checker.check()
+    payload = report.as_dict()
+
+    assert report.status_code == 200
+    assert payload["status"] == "ready"
+    assert payload["checks"]["anthropic"]["status"] == "degraded"
+    assert payload["checks"]["anthropic"]["impact"] == "report_only"
+    assert payload["checks"]["anthropic"]["details"] == {"reason": "not_configured"}
+    assert payload["checks"]["celery_queue_depth"]["status"] == "degraded"
+    assert payload["checks"]["celery_queue_depth"]["impact"] == "report_only"
+    assert payload["checks"]["celery_queue_depth"]["details"] == {
+        "reason": "threshold_exceeded",
+        "depths": {"extraction": 5, "materialization": 0, "dead_letter": 0},
+        "total": 5,
+        "limit": 5,
+    }
+    assert request_redis.closed is True
+    assert worker_redis.closed is True
 
 
 async def test_concurrent_readiness_requests_share_one_probe_run() -> None:
@@ -177,7 +281,7 @@ async def test_primary_down_makes_readiness_return_503_without_exposing_the_dsn(
     assert "primary.internal" not in json.dumps(payload)
 
 
-def test_readiness_report_requires_every_check() -> None:
+def test_readiness_report_requires_every_required_check() -> None:
     report = ReadinessReport({
         "one": CheckResult("ok", 1.2),
         "two": CheckResult("failed", 2.3, {"reason": "down"}),
@@ -187,10 +291,11 @@ def test_readiness_report_requires_every_check() -> None:
     assert report.as_dict() == {
         "status": "not_ready",
         "checks": {
-            "one": {"status": "ok", "latency_ms": 1.2},
+            "one": {"status": "ok", "latency_ms": 1.2, "impact": "required"},
             "two": {
                 "status": "failed",
                 "latency_ms": 2.3,
+                "impact": "required",
                 "details": {"reason": "down"},
             },
         },

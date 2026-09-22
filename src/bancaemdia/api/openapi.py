@@ -128,6 +128,10 @@ OPERATION_DOCUMENTATION: dict[OperationKey, tuple[str, str]] = {
 
 
 PARAMETER_DESCRIPTIONS = {
+    "Idempotency-Key": (
+        "Chave opaca obrigatória do cliente; reutilizá-la com o mesmo corpo reproduz a resposta "
+        "original sem lançar dinheiro novamente."
+    ),
     "ate": "Limite final exclusivo do intervalo, em ISO 8601.",
     "casa_id": "Identificador canônico da casa usada como filtro.",
     "chave": "Chave estável e opaca da aposta.",

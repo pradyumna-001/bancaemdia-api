@@ -246,6 +246,11 @@ rate_limit_exceeded = Counter(
 rate_limit_errors = Counter(
     "rate_limit_error", "Redis errors that let an Anthropic request through unmetered"
 )
+rate_limiter_fallback_total = Counter(
+    "rate_limiter_fallback",
+    "Transitions from the shared rate-limit storage to the in-memory fallback",
+    ["policy", "storage_backend"],
+)
 
 # Cada processo só vê as transições que ele mesmo causou; entre os arquivos do modo multiprocesso
 # vale a escrita mais recente.

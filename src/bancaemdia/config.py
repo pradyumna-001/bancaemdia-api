@@ -93,7 +93,9 @@ class Settings(BaseSettings):
         default=2.0, gt=0, description="Timeout for each external readiness dependency"
     )
     CELERY_QUEUE_DEPTH_LIMIT: int = Field(
-        default=1000, gt=0, description="Largest total queued task count considered ready"
+        default=1000,
+        gt=0,
+        description="Queue depth threshold reported as degraded by readiness telemetry",
     )
     RATE_LIMIT_STORAGE: str = Field(default="memory://", description="Rate-limit backend URL")
     RATE_LIMIT_STORAGE_TIMEOUT_SECONDS: float = Field(

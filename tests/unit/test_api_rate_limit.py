@@ -8,9 +8,11 @@ from types import SimpleNamespace
 from unittest.mock import AsyncMock
 
 import pytest
+import structlog
 from fastapi import FastAPI, Request
 from fastapi.responses import JSONResponse
 from fastapi.testclient import TestClient
+from prometheus_client import REGISTRY
 from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.middleware.body_limit import RequestBodyLimitMiddleware
 from starlette.responses import Response
@@ -156,6 +158,57 @@ def test_redis_backend_has_bounded_network_timeouts(monkeypatch: pytest.MonkeyPa
 
     assert options["socket_connect_timeout"] == pytest.approx(0.25)
     assert options["socket_timeout"] == pytest.approx(0.25)
+
+
+def test_storage_failure_reports_each_fallback_transition_once(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setenv("RATE_LIMIT_STORAGE", "redis://rate-limit.test:6379/4")
+    get_settings.cache_clear()
+    limiter = rate_limit._limiter(lambda: "2/minute", user_key, "api")
+    labels = {"policy": "api", "storage_backend": "redis"}
+    before = REGISTRY.get_sample_value("rate_limiter_fallback_total", labels) or 0.0
+
+    def storage_unavailable(*args: object, **kwargs: object) -> bool:
+        raise ConnectionError("rate-limit storage unavailable")
+
+    monkeypatch.setattr(limiter._limiter, "hit", storage_unavailable)
+    monkeypatch.setattr(limiter._storage, "check", lambda: False)
+
+    def limited_request(usuario_id: int) -> Request:
+        request = _request("/api/v1/one")
+        request.state.usuario_id = usuario_id
+        return request
+
+    with structlog.testing.capture_logs() as logs:
+        limiter._check_request_limit(limited_request(7), rate_limit._api_scope, True)
+        limiter._check_request_limit(limited_request(7), rate_limit._api_scope, True)
+
+        # Model a successful backend probe. A later outage is a new transition and must be
+        # observable again, while requests during the same outage must not increment the signal.
+        limiter._storage_dead = False
+        limiter._check_request_limit(limited_request(8), rate_limit._api_scope, True)
+
+    warnings = [entry for entry in logs if entry["event"] == "rate_limiter_fallback"]
+    assert warnings == [
+        {
+            "event": "rate_limiter_fallback",
+            "policy": "api",
+            "storage_backend": "redis",
+            "fallback_backend": "memory",
+            "log_level": "warning",
+        },
+        {
+            "event": "rate_limiter_fallback",
+            "policy": "api",
+            "storage_backend": "redis",
+            "fallback_backend": "memory",
+            "log_level": "warning",
+        },
+    ]
+    assert REGISTRY.get_sample_value("rate_limiter_fallback_total", labels) == pytest.approx(
+        before + 2
+    )
 
 
 def test_user_key_uses_only_authenticated_state_and_never_the_bearer_token() -> None:
