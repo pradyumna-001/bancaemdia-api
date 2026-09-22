@@ -1,0 +1,87 @@
+name: Load test (k6)
+
+on:
+  workflow_dispatch:
+    inputs:
+      profile:
+        description: Scenario profile
+        required: true
+        default: all
+        type: choice
+        options: [all, steady, spike, coleta, painel]
+  schedule:
+    - cron: '0 3 * * 0'
+  pull_request:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: staging-load-test
+  cancel-in-progress: false
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: grafana/setup-k6-action@v1
+        with:
+          k6-version: '1.3.0'
+      - name: Inspect load test
+        run: k6 inspect k6/load-test.js
+      - name: Exercise all scenarios against local contract mock
+        shell: bash
+        run: |
+          set -euo pipefail
+          python k6/tests/mock_server.py &
+          server_pid=$!
+          trap 'kill "$server_pid"' EXIT
+          for attempt in 1 2 3 4 5; do
+            if curl --fail --silent http://127.0.0.1:8765/metrics > /dev/null; then break; fi
+            sleep 1
+          done
+          BASE_URL=http://127.0.0.1:8765 ALLOW_HTTP_LOCAL=1 K6_LOCAL_SMOKE=1 k6 run k6/smoke.js
+
+  staging:
+    if: >-
+      github.event_name != 'pull_request' ||
+      (github.event.pull_request.head.repo.full_name == github.repository && vars.STAGING_BASE_URL != '')
+    needs: validate
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    environment: staging
+    env:
+      BASE_URL: ${{ vars.STAGING_BASE_URL }}
+      METRICS_URL: ${{ vars.STAGING_METRICS_URL }}
+      JWT_TOKENS_JSON: ${{ secrets.STAGING_JWT_TOKENS_JSON }}
+      JWT_TOKENS_JSON_1: ${{ secrets.STAGING_JWT_TOKENS_JSON_1 }}
+      JWT_TOKENS_JSON_2: ${{ secrets.STAGING_JWT_TOKENS_JSON_2 }}
+      JWT_TOKENS_JSON_3: ${{ secrets.STAGING_JWT_TOKENS_JSON_3 }}
+      JWT_TOKENS_JSON_4: ${{ secrets.STAGING_JWT_TOKENS_JSON_4 }}
+      JWT_TOKENS_JSON_5: ${{ secrets.STAGING_JWT_TOKENS_JSON_5 }}
+      COLETA_TOKENS_JSON: ${{ secrets.STAGING_COLETA_TOKENS_JSON }}
+      LOAD_PROFILE: ${{ github.event.inputs.profile || 'all' }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: grafana/setup-k6-action@v1
+        with:
+          k6-version: '1.3.0'
+      - name: Check staging configuration
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -n "$BASE_URL" || { echo 'STAGING_BASE_URL is required'; exit 1; }
+          test -n "${JWT_TOKENS_JSON}${JWT_TOKENS_JSON_1}" || { echo 'Staging JWT tokens are required'; exit 1; }
+          test -n "$COLETA_TOKENS_JSON" || { echo 'STAGING_COLETA_TOKENS_JSON is required'; exit 1; }
+      - name: Run staging load profile and enforce thresholds
+        run: k6 run k6/load-test.js
+      - name: Upload HTML and JSON results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: k6-load-test-${{ github.run_id }}
+          path: |
+            load-test-report.html
+            load-test-summary.json
+          if-no-files-found: warn
