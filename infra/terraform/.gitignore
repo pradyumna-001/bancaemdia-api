@@ -1,0 +1,20 @@
+# Terraform working directories and local state must never be committed.
+**/.terraform/*
+*.tfstate
+*.tfstate.*
+crash.log
+crash.*.log
+
+# Environment input can contain credentials and account-specific values.
+*.tfvars
+*.tfvars.json
+!*.tfvars.example
+
+# Local CLI overrides.
+override.tf
+override.tf.json
+*_override.tf
+*_override.tf.json
+
+# Plan files can contain sensitive values in clear text.
+*.tfplan

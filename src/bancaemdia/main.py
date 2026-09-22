@@ -5,7 +5,6 @@ from fastapi import FastAPI
 from fastapi.concurrency import run_in_threadpool
 from fastapi.responses import JSONResponse, Response
 from prometheus_client import CONTENT_TYPE_LATEST, generate_latest
-from slowapi.errors import RateLimitExceeded
 from sqlalchemy import text
 from starlette.middleware.body_limit import RequestBodyLimitMiddleware
 
@@ -13,6 +12,7 @@ from bancaemdia.api.v1 import apostas, caixa, coleta, painel, revisao, upload
 from bancaemdia.auth.middleware import JWTAuthMiddleware
 from bancaemdia.config import get_settings
 from bancaemdia.db.session import engine, replica_engine
+from bancaemdia.middleware.rate_limit import AuthRateLimitMiddleware, RateLimitMiddleware
 from bancaemdia.middleware.rls import RLSMiddleware
 from bancaemdia.middleware.router import RouterMiddleware
 from bancaemdia.observability.health import get_readiness_checker, liveness
@@ -43,8 +43,6 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
 
 
 app = FastAPI(title="Bancaemdia API")
-app.state.limiter = coleta.limiter
-app.add_exception_handler(RateLimitExceeded, coleta.limite_estourado)
 app.include_router(coleta.router)
 app.include_router(upload.router)
 app.include_router(apostas.router)
@@ -63,12 +61,18 @@ app.add_middleware(
 # último, depois da autenticação e do RLS.
 app.add_middleware(RouterMiddleware)
 app.add_middleware(RLSMiddleware)
+# A autenticação já validou e gravou usuario_id quando o limitador roda. O limitador fica antes de
+# banco/roteamento e antes da leitura de corpos grandes, recusando abuso com custo baixo.
+app.add_middleware(RateLimitMiddleware)
 # A autenticação roda antes deste middleware; assim os logs do restante do pedido recebem o usuário,
 # enquanto um 401 ainda conserva só o request_id e nunca atribui uma identidade não validada.
 app.add_middleware(UserLogContextMiddleware)
 # O Starlette roda primeiro o último middleware registrado: a autenticação vem depois do RLS aqui para
 # rodar antes dele. Na ordem inversa a rota responde 200 sem enxergar as linhas do usuário (medido).
 app.add_middleware(JWTAuthMiddleware)
+# Login/refresh traffic must be throttled before authentication, including failed credentials.
+# The inner limiter above remains after JWT so every API bucket uses only a validated usuario_id.
+app.add_middleware(AuthRateLimitMiddleware)
 
 # Métricas entram depois dos middlewares de domínio, e o request_id por último: entre os middlewares
 # da aplicação, o último registrado é o primeiro a rodar e envolve autenticação e métricas. O OTel

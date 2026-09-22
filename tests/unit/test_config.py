@@ -109,6 +109,35 @@ class TestReadinessDefaults:
             Settings(_env_file=None)
 
 
+class TestApiRateLimitSettings:
+    @pytest.mark.parametrize(
+        "name",
+        [
+            "COLETA_RATE_LIMIT",
+            "COLETA_IP_RATE_LIMIT",
+            "API_RATE_LIMIT",
+            "AUTH_RATE_LIMIT",
+            "UPLOAD_RATE_LIMIT",
+        ],
+    )
+    def test_malformed_limits_fail_at_startup(self, monkeypatch, name):
+        monkeypatch.setenv(name, "unlimited")
+
+        with pytest.raises(ValidationError):
+            Settings(_env_file=None)
+
+    def test_multi_minute_window_is_valid(self, monkeypatch):
+        monkeypatch.setenv("UPLOAD_RATE_LIMIT", "1/5minutes")
+
+        assert Settings(_env_file=None).UPLOAD_RATE_LIMIT == "1/5minutes"
+
+    def test_invalid_trusted_proxy_network_is_rejected(self, monkeypatch):
+        monkeypatch.setenv("RATE_LIMIT_TRUSTED_PROXY_CIDRS", "not-a-network")
+
+        with pytest.raises(ValidationError):
+            Settings(_env_file=None)
+
+
 class TestJwtExpiryMinutes:
     def test_defaults_to_an_hour(self, monkeypatch):
         monkeypatch.delenv("JWT_EXPIRY_MINUTES", raising=False)

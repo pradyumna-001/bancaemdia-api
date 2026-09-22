@@ -32,7 +32,7 @@ dependencies = [
     "celery>=5.4.0",
     "pybreaker>=0.8.1",
     "tenacity>=8.5.0",
-    "slowapi>=0.1.9",
+    "slowapi==0.1.10",
     "openpyxl>=3.1.5",
     "structlog>=25.1.0",
     "prometheus-client>=0.20.0",

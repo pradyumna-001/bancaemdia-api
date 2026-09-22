@@ -399,11 +399,18 @@ def test_too_many_sends_from_one_token_are_refused_with_a_reason(monkeypatch) ->
         get_settings.cache_clear()
 
     assert [r.status_code for r in respostas] == [200, 200, 429]
-    assert "envios demais" in respostas[2].json()["erro"]
+    assert respostas[2].json()["error"] == "rate_limited"
+    assert respostas[2].json()["retry_after"] == int(respostas[2].headers["Retry-After"])
+    assert respostas[2].headers["X-RateLimit-Limit"] == "2"
     assert de_outro.status_code == 403
 
 
 def test_limit_key_never_carries_the_raw_token() -> None:
     request = SimpleNamespace(headers={coleta.TOKEN_HEADER: TOKEN})
+    esperado = hmac.new(
+        b"TEST_COLETA_TOKEN_SECRET",
+        f"rate-limit:coleta-token:{TOKEN}".encode(),
+        hashlib.sha256,
+    ).hexdigest()
 
-    assert coleta.chave_do_limite(request) == hashlib.sha256(TOKEN.encode()).hexdigest()
+    assert coleta.chave_do_limite(request) == esperado

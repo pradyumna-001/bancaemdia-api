@@ -32,10 +32,18 @@ from bancaemdia.core.context import use_primary
 from bancaemdia.db.session import get_db
 from bancaemdia.domain.registros import Upload, Usuario
 from bancaemdia.extracao.precos import USD_POR_BILHETE_REFERENCIA
+from bancaemdia.middleware.rate_limit import upload_limiter
 from bancaemdia.middleware.router import RouterMiddleware
 
 USUARIO = 7
 PASTA = "ChatExport_2026-07-24/"
+
+
+@pytest.fixture(autouse=True)
+def _disable_cross_cutting_upload_limit(monkeypatch):
+    # This file exercises upload validation and persistence. The middleware contract, including
+    # the 1/5-minute bucket, has isolated tests of its own.
+    monkeypatch.setattr(upload_limiter, "enabled", False)
 
 
 @pytest.fixture(scope="module")
