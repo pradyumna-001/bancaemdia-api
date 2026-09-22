@@ -268,6 +268,22 @@ actually exists:
 
 **Acceptance**: Painel loads < 500ms (P95); data < 30s stale; badge shows correct lag
 
+**Implementation notes (#30):**
+- Dashboard responses are authenticated financial data and therefore use `Cache-Control: private,
+  no-store` plus `Vary: Authorization, Cookie`; the proposed shared public cache is intentionally
+  not used.
+- Materialized views live in a private schema and are exposed to the application only through
+  tenant-filtered security-barrier views. Queries also keep an explicit `usuario_id` predicate.
+- The persisted time of the last complete refresh, response time, materialized-view age and replica
+  replay lag are separate fields. Primary/single-node deployments report replica lag as unavailable.
+- A five-minute full-refresh schedule cannot also promise data less than 30 seconds old. The API
+  reports the real age and the operational procedure is documented in
+  `docs/runbooks/painel-refresh.md`; no request timestamp is relabelled as refresh time.
+- Cash-ledger balance remains an all-time snapshot across house accounts. Deposits and withdrawals
+  cannot be attributed to a `banca`, tipster or market because that relationship does not exist in
+  the schema. Bankroll evolution therefore uses only each banca's optional initial balance and the
+  current projection of linked bet results, labelled with that limitation.
+
 ---
 
 ### Issue 8: Observability Stack — OTel + Structlog + Prometheus + Health
