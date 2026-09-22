@@ -98,7 +98,11 @@ def validar_correcao(pedido: dict[str, Any], atual: dict[str, Any]) -> None:
     # Cada campo é conferido ANTES de virar evento: `eventos` não se apaga, e um valor com o tipo
     # errado só apareceria na hora de gravar a linha, como erro 500 e com o histórico já sujo.
     for campo in CAMPOS_DE_ID:
-        if campo in pedido and pedido[campo] is not None and not isinstance(pedido[campo], int):
+        if (
+            campo in pedido
+            and pedido[campo] is not None
+            and (not isinstance(pedido[campo], int) or isinstance(pedido[campo], bool))
+        ):
             problemas.append(f"{campo} tem de ser um número")
     for campo in CAMPOS_DE_DATA:
         if campo in pedido and pedido[campo] is not None and not _e_data(pedido[campo]):
