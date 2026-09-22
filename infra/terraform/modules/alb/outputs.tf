@@ -4,3 +4,7 @@ output "dns_name" { value = aws_lb.this.dns_name }
 output "zone_id" { value = aws_lb.this.zone_id }
 output "target_group_arn" { value = aws_lb_target_group.api.arn }
 output "target_group_arn_suffix" { value = aws_lb_target_group.api.arn_suffix }
+output "canary_target_group_arn" { value = aws_lb_target_group.canary.arn }
+output "canary_target_group_arn_suffix" { value = aws_lb_target_group.canary.arn_suffix }
+output "https_listener_arn" { value = aws_lb_listener.https.arn }
+output "alb_arn_suffix" { value = aws_lb.this.arn_suffix }

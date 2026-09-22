@@ -264,22 +264,23 @@ module "waf" {
 }
 
 module "ecs" {
-  source               = "./modules/ecs"
-  name                 = local.name
-  environment          = var.environment
-  region               = var.region
-  private_subnet_ids   = module.vpc.private_subnet_ids
-  private_cidrs        = module.vpc.private_cidrs
-  security_group_id    = aws_security_group.ecs.id
-  api_target_group_arn = module.alb.target_group_arn
-  api_hostname         = var.api_domain
-  image_uri            = var.image_uri
-  deploy_enabled       = var.deploy_enabled
-  redis_endpoint       = module.elasticache.primary_endpoint
-  jwt_audience         = var.jwt_audience
-  jwt_issuer           = var.jwt_issuer
-  secret_arns          = module.secrets.arns
-  log_group_names      = module.monitoring.log_group_names
-  tags                 = local.tags
-  depends_on           = [terraform_data.deployment_gate, module.alb]
+  source                  = "./modules/ecs"
+  name                    = local.name
+  environment             = var.environment
+  region                  = var.region
+  private_subnet_ids      = module.vpc.private_subnet_ids
+  private_cidrs           = module.vpc.private_cidrs
+  security_group_id       = aws_security_group.ecs.id
+  api_target_group_arn    = module.alb.target_group_arn
+  canary_target_group_arn = module.alb.canary_target_group_arn
+  api_hostname            = var.api_domain
+  image_uri               = var.image_uri
+  deploy_enabled          = var.deploy_enabled
+  redis_endpoint          = module.elasticache.primary_endpoint
+  jwt_audience            = var.jwt_audience
+  jwt_issuer              = var.jwt_issuer
+  secret_arns             = module.secrets.arns
+  log_group_names         = module.monitoring.log_group_names
+  tags                    = local.tags
+  depends_on              = [terraform_data.deployment_gate, module.alb]
 }

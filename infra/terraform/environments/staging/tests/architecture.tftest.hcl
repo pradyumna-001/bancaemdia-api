@@ -69,4 +69,8 @@ run "deploys_four_distinct_roles" {
     condition     = length(module.stack.ecs_service_names) == 4
     error_message = "API, extraction, materialization, and beat services must all be created."
   }
+  assert {
+    condition     = module.stack.ecs_canary_service_name == "bancaemdia-staging-api-canary"
+    error_message = "The API canary service must be ready for weighted ALB traffic."
+  }
 }

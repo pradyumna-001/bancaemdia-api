@@ -2,8 +2,9 @@
 
 **Target:** begin recovery immediately and restore a healthy service within five minutes of
 the rollback decision. Treat this as a target to measure in staging, not a proven guarantee.
-The CD workflow described here is pending [issue #42](https://github.com/pradyumna-001/bancaemdia-api/issues/42);
-check the [current deployment boundary](../RUNBOOKS.md#current-deployment-boundary).
+The CD workflow restores an older SHA reachable from `main` using an immutable ECR image.
+Follow the [current deployment boundary](../RUNBOOKS.md#current-deployment-boundary)
+until the AWS and GitHub environments have been rehearsed.
 
 ## Decide and prepare
 

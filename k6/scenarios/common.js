@@ -25,7 +25,7 @@ export function credentials(profile) {
   if (!/^https:\/\//.test(baseUrl) && !(__ENV.ALLOW_HTTP_LOCAL === '1' && /^http:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/.test(baseUrl))) {
     throw new Error('BASE_URL must be an HTTPS staging origin (or localhost with ALLOW_HTTP_LOCAL=1)');
   }
-  const jwtCount = profile === 'all' ? 250 : profile === 'spike' ? 200 : profile === 'steady' ? 50 : profile === 'painel' ? 100 : 0;
+  const jwtCount = profile === 'all' ? 250 : profile === 'spike' ? 200 : profile === 'steady' ? 50 : profile === 'painel' ? 100 : profile === 'cd-smoke' ? 1 : 0;
   const coletaCount = profile === 'all' || profile === 'coleta' ? 100 : 0;
   return {
     jwt: jwtCount ? parseTokens('JWT_TOKENS_JSON', jwtCount) : [],
