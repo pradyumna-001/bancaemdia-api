@@ -8,11 +8,12 @@ from zoneinfo import ZoneInfo
 
 from fastapi import APIRouter, Depends, Header, Query, status
 from fastapi.responses import JSONResponse
-from pydantic import BaseModel, ConfigDict, Field, field_validator
+from pydantic import BaseModel, ConfigDict, Field, JsonValue, field_validator
 from pydantic.config import JsonDict
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from bancaemdia.api.contracts import AUTHENTICATED_ERROR_RESPONSES
 from bancaemdia.api.deps import get_current_user, get_current_user_snapshot
 from bancaemdia.db.session import get_db, get_db_snapshot
 from bancaemdia.domain.caixa_service import (
@@ -41,7 +42,7 @@ CONTA_NAO_ENCONTRADA = "não achei uma das contas informadas"
 CHAVE_IDEMPOTENCIA_EM_CONFLITO = "esta Idempotency-Key já foi usada com outro pedido"
 SEM_VINCULO_COM_BANCA = "as contas das casas ainda não têm vínculo com uma banca"
 
-router = APIRouter()
+router = APIRouter(responses=AUTHENTICATED_ERROR_RESPONSES)
 
 TipoPublico = Literal["DEPOSITO", "SAQUE", "TRANSFERENCIA", "AJUSTE"]
 Centavos = Annotated[int, Field(strict=True, ge=BIGINT_MIN, le=BIGINT_MAX)]
@@ -110,6 +111,8 @@ class ItemErroValidacaoSaida(BaseModel):
     loc: list[str | int]
     msg: str
     type: str
+    input: JsonValue = None
+    ctx: dict[str, JsonValue] | None = None
 
 
 class ErroValidacaoSaida(BaseModel):

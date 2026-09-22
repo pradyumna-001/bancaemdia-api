@@ -10,6 +10,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from starlette.background import BackgroundTask
 from starlette.responses import FileResponse
 
+from bancaemdia.api.contracts import AUTHENTICATED_ERROR_RESPONSES
 from bancaemdia.api.deps import get_current_user_snapshot
 from bancaemdia.db.session import get_db_snapshot
 from bancaemdia.domain.painel import (
@@ -39,7 +40,7 @@ BIGINT_MAX = 2**63 - 1
 CACHE_PRIVADO = "private, no-store"
 VARY_AUTENTICACAO = "Authorization, Cookie"
 
-router = APIRouter()
+router = APIRouter(responses=AUTHENTICATED_ERROR_RESPONSES)
 
 
 class SaidaEstrita(BaseModel):
@@ -339,6 +340,17 @@ NOMES_DAS_ABAS: Mapping[SecaoExportacao, str] = {
 
 @router.get(
     "/api/v1/painel/export",
+    response_class=FileResponse,
+    responses={
+        200: {
+            "description": "Streaming Excel workbook.",
+            "content": {
+                "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet": {
+                    "schema": {"type": "string", "format": "binary"}
+                }
+            },
+        }
+    },
     summary="Exportar o painel em Excel",
     description="Gera um XLSX write-only em disco e o envia em chunks, sem BytesIO integral.",
 )

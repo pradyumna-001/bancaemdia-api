@@ -56,6 +56,7 @@ dev = [
     "ruff>=0.8.0",
     "mypy>=1.13.0",
     "pre-commit>=3.8.0",
+    "schemathesis==4.27.5",
     "testcontainers[postgresql,redis]>=4.10.0",
 ]
 

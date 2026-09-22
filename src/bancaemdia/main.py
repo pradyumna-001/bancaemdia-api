@@ -1,6 +1,7 @@
 import asyncio
 from collections.abc import AsyncGenerator
 from contextlib import asynccontextmanager, suppress
+from typing import Any
 
 from fastapi import FastAPI
 from fastapi.concurrency import run_in_threadpool
@@ -9,6 +10,12 @@ from prometheus_client import CONTENT_TYPE_LATEST, generate_latest
 from sqlalchemy import text
 from starlette.middleware.body_limit import RequestBodyLimitMiddleware
 
+from bancaemdia.api.contracts import (
+    COMMON_ERROR_RESPONSES,
+    LivenessResponse,
+    ReadinessResponse,
+)
+from bancaemdia.api.openapi import build_openapi
 from bancaemdia.api.v1 import apostas, caixa, coleta, painel, revisao, upload
 from bancaemdia.auth.middleware import JWTAuthMiddleware
 from bancaemdia.config import get_settings
@@ -31,6 +38,11 @@ from bancaemdia.workers.celery_app import get_queue_depth_collector
 
 settings = get_settings()
 configure_logging(settings.LOG_LEVEL)
+
+
+class BancaemdiaAPI(FastAPI):
+    def openapi(self) -> dict[str, Any]:
+        return build_openapi(self)
 
 
 async def _probe_replica_lag() -> float | None:
@@ -62,7 +74,15 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
         await replica_engine.dispose()
 
 
-app = FastAPI(title="Bancaemdia API", lifespan=lifespan)
+app = BancaemdiaAPI(
+    title="Bancaemdia API",
+    version="1.0.0",
+    description=(
+        "HTTP API for authenticated betting, cash-flow, review, upload, collection, and "
+        "dashboard workflows. The checked-in OpenAPI document is the compatibility contract."
+    ),
+    lifespan=lifespan,
+)
 app.include_router(coleta.router)
 app.include_router(upload.router)
 app.include_router(apostas.router)
@@ -108,18 +128,42 @@ configure_tracing(
 )
 
 
-@app.get("/health")
-async def health() -> JSONResponse:
+@app.get(
+    "/health",
+    response_model=LivenessResponse,
+    responses=COMMON_ERROR_RESPONSES,
+)
+def health() -> JSONResponse:
     return JSONResponse(liveness())
 
 
-@app.get("/ready")
+@app.get(
+    "/ready",
+    response_model=ReadinessResponse,
+    responses={
+        **COMMON_ERROR_RESPONSES,
+        503: {
+            "model": ReadinessResponse,
+            "description": "One or more required dependencies are not ready.",
+        },
+    },
+)
 async def ready() -> JSONResponse:
     report = await get_readiness_checker().check()
     return JSONResponse(report.as_dict(), status_code=report.status_code)
 
 
-@app.get("/metrics")
+@app.get(
+    "/metrics",
+    response_class=Response,
+    responses={
+        **COMMON_ERROR_RESPONSES,
+        200: {
+            "description": "Prometheus exposition document.",
+            "content": {"text/plain": {"schema": {"type": "string"}}},
+        },
+    },
+)
 async def metrics() -> Response:
     # Quem troca o estado do disjuntor são os trabalhadores; lendo o Redis aqui, a API exporta o
     # estado compartilhado e não o último que este processo viu.

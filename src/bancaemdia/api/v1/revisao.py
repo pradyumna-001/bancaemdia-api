@@ -1,12 +1,17 @@
 from datetime import datetime
-from typing import Annotated, Any, Literal
+from typing import Annotated, Literal
 from zoneinfo import ZoneInfo
 
 from fastapi import APIRouter, Depends, Path, Query, status
 from fastapi.responses import JSONResponse, Response
-from pydantic import BaseModel, ConfigDict, field_validator
+from pydantic import BaseModel, ConfigDict, JsonValue, field_validator
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from bancaemdia.api.contracts import (
+    AUTHENTICATED_ERROR_RESPONSES,
+    BetResponse,
+    ValidationErrorResponse,
+)
 from bancaemdia.api.deps import get_current_user, get_current_user_snapshot
 from bancaemdia.api.v1 import apostas as apostas_api
 from bancaemdia.db.session import get_db, get_db_snapshot
@@ -34,7 +39,7 @@ ORFA = "a aposta desta revisão não foi encontrada — nada foi alterado"
 HISTORICO_INCOMPLETO = "o histórico desta aposta está incompleto — nada foi alterado"
 TIPOS_DE_IMAGEM = frozenset({"image/jpeg", "image/png", "image/gif", "image/webp"})
 
-router = APIRouter()
+router = APIRouter(responses=AUTHENTICATED_ERROR_RESPONSES)
 
 
 class CorrecaoDaRevisao(BaseModel):
@@ -69,7 +74,7 @@ class RevisaoSaida(BaseModel):
     id: int
     midia_hash: str | None
     motivo: str
-    extracao_bruta: dict[str, Any] | None
+    extracao_bruta: dict[str, JsonValue] | None
     criado_em: datetime
     resolvido_em: datetime | None
     foto_url: str | None
@@ -95,7 +100,7 @@ class RevisaoFechadaSaida(BaseModel):
 class ResolucaoSaida(BaseModel):
     revisao: RevisaoFechadaSaida
     acao: Literal["CORRIGIR", "DESCARTAR"]
-    aposta: dict[str, Any]
+    aposta: BetResponse
     eventos_gravados: int
 
 
@@ -184,7 +189,17 @@ async def listar_revisoes(
 
 @router.get(
     "/api/v1/revisao/{revisao_id}/foto",
-    responses={404: {"model": ErroSaida, "description": "Revisão ou foto não encontrada"}},
+    response_class=Response,
+    responses={
+        200: {
+            "description": "Original review image.",
+            "content": {
+                media_type: {"schema": {"type": "string", "format": "binary"}}
+                for media_type in (*sorted(TIPOS_DE_IMAGEM), "application/octet-stream")
+            },
+        },
+        404: {"model": ErroSaida, "description": "Revisão ou foto não encontrada"},
+    },
 )
 async def ver_foto(
     revisao_id: Annotated[int, Path(ge=1, le=BIGINT_MAX)],
@@ -227,7 +242,10 @@ async def ver_revisao(
     responses={
         404: {"model": ErroSaida, "description": "Revisão não encontrada"},
         409: {"model": ErroSaida, "description": "Revisão ocupada ou inconsistente"},
-        422: {"model": ErroSaida, "description": "Resolução inválida"},
+        422: {
+            "model": ErroSaida | ValidationErrorResponse,
+            "description": "Resolução inválida",
+        },
     },
 )
 async def resolver_revisao(

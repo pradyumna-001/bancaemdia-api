@@ -1,0 +1,6560 @@
+{
+  "components": {
+    "schemas": {
+      "ApostaExtratoSaida": {
+        "additionalProperties": false,
+        "properties": {
+          "chave": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Chave"
+          },
+          "conta_casa_id": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Conta Casa Id"
+          },
+          "data_referencia": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Data Referencia"
+          },
+          "data_referencia_origem": {
+            "enum": [
+              "data_aposta",
+              "criada_em"
+            ],
+            "title": "Data Referencia Origem",
+            "type": "string"
+          },
+          "estado": {
+            "enum": [
+              "GREEN",
+              "RED",
+              "ANULADA",
+              "MEIO_GREEN",
+              "MEIO_RED",
+              "CASHOUT"
+            ],
+            "title": "Estado",
+            "type": "string"
+          },
+          "id": {
+            "title": "Id",
+            "type": "integer"
+          },
+          "liquidada_em": {
+            "title": "Liquidada Em",
+            "type": "null"
+          },
+          "origem": {
+            "const": "aposta",
+            "title": "Origem",
+            "type": "string"
+          },
+          "resultado_liquido_centavos": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Resultado Liquido Centavos"
+          },
+          "retorno_centavos": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Retorno Centavos"
+          },
+          "revisao_grave": {
+            "title": "Revisao Grave",
+            "type": "boolean"
+          },
+          "stake_centavos": {
+            "title": "Stake Centavos",
+            "type": "integer"
+          },
+          "tipo": {
+            "const": "APOSTA_LIQUIDADA",
+            "title": "Tipo",
+            "type": "string"
+          }
+        },
+        "required": [
+          "origem",
+          "id",
+          "chave",
+          "tipo",
+          "conta_casa_id",
+          "estado",
+          "stake_centavos",
+          "retorno_centavos",
+          "resultado_liquido_centavos",
+          "revisao_grave",
+          "data_referencia",
+          "data_referencia_origem",
+          "liquidada_em"
+        ],
+        "title": "ApostaExtratoSaida",
+        "type": "object"
+      },
+      "ApostaManual": {
+        "additionalProperties": false,
+        "properties": {
+          "casa": {
+            "description": "Nome canônico, grafia minúscula ou domínio oficial da casa.",
+            "enum": [
+              "4Play",
+              "4play",
+              "7Games",
+              "7K Bet",
+              "7games",
+              "7k",
+              "7k bet",
+              "Afun",
+              "Aposta Ganha",
+              "ApostaMax",
+              "BandBet",
+              "Bateu",
+              "Bet da Sorte",
+              "BetBoom",
+              "BetEsporte",
+              "BetFast",
+              "BetGo",
+              "BetMGM",
+              "BetPix365",
+              "BetSul",
+              "BetVIP",
+              "Betano",
+              "Betboo",
+              "Betfair",
+              "Betgorillas",
+              "Betnacional",
+              "Betsson",
+              "Betão",
+              "Bingo Plus",
+              "Blaze",
+              "Bolsa de Aposta",
+              "Casa de Apostas",
+              "Esportes da Sorte",
+              "Esportiva Bet",
+              "EstrelaBet",
+              "Faz1 Bet",
+              "Ginga",
+              "JogaJunto",
+              "Jogo de Ouro",
+              "JonBet",
+              "KTO",
+              "KingPanda",
+              "Lottu",
+              "MC Games",
+              "Meridianbet",
+              "Novibet",
+              "Pagol",
+              "Pinnacle",
+              "Pitaco",
+              "Pix.bet",
+              "Sportingbet",
+              "Stake",
+              "Superbet",
+              "Tivo",
+              "VBet",
+              "VaideBet",
+              "Vupi",
+              "afun",
+              "aposta ganha",
+              "apostaganha",
+              "apostamax",
+              "bandbet",
+              "bateu",
+              "bet da sorte",
+              "bet365",
+              "betano",
+              "betao",
+              "betboo",
+              "betboom",
+              "betdasorte",
+              "betesporte",
+              "betfair",
+              "betfast",
+              "betgo",
+              "betgorillas",
+              "betmgm",
+              "betnacional",
+              "betpix365",
+              "betsson",
+              "betsul",
+              "betvip",
+              "betão",
+              "bingo plus",
+              "bingoplus",
+              "blaze",
+              "bolsa de aposta",
+              "bolsadeaposta",
+              "casa de apostas",
+              "casadeapostas",
+              "esportes da sorte",
+              "esportesdasorte",
+              "esportiva",
+              "esportiva bet",
+              "estrelabet",
+              "faz1",
+              "faz1 bet",
+              "ginga",
+              "jogajunto",
+              "jogo de ouro",
+              "jogodeouro",
+              "jonbet",
+              "kingpanda",
+              "kto",
+              "lottu",
+              "mc games",
+              "mcgames",
+              "meridianbet",
+              "novibet",
+              "pagol",
+              "pinnacle",
+              "pitaco",
+              "pix",
+              "pix.bet",
+              "sportingbet",
+              "stake",
+              "superbet",
+              "tivo",
+              "vaidebet",
+              "vbet",
+              "vupi"
+            ],
+            "type": "string"
+          },
+          "comissao_centavos": {
+            "anyOf": [
+              {
+                "minimum": 0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "data_aposta": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "descricao": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Descricao"
+          },
+          "evento": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Evento"
+          },
+          "freebet": {
+            "default": false,
+            "title": "Freebet",
+            "type": "boolean"
+          },
+          "mercado_bruto": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Mercado Bruto"
+          },
+          "odd": {
+            "maximum": 1000,
+            "minimum": 1.01,
+            "type": "number"
+          },
+          "stake_unidades": {
+            "exclusiveMinimum": 0,
+            "type": "number"
+          }
+        },
+        "required": [
+          "casa",
+          "odd",
+          "stake_unidades"
+        ],
+        "title": "ApostaManual",
+        "type": "object"
+      },
+      "BetChangedResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "aposta": {
+            "$ref": "#/components/schemas/BetResponse"
+          },
+          "eventos_gravados": {
+            "minimum": 0.0,
+            "title": "Eventos Gravados",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "aposta",
+          "eventos_gravados"
+        ],
+        "title": "BetChangedResponse",
+        "type": "object"
+      },
+      "BetCreatedResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "aposta": {
+            "$ref": "#/components/schemas/BetResponse"
+          },
+          "aviso": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Aviso"
+          },
+          "casa_id": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Casa Id"
+          }
+        },
+        "required": [
+          "aposta",
+          "casa_id"
+        ],
+        "title": "BetCreatedResponse",
+        "type": "object"
+      },
+      "BetDetailResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "aposta": {
+            "$ref": "#/components/schemas/BetResponse"
+          },
+          "eventos": {
+            "items": {
+              "$ref": "#/components/schemas/BetEventResponse"
+            },
+            "title": "Eventos",
+            "type": "array"
+          },
+          "revisao_pendente": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/PendingReviewResponse"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "selecoes": {
+            "$ref": "#/components/schemas/BetSelectionsResponse"
+          }
+        },
+        "required": [
+          "aposta",
+          "selecoes",
+          "eventos",
+          "revisao_pendente"
+        ],
+        "title": "BetDetailResponse",
+        "type": "object"
+      },
+      "BetEventResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "confianca": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Confianca"
+          },
+          "criado_em": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Criado Em"
+          },
+          "fonte": {
+            "title": "Fonte",
+            "type": "string"
+          },
+          "payload": {
+            "additionalProperties": {
+              "$ref": "#/components/schemas/JsonValue"
+            },
+            "title": "Payload",
+            "type": "object"
+          },
+          "tipo": {
+            "title": "Tipo",
+            "type": "string"
+          }
+        },
+        "required": [
+          "tipo",
+          "fonte",
+          "payload",
+          "confianca",
+          "criado_em"
+        ],
+        "title": "BetEventResponse",
+        "type": "object"
+      },
+      "BetResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "apagada": {
+            "title": "Apagada",
+            "type": "boolean"
+          },
+          "atualizada_em": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Atualizada Em"
+          },
+          "casa": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Casa"
+          },
+          "chat_id": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Chat Id"
+          },
+          "chave": {
+            "title": "Chave",
+            "type": "string"
+          },
+          "competicao_id": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Competicao Id"
+          },
+          "conta_casa_id": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Conta Casa Id"
+          },
+          "criada_em": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Criada Em"
+          },
+          "data_aposta": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Data Aposta"
+          },
+          "data_jogo": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Data Jogo"
+          },
+          "descricao": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Descricao"
+          },
+          "estado": {
+            "title": "Estado",
+            "type": "string"
+          },
+          "evento": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Evento"
+          },
+          "freebet": {
+            "title": "Freebet",
+            "type": "boolean"
+          },
+          "lucro_centavos": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Lucro Centavos"
+          },
+          "mercado": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Mercado"
+          },
+          "mercado_id": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Mercado Id"
+          },
+          "message_id": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Message Id"
+          },
+          "midia_hash": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Midia Hash"
+          },
+          "odd": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Odd"
+          },
+          "origem": {
+            "title": "Origem",
+            "type": "string"
+          },
+          "retorno_centavos": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Retorno Centavos"
+          },
+          "revisao_grave": {
+            "title": "Revisao Grave",
+            "type": "boolean"
+          },
+          "stake_centavos": {
+            "title": "Stake Centavos",
+            "type": "integer"
+          },
+          "stake_unidades": {
+            "title": "Stake Unidades",
+            "type": "number"
+          },
+          "time_casa_id": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Time Casa Id"
+          },
+          "time_fora_id": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Time Fora Id"
+          },
+          "tipster_id": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Tipster Id"
+          },
+          "valor_aposta_centavos": {
+            "title": "Valor Aposta Centavos",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "chave",
+          "origem",
+          "estado",
+          "odd",
+          "stake_unidades",
+          "stake_centavos",
+          "valor_aposta_centavos",
+          "retorno_centavos",
+          "lucro_centavos",
+          "freebet",
+          "conta_casa_id",
+          "tipster_id",
+          "time_casa_id",
+          "time_fora_id",
+          "mercado_id",
+          "competicao_id",
+          "data_aposta",
+          "data_jogo",
+          "chat_id",
+          "message_id",
+          "midia_hash",
+          "revisao_grave",
+          "apagada",
+          "casa",
+          "evento",
+          "descricao",
+          "mercado",
+          "criada_em",
+          "atualizada_em"
+        ],
+        "title": "BetResponse",
+        "type": "object"
+      },
+      "BetSelectionsResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "casa": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Casa"
+          },
+          "descricao": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Descricao"
+          },
+          "evento": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Evento"
+          },
+          "mercado": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Mercado"
+          }
+        },
+        "required": [
+          "descricao",
+          "mercado",
+          "evento",
+          "casa"
+        ],
+        "title": "BetSelectionsResponse",
+        "type": "object"
+      },
+      "BetsPageResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "data": {
+            "items": {
+              "$ref": "#/components/schemas/BetResponse"
+            },
+            "title": "Data",
+            "type": "array"
+          },
+          "pagination": {
+            "$ref": "#/components/schemas/PaginationResponse"
+          }
+        },
+        "required": [
+          "data",
+          "pagination"
+        ],
+        "title": "BetsPageResponse",
+        "type": "object"
+      },
+      "CollectionRejectedItem": {
+        "additionalProperties": false,
+        "properties": {
+          "identidade": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Identidade"
+          },
+          "motivo": {
+            "title": "Motivo",
+            "type": "string"
+          },
+          "posicao": {
+            "minimum": 0.0,
+            "title": "Posicao",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "posicao",
+          "motivo"
+        ],
+        "title": "CollectionRejectedItem",
+        "type": "object"
+      },
+      "CollectionResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "antes_do_inicio": {
+            "minimum": 0.0,
+            "title": "Antes Do Inicio",
+            "type": "integer"
+          },
+          "atualizadas": {
+            "minimum": 0.0,
+            "title": "Atualizadas",
+            "type": "integer"
+          },
+          "em_duvida": {
+            "minimum": 0.0,
+            "title": "Em Duvida",
+            "type": "integer"
+          },
+          "iguais_a_existentes": {
+            "minimum": 0.0,
+            "title": "Iguais A Existentes",
+            "type": "integer"
+          },
+          "ja_conhecidas": {
+            "minimum": 0.0,
+            "title": "Ja Conhecidas",
+            "type": "integer"
+          },
+          "novas_contando": {
+            "minimum": 0.0,
+            "title": "Novas Contando",
+            "type": "integer"
+          },
+          "recusadas": {
+            "items": {
+              "$ref": "#/components/schemas/CollectionRejectedItem"
+            },
+            "title": "Recusadas",
+            "type": "array"
+          },
+          "sem_leitor": {
+            "items": {
+              "$ref": "#/components/schemas/CollectionWithoutReaderItem"
+            },
+            "title": "Sem Leitor",
+            "type": "array"
+          }
+        },
+        "required": [
+          "antes_do_inicio",
+          "novas_contando",
+          "iguais_a_existentes",
+          "em_duvida",
+          "atualizadas",
+          "ja_conhecidas",
+          "recusadas",
+          "sem_leitor"
+        ],
+        "title": "CollectionResponse",
+        "type": "object"
+      },
+      "CollectionWithoutReaderItem": {
+        "additionalProperties": false,
+        "properties": {
+          "casa": {
+            "title": "Casa",
+            "type": "string"
+          },
+          "guardadas": {
+            "minimum": 0.0,
+            "title": "Guardadas",
+            "type": "integer"
+          },
+          "recado": {
+            "title": "Recado",
+            "type": "string"
+          }
+        },
+        "required": [
+          "casa",
+          "guardadas",
+          "recado"
+        ],
+        "title": "CollectionWithoutReaderItem",
+        "type": "object"
+      },
+      "Correcao": {
+        "additionalProperties": false,
+        "description": "Campos de domínio que podem ser corrigidos; campos desconhecidos são recusados.",
+        "properties": {
+          "casa": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "comissao_centavos": {
+            "minimum": 0,
+            "type": "integer"
+          },
+          "competicao_id": {
+            "anyOf": [
+              {
+                "minimum": 1,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "conta_casa_id": {
+            "anyOf": [
+              {
+                "minimum": 1,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "data_aposta": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "data_jogo": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "descricao": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "estado": {
+            "enum": [
+              "PENDENTE",
+              "GREEN",
+              "RED",
+              "ANULADA",
+              "MEIO_GREEN",
+              "MEIO_RED",
+              "CASHOUT"
+            ],
+            "type": "string"
+          },
+          "evento": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "freebet": {
+            "type": "boolean"
+          },
+          "mercado_id": {
+            "anyOf": [
+              {
+                "minimum": 1,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "odd": {
+            "maximum": 1000,
+            "minimum": 1.01,
+            "type": "number"
+          },
+          "revisao_grave": {
+            "type": "boolean"
+          },
+          "revisao_motivo": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "stake_unidades": {
+            "exclusiveMinimum": 0,
+            "type": "number"
+          },
+          "time_casa_id": {
+            "anyOf": [
+              {
+                "minimum": 1,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "time_fora_id": {
+            "anyOf": [
+              {
+                "minimum": 1,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "tipster_id": {
+            "anyOf": [
+              {
+                "minimum": 1,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "title": "Correcao",
+        "type": "object"
+      },
+      "CorrecaoDaRevisao": {
+        "additionalProperties": false,
+        "description": "Campos de domínio que podem ser corrigidos; campos desconhecidos são recusados.",
+        "properties": {
+          "casa": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "comissao_centavos": {
+            "minimum": 0,
+            "type": "integer"
+          },
+          "competicao_id": {
+            "anyOf": [
+              {
+                "minimum": 1,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "conta_casa_id": {
+            "anyOf": [
+              {
+                "minimum": 1,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "data_aposta": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "data_jogo": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "descricao": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "estado": {
+            "enum": [
+              "PENDENTE",
+              "GREEN",
+              "RED",
+              "ANULADA",
+              "MEIO_GREEN",
+              "MEIO_RED",
+              "CASHOUT"
+            ],
+            "type": "string"
+          },
+          "evento": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "freebet": {
+            "type": "boolean"
+          },
+          "mercado_id": {
+            "anyOf": [
+              {
+                "minimum": 1,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "odd": {
+            "maximum": 1000,
+            "minimum": 1.01,
+            "type": "number"
+          },
+          "stake_unidades": {
+            "exclusiveMinimum": 0,
+            "type": "number"
+          },
+          "time_casa_id": {
+            "anyOf": [
+              {
+                "minimum": 1,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "time_fora_id": {
+            "anyOf": [
+              {
+                "minimum": 1,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "tipster_id": {
+            "anyOf": [
+              {
+                "minimum": 1,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "title": "CorrecaoDaRevisao",
+        "type": "object"
+      },
+      "DatasetSaida": {
+        "additionalProperties": false,
+        "properties": {
+          "chave": {
+            "title": "Chave",
+            "type": "string"
+          },
+          "data": {
+            "items": {
+              "type": "integer"
+            },
+            "title": "Data",
+            "type": "array"
+          },
+          "label": {
+            "title": "Label",
+            "type": "string"
+          },
+          "unidade": {
+            "title": "Unidade",
+            "type": "string"
+          }
+        },
+        "required": [
+          "chave",
+          "label",
+          "unidade",
+          "data"
+        ],
+        "title": "DatasetSaida",
+        "type": "object"
+      },
+      "ErroSaida": {
+        "additionalProperties": false,
+        "properties": {
+          "detail": {
+            "title": "Detail",
+            "type": "string"
+          }
+        },
+        "required": [
+          "detail"
+        ],
+        "title": "ErroSaida",
+        "type": "object"
+      },
+      "ErroValidacaoSaida": {
+        "additionalProperties": false,
+        "properties": {
+          "detail": {
+            "items": {
+              "$ref": "#/components/schemas/ItemErroValidacaoSaida"
+            },
+            "title": "Detail",
+            "type": "array"
+          }
+        },
+        "required": [
+          "detail"
+        ],
+        "title": "ErroValidacaoSaida",
+        "type": "object"
+      },
+      "ErrorOrValidationResponse": {
+        "anyOf": [
+          {
+            "$ref": "#/components/schemas/ErrorResponse"
+          },
+          {
+            "$ref": "#/components/schemas/ValidationErrorResponse"
+          }
+        ]
+      },
+      "ErrorResponse": {
+        "additionalProperties": false,
+        "description": "Structured errors emitted by application and cross-cutting middleware.",
+        "properties": {
+          "detail": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Detail"
+          },
+          "erro": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Erro"
+          },
+          "error": {
+            "anyOf": [
+              {
+                "const": "rate_limited",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Error"
+          },
+          "retry_after": {
+            "anyOf": [
+              {
+                "minimum": 0.0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Retry After"
+          }
+        },
+        "title": "ErrorResponse",
+        "type": "object"
+      },
+      "EstatisticasSaida": {
+        "additionalProperties": false,
+        "properties": {
+          "idade_maxima_segundos": {
+            "title": "Idade Maxima Segundos",
+            "type": "integer"
+          },
+          "mais_antiga_em": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Mais Antiga Em"
+          },
+          "por_motivo": {
+            "additionalProperties": {
+              "type": "integer"
+            },
+            "title": "Por Motivo",
+            "type": "object"
+          },
+          "total": {
+            "title": "Total",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "total",
+          "por_motivo",
+          "mais_antiga_em",
+          "idade_maxima_segundos"
+        ],
+        "title": "EstatisticasSaida",
+        "type": "object"
+      },
+      "EvolucaoSaida": {
+        "additionalProperties": false,
+        "properties": {
+          "banca_id": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Banca Id"
+          },
+          "banca_nome": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Banca Nome"
+          },
+          "lucro_acumulado_centavos": {
+            "title": "Lucro Acumulado Centavos",
+            "type": "integer"
+          },
+          "lucro_periodo_centavos": {
+            "title": "Lucro Periodo Centavos",
+            "type": "integer"
+          },
+          "periodo_inicio": {
+            "format": "date",
+            "title": "Periodo Inicio",
+            "type": "string"
+          },
+          "saldo_centavos": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Saldo Centavos"
+          }
+        },
+        "required": [
+          "periodo_inicio",
+          "banca_id",
+          "banca_nome",
+          "lucro_periodo_centavos",
+          "lucro_acumulado_centavos",
+          "saldo_centavos"
+        ],
+        "title": "EvolucaoSaida",
+        "type": "object"
+      },
+      "ExtratoSaida": {
+        "additionalProperties": false,
+        "properties": {
+          "data": {
+            "items": {
+              "discriminator": {
+                "mapping": {
+                  "aposta": "#/components/schemas/ApostaExtratoSaida",
+                  "movimento": "#/components/schemas/MovimentoExtratoSaida"
+                },
+                "propertyName": "origem"
+              },
+              "oneOf": [
+                {
+                  "$ref": "#/components/schemas/MovimentoExtratoSaida"
+                },
+                {
+                  "$ref": "#/components/schemas/ApostaExtratoSaida"
+                }
+              ]
+            },
+            "title": "Data",
+            "type": "array"
+          },
+          "pagination": {
+            "$ref": "#/components/schemas/PaginacaoSaida"
+          }
+        },
+        "required": [
+          "data",
+          "pagination"
+        ],
+        "title": "ExtratoSaida",
+        "type": "object"
+      },
+      "GrupoSaida": {
+        "additionalProperties": false,
+        "properties": {
+          "familia": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Familia"
+          },
+          "id": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Id"
+          },
+          "metricas": {
+            "$ref": "#/components/schemas/MetricasSaida"
+          },
+          "nome": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Nome"
+          }
+        },
+        "required": [
+          "id",
+          "nome",
+          "familia",
+          "metricas"
+        ],
+        "title": "GrupoSaida",
+        "type": "object"
+      },
+      "ItemErroValidacaoSaida": {
+        "additionalProperties": false,
+        "properties": {
+          "ctx": {
+            "anyOf": [
+              {
+                "additionalProperties": {
+                  "$ref": "#/components/schemas/JsonValue"
+                },
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Ctx"
+          },
+          "input": {
+            "$ref": "#/components/schemas/JsonValue"
+          },
+          "loc": {
+            "items": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "integer"
+                }
+              ]
+            },
+            "title": "Loc",
+            "type": "array"
+          },
+          "msg": {
+            "title": "Msg",
+            "type": "string"
+          },
+          "type": {
+            "title": "Type",
+            "type": "string"
+          }
+        },
+        "required": [
+          "loc",
+          "msg",
+          "type"
+        ],
+        "title": "ItemErroValidacaoSaida",
+        "type": "object"
+      },
+      "JsonValue": {
+        "description": "A recursively typed JSON value; never an unconstrained Any schema.",
+        "oneOf": [
+          {
+            "type": "string"
+          },
+          {
+            "type": "number"
+          },
+          {
+            "type": "boolean"
+          },
+          {
+            "items": {
+              "$ref": "#/components/schemas/JsonValue"
+            },
+            "type": "array"
+          },
+          {
+            "additionalProperties": {
+              "$ref": "#/components/schemas/JsonValue"
+            },
+            "type": "object"
+          },
+          {
+            "type": "null"
+          }
+        ],
+        "title": "JsonValue"
+      },
+      "LivenessResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "status": {
+            "const": "ok",
+            "title": "Status",
+            "type": "string"
+          }
+        },
+        "required": [
+          "status"
+        ],
+        "title": "LivenessResponse",
+        "type": "object"
+      },
+      "MetricasGraficosSaida": {
+        "additionalProperties": false,
+        "properties": {
+          "atualizado_em": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Atualizado Em"
+          },
+          "datasets": {
+            "items": {
+              "$ref": "#/components/schemas/DatasetSaida"
+            },
+            "title": "Datasets",
+            "type": "array"
+          },
+          "granularidade": {
+            "enum": [
+              "dia",
+              "semana",
+              "mes"
+            ],
+            "title": "Granularidade",
+            "type": "string"
+          },
+          "idade_mv_segundos": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Idade Mv Segundos"
+          },
+          "labels": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Labels",
+            "type": "array"
+          },
+          "replica_atraso_disponivel": {
+            "title": "Replica Atraso Disponivel",
+            "type": "boolean"
+          },
+          "replica_atraso_estado": {
+            "enum": [
+              "disponivel",
+              "primario_ou_sem_telemetria"
+            ],
+            "title": "Replica Atraso Estado",
+            "type": "string"
+          },
+          "replica_atraso_segundos": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Replica Atraso Segundos"
+          },
+          "respondido_em": {
+            "format": "date-time",
+            "title": "Respondido Em",
+            "type": "string"
+          }
+        },
+        "required": [
+          "atualizado_em",
+          "idade_mv_segundos",
+          "respondido_em",
+          "replica_atraso_segundos",
+          "replica_atraso_disponivel",
+          "replica_atraso_estado",
+          "granularidade",
+          "labels",
+          "datasets"
+        ],
+        "title": "MetricasGraficosSaida",
+        "type": "object"
+      },
+      "MetricasSaida": {
+        "additionalProperties": false,
+        "properties": {
+          "base_roi_centavos": {
+            "title": "Base Roi Centavos",
+            "type": "integer"
+          },
+          "freebets": {
+            "title": "Freebets",
+            "type": "integer"
+          },
+          "giro_centavos": {
+            "title": "Giro Centavos",
+            "type": "integer"
+          },
+          "greens": {
+            "title": "Greens",
+            "type": "integer"
+          },
+          "lucro_centavos": {
+            "title": "Lucro Centavos",
+            "type": "integer"
+          },
+          "pendentes": {
+            "title": "Pendentes",
+            "type": "integer"
+          },
+          "reds": {
+            "title": "Reds",
+            "type": "integer"
+          },
+          "retorno_centavos": {
+            "title": "Retorno Centavos",
+            "type": "integer"
+          },
+          "roi": {
+            "title": "Roi",
+            "type": "string"
+          },
+          "roi_basis_points": {
+            "title": "Roi Basis Points",
+            "type": "integer"
+          },
+          "total_apostas": {
+            "title": "Total Apostas",
+            "type": "integer"
+          },
+          "win_rate": {
+            "title": "Win Rate",
+            "type": "string"
+          },
+          "win_rate_basis_points": {
+            "title": "Win Rate Basis Points",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "total_apostas",
+          "pendentes",
+          "greens",
+          "reds",
+          "giro_centavos",
+          "base_roi_centavos",
+          "retorno_centavos",
+          "lucro_centavos",
+          "freebets",
+          "roi",
+          "win_rate",
+          "roi_basis_points",
+          "win_rate_basis_points"
+        ],
+        "title": "MetricasSaida",
+        "type": "object"
+      },
+      "MovimentoCriadoSaida": {
+        "additionalProperties": false,
+        "properties": {
+          "movimentos": {
+            "items": {
+              "$ref": "#/components/schemas/MovimentoSaida"
+            },
+            "title": "Movimentos",
+            "type": "array"
+          },
+          "tipo": {
+            "enum": [
+              "DEPOSITO",
+              "SAQUE",
+              "TRANSFERENCIA",
+              "AJUSTE"
+            ],
+            "title": "Tipo",
+            "type": "string"
+          },
+          "transferencia_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Transferencia Id"
+          }
+        },
+        "required": [
+          "tipo",
+          "transferencia_id",
+          "movimentos"
+        ],
+        "title": "MovimentoCriadoSaida",
+        "type": "object"
+      },
+      "MovimentoExtratoSaida": {
+        "additionalProperties": false,
+        "properties": {
+          "conta_casa_id": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Conta Casa Id"
+          },
+          "data_referencia": {
+            "format": "date-time",
+            "title": "Data Referencia",
+            "type": "string"
+          },
+          "descricao": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Descricao"
+          },
+          "id": {
+            "title": "Id",
+            "type": "integer"
+          },
+          "ocorrido_em": {
+            "format": "date-time",
+            "title": "Ocorrido Em",
+            "type": "string"
+          },
+          "origem": {
+            "const": "movimento",
+            "title": "Origem",
+            "type": "string"
+          },
+          "tipo": {
+            "enum": [
+              "DEPOSITO",
+              "SAQUE",
+              "TRANSFERENCIA",
+              "BONUS",
+              "AJUSTE"
+            ],
+            "title": "Tipo",
+            "type": "string"
+          },
+          "transferencia_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Transferencia Id"
+          },
+          "valor_centavos": {
+            "title": "Valor Centavos",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "id",
+          "conta_casa_id",
+          "tipo",
+          "valor_centavos",
+          "transferencia_id",
+          "ocorrido_em",
+          "descricao",
+          "origem",
+          "data_referencia"
+        ],
+        "title": "MovimentoExtratoSaida",
+        "type": "object"
+      },
+      "MovimentoNovo": {
+        "additionalProperties": false,
+        "allOf": [
+          {
+            "if": {
+              "properties": {
+                "tipo": {
+                  "enum": [
+                    "DEPOSITO",
+                    "SAQUE"
+                  ]
+                }
+              },
+              "required": [
+                "tipo"
+              ]
+            },
+            "then": {
+              "properties": {
+                "conta_casa_destino_id": {
+                  "type": "null"
+                },
+                "valor_centavos": {
+                  "exclusiveMinimum": 0.0
+                }
+              },
+              "required": [
+                "conta_casa_id"
+              ]
+            }
+          },
+          {
+            "if": {
+              "properties": {
+                "tipo": {
+                  "const": "TRANSFERENCIA"
+                }
+              },
+              "required": [
+                "tipo"
+              ]
+            },
+            "then": {
+              "properties": {
+                "valor_centavos": {
+                  "exclusiveMinimum": 0.0
+                }
+              },
+              "required": [
+                "conta_casa_id",
+                "conta_casa_destino_id"
+              ]
+            }
+          },
+          {
+            "if": {
+              "properties": {
+                "tipo": {
+                  "const": "AJUSTE"
+                }
+              },
+              "required": [
+                "tipo"
+              ]
+            },
+            "then": {
+              "properties": {
+                "conta_casa_destino_id": {
+                  "type": "null"
+                },
+                "valor_centavos": {
+                  "not": {
+                    "const": 0
+                  }
+                }
+              }
+            }
+          }
+        ],
+        "description": "Pedido de caixa com regras condicionais publicadas também no OpenAPI.",
+        "properties": {
+          "conta_casa_destino_id": {
+            "anyOf": [
+              {
+                "maximum": 9.223372036854776e+18,
+                "minimum": 1.0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Obrigatória só para transferência e diferente da conta de origem",
+            "title": "Conta Casa Destino Id"
+          },
+          "conta_casa_id": {
+            "anyOf": [
+              {
+                "maximum": 9.223372036854776e+18,
+                "minimum": 1.0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Obrigatória para depósito, saque e origem da transferência",
+            "title": "Conta Casa Id"
+          },
+          "descricao": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Descricao"
+          },
+          "ocorrido_em": {
+            "format": "date-time",
+            "title": "Ocorrido Em",
+            "type": "string"
+          },
+          "tipo": {
+            "enum": [
+              "DEPOSITO",
+              "SAQUE",
+              "TRANSFERENCIA",
+              "AJUSTE"
+            ],
+            "title": "Tipo",
+            "type": "string"
+          },
+          "valor_centavos": {
+            "description": "Valor em centavos; positivo salvo para AJUSTE",
+            "maximum": 9.223372036854776e+18,
+            "minimum": -9.223372036854776e+18,
+            "title": "Valor Centavos",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "tipo",
+          "valor_centavos",
+          "ocorrido_em"
+        ],
+        "title": "MovimentoNovo",
+        "type": "object"
+      },
+      "MovimentoSaida": {
+        "additionalProperties": false,
+        "properties": {
+          "conta_casa_id": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Conta Casa Id"
+          },
+          "descricao": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Descricao"
+          },
+          "id": {
+            "title": "Id",
+            "type": "integer"
+          },
+          "ocorrido_em": {
+            "format": "date-time",
+            "title": "Ocorrido Em",
+            "type": "string"
+          },
+          "tipo": {
+            "enum": [
+              "DEPOSITO",
+              "SAQUE",
+              "TRANSFERENCIA",
+              "BONUS",
+              "AJUSTE"
+            ],
+            "title": "Tipo",
+            "type": "string"
+          },
+          "transferencia_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Transferencia Id"
+          },
+          "valor_centavos": {
+            "title": "Valor Centavos",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "id",
+          "conta_casa_id",
+          "tipo",
+          "valor_centavos",
+          "transferencia_id",
+          "ocorrido_em",
+          "descricao"
+        ],
+        "title": "MovimentoSaida",
+        "type": "object"
+      },
+      "MovimentosPaginaSaida": {
+        "additionalProperties": false,
+        "properties": {
+          "data": {
+            "items": {
+              "$ref": "#/components/schemas/MovimentoSaida"
+            },
+            "title": "Data",
+            "type": "array"
+          },
+          "pagination": {
+            "$ref": "#/components/schemas/PaginacaoSaida"
+          }
+        },
+        "required": [
+          "data",
+          "pagination"
+        ],
+        "title": "MovimentosPaginaSaida",
+        "type": "object"
+      },
+      "PaginacaoSaida": {
+        "additionalProperties": false,
+        "properties": {
+          "page": {
+            "title": "Page",
+            "type": "integer"
+          },
+          "page_size": {
+            "title": "Page Size",
+            "type": "integer"
+          },
+          "total": {
+            "title": "Total",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "page",
+          "page_size",
+          "total"
+        ],
+        "title": "PaginacaoSaida",
+        "type": "object"
+      },
+      "PaginationResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "page": {
+            "minimum": 1.0,
+            "title": "Page",
+            "type": "integer"
+          },
+          "page_size": {
+            "minimum": 1.0,
+            "title": "Page Size",
+            "type": "integer"
+          },
+          "total": {
+            "minimum": 0.0,
+            "title": "Total",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "page",
+          "page_size",
+          "total"
+        ],
+        "title": "PaginationResponse",
+        "type": "object"
+      },
+      "PainelSaida": {
+        "additionalProperties": false,
+        "properties": {
+          "atualizado_em": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Atualizado Em"
+          },
+          "evolucao": {
+            "items": {
+              "$ref": "#/components/schemas/EvolucaoSaida"
+            },
+            "title": "Evolucao",
+            "type": "array"
+          },
+          "idade_mv_segundos": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Idade Mv Segundos"
+          },
+          "por_casa": {
+            "items": {
+              "$ref": "#/components/schemas/GrupoSaida"
+            },
+            "title": "Por Casa",
+            "type": "array"
+          },
+          "por_mercado": {
+            "items": {
+              "$ref": "#/components/schemas/GrupoSaida"
+            },
+            "title": "Por Mercado",
+            "type": "array"
+          },
+          "por_tipster": {
+            "items": {
+              "$ref": "#/components/schemas/GrupoSaida"
+            },
+            "title": "Por Tipster",
+            "type": "array"
+          },
+          "replica_atraso_disponivel": {
+            "title": "Replica Atraso Disponivel",
+            "type": "boolean"
+          },
+          "replica_atraso_estado": {
+            "enum": [
+              "disponivel",
+              "primario_ou_sem_telemetria"
+            ],
+            "title": "Replica Atraso Estado",
+            "type": "string"
+          },
+          "replica_atraso_segundos": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Replica Atraso Segundos"
+          },
+          "respondido_em": {
+            "format": "date-time",
+            "title": "Respondido Em",
+            "type": "string"
+          },
+          "resumo": {
+            "$ref": "#/components/schemas/MetricasSaida"
+          },
+          "saldo": {
+            "$ref": "#/components/schemas/bancaemdia__api__v1__painel__SaldoSaida"
+          }
+        },
+        "required": [
+          "atualizado_em",
+          "idade_mv_segundos",
+          "respondido_em",
+          "replica_atraso_segundos",
+          "replica_atraso_disponivel",
+          "replica_atraso_estado",
+          "resumo",
+          "saldo",
+          "por_casa",
+          "por_tipster",
+          "por_mercado",
+          "evolucao"
+        ],
+        "title": "PainelSaida",
+        "type": "object"
+      },
+      "PendingReviewResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "criado_em": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Criado Em"
+          },
+          "id": {
+            "title": "Id",
+            "type": "integer"
+          },
+          "midia_hash": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Midia Hash"
+          },
+          "motivo": {
+            "title": "Motivo",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "motivo",
+          "midia_hash",
+          "criado_em"
+        ],
+        "title": "PendingReviewResponse",
+        "type": "object"
+      },
+      "PeriodoPainel": {
+        "enum": [
+          "7d",
+          "30d",
+          "90d",
+          "1y",
+          "all"
+        ],
+        "title": "PeriodoPainel",
+        "type": "string"
+      },
+      "ReadinessCheckResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "details": {
+            "anyOf": [
+              {
+                "additionalProperties": {
+                  "$ref": "#/components/schemas/JsonValue"
+                },
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Details"
+          },
+          "impact": {
+            "enum": [
+              "required",
+              "report_only"
+            ],
+            "title": "Impact",
+            "type": "string"
+          },
+          "latency_ms": {
+            "minimum": 0.0,
+            "title": "Latency Ms",
+            "type": "number"
+          },
+          "status": {
+            "enum": [
+              "ok",
+              "failed",
+              "degraded"
+            ],
+            "title": "Status",
+            "type": "string"
+          }
+        },
+        "required": [
+          "status",
+          "latency_ms",
+          "impact"
+        ],
+        "title": "ReadinessCheckResponse",
+        "type": "object"
+      },
+      "ReadinessResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "checks": {
+            "additionalProperties": {
+              "$ref": "#/components/schemas/ReadinessCheckResponse"
+            },
+            "title": "Checks",
+            "type": "object"
+          },
+          "status": {
+            "enum": [
+              "ready",
+              "not_ready"
+            ],
+            "title": "Status",
+            "type": "string"
+          }
+        },
+        "required": [
+          "status",
+          "checks"
+        ],
+        "title": "ReadinessResponse",
+        "type": "object"
+      },
+      "ResolucaoNova": {
+        "additionalProperties": false,
+        "properties": {
+          "acao": {
+            "enum": [
+              "CORRIGIR",
+              "DESCARTAR"
+            ],
+            "title": "Acao",
+            "type": "string"
+          },
+          "aposta_corrigida": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/CorrecaoDaRevisao"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "required": [
+          "acao"
+        ],
+        "title": "ResolucaoNova",
+        "type": "object"
+      },
+      "ResolucaoSaida": {
+        "additionalProperties": false,
+        "properties": {
+          "acao": {
+            "enum": [
+              "CORRIGIR",
+              "DESCARTAR"
+            ],
+            "title": "Acao",
+            "type": "string"
+          },
+          "aposta": {
+            "$ref": "#/components/schemas/BetResponse"
+          },
+          "eventos_gravados": {
+            "title": "Eventos Gravados",
+            "type": "integer"
+          },
+          "revisao": {
+            "$ref": "#/components/schemas/RevisaoFechadaSaida"
+          }
+        },
+        "required": [
+          "revisao",
+          "acao",
+          "aposta",
+          "eventos_gravados"
+        ],
+        "title": "ResolucaoSaida",
+        "type": "object"
+      },
+      "Resultado": {
+        "additionalProperties": false,
+        "allOf": [
+          {
+            "else": {
+              "properties": {
+                "cashout_valor_centavos": {
+                  "type": "null"
+                }
+              }
+            },
+            "if": {
+              "properties": {
+                "estado": {
+                  "const": "CASHOUT"
+                }
+              },
+              "required": [
+                "estado"
+              ]
+            },
+            "then": {
+              "anyOf": [
+                {
+                  "properties": {
+                    "retorno_centavos": {
+                      "minimum": 0,
+                      "type": "integer"
+                    }
+                  },
+                  "required": [
+                    "retorno_centavos"
+                  ]
+                },
+                {
+                  "properties": {
+                    "cashout_valor_centavos": {
+                      "minimum": 0,
+                      "type": "integer"
+                    }
+                  },
+                  "required": [
+                    "cashout_valor_centavos"
+                  ]
+                }
+              ],
+              "properties": {
+                "comissao_centavos": {
+                  "type": "null"
+                }
+              }
+            }
+          }
+        ],
+        "properties": {
+          "cashout_valor_centavos": {
+            "anyOf": [
+              {
+                "minimum": 0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "comissao_centavos": {
+            "anyOf": [
+              {
+                "minimum": 0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "estado": {
+            "enum": [
+              "PENDENTE",
+              "GREEN",
+              "RED",
+              "ANULADA",
+              "MEIO_GREEN",
+              "MEIO_RED",
+              "CASHOUT"
+            ],
+            "type": "string"
+          },
+          "retorno_centavos": {
+            "anyOf": [
+              {
+                "minimum": 0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "required": [
+          "estado"
+        ],
+        "title": "Resultado",
+        "type": "object"
+      },
+      "RevisaoFechadaSaida": {
+        "additionalProperties": false,
+        "properties": {
+          "id": {
+            "title": "Id",
+            "type": "integer"
+          },
+          "resolvido_em": {
+            "format": "date-time",
+            "title": "Resolvido Em",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "resolvido_em"
+        ],
+        "title": "RevisaoFechadaSaida",
+        "type": "object"
+      },
+      "RevisaoSaida": {
+        "additionalProperties": false,
+        "properties": {
+          "criado_em": {
+            "format": "date-time",
+            "title": "Criado Em",
+            "type": "string"
+          },
+          "extracao_bruta": {
+            "anyOf": [
+              {
+                "additionalProperties": {
+                  "$ref": "#/components/schemas/JsonValue"
+                },
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Extracao Bruta"
+          },
+          "foto_url": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Foto Url"
+          },
+          "id": {
+            "title": "Id",
+            "type": "integer"
+          },
+          "midia_hash": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Midia Hash"
+          },
+          "motivo": {
+            "title": "Motivo",
+            "type": "string"
+          },
+          "resolvido_em": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Resolvido Em"
+          }
+        },
+        "required": [
+          "id",
+          "midia_hash",
+          "motivo",
+          "extracao_bruta",
+          "criado_em",
+          "resolvido_em",
+          "foto_url"
+        ],
+        "title": "RevisaoSaida",
+        "type": "object"
+      },
+      "RevisoesPaginaSaida": {
+        "additionalProperties": false,
+        "properties": {
+          "data": {
+            "items": {
+              "$ref": "#/components/schemas/RevisaoSaida"
+            },
+            "title": "Data",
+            "type": "array"
+          },
+          "pagination": {
+            "$ref": "#/components/schemas/PaginacaoSaida"
+          }
+        },
+        "required": [
+          "data",
+          "pagination"
+        ],
+        "title": "RevisoesPaginaSaida",
+        "type": "object"
+      },
+      "SaldoBancaSaida": {
+        "additionalProperties": false,
+        "properties": {
+          "id": {
+            "title": "Id",
+            "type": "integer"
+          },
+          "motivo_saldo_indisponivel": {
+            "title": "Motivo Saldo Indisponivel",
+            "type": "string"
+          },
+          "nome": {
+            "title": "Nome",
+            "type": "string"
+          },
+          "saldo_inicial_centavos": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Saldo Inicial Centavos"
+          },
+          "saldo_total_centavos": {
+            "title": "Saldo Total Centavos",
+            "type": "null"
+          }
+        },
+        "required": [
+          "id",
+          "nome",
+          "saldo_inicial_centavos",
+          "saldo_total_centavos",
+          "motivo_saldo_indisponivel"
+        ],
+        "title": "SaldoBancaSaida",
+        "type": "object"
+      },
+      "SaldoContaSaida": {
+        "additionalProperties": false,
+        "properties": {
+          "apelido": {
+            "title": "Apelido",
+            "type": "string"
+          },
+          "apostado_centavos": {
+            "title": "Apostado Centavos",
+            "type": "integer"
+          },
+          "apostas_pendentes": {
+            "title": "Apostas Pendentes",
+            "type": "integer"
+          },
+          "bonus_centavos": {
+            "title": "Bonus Centavos",
+            "type": "integer"
+          },
+          "casa_id": {
+            "title": "Casa Id",
+            "type": "integer"
+          },
+          "conta_casa_id": {
+            "title": "Conta Casa Id",
+            "type": "integer"
+          },
+          "depositado_centavos": {
+            "title": "Depositado Centavos",
+            "type": "integer"
+          },
+          "deposito_faltante_centavos": {
+            "title": "Deposito Faltante Centavos",
+            "type": "integer"
+          },
+          "desde": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Desde"
+          },
+          "em_jogo_centavos": {
+            "title": "Em Jogo Centavos",
+            "type": "integer"
+          },
+          "movido_centavos": {
+            "title": "Movido Centavos",
+            "type": "integer"
+          },
+          "movimentos": {
+            "title": "Movimentos",
+            "type": "integer"
+          },
+          "retornado_centavos": {
+            "title": "Retornado Centavos",
+            "type": "integer"
+          },
+          "sacado_centavos": {
+            "title": "Sacado Centavos",
+            "type": "integer"
+          },
+          "saldo_atual_centavos": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Saldo Atual Centavos"
+          },
+          "saldo_confiavel": {
+            "title": "Saldo Confiavel",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "conta_casa_id",
+          "casa_id",
+          "apelido",
+          "saldo_atual_centavos",
+          "saldo_confiavel",
+          "depositado_centavos",
+          "sacado_centavos",
+          "bonus_centavos",
+          "movido_centavos",
+          "apostado_centavos",
+          "retornado_centavos",
+          "em_jogo_centavos",
+          "apostas_pendentes",
+          "movimentos",
+          "desde",
+          "deposito_faltante_centavos"
+        ],
+        "title": "SaldoContaSaida",
+        "type": "object"
+      },
+      "TipoMovimentoConsulta": {
+        "enum": [
+          "DEPOSITO",
+          "SAQUE",
+          "TRANSFERENCIA",
+          "BONUS",
+          "AJUSTE"
+        ],
+        "title": "TipoMovimentoConsulta",
+        "type": "string"
+      },
+      "UploadAcceptedResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "aviso": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Aviso"
+          },
+          "estimated_bets": {
+            "minimum": 0.0,
+            "title": "Estimated Bets",
+            "type": "integer"
+          },
+          "estimated_cost_usd": {
+            "minimum": 0.0,
+            "title": "Estimated Cost Usd",
+            "type": "number"
+          },
+          "job_id": {
+            "format": "uuid",
+            "title": "Job Id",
+            "type": "string"
+          },
+          "status_url": {
+            "title": "Status Url",
+            "type": "string"
+          }
+        },
+        "required": [
+          "job_id",
+          "estimated_bets",
+          "estimated_cost_usd",
+          "status_url"
+        ],
+        "title": "UploadAcceptedResponse",
+        "type": "object"
+      },
+      "UploadProgressResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "failed": {
+            "minimum": 0.0,
+            "title": "Failed",
+            "type": "integer"
+          },
+          "ignored": {
+            "minimum": 0.0,
+            "title": "Ignored",
+            "type": "integer"
+          },
+          "over_limit": {
+            "minimum": 0.0,
+            "title": "Over Limit",
+            "type": "integer"
+          },
+          "pending": {
+            "minimum": 0.0,
+            "title": "Pending",
+            "type": "integer"
+          },
+          "percent": {
+            "maximum": 100.0,
+            "minimum": 0.0,
+            "title": "Percent",
+            "type": "integer"
+          },
+          "read": {
+            "minimum": 0.0,
+            "title": "Read",
+            "type": "integer"
+          },
+          "total": {
+            "minimum": 0.0,
+            "title": "Total",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "total",
+          "pending",
+          "read",
+          "failed",
+          "ignored",
+          "over_limit",
+          "percent"
+        ],
+        "title": "UploadProgressResponse",
+        "type": "object"
+      },
+      "UploadStatusResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "bets_failed": {
+            "minimum": 0.0,
+            "title": "Bets Failed",
+            "type": "integer"
+          },
+          "bets_processed": {
+            "minimum": 0.0,
+            "title": "Bets Processed",
+            "type": "integer"
+          },
+          "concluido_em": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Concluido Em"
+          },
+          "cost_usd": {
+            "minimum": 0.0,
+            "title": "Cost Usd",
+            "type": "number"
+          },
+          "criado_em": {
+            "format": "date-time",
+            "title": "Criado Em",
+            "type": "string"
+          },
+          "erro": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Erro"
+          },
+          "estimated_bets": {
+            "minimum": 0.0,
+            "title": "Estimated Bets",
+            "type": "integer"
+          },
+          "estimated_cost_usd": {
+            "minimum": 0.0,
+            "title": "Estimated Cost Usd",
+            "type": "number"
+          },
+          "filename": {
+            "title": "Filename",
+            "type": "string"
+          },
+          "job_id": {
+            "format": "uuid",
+            "title": "Job Id",
+            "type": "string"
+          },
+          "progress": {
+            "$ref": "#/components/schemas/UploadProgressResponse"
+          },
+          "status": {
+            "title": "Status",
+            "type": "string"
+          },
+          "total_messages": {
+            "minimum": 0.0,
+            "title": "Total Messages",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "job_id",
+          "status",
+          "filename",
+          "total_messages",
+          "estimated_bets",
+          "estimated_cost_usd",
+          "progress",
+          "bets_processed",
+          "bets_failed",
+          "cost_usd",
+          "erro",
+          "criado_em",
+          "concluido_em"
+        ],
+        "title": "UploadStatusResponse",
+        "type": "object"
+      },
+      "ValidationErrorResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "detail": {
+            "items": {
+              "$ref": "#/components/schemas/ValidationIssueResponse"
+            },
+            "title": "Detail",
+            "type": "array"
+          }
+        },
+        "required": [
+          "detail"
+        ],
+        "title": "ValidationErrorResponse",
+        "type": "object"
+      },
+      "ValidationIssueResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "ctx": {
+            "anyOf": [
+              {
+                "additionalProperties": {
+                  "$ref": "#/components/schemas/JsonValue"
+                },
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Ctx"
+          },
+          "input": {
+            "$ref": "#/components/schemas/JsonValue"
+          },
+          "loc": {
+            "items": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "integer"
+                }
+              ]
+            },
+            "title": "Loc",
+            "type": "array"
+          },
+          "msg": {
+            "title": "Msg",
+            "type": "string"
+          },
+          "type": {
+            "title": "Type",
+            "type": "string"
+          }
+        },
+        "required": [
+          "loc",
+          "msg",
+          "type"
+        ],
+        "title": "ValidationIssueResponse",
+        "type": "object"
+      },
+      "bancaemdia__api__v1__caixa__SaldoSaida": {
+        "additionalProperties": false,
+        "properties": {
+          "bancas": {
+            "items": {
+              "$ref": "#/components/schemas/SaldoBancaSaida"
+            },
+            "title": "Bancas",
+            "type": "array"
+          },
+          "contas": {
+            "items": {
+              "$ref": "#/components/schemas/SaldoContaSaida"
+            },
+            "title": "Contas",
+            "type": "array"
+          },
+          "contas_sem_saldo_confiavel": {
+            "title": "Contas Sem Saldo Confiavel",
+            "type": "integer"
+          },
+          "data_corte": {
+            "anyOf": [
+              {
+                "format": "date",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Data Corte"
+          },
+          "saldo_conhecido_centavos": {
+            "title": "Saldo Conhecido Centavos",
+            "type": "integer"
+          },
+          "saldo_total_centavos": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Saldo Total Centavos"
+          },
+          "saldo_total_escopo": {
+            "const": "contas_casa",
+            "title": "Saldo Total Escopo",
+            "type": "string"
+          }
+        },
+        "required": [
+          "data_corte",
+          "contas",
+          "saldo_conhecido_centavos",
+          "saldo_total_centavos",
+          "saldo_total_escopo",
+          "contas_sem_saldo_confiavel",
+          "bancas"
+        ],
+        "title": "SaldoSaida",
+        "type": "object"
+      },
+      "bancaemdia__api__v1__painel__SaldoSaida": {
+        "additionalProperties": false,
+        "properties": {
+          "contas_saldo_desconhecido": {
+            "title": "Contas Saldo Desconhecido",
+            "type": "integer"
+          },
+          "escopo": {
+            "const": "contas_casa_all_time",
+            "title": "Escopo",
+            "type": "string"
+          },
+          "saldo_conhecido_centavos": {
+            "title": "Saldo Conhecido Centavos",
+            "type": "integer"
+          },
+          "saldo_total_centavos": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Saldo Total Centavos"
+          }
+        },
+        "required": [
+          "saldo_total_centavos",
+          "saldo_conhecido_centavos",
+          "contas_saldo_desconhecido",
+          "escopo"
+        ],
+        "title": "SaldoSaida",
+        "type": "object"
+      }
+    },
+    "securitySchemes": {
+      "CollectionToken": {
+        "description": "Token opaco da extensão; armazenado no servidor somente como HMAC.",
+        "in": "header",
+        "name": "X-Coleta-Token",
+        "type": "apiKey"
+      },
+      "HTTPBearer": {
+        "scheme": "bearer",
+        "type": "http"
+      }
+    }
+  },
+  "info": {
+    "description": "HTTP API for authenticated betting, cash-flow, review, upload, collection, and dashboard workflows. The checked-in OpenAPI document is the compatibility contract.",
+    "title": "Bancaemdia API",
+    "version": "1.0.0"
+  },
+  "openapi": "3.1.0",
+  "paths": {
+    "/api/v1/apostas": {
+      "get": {
+        "description": "Lista apostas do usuário com filtros temporais, dimensionais e paginação.",
+        "operationId": "listar_apostas_api_v1_apostas_get",
+        "parameters": [
+          {
+            "description": "Limite inicial inclusivo do intervalo, em ISO 8601.",
+            "in": "query",
+            "name": "desde",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "format": "date-time",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Desde"
+            }
+          },
+          {
+            "description": "Limite final exclusivo do intervalo, em ISO 8601.",
+            "in": "query",
+            "name": "ate",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "format": "date-time",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Ate"
+            }
+          },
+          {
+            "description": "Estado de liquidação da aposta usado como filtro.",
+            "in": "query",
+            "name": "estado",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Estado"
+            }
+          },
+          {
+            "description": "Identificador canônico da casa usada como filtro.",
+            "in": "query",
+            "name": "casa_id",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "integer"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Casa Id"
+            }
+          },
+          {
+            "description": "Identificador canônico do tipster usado como filtro.",
+            "in": "query",
+            "name": "tipster_id",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "integer"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Tipster Id"
+            }
+          },
+          {
+            "description": "Identificador canônico do mercado usado como filtro.",
+            "in": "query",
+            "name": "mercado_id",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "integer"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Mercado Id"
+            }
+          },
+          {
+            "description": "Identificador canônico da competição usada como filtro.",
+            "in": "query",
+            "name": "competicao_id",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "integer"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Competicao Id"
+            }
+          },
+          {
+            "description": "Canal de origem da aposta usado como filtro.",
+            "in": "query",
+            "name": "origem",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Origem"
+            }
+          },
+          {
+            "description": "Filtra apostas pela marca de revisão grave.",
+            "in": "query",
+            "name": "revisao_grave",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "boolean"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Revisao Grave"
+            }
+          },
+          {
+            "description": "Inclui apostas retiradas da apuração quando verdadeiro.",
+            "in": "query",
+            "name": "incluir_apagadas",
+            "required": false,
+            "schema": {
+              "default": false,
+              "title": "Incluir Apagadas",
+              "type": "boolean"
+            }
+          },
+          {
+            "description": "Número da página, começando em 1.",
+            "in": "query",
+            "name": "page",
+            "required": false,
+            "schema": {
+              "default": 1,
+              "minimum": 1,
+              "title": "Page",
+              "type": "integer"
+            }
+          },
+          {
+            "description": "Quantidade máxima de itens retornados na página.",
+            "in": "query",
+            "name": "page_size",
+            "required": false,
+            "schema": {
+              "default": 50,
+              "maximum": 100,
+              "minimum": 1,
+              "title": "Page Size",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BetsPageResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Missing, expired, or invalid bearer token."
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorOrValidationResponse"
+                }
+              }
+            },
+            "description": "The request does not satisfy the published contract or a domain rule."
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "The caller exceeded an applicable request limit."
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unexpected internal failure with no sensitive exception details."
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "A required dependency is temporarily unavailable."
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Listar apostas"
+      },
+      "post": {
+        "description": "Cria uma aposta manual e registra o primeiro evento em seu histórico auditável.",
+        "operationId": "criar_aposta_api_v1_apostas_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "examples": {
+                "default": {
+                  "summary": "Aposta manual",
+                  "value": {
+                    "casa": "betano",
+                    "data_aposta": "2026-09-22T14:30:00-03:00",
+                    "descricao": "Time A vence",
+                    "evento": "Time A x Time B",
+                    "freebet": false,
+                    "mercado_bruto": "resultado final",
+                    "odd": 1.95,
+                    "stake_unidades": 1.0
+                  }
+                }
+              },
+              "schema": {
+                "$ref": "#/components/schemas/ApostaManual"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BetCreatedResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Missing, expired, or invalid bearer token."
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Bet key collision."
+          },
+          "413": {
+            "content": {
+              "text/plain": {
+                "example": "Content Too Large",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            },
+            "description": "The request body exceeds the server-wide streaming limit."
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorOrValidationResponse"
+                }
+              }
+            },
+            "description": "The request does not satisfy the published contract or a domain rule."
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "The caller exceeded an applicable request limit."
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unexpected internal failure with no sensitive exception details."
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "A required dependency is temporarily unavailable."
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Criar aposta manual"
+      }
+    },
+    "/api/v1/apostas/{chave}": {
+      "delete": {
+        "description": "Marca a aposta para não participar da apuração sem apagar seu histórico.",
+        "operationId": "apagar_aposta_api_v1_apostas__chave__delete",
+        "parameters": [
+          {
+            "description": "Chave estável e opaca da aposta.",
+            "in": "path",
+            "name": "chave",
+            "required": true,
+            "schema": {
+              "title": "Chave",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BetChangedResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Missing, expired, or invalid bearer token."
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Bet not found."
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Bet is being updated concurrently."
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorOrValidationResponse"
+                }
+              }
+            },
+            "description": "The request does not satisfy the published contract or a domain rule."
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "The caller exceeded an applicable request limit."
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unexpected internal failure with no sensitive exception details."
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "A required dependency is temporarily unavailable."
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Excluir aposta da apuração"
+      },
+      "get": {
+        "description": "Retorna a aposta materializada, suas seleções, eventos e eventual revisão pendente.",
+        "operationId": "ver_aposta_api_v1_apostas__chave__get",
+        "parameters": [
+          {
+            "description": "Chave estável e opaca da aposta.",
+            "in": "path",
+            "name": "chave",
+            "required": true,
+            "schema": {
+              "title": "Chave",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BetDetailResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Missing, expired, or invalid bearer token."
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Bet not found."
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorOrValidationResponse"
+                }
+              }
+            },
+            "description": "The request does not satisfy the published contract or a domain rule."
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "The caller exceeded an applicable request limit."
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unexpected internal failure with no sensitive exception details."
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "A required dependency is temporarily unavailable."
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Consultar aposta"
+      },
+      "patch": {
+        "description": "Acrescenta uma correção manual ao histórico e rematerializa a aposta.",
+        "operationId": "corrigir_aposta_api_v1_apostas__chave__patch",
+        "parameters": [
+          {
+            "description": "Chave estável e opaca da aposta.",
+            "in": "path",
+            "name": "chave",
+            "required": true,
+            "schema": {
+              "title": "Chave",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "examples": {
+                "default": {
+                  "summary": "Correção de odd e descrição",
+                  "value": {
+                    "descricao": "Time A vence",
+                    "odd": 2.05,
+                    "tipster_id": 17
+                  }
+                }
+              },
+              "schema": {
+                "$ref": "#/components/schemas/Correcao"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BetChangedResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Missing, expired, or invalid bearer token."
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Bet not found."
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Bet is being updated concurrently."
+          },
+          "413": {
+            "content": {
+              "text/plain": {
+                "example": "Content Too Large",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            },
+            "description": "The request body exceeds the server-wide streaming limit."
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorOrValidationResponse"
+                }
+              }
+            },
+            "description": "The request does not satisfy the published contract or a domain rule."
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "The caller exceeded an applicable request limit."
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unexpected internal failure with no sensitive exception details."
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "A required dependency is temporarily unavailable."
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Corrigir aposta"
+      }
+    },
+    "/api/v1/apostas/{chave}/restaurar": {
+      "post": {
+        "description": "Volta a incluir uma aposta anteriormente excluída, preservando todo o histórico.",
+        "operationId": "restaurar_aposta_api_v1_apostas__chave__restaurar_post",
+        "parameters": [
+          {
+            "description": "Chave estável e opaca da aposta.",
+            "in": "path",
+            "name": "chave",
+            "required": true,
+            "schema": {
+              "title": "Chave",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BetChangedResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Missing, expired, or invalid bearer token."
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Bet not found."
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Bet is being updated concurrently."
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorOrValidationResponse"
+                }
+              }
+            },
+            "description": "The request does not satisfy the published contract or a domain rule."
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "The caller exceeded an applicable request limit."
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unexpected internal failure with no sensitive exception details."
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "A required dependency is temporarily unavailable."
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Restaurar aposta na apuração"
+      }
+    },
+    "/api/v1/apostas/{chave}/resultado": {
+      "post": {
+        "description": "Registra liquidação, cashout ou reabertura e rematerializa os valores financeiros.",
+        "operationId": "registrar_resultado_api_v1_apostas__chave__resultado_post",
+        "parameters": [
+          {
+            "description": "Chave estável e opaca da aposta.",
+            "in": "path",
+            "name": "chave",
+            "required": true,
+            "schema": {
+              "title": "Chave",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "examples": {
+                "default": {
+                  "summary": "Liquidação green",
+                  "value": {
+                    "estado": "GREEN",
+                    "retorno_centavos": 19500
+                  }
+                }
+              },
+              "schema": {
+                "$ref": "#/components/schemas/Resultado"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BetChangedResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Missing, expired, or invalid bearer token."
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Bet not found."
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Bet is being updated concurrently."
+          },
+          "413": {
+            "content": {
+              "text/plain": {
+                "example": "Content Too Large",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            },
+            "description": "The request body exceeds the server-wide streaming limit."
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorOrValidationResponse"
+                }
+              }
+            },
+            "description": "The request does not satisfy the published contract or a domain rule."
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "The caller exceeded an applicable request limit."
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unexpected internal failure with no sensitive exception details."
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "A required dependency is temporarily unavailable."
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Registrar resultado da aposta"
+      }
+    },
+    "/api/v1/caixa": {
+      "get": {
+        "description": "Lista movimentos financeiros do usuário com filtros e paginação.",
+        "operationId": "listar_movimentos_api_v1_caixa_get",
+        "parameters": [
+          {
+            "description": "Identificador da conta da casa usada como filtro.",
+            "in": "query",
+            "name": "conta_casa_id",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "maximum": 9223372036854775807,
+                  "minimum": 1,
+                  "type": "integer"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Conta Casa Id"
+            }
+          },
+          {
+            "description": "Tipo de movimento de caixa usado como filtro.",
+            "in": "query",
+            "name": "tipo",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "$ref": "#/components/schemas/TipoMovimentoConsulta"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Tipo"
+            }
+          },
+          {
+            "description": "Limite inicial inclusivo do intervalo, em ISO 8601.",
+            "in": "query",
+            "name": "desde",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "format": "date-time",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Desde"
+            }
+          },
+          {
+            "description": "Limite final exclusivo do intervalo, em ISO 8601.",
+            "in": "query",
+            "name": "ate",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "format": "date-time",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Ate"
+            }
+          },
+          {
+            "description": "Número da página, começando em 1.",
+            "in": "query",
+            "name": "page",
+            "required": false,
+            "schema": {
+              "default": 1,
+              "maximum": 92233720368547758,
+              "minimum": 1,
+              "title": "Page",
+              "type": "integer"
+            }
+          },
+          {
+            "description": "Quantidade máxima de itens retornados na página.",
+            "in": "query",
+            "name": "page_size",
+            "required": false,
+            "schema": {
+              "default": 50,
+              "maximum": 100,
+              "minimum": 1,
+              "title": "Page Size",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MovimentosPaginaSaida"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Missing, expired, or invalid bearer token."
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "anyOf": [
+                    {
+                      "$ref": "#/components/schemas/ErroSaida"
+                    },
+                    {
+                      "$ref": "#/components/schemas/ErroValidacaoSaida"
+                    }
+                  ],
+                  "title": "Response 422 Listar Movimentos Api V1 Caixa Get"
+                }
+              }
+            },
+            "description": "Filtro ou paginação inválidos"
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "The caller exceeded an applicable request limit."
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unexpected internal failure with no sensitive exception details."
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "A required dependency is temporarily unavailable."
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Listar movimentos de caixa"
+      },
+      "post": {
+        "description": "Registra depósito, saque, ajuste ou transferência como lançamentos auditáveis.",
+        "operationId": "registrar_movimento_api_v1_caixa_post",
+        "parameters": [
+          {
+            "description": "Chave opaca obrigatória do cliente; reutilizá-la com o mesmo corpo reproduz a resposta original sem lançar dinheiro novamente.",
+            "in": "header",
+            "name": "Idempotency-Key",
+            "required": true,
+            "schema": {
+              "description": "Chave opaca do cliente. Repetir a mesma chave e o mesmo corpo devolve a resposta original sem criar outro lançamento.",
+              "maxLength": 200,
+              "minLength": 1,
+              "pattern": "^[!-~]+$",
+              "title": "Idempotency-Key",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "examples": {
+                "default": {
+                  "summary": "Depósito",
+                  "value": {
+                    "conta_casa_id": 42,
+                    "descricao": "Depósito inicial",
+                    "ocorrido_em": "2026-09-22T10:00:00-03:00",
+                    "tipo": "DEPOSITO",
+                    "valor_centavos": 100000
+                  }
+                }
+              },
+              "schema": {
+                "$ref": "#/components/schemas/MovimentoNovo"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MovimentoCriadoSaida"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Missing, expired, or invalid bearer token."
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErroSaida"
+                }
+              }
+            },
+            "description": "Conta não encontrada"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErroSaida"
+                }
+              }
+            },
+            "description": "Conta ocupada ou chave de idempotência reutilizada com outro pedido"
+          },
+          "413": {
+            "content": {
+              "text/plain": {
+                "example": "Content Too Large",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            },
+            "description": "The request body exceeds the server-wide streaming limit."
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "anyOf": [
+                    {
+                      "$ref": "#/components/schemas/ErroSaida"
+                    },
+                    {
+                      "$ref": "#/components/schemas/ErroValidacaoSaida"
+                    }
+                  ],
+                  "title": "Response 422 Registrar Movimento Api V1 Caixa Post"
+                }
+              }
+            },
+            "description": "Pedido malformado ou movimento inválido"
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "The caller exceeded an applicable request limit."
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unexpected internal failure with no sensitive exception details."
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "A required dependency is temporarily unavailable."
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Registrar movimento de caixa"
+      }
+    },
+    "/api/v1/caixa/extrato": {
+      "get": {
+        "description": "Combina movimentos de caixa e liquidações de apostas numa linha do tempo paginada.",
+        "operationId": "consultar_extrato_api_v1_caixa_extrato_get",
+        "parameters": [
+          {
+            "description": "Identificador da conta da casa usada como filtro.",
+            "in": "query",
+            "name": "conta_casa_id",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "maximum": 9223372036854775807,
+                  "minimum": 1,
+                  "type": "integer"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Conta Casa Id"
+            }
+          },
+          {
+            "description": "Limite inicial inclusivo do intervalo, em ISO 8601.",
+            "in": "query",
+            "name": "desde",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "format": "date-time",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Desde"
+            }
+          },
+          {
+            "description": "Limite final exclusivo do intervalo, em ISO 8601.",
+            "in": "query",
+            "name": "ate",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "format": "date-time",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Ate"
+            }
+          },
+          {
+            "description": "Número da página, começando em 1.",
+            "in": "query",
+            "name": "page",
+            "required": false,
+            "schema": {
+              "default": 1,
+              "maximum": 92233720368547758,
+              "minimum": 1,
+              "title": "Page",
+              "type": "integer"
+            }
+          },
+          {
+            "description": "Quantidade máxima de itens retornados na página.",
+            "in": "query",
+            "name": "page_size",
+            "required": false,
+            "schema": {
+              "default": 50,
+              "maximum": 100,
+              "minimum": 1,
+              "title": "Page Size",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ExtratoSaida"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Missing, expired, or invalid bearer token."
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorOrValidationResponse"
+                }
+              }
+            },
+            "description": "The request does not satisfy the published contract or a domain rule."
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "The caller exceeded an applicable request limit."
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unexpected internal failure with no sensitive exception details."
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "A required dependency is temporarily unavailable."
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Consultar extrato"
+      }
+    },
+    "/api/v1/caixa/saldo": {
+      "get": {
+        "description": "Calcula saldos conhecidos das contas a partir de movimentos e apostas.",
+        "operationId": "consultar_saldo_api_v1_caixa_saldo_get",
+        "parameters": [
+          {
+            "description": "Data civil opcional para reconstruir o saldo histórico.",
+            "in": "query",
+            "name": "data_corte",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "format": "date",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Data Corte"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/bancaemdia__api__v1__caixa__SaldoSaida"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Missing, expired, or invalid bearer token."
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorOrValidationResponse"
+                }
+              }
+            },
+            "description": "The request does not satisfy the published contract or a domain rule."
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "The caller exceeded an applicable request limit."
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unexpected internal failure with no sensitive exception details."
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "A required dependency is temporarily unavailable."
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Consultar saldos"
+      }
+    },
+    "/api/v1/coleta": {
+      "post": {
+        "description": "Alias versionado para receber um lote bruto e agendar sua materialização idempotente.",
+        "operationId": "receber_coleta_api_v1_coleta_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "examples": {
+                "default": {
+                  "summary": "Lote da extensão",
+                  "value": {
+                    "apostas": [
+                      {
+                        "id": "BET-123",
+                        "odd": 1.95,
+                        "status": "open"
+                      }
+                    ],
+                    "capturado_em": "2026-09-22T14:30:00-03:00",
+                    "casa": "betano",
+                    "contrato": 1
+                  }
+                }
+              },
+              "schema": {
+                "additionalProperties": {
+                  "$ref": "#/components/schemas/JsonValue"
+                },
+                "properties": {
+                  "apostas": {
+                    "items": {
+                      "$ref": "#/components/schemas/JsonValue"
+                    },
+                    "maxItems": 1000,
+                    "type": "array"
+                  },
+                  "capturado_em": {
+                    "$ref": "#/components/schemas/JsonValue",
+                    "description": "Metadado informativo enviado pela extensão; o servidor o ignora para ordenação e aceita clientes legados."
+                  },
+                  "casa": {
+                    "maxLength": 40,
+                    "minLength": 2,
+                    "type": "string"
+                  },
+                  "contrato": {
+                    "const": 1,
+                    "type": "integer"
+                  }
+                },
+                "required": [
+                  "contrato",
+                  "casa",
+                  "apostas"
+                ],
+                "type": "object"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CollectionResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Malformed collection payload."
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Invalid collection token."
+          },
+          "413": {
+            "content": {
+              "text/plain": {
+                "example": "Content Too Large",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            },
+            "description": "The request body exceeds the server-wide streaming limit."
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "The collection rate or daily limit was exceeded."
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unexpected internal failure with no sensitive exception details."
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "The collection was saved but could not be queued."
+          }
+        },
+        "security": [
+          {
+            "CollectionToken": []
+          }
+        ],
+        "summary": "Receber coleta da extensão"
+      }
+    },
+    "/api/v1/painel": {
+      "get": {
+        "description": "Lê agregados materializados e informa separadamente frescor dos dados e atraso da réplica.",
+        "operationId": "consultar_painel_api_v1_painel_get",
+        "parameters": [
+          {
+            "description": "Janela civil de agregação no fuso America/Sao_Paulo.",
+            "in": "query",
+            "name": "periodo",
+            "required": false,
+            "schema": {
+              "$ref": "#/components/schemas/PeriodoPainel",
+              "default": "30d",
+              "description": "Janela civil no fuso America/Sao_Paulo"
+            }
+          },
+          {
+            "description": "Identificador canônico da casa usada como filtro.",
+            "in": "query",
+            "name": "casa_id",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "maximum": 9223372036854775807,
+                  "minimum": 1,
+                  "type": "integer"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Casa Id"
+            }
+          },
+          {
+            "description": "Identificador canônico do tipster usado como filtro.",
+            "in": "query",
+            "name": "tipster_id",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "maximum": 9223372036854775807,
+                  "minimum": 1,
+                  "type": "integer"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Tipster Id"
+            }
+          },
+          {
+            "description": "Identificador canônico do mercado usado como filtro.",
+            "in": "query",
+            "name": "mercado_id",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "maximum": 9223372036854775807,
+                  "minimum": 1,
+                  "type": "integer"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Mercado Id"
+            }
+          },
+          {
+            "description": "Lê no primário quando verdadeiro, sem forçar refresh das materialized views.",
+            "in": "query",
+            "name": "fresh",
+            "required": false,
+            "schema": {
+              "default": false,
+              "description": "Lê as mesmas MVs no primário; não altera o horário do último refresh",
+              "title": "Fresh",
+              "type": "boolean"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PainelSaida"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Missing, expired, or invalid bearer token."
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorOrValidationResponse"
+                }
+              }
+            },
+            "description": "The request does not satisfy the published contract or a domain rule."
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "The caller exceeded an applicable request limit."
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unexpected internal failure with no sensitive exception details."
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "A required dependency is temporarily unavailable."
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Consultar painel financeiro"
+      }
+    },
+    "/api/v1/painel/export": {
+      "get": {
+        "description": "Gera um XLSX write-only e o transmite sem manter o arquivo completo em memória.",
+        "operationId": "exportar_painel_api_v1_painel_export_get",
+        "parameters": [
+          {
+            "description": "Janela civil de agregação no fuso America/Sao_Paulo.",
+            "in": "query",
+            "name": "periodo",
+            "required": false,
+            "schema": {
+              "$ref": "#/components/schemas/PeriodoPainel",
+              "default": "30d",
+              "description": "Janela civil no fuso America/Sao_Paulo"
+            }
+          },
+          {
+            "description": "Identificador canônico da casa usada como filtro.",
+            "in": "query",
+            "name": "casa_id",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "maximum": 9223372036854775807,
+                  "minimum": 1,
+                  "type": "integer"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Casa Id"
+            }
+          },
+          {
+            "description": "Identificador canônico do tipster usado como filtro.",
+            "in": "query",
+            "name": "tipster_id",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "maximum": 9223372036854775807,
+                  "minimum": 1,
+                  "type": "integer"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Tipster Id"
+            }
+          },
+          {
+            "description": "Identificador canônico do mercado usado como filtro.",
+            "in": "query",
+            "name": "mercado_id",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "maximum": 9223372036854775807,
+                  "minimum": 1,
+                  "type": "integer"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Mercado Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet": {
+                "schema": {
+                  "format": "binary",
+                  "type": "string"
+                }
+              }
+            },
+            "description": "Streaming Excel workbook."
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Missing, expired, or invalid bearer token."
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorOrValidationResponse"
+                }
+              }
+            },
+            "description": "The request does not satisfy the published contract or a domain rule."
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "The caller exceeded an applicable request limit."
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unexpected internal failure with no sensitive exception details."
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "A required dependency is temporarily unavailable."
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Exportar painel em Excel"
+      }
+    },
+    "/api/v1/painel/metricas": {
+      "get": {
+        "description": "Retorna séries temporais já agregadas para os gráficos do painel.",
+        "operationId": "consultar_metricas_api_v1_painel_metricas_get",
+        "parameters": [
+          {
+            "description": "Janela civil de agregação no fuso America/Sao_Paulo.",
+            "in": "query",
+            "name": "periodo",
+            "required": false,
+            "schema": {
+              "$ref": "#/components/schemas/PeriodoPainel",
+              "default": "30d",
+              "description": "Janela civil no fuso America/Sao_Paulo"
+            }
+          },
+          {
+            "description": "Identificador canônico da casa usada como filtro.",
+            "in": "query",
+            "name": "casa_id",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "maximum": 9223372036854775807,
+                  "minimum": 1,
+                  "type": "integer"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Casa Id"
+            }
+          },
+          {
+            "description": "Identificador canônico do tipster usado como filtro.",
+            "in": "query",
+            "name": "tipster_id",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "maximum": 9223372036854775807,
+                  "minimum": 1,
+                  "type": "integer"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Tipster Id"
+            }
+          },
+          {
+            "description": "Identificador canônico do mercado usado como filtro.",
+            "in": "query",
+            "name": "mercado_id",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "maximum": 9223372036854775807,
+                  "minimum": 1,
+                  "type": "integer"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Mercado Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MetricasGraficosSaida"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Missing, expired, or invalid bearer token."
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorOrValidationResponse"
+                }
+              }
+            },
+            "description": "The request does not satisfy the published contract or a domain rule."
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "The caller exceeded an applicable request limit."
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unexpected internal failure with no sensitive exception details."
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "A required dependency is temporarily unavailable."
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Consultar séries para gráficos"
+      }
+    },
+    "/api/v1/revisao": {
+      "get": {
+        "description": "Lista revisões do usuário por motivo, intervalo e paginação.",
+        "operationId": "listar_revisoes_api_v1_revisao_get",
+        "parameters": [
+          {
+            "description": "Texto do motivo usado para filtrar a fila de revisões.",
+            "in": "query",
+            "name": "motivo",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Motivo"
+            }
+          },
+          {
+            "description": "Limite inicial inclusivo do intervalo, em ISO 8601.",
+            "in": "query",
+            "name": "desde",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "format": "date-time",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Desde"
+            }
+          },
+          {
+            "description": "Limite final exclusivo do intervalo, em ISO 8601.",
+            "in": "query",
+            "name": "ate",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "format": "date-time",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Ate"
+            }
+          },
+          {
+            "description": "Número da página, começando em 1.",
+            "in": "query",
+            "name": "page",
+            "required": false,
+            "schema": {
+              "default": 1,
+              "maximum": 92233720368547758,
+              "minimum": 1,
+              "title": "Page",
+              "type": "integer"
+            }
+          },
+          {
+            "description": "Quantidade máxima de itens retornados na página.",
+            "in": "query",
+            "name": "page_size",
+            "required": false,
+            "schema": {
+              "default": 50,
+              "maximum": 100,
+              "minimum": 1,
+              "title": "Page Size",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RevisoesPaginaSaida"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Missing, expired, or invalid bearer token."
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorOrValidationResponse"
+                }
+              }
+            },
+            "description": "The request does not satisfy the published contract or a domain rule."
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "The caller exceeded an applicable request limit."
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unexpected internal failure with no sensitive exception details."
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "A required dependency is temporarily unavailable."
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Listar revisões pendentes"
+      }
+    },
+    "/api/v1/revisao/stats": {
+      "get": {
+        "description": "Retorna volume, motivos e idade da fila de revisões pendentes do usuário.",
+        "operationId": "consultar_estatisticas_api_v1_revisao_stats_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/EstatisticasSaida"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Missing, expired, or invalid bearer token."
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorOrValidationResponse"
+                }
+              }
+            },
+            "description": "The request does not satisfy the published contract or a domain rule."
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "The caller exceeded an applicable request limit."
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unexpected internal failure with no sensitive exception details."
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "A required dependency is temporarily unavailable."
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Consultar estatísticas de revisão"
+      }
+    },
+    "/api/v1/revisao/{revisao_id}": {
+      "get": {
+        "description": "Retorna os dados auditáveis de uma revisão pertencente ao usuário.",
+        "operationId": "ver_revisao_api_v1_revisao__revisao_id__get",
+        "parameters": [
+          {
+            "description": "Identificador numérico da revisão pertencente ao usuário.",
+            "in": "path",
+            "name": "revisao_id",
+            "required": true,
+            "schema": {
+              "maximum": 9223372036854775807,
+              "minimum": 1,
+              "title": "Revisao Id",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RevisaoSaida"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Missing, expired, or invalid bearer token."
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErroSaida"
+                }
+              }
+            },
+            "description": "Revisão não encontrada"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorOrValidationResponse"
+                }
+              }
+            },
+            "description": "The request does not satisfy the published contract or a domain rule."
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "The caller exceeded an applicable request limit."
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unexpected internal failure with no sensitive exception details."
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "A required dependency is temporarily unavailable."
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Consultar revisão"
+      }
+    },
+    "/api/v1/revisao/{revisao_id}/foto": {
+      "get": {
+        "description": "Transmite a imagem privada ligada a uma revisão pendente.",
+        "operationId": "ver_foto_api_v1_revisao__revisao_id__foto_get",
+        "parameters": [
+          {
+            "description": "Identificador numérico da revisão pertencente ao usuário.",
+            "in": "path",
+            "name": "revisao_id",
+            "required": true,
+            "schema": {
+              "maximum": 9223372036854775807,
+              "minimum": 1,
+              "title": "Revisao Id",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/octet-stream": {
+                "schema": {
+                  "format": "binary",
+                  "type": "string"
+                }
+              },
+              "image/gif": {
+                "schema": {
+                  "format": "binary",
+                  "type": "string"
+                }
+              },
+              "image/jpeg": {
+                "schema": {
+                  "format": "binary",
+                  "type": "string"
+                }
+              },
+              "image/png": {
+                "schema": {
+                  "format": "binary",
+                  "type": "string"
+                }
+              },
+              "image/webp": {
+                "schema": {
+                  "format": "binary",
+                  "type": "string"
+                }
+              }
+            },
+            "description": "Original review image."
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Missing, expired, or invalid bearer token."
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErroSaida"
+                }
+              }
+            },
+            "description": "Revisão ou foto não encontrada"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorOrValidationResponse"
+                }
+              }
+            },
+            "description": "The request does not satisfy the published contract or a domain rule."
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "The caller exceeded an applicable request limit."
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unexpected internal failure with no sensitive exception details."
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "A required dependency is temporarily unavailable."
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Consultar foto da revisão"
+      }
+    },
+    "/api/v1/revisao/{revisao_id}/resolver": {
+      "post": {
+        "description": "Corrige ou descarta uma revisão sob trava transacional e registra os eventos resultantes.",
+        "operationId": "resolver_revisao_api_v1_revisao__revisao_id__resolver_post",
+        "parameters": [
+          {
+            "description": "Identificador numérico da revisão pertencente ao usuário.",
+            "in": "path",
+            "name": "revisao_id",
+            "required": true,
+            "schema": {
+              "maximum": 9223372036854775807,
+              "minimum": 1,
+              "title": "Revisao Id",
+              "type": "integer"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "examples": {
+                "default": {
+                  "summary": "Corrigir e resolver",
+                  "value": {
+                    "acao": "CORRIGIR",
+                    "aposta_corrigida": {
+                      "odd": 2.05
+                    }
+                  }
+                }
+              },
+              "schema": {
+                "$ref": "#/components/schemas/ResolucaoNova"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ResolucaoSaida"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Missing, expired, or invalid bearer token."
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErroSaida"
+                }
+              }
+            },
+            "description": "Revisão não encontrada"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErroSaida"
+                }
+              }
+            },
+            "description": "Revisão ocupada ou inconsistente"
+          },
+          "413": {
+            "content": {
+              "text/plain": {
+                "example": "Content Too Large",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            },
+            "description": "The request body exceeds the server-wide streaming limit."
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "anyOf": [
+                    {
+                      "$ref": "#/components/schemas/ErroSaida"
+                    },
+                    {
+                      "$ref": "#/components/schemas/ValidationErrorResponse"
+                    }
+                  ],
+                  "title": "Response 422 Resolver Revisao Api V1 Revisao  Revisao Id  Resolver Post"
+                }
+              }
+            },
+            "description": "Resolução inválida"
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "The caller exceeded an applicable request limit."
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unexpected internal failure with no sensitive exception details."
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "A required dependency is temporarily unavailable."
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Resolver revisão"
+      }
+    },
+    "/api/v1/upload": {
+      "post": {
+        "description": "Valida e guarda uma exportação do Telegram antes de agendar seu processamento assíncrono.",
+        "operationId": "receber_export_api_v1_upload_post",
+        "requestBody": {
+          "content": {
+            "multipart/form-data": {
+              "encoding": {
+                "chat_filter": {
+                  "explode": true,
+                  "style": "form"
+                }
+              },
+              "examples": {
+                "default": {
+                  "summary": "Exportação ZIP com filtro opcional",
+                  "value": {
+                    "chat_filter": [
+                      123456789
+                    ],
+                    "file": "telegram-export.zip"
+                  }
+                }
+              },
+              "schema": {
+                "additionalProperties": {
+                  "type": "string"
+                },
+                "properties": {
+                  "chat_filter": {
+                    "description": "IDs de chats a aceitar dentro da exportação.",
+                    "items": {
+                      "type": "integer"
+                    },
+                    "type": "array"
+                  },
+                  "file": {
+                    "format": "binary",
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "file"
+                ],
+                "type": "object"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "202": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/UploadAcceptedResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Malformed multipart upload."
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Missing, expired, or invalid bearer token."
+          },
+          "413": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              },
+              "text/plain": {
+                "example": "Content Too Large",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            },
+            "description": "The upload exceeds either the declared application limit (JSON) or the server-wide streaming limit (plain text)."
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorOrValidationResponse"
+                }
+              }
+            },
+            "description": "The request does not satisfy the published contract or a domain rule."
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "The caller exceeded an applicable request limit."
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unexpected internal failure with no sensitive exception details."
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "A required dependency is temporarily unavailable."
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Enviar exportação do Telegram"
+      }
+    },
+    "/api/v1/upload/{job_id}": {
+      "get": {
+        "description": "Retorna estado, progresso, contagens e custo observado de um upload do usuário.",
+        "operationId": "consultar_upload_api_v1_upload__job_id__get",
+        "parameters": [
+          {
+            "description": "UUID público retornado quando o upload foi aceito.",
+            "in": "path",
+            "name": "job_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Job Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/UploadStatusResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Missing, expired, or invalid bearer token."
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Upload job not found."
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorOrValidationResponse"
+                }
+              }
+            },
+            "description": "The request does not satisfy the published contract or a domain rule."
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "The caller exceeded an applicable request limit."
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unexpected internal failure with no sensitive exception details."
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "A required dependency is temporarily unavailable."
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Consultar processamento do upload"
+      }
+    },
+    "/coleta": {
+      "post": {
+        "description": "Recebe um lote bruto capturado pela extensão e agenda a materialização idempotente.",
+        "operationId": "receber_coleta_coleta_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "examples": {
+                "default": {
+                  "summary": "Lote da extensão",
+                  "value": {
+                    "apostas": [
+                      {
+                        "id": "BET-123",
+                        "odd": 1.95,
+                        "status": "open"
+                      }
+                    ],
+                    "capturado_em": "2026-09-22T14:30:00-03:00",
+                    "casa": "betano",
+                    "contrato": 1
+                  }
+                }
+              },
+              "schema": {
+                "additionalProperties": {
+                  "$ref": "#/components/schemas/JsonValue"
+                },
+                "properties": {
+                  "apostas": {
+                    "items": {
+                      "$ref": "#/components/schemas/JsonValue"
+                    },
+                    "maxItems": 1000,
+                    "type": "array"
+                  },
+                  "capturado_em": {
+                    "$ref": "#/components/schemas/JsonValue",
+                    "description": "Metadado informativo enviado pela extensão; o servidor o ignora para ordenação e aceita clientes legados."
+                  },
+                  "casa": {
+                    "maxLength": 40,
+                    "minLength": 2,
+                    "type": "string"
+                  },
+                  "contrato": {
+                    "const": 1,
+                    "type": "integer"
+                  }
+                },
+                "required": [
+                  "contrato",
+                  "casa",
+                  "apostas"
+                ],
+                "type": "object"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CollectionResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Malformed collection payload."
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Invalid collection token."
+          },
+          "413": {
+            "content": {
+              "text/plain": {
+                "example": "Content Too Large",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            },
+            "description": "The request body exceeds the server-wide streaming limit."
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "The collection rate or daily limit was exceeded."
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unexpected internal failure with no sensitive exception details."
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "The collection was saved but could not be queued."
+          }
+        },
+        "security": [
+          {
+            "CollectionToken": []
+          }
+        ],
+        "summary": "Receber coleta da extensão"
+      }
+    },
+    "/health": {
+      "get": {
+        "description": "Confirma que o processo HTTP está vivo sem consultar dependências externas.",
+        "operationId": "health_health_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LivenessResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unexpected internal failure with no sensitive exception details."
+          }
+        },
+        "summary": "Consultar liveness"
+      }
+    },
+    "/metrics": {
+      "get": {
+        "description": "Expõe métricas da API, filas, materialização e circuit breakers no formato Prometheus.",
+        "operationId": "metrics_metrics_get",
+        "responses": {
+          "200": {
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            },
+            "description": "Prometheus exposition document."
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unexpected internal failure with no sensitive exception details."
+          }
+        },
+        "summary": "Exportar métricas Prometheus"
+      }
+    },
+    "/ready": {
+      "get": {
+        "description": "Verifica de forma limitada e concorrente as dependências necessárias para receber tráfego.",
+        "operationId": "ready_ready_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReadinessResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unexpected internal failure with no sensitive exception details."
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReadinessResponse"
+                }
+              }
+            },
+            "description": "One or more required dependencies are not ready."
+          }
+        },
+        "summary": "Consultar readiness"
+      }
+    }
+  }
+}
