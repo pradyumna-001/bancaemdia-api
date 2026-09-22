@@ -1,12 +1,27 @@
-from datetime import date, datetime
+from datetime import date, datetime, time, timedelta
+from zoneinfo import ZoneInfo
 
-from sqlalchemy import Date, and_, case, cast, func, insert, select
+from sqlalchemy import Date, Numeric, and_, case, cast, func, insert, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from bancaemdia import models
 from bancaemdia.domain.registros import Movimento
 from bancaemdia.domain.temporal import SaldoDaCasa
 from bancaemdia.repositories.base import colunas
+
+FUSO_DO_BRASIL = ZoneInfo("America/Sao_Paulo")
+
+
+def _fim_exclusivo_no_brasil(data_corte: date | None) -> datetime | None:
+    """Converte uma data civil inclusiva no primeiro instante do dia seguinte.
+
+    Comparar o timestamp bruto com esse limite preserva a regra de calendário brasileira e deixa
+    o PostgreSQL usar índices e podar as partições de ``movimentos``. ``date.max`` não tem um dia
+    seguinte representável; nesse caso, não filtrar equivale ao maior corte aceito pela aplicação.
+    """
+    if data_corte is None or data_corte == date.max:
+        return None
+    return datetime.combine(data_corte + timedelta(days=1), time.min, tzinfo=FUSO_DO_BRASIL)
 
 
 class MovimentoRepo:
@@ -55,7 +70,9 @@ class MovimentoRepo:
         evitam o produto cartesiano entre apostas e movimentos, que inflaria todas as somas.
         """
 
+        limite_exclusivo = _fim_exclusivo_no_brasil(data_corte)
         movimento_dia = cast(func.timezone("America/Sao_Paulo", models.Movimento.ocorrido_em), Date)
+        valor_movimento = cast(models.Movimento.valor_centavos, Numeric())
         movimentos_stmt = select(
             models.Movimento.conta_casa_id.label("conta_casa_id"),
             func.coalesce(
@@ -72,7 +89,7 @@ class MovimentoRepo:
                     case(
                         (
                             models.Movimento.tipo == "SAQUE",
-                            func.abs(models.Movimento.valor_centavos),
+                            func.abs(valor_movimento),
                         ),
                         else_=0,
                     )
@@ -106,8 +123,8 @@ class MovimentoRepo:
             models.Movimento.usuario_id == usuario_id,
             models.Movimento.conta_casa_id.is_not(None),
         )
-        if data_corte is not None:
-            movimentos_stmt = movimentos_stmt.where(movimento_dia <= data_corte)
+        if limite_exclusivo is not None:
+            movimentos_stmt = movimentos_stmt.where(models.Movimento.ocorrido_em < limite_exclusivo)
         movimentos = movimentos_stmt.group_by(models.Movimento.conta_casa_id).cte(
             "saldo_movimentos"
         )
@@ -121,6 +138,12 @@ class MovimentoRepo:
             movimentos.c.desde.is_not(None),
             aposta_dia < movimentos.c.desde,
         )
+        lucro_contabilizavel = and_(
+            models.Aposta.revisao_grave.is_(False),
+            models.Aposta.estado.notin_(("PENDENTE", "ANULADA")),
+        )
+        retorno_numerico = cast(func.coalesce(models.Aposta.retorno_centavos, 0), Numeric())
+        stake_numerica = cast(models.Aposta.stake_centavos, Numeric())
         apostas_stmt = (
             select(
                 models.Aposta.conta_casa_id.label("conta_casa_id"),
@@ -156,6 +179,16 @@ class MovimentoRepo:
                     ),
                     0,
                 ).label("retornado_no_periodo_centavos"),
+                func.count().filter(aposta_antes_do_caixa).label("apostas_antes_do_caixa"),
+                func.coalesce(
+                    func.sum(
+                        case(
+                            (lucro_contabilizavel, retorno_numerico - stake_numerica),
+                            else_=0,
+                        )
+                    ),
+                    0,
+                ).label("lucro_centavos"),
             )
             .select_from(models.Aposta)
             .outerjoin(
@@ -168,8 +201,19 @@ class MovimentoRepo:
                 models.Aposta.selecionada.is_(True),
             )
         )
-        if data_corte is not None:
-            apostas_stmt = apostas_stmt.where(aposta_dia <= data_corte)
+        if limite_exclusivo is not None:
+            apostas_stmt = apostas_stmt.where(
+                or_(
+                    and_(
+                        models.Aposta.data_aposta.is_not(None),
+                        models.Aposta.data_aposta < limite_exclusivo,
+                    ),
+                    and_(
+                        models.Aposta.data_aposta.is_(None),
+                        models.Aposta.criada_em < limite_exclusivo,
+                    ),
+                )
+            )
         apostas = apostas_stmt.group_by(
             models.Aposta.conta_casa_id,
             movimentos.c.desde,
@@ -193,6 +237,8 @@ class MovimentoRepo:
                 func.coalesce(apostas.c.retornado_no_periodo_centavos, 0).label(
                     "retornado_no_periodo_centavos"
                 ),
+                func.coalesce(apostas.c.apostas_antes_do_caixa, 0).label("apostas_antes_do_caixa"),
+                func.coalesce(apostas.c.lucro_centavos, 0).label("lucro_centavos"),
                 movimentos.c.desde,
             )
             .outerjoin(movimentos, movimentos.c.conta_casa_id == models.ContaCasa.id)
@@ -215,7 +261,9 @@ class MovimentoRepo:
                 movimentos=int(linha.movimentos),
                 apostado_no_periodo_centavos=int(linha.apostado_no_periodo_centavos),
                 retornado_no_periodo_centavos=int(linha.retornado_no_periodo_centavos),
+                apostas_antes_do_caixa=int(linha.apostas_antes_do_caixa),
                 desde=linha.desde,
+                lucro_centavos=int(linha.lucro_centavos),
             )
             for linha in linhas
         }
