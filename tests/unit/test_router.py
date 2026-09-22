@@ -364,9 +364,11 @@ def _cliente(monkeypatch, chave, relogio):
         main.app.router,
         "routes",
         [
+            # The application now owns this route. Keep the probe first so this middleware
+            # test observes only which database dependency the router selected.
+            APIRoute("/api/v1/painel", rotas.banco),
             *main.app.router.routes,
             APIRoute("/api/v1/teste", rotas.banco, methods=["GET", "POST"]),
-            APIRoute("/api/v1/painel", rotas.banco),
         ],
     )
     return TestClient(main.app), escritas

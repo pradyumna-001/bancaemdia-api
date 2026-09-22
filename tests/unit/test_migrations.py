@@ -12,7 +12,8 @@ from bancaemdia.models import Base
 ROOT = Path(__file__).resolve().parents[2]
 BASELINE = "be7d60cb5437"
 TRANSFERENCIA = "a4e7d2c9f103"
-HEAD = "f2a9c4e7b106"
+REVISAO_RESOLVIDA = "f2a9c4e7b106"
+HEAD = "d3f6a8c1e209"
 PARTICIONADAS = {
     "eventos": "criado_em",
     "movimentos": "ocorrido_em",
@@ -48,7 +49,7 @@ def test_the_baseline_is_the_root_revision() -> None:
 
 def test_review_resolution_event_revision_follows_the_transfer_revision() -> None:
     script = ScriptDirectory.from_config(_config())
-    revisao = script.get_revision(HEAD)
+    revisao = script.get_revision(REVISAO_RESOLVIDA)
 
     assert script.get_current_head() == HEAD
     assert revisao.down_revision == TRANSFERENCIA
@@ -68,8 +69,11 @@ def test_upgrade_creates_every_model_table_once() -> None:
     sql = _upgrade_sql()
     for nome in Base.metadata.tables:
         assert sql.count(f"\nCREATE TABLE {nome} (") == 1
-    assert sql.count("\nCREATE TABLE ") == len(Base.metadata.tables) + 1
+    # Alembic's own version table and the private dashboard refresh state are intentionally not
+    # SQLAlchemy models.
+    assert sql.count("\nCREATE TABLE ") == len(Base.metadata.tables) + 2
     assert "CREATE TABLE alembic_version" in sql
+    assert "CREATE TABLE painel.estado_refresh" in sql
     assert f"INSERT INTO alembic_version (version_num) VALUES ('{BASELINE}')" in sql
 
 
@@ -118,6 +122,8 @@ def test_downgrade_removes_everything_the_upgrade_created() -> None:
     for nome in Base.metadata.tables:
         assert f"DROP TABLE {nome}" in sql
     assert "DROP TYPE familia_de_mercado" in sql
+    assert "DROP TABLE IF EXISTS painel.estado_refresh" in sql
+    assert "DROP SCHEMA IF EXISTS painel" in sql
     assert "DELETE FROM partman.part_config" in sql
     assert f"DELETE FROM alembic_version WHERE alembic_version.version_num = '{BASELINE}'" in sql
 
