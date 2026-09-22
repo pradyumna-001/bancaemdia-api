@@ -130,6 +130,42 @@ make seed         # Seed canonical data
 make shell        # Shell into API container
 ```
 
+### Replay and stored-media rereading
+
+Run these operational CLIs with primary database credentials. They are not HTTP endpoints.
+
+```bash
+python scripts/replay.py --usuario-id 42 --dry-run
+python scripts/replay.py --usuario-id 42
+python scripts/replay.py --usuario-id 42 --desde 2026-09-01 --ate 2026-09-30
+python scripts/conferir_numeros.py --usuario-id 42
+python scripts/conferir_numeros.py --todos
+python scripts/reler_todas.py --versao-prompt extrair_bilhete_v3 --tudo --dry-run
+python scripts/reler_todas.py --versao-prompt extrair_bilhete_v3 --tudo --sim
+```
+
+Replay folds every event of each selected bet in `id` order. The date interval selects bets by
+their business date in `America/Sao_Paulo` (inclusive endpoints on the CLI); it never truncates
+their event history. It reconciles proven derived columns in place, preserving bet IDs and creation
+and update timestamps. Missing bet rows and malformed histories are refused because old creation
+events do not carry enough evidence to recover the original row IDs. Legacy events without a unit
+snapshot use the unit effective at the bet date only when the resulting cents match the stored row.
+An account ID in the event wins; otherwise the existing tenant-owned account is retained so an
+account created later cannot take an old bet. `eventos`, `coletas_casa`, reviews, and the cash ledger
+are never deleted or rewritten. Cash movements with complete audit events and idempotency responses
+are checked against the ledger; older movements without events are counted and preserved.
+
+A live replay takes PostgreSQL table locks with `NOWAIT` for one transaction. It fails if a writer
+is active and blocks new writes until commit, so run it in a maintenance window. `--dry-run` uses a
+read-only consistent snapshot and publishes no tasks. `--tudo --confirm` is restricted to
+`development` and `testing`, and reconciles users one at a time.
+
+Rereading uses the prompt version compiled into the extraction worker; an unknown version is refused
+before queue publication. It discovers media through tenant-owned upload records, deduplicates by
+user/chat/message, reads one blob at a time, and reports missing media. It logs the estimated cost
+before enqueueing. A retry may enqueue a task again after a broker failure; the bet's event lock,
+stable key, and version marker keep the resulting projection and manual corrections idempotent.
+
 ### Local Access Points
 - **API**: http://localhost:8000
 - **Swagger Docs**: http://localhost:8000/docs
