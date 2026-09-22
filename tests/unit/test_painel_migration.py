@@ -11,6 +11,7 @@ from alembic.script import ScriptDirectory
 ROOT = Path(__file__).resolve().parents[2]
 PREVIOUS = "f2a9c4e7b106"
 PAINEL = "d3f6a8c1e209"
+HEAD = "f8b2d4a6c901"
 MATERIALIZED_VIEWS = (
     "mv_painel_resumo",
     "mv_painel_por_casa",
@@ -57,13 +58,13 @@ def _downgrade_sql() -> str:
     return buffer.getvalue()
 
 
-def test_revision_009_is_the_head_after_pending_review() -> None:
+def test_painel_revision_keeps_its_published_identity_and_parent() -> None:
     script = ScriptDirectory.from_config(_config())
     painel = script.get_revision(PAINEL)
 
-    assert script.get_current_head() == PAINEL
+    assert script.get_current_head() == HEAD
     assert painel.down_revision == PREVIOUS
-    assert "009_painel_materialized_views" in painel.doc
+    assert "008_painel_materialized_views" in painel.doc
 
 
 def test_private_schema_has_the_six_requested_materialized_views() -> None:
