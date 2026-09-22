@@ -17,6 +17,27 @@
 
 ---
 
+## Planning Roadmaps
+
+| # | Title | Status | Date |
+|---|-------|--------|------|
+| 013 | 4-Week Backend Scope | Existing | 2026-08-25 |
+| 014 | Week 1 — Foundation Issues | Existing | 2026-08-25 |
+| 015 | Week 2 — Async Pipeline Issues | Existing | 2026-08-25 |
+| 016 | Week 3 — API Surface Issues | Existing | 2026-08-25 |
+| 017 | Week 4 — Hardening & Deploy Issues | Existing | 2026-08-25 |
+| 018 | Expansion Roadmap — Decisions Before New GitHub Issues | Proposed in PR | 2026-09-21 |
+| 019 | Week 5 — Billing & Account Ownership Issues | Proposed in PR | 2026-09-21 |
+| 020 | Week 6 — Telegram, Calculators & Analytics Issues | Proposed in PR | 2026-09-21 |
+| 021 | Week 7 — Collection Integrity & Extension Contract Issues | Proposed in PR | 2026-09-21 |
+| 022 | Week 8 — Bookmaker Coverage Issues | Proposed in PR | 2026-09-21 |
+| 023 | Week 9 — Expansion Validation Issue | Proposed in PR | 2026-09-21 |
+| 024 | Extension Client — Centralized Responsibility Map | Proposed in PR | 2026-09-21 |
+
+The Week 5–9 issue bodies and the extension responsibility map are review artifacts. Issues are created in the central GitHub tracker only after the administrator merges the proposal PR; ADR 024 creates no separate client backlog.
+
+---
+
 ## Process
 
 1. **Create** new ADR from template (MADR elaborate format)
@@ -27,4 +48,4 @@
 
 ## Template
 
-See `.claude/skills/adr-writing/SKILL.md` for MADR elaborate template and conventions.
+Use ADRs 001–012 as the decision-record convention and ADRs 014–017 as the established milestone/issue-body convention. New planning documents must preserve the repository's `Labels`, `Size`, `Files`, `Tasks`, and `Acceptance` structure.

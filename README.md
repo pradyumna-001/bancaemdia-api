@@ -71,7 +71,7 @@ All architectural decisions are documented in [`docs/adrs/`](docs/adrs/).
 | [011](docs/adrs/011-stream-processing-async-architecture.md) | Stream Processing & Async Architecture | Redis Streams, 202 polling, unified Celery, dual DLQ |
 | [012](docs/adrs/012-evolvability-extensibility.md) | Evolvability & Extensibility | Feature flags, expand-only migrations, blue-green, contract tests |
 
-### Planning ADRs (013–017)
+### Planning ADRs (013–024)
 
 | ADR | Title | Description |
 |-----|-------|-------------|
@@ -80,6 +80,15 @@ All architectural decisions are documented in [`docs/adrs/`](docs/adrs/).
 | [015](docs/adrs/015-week2-milestones-issues.md) | Week 2 Milestones & Issues | 10 issues for Async Pipeline |
 | [016](docs/adrs/016-week3-milestones-issues.md) | Week 3 Milestones & Issues | 11 issues for API Surface |
 | [017](docs/adrs/017-week4-milestones-issues.md) | Week 4 Milestones & Issues | 10 issues for Hardening & Deploy |
+| [018](docs/adrs/018-expansion-roadmap-decisions.md) | Expansion Roadmap Decisions | Confirmed product/safety boundaries before new issues |
+| [019](docs/adrs/019-week5-billing-account-ownership-issues.md) | Week 5 Proposed Issues | Billing, seven-day trial, holders, temporal accounts |
+| [020](docs/adrs/020-week6-telegram-calculators-analytics-issues.md) | Week 6 Proposed Issues | Private Telegram bot, calculators, advanced analytics |
+| [021](docs/adrs/021-week7-collection-integrity-extension-contract-issues.md) | Week 7 Proposed Issues | Extension contract, Casa × Telegram matching, reconciliation |
+| [022](docs/adrs/022-week8-bookmaker-coverage-issues.md) | Week 8 Proposed Issues | Living bookmaker catalog, readers, literal coverage gate |
+| [023](docs/adrs/023-week9-future-concurrency-validation-issues.md) | Week 9 Proposed Issue | End-to-end expansion validation; simultaneous accounts remain deferred |
+| [024](docs/adrs/024-extension-client-backlog.md) | Extension Client Work Map | Client responsibilities mapped to the central API issues |
+
+Weeks 5–9 are proposal documents submitted for administrator review. Their GitHub issues are created only after the proposal PR is approved and merged; ADR 024 is a responsibility map and does not define additional issues.
 
 ### Reference Documents
 
