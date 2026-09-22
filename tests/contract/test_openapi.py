@@ -16,6 +16,7 @@ from hypothesis.strategies import SearchStrategy
 from schemathesis.config import HealthCheck
 from starlette.types import ASGIApp, Message, Receive, Scope, Send
 
+from bancaemdia.api.contracts import ReadinessResponse
 from bancaemdia.api.v1 import coleta
 from bancaemdia.db.session import get_db
 from bancaemdia.main import app
@@ -304,6 +305,37 @@ def test_business_input_schemas_preserve_domain_constraints(
     resolution = _as_object(components["ResolucaoSaida"])
     resolution_properties = _as_object(resolution["properties"])
     assert resolution_properties["aposta"] == {"$ref": "#/components/schemas/BetResponse"}
+
+
+@pytest.mark.contract
+def test_readiness_contract_includes_report_only_degradation(
+    openapi_document: JsonObject,
+) -> None:
+    components = _as_object(_as_object(openapi_document["components"])["schemas"])
+    readiness_check = _as_object(components["ReadinessCheckResponse"])
+    properties = _as_object(readiness_check["properties"])
+
+    assert set(readiness_check["required"]) == {"status", "latency_ms", "impact"}
+    assert set(_as_object(properties["status"])["enum"]) == {"ok", "failed", "degraded"}
+    assert set(_as_object(properties["impact"])["enum"]) == {"required", "report_only"}
+
+    payload = {
+        "status": "ready",
+        "checks": {
+            "postgres_primary": {
+                "status": "ok",
+                "latency_ms": 1.25,
+                "impact": "required",
+            },
+            "anthropic": {
+                "status": "degraded",
+                "latency_ms": 2.5,
+                "impact": "report_only",
+                "details": {"reason": "provider_error"},
+            },
+        },
+    }
+    assert ReadinessResponse.model_validate(payload).model_dump(exclude_none=True) == payload
 
 
 @pytest.mark.contract

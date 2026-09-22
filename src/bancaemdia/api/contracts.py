@@ -231,8 +231,9 @@ class LivenessResponse(StrictContractModel):
 
 
 class ReadinessCheckResponse(StrictContractModel):
-    status: Literal["ok", "failed"]
+    status: Literal["ok", "failed", "degraded"]
     latency_ms: float = Field(ge=0)
+    impact: Literal["required", "report_only"]
     details: dict[str, JsonValue] | None = None
 
 

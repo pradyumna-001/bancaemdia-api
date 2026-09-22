@@ -2465,6 +2465,14 @@
             ],
             "title": "Details"
           },
+          "impact": {
+            "enum": [
+              "required",
+              "report_only"
+            ],
+            "title": "Impact",
+            "type": "string"
+          },
           "latency_ms": {
             "minimum": 0.0,
             "title": "Latency Ms",
@@ -2473,7 +2481,8 @@
           "status": {
             "enum": [
               "ok",
-              "failed"
+              "failed",
+              "degraded"
             ],
             "title": "Status",
             "type": "string"
@@ -2481,7 +2490,8 @@
         },
         "required": [
           "status",
-          "latency_ms"
+          "latency_ms",
+          "impact"
         ],
         "title": "ReadinessCheckResponse",
         "type": "object"
