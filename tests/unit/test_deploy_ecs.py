@@ -1,11 +1,17 @@
 """Release control tests that do not require an AWS account."""
 
+import importlib.util
+from pathlib import Path
 from types import SimpleNamespace
 from unittest.mock import Mock, patch
 
 import pytest
 
-from scripts import deploy_ecs
+script_path = Path(__file__).resolve().parents[2] / "scripts" / "deploy_ecs.py"
+spec = importlib.util.spec_from_file_location("deploy_ecs", script_path)
+assert spec is not None and spec.loader is not None
+deploy_ecs = importlib.util.module_from_spec(spec)
+spec.loader.exec_module(deploy_ecs)
 
 
 def test_image_for_sha_uses_ecr_digest() -> None:
