@@ -3,6 +3,7 @@ import re
 from collections.abc import Sequence
 from dataclasses import dataclass, replace
 from datetime import datetime, timedelta, timezone
+from decimal import Decimal
 from functools import lru_cache
 from typing import Any
 
@@ -53,6 +54,7 @@ from bancaemdia.repositories.conta_casa_repo import ContaCasaRepo
 from bancaemdia.repositories.evento_repo import EventoRepo
 from bancaemdia.repositories.revisao_pendente_repo import RevisaoPendenteRepo
 from bancaemdia.repositories.unidade_repo import UnidadeRepo
+from bancaemdia.repositories.upload_repo import UploadBilheteRepo, UploadRepo
 from bancaemdia.workers.celery_app import MATERIALIZATION_QUEUE, app
 
 MOTIVO_GRAVE_PADRAO = "conferência grave"
@@ -581,3 +583,107 @@ materializar_coletas_task = app.task(
     retry_jitter=False,
     max_retries=3,
 )(materializar_coletas)
+
+
+async def _fechar_bilhete(
+    engine: AsyncEngine,
+    usuario_id: int,
+    upload_id: int,
+    chat_id: int,
+    message_id: int,
+    estado: str,
+    apostas: int,
+    custo_usd: float,
+) -> bool:
+    async with (
+        engine.connect() as conexao,
+        AsyncSession(bind=conexao, expire_on_commit=False) as session,
+    ):
+        async with session.begin():
+            await _set_current_user(session, usuario_id)
+            fechado = await UploadBilheteRepo().finish(
+                session,
+                usuario_id,
+                upload_id,
+                chat_id,
+                message_id,
+                estado,
+                apostas,
+                Decimal(str(round(custo_usd, 6))),
+            )
+            if fechado is None:
+                return False
+            # O envio só termina quando nenhum bilhete está pendente; a linha do envio é travada
+            # para duas últimas leituras não avisarem duas vezes.
+            upload = await UploadRepo().get_by_id_for_update(session, usuario_id, upload_id)
+            por_estado = await UploadBilheteRepo().count_by_estado(session, usuario_id, upload_id)
+        return (
+            upload is not None
+            and upload.status == "processing"
+            and not por_estado.get("PENDENTE", 0)
+        )
+
+
+def _registrar_no_upload(
+    usuario_id: int,
+    upload_id: int,
+    chat_id: int,
+    message_id: int,
+    estado: str,
+    apostas: int = 0,
+    custo_usd: float = 0.0,
+) -> None:
+    terminou = asyncio.run(
+        _fechar_bilhete(
+            get_engine(), usuario_id, upload_id, chat_id, message_id, estado, apostas, custo_usd
+        )
+    )
+    if terminou:
+        app.send_task(
+            "materialization.notificar_upload",
+            kwargs={"upload_id": upload_id, "usuario_id": usuario_id},
+        )
+
+
+def materializar_leitura(
+    extracao_json: dict[str, Any],
+    usuario_id: int,
+    midia_hash: str | None = None,
+    upload_id: int | None = None,
+) -> dict[str, object]:
+    resultado = materializar_aposta(usuario_id, extracao_json, midia_hash)
+    if upload_id is not None:
+        apostas = resultado["apostas"]
+        _registrar_no_upload(
+            usuario_id,
+            upload_id,
+            int(extracao_json["chat_id"]),
+            int(extracao_json["message_id"]),
+            "LIDO",
+            len(apostas) if isinstance(apostas, list) else 0,
+            float(extracao_json.get("custo_usd") or 0.0),
+        )
+    return resultado
+
+
+def registrar_falha(upload_id: int, usuario_id: int, chat_id: int, message_id: int) -> None:
+    _registrar_no_upload(usuario_id, upload_id, chat_id, message_id, "FALHOU")
+
+
+materializar_leitura_task = app.task(
+    name="materialization.materializar_leitura",
+    autoretry_for=RETRY_ON,
+    retry_backoff=30,
+    retry_backoff_max=600,
+    retry_jitter=False,
+    max_retries=3,
+)(materializar_leitura)
+
+registrar_falha_task = app.task(
+    name="materialization.registrar_falha",
+    autoretry_for=RETRY_ON,
+    retry_backoff=30,
+    retry_backoff_max=600,
+    retry_jitter=False,
+    max_retries=3,
+)(registrar_falha)

@@ -11,6 +11,7 @@ from bancaemdia.models import Base
 
 ROOT = Path(__file__).resolve().parents[2]
 BASELINE = "be7d60cb5437"
+HEAD = "8f1c4a2b9d33"
 PARTICIONADAS = {
     "eventos": "criado_em",
     "movimentos": "ocorrido_em",
@@ -32,7 +33,7 @@ def _upgrade_sql() -> str:
 
 def _downgrade_sql() -> str:
     buffer = io.StringIO()
-    command.downgrade(_config(buffer), f"{BASELINE}:base", sql=True)
+    command.downgrade(_config(buffer), f"{HEAD}:base", sql=True)
     return buffer.getvalue()
 
 

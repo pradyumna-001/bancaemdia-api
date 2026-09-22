@@ -28,7 +28,11 @@ QUEUE_PREFETCH = {EXTRACTION_QUEUE: 4, MATERIALIZATION_QUEUE: 2}
 
 app = Celery(
     "bancaemdia",
-    include=["bancaemdia.workers.extraction", "bancaemdia.workers.materialization"],
+    include=[
+        "bancaemdia.workers.extraction",
+        "bancaemdia.workers.materialization",
+        "bancaemdia.workers.upload",
+    ],
 )
 app.conf.update(
     broker_url=settings.CELERY_BROKER_URL,

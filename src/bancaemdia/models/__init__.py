@@ -15,11 +15,13 @@ from bancaemdia.models.mensagem import Mensagem
 from bancaemdia.models.mensagem_versao import MensagemVersao
 from bancaemdia.models.mercado import Mercado
 from bancaemdia.models.midia import Midia
+from bancaemdia.models.midia_arquivo import MidiaArquivo
 from bancaemdia.models.movimento import Movimento
 from bancaemdia.models.revisao_pendente import RevisaoPendente
 from bancaemdia.models.time import Time
 from bancaemdia.models.tipster import Tipster
 from bancaemdia.models.unidade import Unidade
+from bancaemdia.models.upload import Upload, UploadArquivo, UploadBilhete
 from bancaemdia.models.usuario import Usuario
 
 __all__ = [
@@ -40,10 +42,14 @@ __all__ = [
     "MensagemVersao",
     "Mercado",
     "Midia",
+    "MidiaArquivo",
     "Movimento",
     "RevisaoPendente",
     "Time",
     "Tipster",
     "Unidade",
+    "Upload",
+    "UploadArquivo",
+    "UploadBilhete",
     "Usuario",
 ]

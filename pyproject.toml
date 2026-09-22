@@ -18,6 +18,7 @@ classifiers = [
 dependencies = [
     "fastapi>=0.115.0",
     "uvicorn[standard]>=0.32.0",
+    "python-multipart>=0.0.18",
     "sqlalchemy[asyncio]>=2.0.36",
     "asyncpg>=0.29.0",
     "alembic>=1.13.1",

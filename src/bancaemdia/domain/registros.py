@@ -1,6 +1,8 @@
 from dataclasses import dataclass
 from datetime import datetime
+from decimal import Decimal
 from typing import Any
+from uuid import UUID
 
 
 @dataclass(frozen=True)
@@ -121,3 +123,37 @@ class RevisaoPendente:
     extracao_bruta: dict[str, Any] | None
     criado_em: datetime
     resolvido_em: datetime | None
+
+
+@dataclass(frozen=True)
+class Upload:
+    id: int
+    job_id: UUID
+    usuario_id: int
+    filename: str
+    chat_id: int | None
+    status: str
+    total_messages: int
+    estimated_bets: int
+    estimated_cost_usd: Decimal
+    bets_processed: int
+    bets_failed: int
+    cost_usd: Decimal
+    erro: str | None
+    criado_em: datetime
+    concluido_em: datetime | None
+
+
+@dataclass(frozen=True)
+class UploadBilhete:
+    id: int
+    upload_id: int
+    usuario_id: int
+    chat_id: int
+    message_id: int
+    midia_hash: str | None
+    estado: str
+    apostas: int
+    custo_usd: Decimal
+    enfileirado_em: datetime | None
+    criado_em: datetime

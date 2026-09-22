@@ -13,7 +13,9 @@ ROOT = Path(__file__).resolve().parents[2]
 BASELINE = "be7d60cb5437"
 RLS = "faf3ac7240ef"
 TOKEN_LOOKUP = "3c1f0a9d7b21"
+UPLOADS = "8f1c4a2b9d33"
 USUARIO_ATUAL = "NULLIF(current_setting('app.current_user_id', true), '')::bigint"
+JOB_OFERECIDO = "NULLIF(current_setting('app.upload_job_id', true), '')::uuid"
 POR_USUARIO = {
     "bancas",
     "contas_casa",
@@ -26,7 +28,13 @@ POR_USUARIO = {
     "coleta_token",
     "chamadas_ia",
 }
+POR_USUARIO_UPLOAD = {
+    "uploads",
+    "upload_bilhetes",
+    "upload_arquivos",
+}
 COMPARTILHADAS = {
+    "midia_arquivos",
     "casas",
     "esportes",
     "competicoes",
@@ -79,9 +87,11 @@ def test_rls_revision_follows_the_baseline() -> None:
 
 
 def test_protected_and_shared_tables_cover_the_whole_schema() -> None:
-    assert POR_USUARIO | COMPARTILHADAS | {"usuarios"} == set(Base.metadata.tables)
-    assert not POR_USUARIO & COMPARTILHADAS
-    for tabela in POR_USUARIO:
+    assert POR_USUARIO | POR_USUARIO_UPLOAD | COMPARTILHADAS | {"usuarios"} == set(
+        Base.metadata.tables
+    )
+    assert not (POR_USUARIO | POR_USUARIO_UPLOAD) & COMPARTILHADAS
+    for tabela in POR_USUARIO | POR_USUARIO_UPLOAD:
         assert "usuario_id" in Base.metadata.tables[tabela].c
     for tabela in COMPARTILHADAS:
         assert "usuario_id" not in Base.metadata.tables[tabela].c
@@ -145,11 +155,50 @@ def test_downgrade_removes_every_policy_and_disables_rls() -> None:
     assert sql.count("DROP POLICY ") == len(POR_USUARIO) + 4
 
 
-def test_token_lookup_follows_the_rls_revision_and_is_the_head() -> None:
+def test_token_lookup_follows_the_rls_revision() -> None:
     script = ScriptDirectory.from_config(_config())
 
-    assert script.get_current_head() == TOKEN_LOOKUP
     assert script.get_revision(TOKEN_LOOKUP).down_revision == RLS
+
+
+def test_uploads_revision_follows_the_token_lookup_and_is_the_head() -> None:
+    script = ScriptDirectory.from_config(_config())
+
+    assert script.get_current_head() == UPLOADS
+    assert script.get_revision(UPLOADS).down_revision == TOKEN_LOOKUP
+    assert "004_uploads" in script.get_revision(UPLOADS).doc
+
+
+def test_every_upload_table_is_protected_by_user() -> None:
+    sql = _upgrade_sql(f"{TOKEN_LOOKUP}:{UPLOADS}")
+
+    for tabela in POR_USUARIO_UPLOAD:
+        assert f"ALTER TABLE {tabela} ENABLE ROW LEVEL SECURITY" in sql
+        assert f"ALTER TABLE {tabela} FORCE ROW LEVEL SECURITY" in sql
+        assert _policy(tabela) in sql
+    assert "ALTER TABLE midia_arquivos ENABLE ROW LEVEL SECURITY" not in sql
+    assert "ON midia_arquivos " not in sql
+    assert sql.count("ENABLE ROW LEVEL SECURITY") == len(POR_USUARIO_UPLOAD)
+    assert sql.count("CREATE POLICY ") == len(POR_USUARIO_UPLOAD) + 1
+
+
+def test_uploads_are_readable_by_whoever_offers_the_job_id() -> None:
+    sql = _upgrade_sql(f"{TOKEN_LOOKUP}:{UPLOADS}")
+
+    assert (
+        "CREATE POLICY uploads_por_job ON uploads FOR ALL"
+        f" USING (job_id = {JOB_OFERECIDO}) WITH CHECK (job_id = {JOB_OFERECIDO})"
+    ) in sql
+
+
+def test_downgrade_drops_the_upload_policies() -> None:
+    sql = _downgrade_sql(f"{UPLOADS}:{TOKEN_LOOKUP}")
+
+    assert "DROP POLICY uploads_por_job ON uploads" in sql
+    for tabela in POR_USUARIO_UPLOAD:
+        assert f"DROP POLICY {tabela}_por_usuario ON {tabela}" in sql
+        assert f"ALTER TABLE {tabela} DISABLE ROW LEVEL SECURITY" in sql
+    assert sql.count("DROP POLICY ") == len(POR_USUARIO_UPLOAD) + 1
 
 
 def test_coleta_token_is_readable_by_whoever_offers_its_hash() -> None:
@@ -169,7 +218,7 @@ def test_downgrade_drops_the_token_lookup_policy() -> None:
     assert sql.count("DROP POLICY ") == 1
 
 
-def test_head_upgrade_chains_both_revisions() -> None:
+def test_head_upgrade_chains_every_revision() -> None:
     sql = _upgrade_sql("head")
     rls = _rls_revision()
     assert f"INSERT INTO alembic_version (version_num) VALUES ('{BASELINE}')" in sql

@@ -55,6 +55,18 @@ class Settings(BaseSettings):
     COLETA_DAILY_LIMIT: int = Field(
         default=5000, ge=0, description="Raw house bets stored per user per day; 0 disables"
     )
+    UPLOAD_MAX_BYTES: int = Field(
+        default=50 * 1024 * 1024, gt=0, description="Largest Telegram export accepted, in bytes"
+    )
+    UPLOAD_DAILY_PHOTO_LIMIT: int = Field(
+        default=200, ge=0, description="Photos per user per day sent to the AI; 0 disables"
+    )
+    UPLOAD_WEBHOOK_SECRET: str | None = Field(
+        default=None, description="Shared secret the worker sends on /webhook/upload-complete"
+    )
+    API_INTERNAL_URL: str | None = Field(
+        default=None, description="Base URL a worker uses to call this API back"
+    )
     JWT_SECRET_KEY: str = Field(..., description="JWT signing secret key")
     JWT_ALGORITHM: str = Field(default="RS256", description="JWT signing algorithm")
     JWT_JWKS_URL: str | None = Field(

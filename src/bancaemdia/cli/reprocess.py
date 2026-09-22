@@ -32,9 +32,10 @@ ESCOPO_TUDO = "tudo"
 PAGINA = 1000
 LOTE = 100
 SEM_FOTOS = (
-    "nada foi enviado para a IA: o motor ainda não guarda as fotos dos bilhetes (issue #26), e sem"
-    " a foto não há o que reler. O custo é o teto: o que já foi lido com este prompt sai do cache"
-    " de graça, menos a leitura que não passa mais nas conferências"
+    "nada foi enviado para a IA: as fotos passaram a ser guardadas no envio do export (issue #26),"
+    " mas a releitura pelo Telegram ainda não foi ligada a elas. O custo é o teto: o que já foi"
+    " lido com este prompt sai do cache de graça, menos a leitura que não passa mais nas"
+    " conferências"
 )
 SEM_SIM = "nada foi enviado — rode de novo com --sim para reprocessar"
 NADA_GUARDADO = (

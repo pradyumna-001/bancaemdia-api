@@ -4,7 +4,8 @@ from datetime import datetime
 
 import anthropic
 import pybreaker
-from celery import signals
+from celery import chain, signals
+from celery.canvas import Signature
 
 from bancaemdia.cache.extracao_cache import get_cache
 from bancaemdia.extracao.cliente import (
@@ -114,3 +115,51 @@ def limpar_cache_de_versoes_antigas(**kwargs: object) -> threading.Thread:
 
 
 signals.worker_ready.connect(limpar_cache_de_versoes_antigas)
+
+
+def cadeia_do_bilhete(
+    usuario_id: int,
+    imagem_base64: str,
+    *,
+    nome_do_arquivo: str,
+    legenda: str,
+    postada_em: str | None,
+    casas_do_link: list[str],
+    odds_do_texto: list[float],
+    chat_id: int,
+    message_id: int,
+    midia_hash: str,
+    upload_id: int | None = None,
+) -> Signature:
+    # A leitura entra como primeiro argumento posicional da gravação: `materializar_aposta` tem o
+    # usuário nessa posição e a corrente trocaria os dois sem erro nenhum (medido).
+    leitura = app.signature(
+        "extraction.extrair_bilhete",
+        kwargs={
+            "usuario_id": usuario_id,
+            "imagem_base64": imagem_base64,
+            "nome_do_arquivo": nome_do_arquivo,
+            "legenda": legenda,
+            "postada_em": postada_em,
+            "casas_do_link": casas_do_link,
+            "odds_do_texto": odds_do_texto,
+            "chat_id": chat_id,
+            "message_id": message_id,
+        },
+    )
+    gravacao = app.signature(
+        "materialization.materializar_leitura",
+        kwargs={"usuario_id": usuario_id, "midia_hash": midia_hash, "upload_id": upload_id},
+    )
+    corrente = chain(leitura, gravacao)
+    if upload_id is None:
+        return corrente
+    # Sem este retorno de erro o envio ficaria "processando" para sempre quando a leitura esgota
+    # as tentativas: é ele que fecha o bilhete como FALHOU.
+    return corrente.on_error(
+        app.signature(
+            "materialization.registrar_falha",
+            args=(upload_id, usuario_id, chat_id, message_id),
+            immutable=True,
+        )
+    )

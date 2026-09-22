@@ -12,12 +12,14 @@ from bancaemdia.auth.jwt import (
 )
 
 # A extensão autentica o /coleta com o próprio token e não manda Bearer; /health e /metrics são
-# lidos pela infraestrutura, sem usuário.
+# lidos pela infraestrutura, sem usuário. O aviso de fim de upload vem do trabalhador, que tem o
+# segredo do webhook e nenhum token de pessoa.
 PUBLIC_PATHS = frozenset({
     "/health",
     "/metrics",
     "/coleta",
     "/api/v1/coleta",
+    "/webhook/upload-complete",
     "/openapi.json",
     "/docs",
     "/docs/oauth2-redirect",
