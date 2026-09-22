@@ -30,6 +30,7 @@ ISSUE_METRICS = [
     ("extraction_cache_hit_total", "counter"),
     ("extraction_cache_miss_total", "counter"),
     ("circuit_breaker_state", "gauge"),
+    ("pg_replication_lag_seconds", "gauge"),
 ]
 
 

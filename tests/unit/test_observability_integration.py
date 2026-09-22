@@ -87,6 +87,57 @@ def test_main_wires_observability_around_auth_and_domain_middleware() -> None:
     assert getattr(main.app, "_is_instrumented_by_opentelemetry", False) is True
 
 
+async def test_lifespan_runs_the_replica_lag_monitor_and_cleans_it_up(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    events: list[str] = []
+
+    class Connection:
+        async def execute(self, statement: object) -> None:
+            events.append("primary_ready")
+
+    class Begin:
+        async def __aenter__(self) -> Connection:
+            return Connection()
+
+        async def __aexit__(self, *args: object) -> None:
+            return None
+
+    class Engine:
+        def __init__(self, name: str) -> None:
+            self.name = name
+
+        def begin(self) -> Begin:
+            return Begin()
+
+        async def dispose(self) -> None:
+            events.append(f"{self.name}_disposed")
+
+    class Monitor:
+        async def run(self) -> None:
+            events.append("monitor_started")
+            try:
+                await asyncio.Event().wait()
+            finally:
+                events.append("monitor_stopped")
+
+    monkeypatch.setattr(main, "engine", Engine("primary"))
+    monkeypatch.setattr(main, "replica_engine", Engine("replica"))
+    monkeypatch.setattr(main, "replica_lag_monitor", Monitor())
+
+    async with main.app.router.lifespan_context(main.app):
+        await asyncio.sleep(0)
+        assert events == ["primary_ready", "monitor_started"]
+
+    assert events == [
+        "primary_ready",
+        "monitor_started",
+        "monitor_stopped",
+        "primary_disposed",
+        "replica_disposed",
+    ]
+
+
 def test_health_is_dependency_free_liveness(monkeypatch: pytest.MonkeyPatch) -> None:
     def readiness_must_not_run() -> None:
         raise AssertionError("liveness called readiness")
