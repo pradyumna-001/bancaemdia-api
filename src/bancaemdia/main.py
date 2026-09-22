@@ -1,5 +1,6 @@
+import asyncio
 from collections.abc import AsyncGenerator
-from contextlib import asynccontextmanager
+from contextlib import asynccontextmanager, suppress
 
 from fastapi import FastAPI
 from fastapi.concurrency import run_in_threadpool
@@ -11,10 +12,11 @@ from starlette.middleware.body_limit import RequestBodyLimitMiddleware
 from bancaemdia.api.v1 import apostas, caixa, coleta, painel, revisao, upload
 from bancaemdia.auth.middleware import JWTAuthMiddleware
 from bancaemdia.config import get_settings
-from bancaemdia.db.session import engine, replica_engine
+from bancaemdia.db.session import LAG_CHECK_SECONDS, engine, replica_engine, replica_lag_seconds
 from bancaemdia.middleware.rate_limit import AuthRateLimitMiddleware, RateLimitMiddleware
 from bancaemdia.middleware.rls import RLSMiddleware
 from bancaemdia.middleware.router import RouterMiddleware
+from bancaemdia.observability.alerts import ReplicaLagMonitor
 from bancaemdia.observability.health import get_readiness_checker, liveness
 from bancaemdia.observability.logging import (
     RequestIdMiddleware,
@@ -31,18 +33,36 @@ settings = get_settings()
 configure_logging(settings.LOG_LEVEL)
 
 
+async def _probe_replica_lag() -> float | None:
+    async with replica_engine.connect() as conn:
+        return await replica_lag_seconds(conn)
+
+
+replica_lag_monitor = ReplicaLagMonitor(
+    _probe_replica_lag,
+    interval_seconds=LAG_CHECK_SECONDS,
+)
+
+
 @asynccontextmanager
 async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     async with engine.begin() as conn:
         await conn.execute(text("SELECT 1"))
+    replica_lag_task = asyncio.create_task(
+        replica_lag_monitor.run(),
+        name="replica-lag-monitor",
+    )
     try:
         yield
     finally:
+        replica_lag_task.cancel()
+        with suppress(asyncio.CancelledError):
+            await replica_lag_task
         await engine.dispose()
         await replica_engine.dispose()
 
 
-app = FastAPI(title="Bancaemdia API")
+app = FastAPI(title="Bancaemdia API", lifespan=lifespan)
 app.include_router(coleta.router)
 app.include_router(upload.router)
 app.include_router(apostas.router)
