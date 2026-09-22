@@ -1,6 +1,6 @@
 # CloudWatch PromQL alerting module
 
-This module creates the nine operational alarms required by Week 3, two SNS
+This module creates ten operational alarms, two SNS
 topics, an email subscription for warnings, and an AWS Chatbot (Amazon Q
 Developer in chat applications) Slack configuration for critical alerts. It
 stores Slack workspace and channel IDs, never a webhook secret.
@@ -45,6 +45,7 @@ user roles cannot expand the channel beyond notification reads.
 | `Anthropic_Daily_Cost` | rolling 24-hour increase > 80% of configured limit | immediate | warning email |
 | `Revisao_Pendente_Spike` | rolling 1-hour increase > 100 | immediate | warning email |
 | `DLQ_Depth` | dead-letter depth > 0 | 5 minutes | critical Slack |
+| `Postgres_Disk_Full` | at least one storage-full materialization failure in 5 minutes | immediate | critical Slack |
 
 CloudWatch evaluates every query once per minute. Recovery periods are explicit
 (one minute for the circuit breaker and five minutes for all other alarms) to

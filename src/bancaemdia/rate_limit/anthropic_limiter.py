@@ -67,7 +67,9 @@ class AnthropicLimiter:
             wait_ms = self.script(keys=[key], args=[limit, self.window, tokens])
         except redis.RedisError:
             rate_limit_errors.inc()
-            return 0.0
+            # Without the shared quota, a worker must wait for Redis rather than make
+            # unmetered paid calls. Celery retries the extraction when Redis recovers.
+            raise
         return int(wait_ms) / 1000
 
 

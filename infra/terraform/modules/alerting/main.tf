@@ -58,6 +58,15 @@ locals {
       severity        = "warning"
       alarm_summary   = "The materialization queue held more than 50 jobs for ten minutes."
     }
+    Postgres_Disk_Full = {
+      query           = <<-PROMQL
+        sum(increase(materialization_failed_total{service="${var.service_name}",environment="${var.environment}",reason="disk_full"}[5m])) > 0
+      PROMQL
+      pending_period  = 0
+      recovery_period = 300
+      severity        = "critical"
+      alarm_summary   = "PostgreSQL rejected a materialization write because storage is full."
+    }
     Circuit_Breaker_Open = {
       query           = <<-PROMQL
         max(circuit_breaker_state{service="${var.service_name}",environment="${var.environment}",breaker="anthropic"} == bool 1) > 0.5

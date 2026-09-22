@@ -34,7 +34,7 @@ variables {
   slack_channel_id               = "C0123456789"
 }
 
-run "creates_the_nine_required_promql_alarms" {
+run "creates_the_ten_required_promql_alarms" {
   command = plan
 
   assert {
@@ -44,12 +44,13 @@ run "creates_the_nine_required_promql_alarms" {
       "Replica_Lag",
       "Extraction_Queue_Depth",
       "Materialization_Queue_Depth",
+      "Postgres_Disk_Full",
       "Circuit_Breaker_Open",
       "Anthropic_Daily_Cost",
       "Revisao_Pendente_Spike",
       "DLQ_Depth",
     ])
-    error_message = "The module must create exactly the nine required alarms."
+    error_message = "The module must create exactly the ten required alarms."
   }
 
   assert {
@@ -151,7 +152,7 @@ run "routes_critical_to_slack_and_warnings_to_email" {
   assert {
     condition = (
       alltrue([
-        for name in ["API_Error_Rate", "Replica_Lag", "Circuit_Breaker_Open", "DLQ_Depth"] :
+        for name in ["API_Error_Rate", "Replica_Lag", "Postgres_Disk_Full", "Circuit_Breaker_Open", "DLQ_Depth"] :
         toset(aws_cloudwatch_metric_alarm.this[name].alarm_actions) == toset([aws_sns_topic.critical.arn])
       ]) &&
       alltrue([
