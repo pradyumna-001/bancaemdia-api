@@ -7,6 +7,7 @@ from pathlib import Path
 from types import ModuleType, SimpleNamespace
 from typing import Any
 
+import httpx
 import pytest
 from fastapi.testclient import TestClient
 from prometheus_fastapi_instrumentator.middleware import PrometheusInstrumentatorMiddleware
@@ -18,6 +19,11 @@ from bancaemdia.auth.middleware import JWTAuthMiddleware
 from bancaemdia.domain.registros import Movimento
 from bancaemdia.middleware.rls import RLSMiddleware
 from bancaemdia.middleware.router import RouterMiddleware
+from bancaemdia.observability.health import (
+    ReadinessChecker,
+    check_anthropic,
+    check_celery_queue_depth,
+)
 from bancaemdia.observability.logging import (
     RequestIdMiddleware,
     UnhandledErrorMiddleware,
@@ -120,6 +126,111 @@ def test_ready_exposes_a_failed_report_as_503_without_auth(
     assert response.status_code == 503
     assert response.json() == payload
     assert "WWW-Authenticate" not in response.headers
+
+
+async def _available_dependency() -> dict[str, object]:
+    await asyncio.sleep(0)
+    return {"mode": "available"}
+
+
+def _checker_with_report_only(name: str, check: Any) -> ReadinessChecker:
+    return ReadinessChecker(
+        {
+            "postgres_primary": _available_dependency,
+            "postgres_replica": _available_dependency,
+            "redis": _available_dependency,
+            name: check,
+        },
+        timeout_seconds=0.5,
+        report_only={name},
+    )
+
+
+def _assert_report_only_degradation(response: Any, component_name: str, reason: str) -> None:
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["status"] == "ready"
+    component = payload["checks"][component_name]
+    assert component["status"] == "degraded"
+    assert component["impact"] == "report_only"
+    assert component["details"]["reason"] == reason
+
+
+def test_anthropic_without_a_key_is_report_only_for_ready(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    requests = 0
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        nonlocal requests
+        requests += 1
+        return httpx.Response(200)
+
+    async def anthropic_check() -> dict[str, object]:
+        async with httpx.AsyncClient(
+            base_url="https://api.anthropic.test/",
+            transport=httpx.MockTransport(handler),
+        ) as client:
+            return await check_anthropic(client, api_key=None)
+
+    checker = _checker_with_report_only("anthropic", anthropic_check)
+    monkeypatch.setattr(main, "get_readiness_checker", lambda: checker)
+
+    response = _client().get("/ready")
+
+    _assert_report_only_degradation(response, "anthropic", "not_configured")
+    assert requests == 0
+
+
+def test_anthropic_outage_is_report_only_and_redacted_from_ready(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    secret = "must-never-appear"
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        return httpx.Response(503, text=f"upstream echoed {secret}")
+
+    async def anthropic_check() -> dict[str, object]:
+        async with httpx.AsyncClient(
+            base_url="https://api.anthropic.test/",
+            transport=httpx.MockTransport(handler),
+        ) as client:
+            return await check_anthropic(client, api_key=secret)
+
+    checker = _checker_with_report_only("anthropic", anthropic_check)
+    monkeypatch.setattr(main, "get_readiness_checker", lambda: checker)
+
+    response = _client().get("/ready")
+
+    _assert_report_only_degradation(response, "anthropic", "provider_error")
+    assert response.json()["checks"]["anthropic"]["details"]["http_status"] == 503
+    assert secret not in response.text
+
+
+def test_celery_backlog_is_report_only_for_ready(monkeypatch: pytest.MonkeyPatch) -> None:
+    class BackloggedRedis:
+        async def llen(self, key: str) -> int:
+            return 5 if key == "extraction" else 0
+
+    async def celery_check() -> dict[str, object]:
+        return await check_celery_queue_depth(
+            BackloggedRedis(),  # type: ignore[arg-type]
+            queues=("extraction",),
+            limit=5,
+        )
+
+    checker = _checker_with_report_only("celery_queue_depth", celery_check)
+    monkeypatch.setattr(main, "get_readiness_checker", lambda: checker)
+
+    response = _client().get("/ready")
+
+    _assert_report_only_degradation(response, "celery_queue_depth", "threshold_exceeded")
+    assert response.json()["checks"]["celery_queue_depth"]["details"] == {
+        "reason": "threshold_exceeded",
+        "depths": {"extraction": 5},
+        "total": 5,
+        "limit": 5,
+    }
 
 
 async def _prepare_manual_bet(
