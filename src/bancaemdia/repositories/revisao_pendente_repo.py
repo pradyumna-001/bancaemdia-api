@@ -52,6 +52,20 @@ class RevisaoPendenteRepo:
         stmt = stmt.order_by(models.RevisaoPendente.criado_em, models.RevisaoPendente.id)
         return [RevisaoPendente(**colunas(obj)) for obj in (await session.execute(stmt)).scalars()]
 
+    async def list_abertas_by_aposta_chave(
+        self, session: AsyncSession, usuario_id: int, aposta_chave: str
+    ) -> list[RevisaoPendente]:
+        stmt = (
+            select(models.RevisaoPendente)
+            .where(
+                models.RevisaoPendente.usuario_id == usuario_id,
+                models.RevisaoPendente.resolvido_em.is_(None),
+                models.RevisaoPendente.extracao_bruta["aposta_chave"].astext == aposta_chave,
+            )
+            .order_by(models.RevisaoPendente.criado_em, models.RevisaoPendente.id)
+        )
+        return [RevisaoPendente(**colunas(obj)) for obj in (await session.execute(stmt)).scalars()]
+
     async def resolve(
         self, session: AsyncSession, usuario_id: int, id_: int
     ) -> RevisaoPendente | None:

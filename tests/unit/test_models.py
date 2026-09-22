@@ -166,6 +166,7 @@ def test_apostas_indexes_from_adr_002() -> None:
         "idx_apostas_data": ["usuario_id", "data_aposta"],
         "idx_apostas_duplicada": ["usuario_id", "duplicada_de"],
         "idx_apostas_revisao": ["usuario_id", "revisao_grave"],
+        "idx_apostas_apagadas": ["usuario_id", "criada_em"],
         "idx_apostas_chave": ["usuario_id", "chave"],
     }
 

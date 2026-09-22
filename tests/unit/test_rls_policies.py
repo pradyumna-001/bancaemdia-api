@@ -14,6 +14,7 @@ BASELINE = "be7d60cb5437"
 RLS = "faf3ac7240ef"
 TOKEN_LOOKUP = "3c1f0a9d7b21"
 UPLOADS = "8f1c4a2b9d33"
+SELECIONADA = "9c2d5e7f1a08"
 USUARIO_ATUAL = "NULLIF(current_setting('app.current_user_id', true), '')::bigint"
 JOB_OFERECIDO = "NULLIF(current_setting('app.upload_job_id', true), '')::uuid"
 POR_USUARIO = {
@@ -161,12 +162,19 @@ def test_token_lookup_follows_the_rls_revision() -> None:
     assert script.get_revision(TOKEN_LOOKUP).down_revision == RLS
 
 
-def test_uploads_revision_follows_the_token_lookup_and_is_the_head() -> None:
+def test_uploads_revision_follows_the_token_lookup() -> None:
     script = ScriptDirectory.from_config(_config())
 
-    assert script.get_current_head() == UPLOADS
     assert script.get_revision(UPLOADS).down_revision == TOKEN_LOOKUP
     assert "004_uploads" in script.get_revision(UPLOADS).doc
+
+
+def test_the_deleted_flag_revision_follows_the_uploads_and_is_the_head() -> None:
+    script = ScriptDirectory.from_config(_config())
+
+    assert script.get_current_head() == SELECIONADA
+    assert script.get_revision(SELECIONADA).down_revision == UPLOADS
+    assert "005_aposta_selecionada" in script.get_revision(SELECIONADA).doc
 
 
 def test_every_upload_table_is_protected_by_user() -> None:

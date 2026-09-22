@@ -25,6 +25,13 @@ class ContaCasaRepo:
         obj = (await session.execute(stmt)).scalar_one_or_none()
         return None if obj is None else ContaCasa(**colunas(obj))
 
+    async def get_by_id(self, session: AsyncSession, usuario_id: int, id_: int) -> ContaCasa | None:
+        stmt = select(models.ContaCasa).where(
+            models.ContaCasa.usuario_id == usuario_id, models.ContaCasa.id == id_
+        )
+        obj = (await session.execute(stmt)).scalar_one_or_none()
+        return None if obj is None else ContaCasa(**colunas(obj))
+
     async def get_vigente_by_nome_da_casa(
         self, session: AsyncSession, usuario_id: int, nome: str, data: datetime | None = None
     ) -> ContaCasa | None:

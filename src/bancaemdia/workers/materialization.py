@@ -242,7 +242,19 @@ async def _gravar(
         "odd": estado.get("odd"),
         "freebet": financeira.freebet,
         "revisao_grave": bool(estado.get("revisao_grave")),
+        # O estado e o retorno moram na linha: sem eles, uma releitura que muda a odd deixava o
+        # lucro guardado com a odd velha, e a aposta apagada voltava a contar.
+        "estado": estado.get("estado", "PENDENTE"),
+        "retorno_centavos": estado.get("retorno_centavos"),
+        "selecionada": bool(estado.get("selecionada", True)),
     }
+    # Os identificadores só entram quando a pessoa os escolheu: em branco, eles apagariam a
+    # ligação que a planilha ou a tela já tinha feito.
+    for campo in ("tipster_id", "time_casa_id", "time_fora_id", "mercado_id", "competicao_id"):
+        if estado.get(campo) is not None:
+            dados[campo] = estado[campo]
+    if estado.get("data_jogo") is not None:
+        dados["data_jogo"] = _data(estado["data_jogo"])
     if midia_hash is not None:
         dados["midia_hash"] = midia_hash
     conta_casa_id = estado.get("conta_casa_id")

@@ -75,6 +75,7 @@ class Aposta:
     parceira_chave: str | None
     duplicada_de: str | None
     revisao_grave: bool
+    selecionada: bool
     criada_em: datetime
     atualizada_em: datetime
 
