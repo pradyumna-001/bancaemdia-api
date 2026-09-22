@@ -180,6 +180,10 @@ stable key, and version marker keep the resulting projection and manual correcti
 
 ## Project Structure
 
+This target layout includes planned Week 4 files such as `cd.yml`, `load-test.yml`,
+`k6/`, and the Terraform environments; see [RUNBOOKS.md](docs/RUNBOOKS.md) for the
+current deployment boundary.
+
 ```
 bancaemdia-api/
 ├── .github/workflows/          # CI/CD pipelines
@@ -350,35 +354,14 @@ but they do not drain otherwise healthy API pods during a provider outage or wor
 
 ---
 
-## Deploy
+## Deploy and operations
 
-### Staging (auto on push to main)
-```bash
-git push origin main
-# → GitHub Actions: test → build → deploy staging (ECS Fargate spot)
-# → Health check /ready
-# → Smoke tests
-# → conferir_numeros.py on staging DB
-```
-
-### Production (manual, canary)
-```bash
-# Via GitHub Actions UI or CLI
-gh workflow run cd.yml -f sha=<commit> -f environment=production
-
-# Pipeline:
-# 1. Build + push GHCR
-# 2. Deploy Green (staging) → smoke tests
-# 3. Canary 10% (10 min monitoring)
-# 4. Promote 10% → 50% → 100% (30 min total)
-# 5. Rollback < 5 min at any point
-```
-
-### Rollback
-```bash
-gh workflow run cd.yml -f sha=<previous_sha> -f environment=production
-# Target: < 5 min decision → healthy
-```
+CI currently tests and builds the image. The staging/production infrastructure and
+`.github/workflows/cd.yml` are planned in issues #41 and #42, so a push to `main` does not
+yet deploy to AWS. Use the [operations runbook index](docs/RUNBOOKS.md) for the current
+prerequisites, staged deployment procedure, rollback, migration, incident response, and
+scaling. The future workflow must implement the documented `sha` and `environment` inputs
+before its commands become executable.
 
 ---
 
@@ -387,7 +370,7 @@ gh workflow run cd.yml -f sha=<previous_sha> -f environment=production
 | Document | Location |
 |----------|----------|
 | **API Reference** | `/docs/API.md` (auto-generated from OpenAPI) |
-| **Runbooks** | `docs/runbooks/` (deploy, rollback, migration, incident, scaling) |
+| **Runbooks** | [`docs/RUNBOOKS.md`](docs/RUNBOOKS.md) (deploy, rollback, migration, incident, scaling) |
 | **ADRs** | `docs/adrs/` (all architectural decisions) |
 | **Roadmap** | `docs/adrs/HIGH_LEVEL_PLAN.md` (M0–M5) |
 
