@@ -1,4 +1,4 @@
-"""009_painel_materialized_views
+"""008_painel_materialized_views
 
 Revision ID: d3f6a8c1e209
 Revises: f2a9c4e7b106

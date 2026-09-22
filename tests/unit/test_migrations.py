@@ -11,9 +11,12 @@ from bancaemdia.models import Base
 
 ROOT = Path(__file__).resolve().parents[2]
 BASELINE = "be7d60cb5437"
+TRANSFERENCIA = "a4e7d2c9f103"
 IDEMPOTENCIA_CAIXA = "c7b1e9a42d60"
 REVISAO_RESOLVIDA = "f2a9c4e7b106"
-HEAD = "d3f6a8c1e209"
+CAIXA_REVISAO_MERGE = "e5a1c7d9b204"
+PAINEL = "d3f6a8c1e209"
+HEAD = "f8b2d4a6c901"
 PARTICIONADAS = {
     "eventos": "criado_em",
     "movimentos": "ocorrido_em",
@@ -47,13 +50,23 @@ def test_the_baseline_is_the_root_revision() -> None:
     assert "baseline_028_from_sqlite" in baseline.doc
 
 
-def test_review_resolution_event_revision_follows_cash_idempotency() -> None:
+def test_late_branches_merge_without_rewriting_published_revisions() -> None:
     script = ScriptDirectory.from_config(_config())
     revisao = script.get_revision(REVISAO_RESOLVIDA)
+    caixa_revisao = script.get_revision(CAIXA_REVISAO_MERGE)
+    painel = script.get_revision(PAINEL)
+    merge = script.get_revision(HEAD)
 
     assert script.get_current_head() == HEAD
-    assert revisao.down_revision == IDEMPOTENCIA_CAIXA
-    assert "008_revisao_resolvida_evento" in revisao.doc
+    assert script.get_revision(IDEMPOTENCIA_CAIXA).down_revision == TRANSFERENCIA
+    assert revisao.down_revision == TRANSFERENCIA
+    assert "007_revisao_resolvida_evento" in revisao.doc
+    assert set(caixa_revisao.down_revision) == {IDEMPOTENCIA_CAIXA, REVISAO_RESOLVIDA}
+    assert "008_merge_caixa_revisao" in caixa_revisao.doc
+    assert painel.down_revision == REVISAO_RESOLVIDA
+    assert "008_painel_materialized_views" in painel.doc
+    assert set(merge.down_revision) == {CAIXA_REVISAO_MERGE, PAINEL}
+    assert "009_merge_painel_caixa" in merge.doc
 
     upgrade = _upgrade_sql()
     assert "ALTER TABLE eventos DROP CONSTRAINT ck_eventos_tipo" in upgrade
