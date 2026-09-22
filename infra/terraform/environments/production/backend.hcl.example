@@ -1,0 +1,5 @@
+bucket       = "bancaemdia-tfstate-ACCOUNTID-us-east-1"
+key          = "production/terraform.tfstate"
+region       = "us-east-1"
+encrypt      = true
+use_lockfile = true

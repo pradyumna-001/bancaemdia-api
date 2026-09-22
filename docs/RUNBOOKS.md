@@ -17,11 +17,10 @@ Related procedures: [failure injection](chaos-testing.md) and
 
 ## Current deployment boundary
 
-The repository currently has CI (`.github/workflows/ci.yml`), a Docker image, and Terraform
-modules for alerting and WAF. It does **not** yet have `.github/workflows/cd.yml` or the
-staging/production ECS, RDS, and Redis Terraform environments. Those are planned in
-[issue #42](https://github.com/pradyumna-001/bancaemdia-api/issues/42) and
-[issue #41](https://github.com/pradyumna-001/bancaemdia-api/issues/41).
+The repository has CI, a Docker image, and [Terraform staging/production definitions](../infra/terraform/README.md).
+No AWS environment has been applied or verified yet. `.github/workflows/cd.yml`, image promotion,
+and the migration deployment process remain in
+[issue #42](https://github.com/pradyumna-001/bancaemdia-api/issues/42).
 The `gh workflow run cd.yml` commands below describe the required operator interface; they
 cannot be run until that workflow is merged into the default branch with `workflow_dispatch`
 and the named inputs. Reconcile these runbooks with the delivered workflow and resource names

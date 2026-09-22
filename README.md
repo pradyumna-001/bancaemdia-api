@@ -345,7 +345,7 @@ but they do not drain otherwise healthy API pods during a provider outage or wor
 
 ## Security & Compliance
 
-- **Secrets**: AWS Secrets Manager (zero in code/env)
+- **Secrets**: AWS Secrets Manager; ECS injects values at runtime, never through Terraform variables
 - **Rate Limiting**: `slowapi` by `usuario_id` (10/min coleta, 100/min API, 1/5min upload)
 - **Circuit Breaker**: `pybreaker` on Anthropic (fail_max=5, reset=60s)
 - **Headers**: CSP, HSTS, X-Frame-Options, X-Content-Type-Options
@@ -356,12 +356,13 @@ but they do not drain otherwise healthy API pods during a provider outage or wor
 
 ## Deploy and operations
 
-CI currently tests and builds the image. The staging/production infrastructure and
-`.github/workflows/cd.yml` are planned in issues #41 and #42, so a push to `main` does not
-yet deploy to AWS. Use the [operations runbook index](docs/RUNBOOKS.md) for the current
-prerequisites, staged deployment procedure, rollback, migration, incident response, and
-scaling. The future workflow must implement the documented `sha` and `environment` inputs
-before its commands become executable.
+CI tests and builds the image. The [AWS Terraform environments](infra/terraform/README.md)
+define staging and production infrastructure with a guarded plan/apply workflow; no AWS
+resources have been applied by this repository yet. Application deployment and migrations
+still need issue #42's `.github/workflows/cd.yml`. Use the
+[operations runbook index](docs/RUNBOOKS.md) for prerequisites, staged deployment,
+rollback, migration, incident response, and scaling. The future CD workflow must implement
+the documented `sha` and `environment` inputs before those commands become executable.
 
 ---
 

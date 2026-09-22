@@ -9,6 +9,7 @@ crash.*.log
 *.tfvars
 *.tfvars.json
 !*.tfvars.example
+backend.hcl
 
 # Local CLI overrides.
 override.tf
