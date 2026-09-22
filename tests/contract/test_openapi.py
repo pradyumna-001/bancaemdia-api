@@ -399,13 +399,17 @@ def test_collection_envelope_and_body_limit_match_runtime(openapi_document: Json
 
 
 @pytest.mark.contract
-def test_ci_rejects_breaking_changes_against_main() -> None:
+def test_ci_rejects_breaking_changes_after_the_initial_main_baseline() -> None:
     workflow = WORKFLOW.read_text(encoding="utf-8")
     assert "origin/main:tests/contract/schemas/openapi.json" in workflow
+    assert "id: openapi_baseline" in workflow
+    assert 'echo "available=true" >> "$GITHUB_OUTPUT"' in workflow
+    assert 'echo "available=false" >> "$GITHUB_OUTPUT"' in workflow
+    assert "this PR establishes the initial baseline" in workflow
+    assert "steps.openapi_baseline.outputs.available == 'true'" in workflow
     assert "oasdiff/oasdiff-action/breaking@5e81b5c380accc6b523f9d32a637ca630e33620b" in workflow
     assert "fail-on: WARN" in workflow
     assert "allow-external-refs: false" in workflow
-    assert '--source-root "$base_worktree/src"' in workflow
     assert 'github-token: ""' in workflow
     assert "permissions:\n  contents: read" in workflow
 

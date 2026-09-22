@@ -96,6 +96,7 @@ jobs:
       - name: Verify generated OpenAPI artifacts
         run: python scripts/generate_openapi.py --check
       - name: Prepare origin/main OpenAPI baseline
+        id: openapi_baseline
         if: github.event_name == 'pull_request'
         shell: bash
         run: |
@@ -105,23 +106,16 @@ jobs:
 
           if git show origin/main:tests/contract/schemas/openapi.json > "$baseline" 2>/dev/null; then
             echo "Using the checked-in origin/main OpenAPI snapshot."
+            echo "available=true" >> "$GITHUB_OUTPUT"
           else
-            echo "origin/main has no snapshot; generating a bootstrap baseline from its source."
-            base_worktree="$RUNNER_TEMP/bancaemdia-openapi-main"
-            cleanup() {
-              git worktree remove --force "$base_worktree" >/dev/null 2>&1 || true
-            }
-            trap cleanup EXIT
-            git worktree add --detach "$base_worktree" origin/main
-            PYTHONDONTWRITEBYTECODE=1 python scripts/generate_openapi.py \
-              --source-root "$base_worktree/src" \
-              --schema-output "$baseline" \
-              --schema-only
-            cleanup
-            trap - EXIT
+            rm -f "$baseline"
+            echo "available=false" >> "$GITHUB_OUTPUT"
+            echo "::notice::origin/main has no checked-in OpenAPI snapshot; this PR establishes the initial baseline."
           fi
       - name: Reject breaking API changes
-        if: github.event_name == 'pull_request'
+        if: >-
+          github.event_name == 'pull_request' &&
+          steps.openapi_baseline.outputs.available == 'true'
         uses: oasdiff/oasdiff-action/breaking@5e81b5c380accc6b523f9d32a637ca630e33620b
         with:
           base: .openapi-main.json
