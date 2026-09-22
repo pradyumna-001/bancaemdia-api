@@ -75,12 +75,133 @@ async def _postar(
     engine_app: AsyncEngine,
     como: Como,
     usuario_id: int,
+    chave_idempotencia: str | None = None,
     **pedido: object,
 ) -> JSONResponse:
     async with como(engine_app, usuario_id) as session:
         usuario = await _usuario(session, usuario_id)
         return await caixa.registrar_movimento(
-            caixa.MovimentoNovo.model_validate(pedido), usuario, session
+            caixa.MovimentoNovo.model_validate(pedido),
+            usuario,
+            session,
+            chave_idempotencia or f"teste:{uuid4()}",
+        )
+
+
+async def test_retry_idempotente_deposito_retorna_a_mesma_resposta_e_uma_linha(
+    engine_admin: AsyncEngine,
+    engine_app: AsyncEngine,
+    como: Como,
+    novo_usuario: NovoUsuario,
+) -> None:
+    usuario_id = await novo_usuario()
+    (conta,) = await _criar_contas(engine_admin, engine_app, como, usuario_id, 1)
+    chave = f"deposito:{uuid4()}"
+    pedido = {
+        "tipo": "deposito",
+        "valor_centavos": 100_000,
+        "conta_casa_id": conta.id,
+        "ocorrido_em": datetime(2026, 9, 20, 12, tzinfo=UTC),
+    }
+
+    primeira = await _postar(
+        engine_app,
+        como,
+        usuario_id,
+        chave_idempotencia=chave,
+        **pedido,
+    )
+    repetida = await _postar(
+        engine_app,
+        como,
+        usuario_id,
+        chave_idempotencia=chave,
+        **pedido,
+    )
+
+    assert primeira.status_code == repetida.status_code == 201
+    assert _json(primeira) == _json(repetida)
+    async with como(engine_app, usuario_id) as session:
+        assert await session.scalar(select(func.count()).select_from(models.Movimento)) == 1
+        assert await session.scalar(select(func.count()).select_from(models.Evento)) == 1
+        assert (
+            await session.scalar(select(func.count()).select_from(models.MovimentoRequisicao)) == 1
+        )
+
+
+async def test_retry_idempotente_transferencia_nao_duplica_o_par_e_conflito_e_isolado(
+    engine_admin: AsyncEngine,
+    engine_app: AsyncEngine,
+    como: Como,
+    novo_usuario: NovoUsuario,
+) -> None:
+    primeiro_usuario, segundo_usuario = await novo_usuario(), await novo_usuario()
+    origem, destino = await _criar_contas(
+        engine_admin,
+        engine_app,
+        como,
+        primeiro_usuario,
+    )
+    (conta_segundo,) = await _criar_contas(
+        engine_admin,
+        engine_app,
+        como,
+        segundo_usuario,
+        1,
+    )
+    chave = f"transferencia:{uuid4()}"
+    pedido = {
+        "tipo": "transferencia",
+        "valor_centavos": 20_000,
+        "conta_casa_id": origem.id,
+        "conta_casa_destino_id": destino.id,
+        "ocorrido_em": datetime(2026, 9, 20, 12, tzinfo=UTC),
+    }
+
+    primeira = await _postar(
+        engine_app,
+        como,
+        primeiro_usuario,
+        chave_idempotencia=chave,
+        **pedido,
+    )
+    repetida = await _postar(
+        engine_app,
+        como,
+        primeiro_usuario,
+        chave_idempotencia=chave,
+        **pedido,
+    )
+    conflito = await _postar(
+        engine_app,
+        como,
+        primeiro_usuario,
+        chave_idempotencia=chave,
+        **{**pedido, "valor_centavos": 21_000},
+    )
+    outro_usuario = await _postar(
+        engine_app,
+        como,
+        segundo_usuario,
+        chave_idempotencia=chave,
+        tipo="deposito",
+        valor_centavos=5_000,
+        conta_casa_id=conta_segundo.id,
+        ocorrido_em=datetime(2026, 9, 20, 12, tzinfo=UTC),
+    )
+
+    assert _json(primeira) == _json(repetida)
+    assert conflito.status_code == 409
+    assert outro_usuario.status_code == 201
+    async with como(engine_app, primeiro_usuario) as session:
+        assert await session.scalar(select(func.count()).select_from(models.Movimento)) == 2
+        assert (
+            await session.scalar(select(func.count()).select_from(models.MovimentoRequisicao)) == 1
+        )
+    async with como(engine_app, segundo_usuario) as session:
+        assert await session.scalar(select(func.count()).select_from(models.Movimento)) == 1
+        assert (
+            await session.scalar(select(func.count()).select_from(models.MovimentoRequisicao)) == 1
         )
 
 
@@ -282,16 +403,15 @@ async def test_saldo_uses_one_snapshot_when_money_changes_between_its_reads(
         conta_casa_id=conta.id,
         ocorrido_em=quando,
     )
-    listar_real = MovimentoRepo.list_by_usuario
+    agregar_real = MovimentoRepo.aggregate_saldos_by_usuario
 
-    async def listar_e_intercalar(
+    async def agregar_e_intercalar(
         self: MovimentoRepo,
         session: AsyncSession,
         usuario_lido: int,
-        desde: datetime | None = None,
-        ate: datetime | None = None,
+        data_corte: date | None = None,
     ):
-        movimentos = await listar_real(self, session, usuario_lido, desde, ate)
+        saldos = await agregar_real(self, session, usuario_lido, data_corte)
         await _postar(
             engine_app,
             como,
@@ -320,7 +440,7 @@ async def test_saldo_uses_one_snapshot_when_money_changes_between_its_reads(
                 },
             )
             await concorrente.commit()
-        return movimentos
+        return saldos
 
     snapshot = engine_app.execution_options(isolation_level="REPEATABLE READ")
     fabrica = async_sessionmaker(snapshot, expire_on_commit=False, class_=AsyncSession)
@@ -331,7 +451,11 @@ async def test_saldo_uses_one_snapshot_when_money_changes_between_its_reads(
         session = await anext(gerador)
         usuario = await _usuario(session, usuario_id)
         with monkeypatch.context() as intercalacao:
-            intercalacao.setattr(MovimentoRepo, "list_by_usuario", listar_e_intercalar)
+            intercalacao.setattr(
+                MovimentoRepo,
+                "aggregate_saldos_by_usuario",
+                agregar_e_intercalar,
+            )
             durante = _json(await caixa.consultar_saldo(usuario, session, None))
     finally:
         await gerador.aclose()

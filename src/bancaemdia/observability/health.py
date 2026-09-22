@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import asyncio
 import time
-from collections.abc import Awaitable, Callable, Mapping, Sequence
+from collections.abc import Awaitable, Callable, Collection, Mapping, Sequence
 from dataclasses import dataclass, field
 from functools import lru_cache
 from typing import Literal, Protocol, cast
@@ -32,6 +32,8 @@ REPLICA_RECOVERY_SQL = text("SELECT pg_is_in_recovery()")
 type JsonValue = str | int | float | bool | list["JsonValue"] | dict[str, "JsonValue"] | None
 type CheckDetails = dict[str, JsonValue]
 type ReadinessCheck = Callable[[], Awaitable[CheckDetails]]
+type CheckStatus = Literal["ok", "failed", "degraded"]
+type CheckImpact = Literal["required", "report_only"]
 
 
 class RedisProbe(Protocol):
@@ -53,14 +55,16 @@ class DependencyNotReadyError(Exception):
 
 @dataclass(frozen=True)
 class CheckResult:
-    status: Literal["ok", "failed"]
+    status: CheckStatus
     latency_ms: float
     details: Mapping[str, JsonValue] = field(default_factory=dict)
+    impact: CheckImpact = "required"
 
     def as_dict(self) -> dict[str, JsonValue]:
         payload: dict[str, JsonValue] = {
             "status": self.status,
             "latency_ms": self.latency_ms,
+            "impact": self.impact,
         }
         if self.details:
             payload["details"] = dict(self.details)
@@ -73,7 +77,9 @@ class ReadinessReport:
 
     @property
     def ready(self) -> bool:
-        return all(result.status == "ok" for result in self.checks.values())
+        return all(
+            result.status == "ok" for result in self.checks.values() if result.impact == "required"
+        )
 
     @property
     def status_code(self) -> int:
@@ -93,6 +99,7 @@ class ReadinessChecker:
         *,
         timeout_seconds: float,
         cache_ttl_seconds: float = READINESS_CACHE_TTL_SECONDS,
+        report_only: Collection[str] = (),
         clock: Callable[[], float] = time.perf_counter,
     ) -> None:
         if not checks:
@@ -101,7 +108,15 @@ class ReadinessChecker:
             raise ValueError("readiness timeout must be positive")
         if cache_ttl_seconds < 0:
             raise ValueError("readiness cache TTL cannot be negative")
+        report_only_names = frozenset(report_only)
+        unknown_report_only = report_only_names.difference(checks)
+        if unknown_report_only:
+            names = ", ".join(sorted(unknown_report_only))
+            raise ValueError(f"report-only checks are not configured: {names}")
+        if len(report_only_names) == len(checks):
+            raise ValueError("readiness needs at least one required check")
         self._checks = tuple(checks.items())
+        self._report_only = report_only_names
         self._timeout_seconds = timeout_seconds
         self._cache_ttl_seconds = cache_ttl_seconds
         self._clock = clock
@@ -129,36 +144,60 @@ class ReadinessChecker:
     async def _run_checks(self) -> ReadinessReport:
         # Every dependency starts before any one of them can consume the whole timeout budget.
         results = await asyncio.gather(
-            *(self._run_check(name, check) for name, check in self._checks)
+            *(
+                self._run_check(
+                    name,
+                    check,
+                    impact="report_only" if name in self._report_only else "required",
+                )
+                for name, check in self._checks
+            )
         )
         return ReadinessReport(dict(results))
 
-    async def _run_check(self, name: str, check: ReadinessCheck) -> tuple[str, CheckResult]:
+    async def _run_check(
+        self,
+        name: str,
+        check: ReadinessCheck,
+        *,
+        impact: CheckImpact,
+    ) -> tuple[str, CheckResult]:
         started = self._clock()
+        failed_status: CheckStatus = "degraded" if impact == "report_only" else "failed"
         try:
             async with asyncio.timeout(self._timeout_seconds):
                 details = await check()
         except TimeoutError:
             result = CheckResult(
-                status="failed",
+                status=failed_status,
                 latency_ms=self._elapsed_ms(started),
                 details={"reason": "timeout"},
+                impact=impact,
             )
         except DependencyNotReadyError as error:
             details = {"reason": error.reason, **error.details}
             result = CheckResult(
-                status="failed", latency_ms=self._elapsed_ms(started), details=details
+                status=failed_status,
+                latency_ms=self._elapsed_ms(started),
+                details=details,
+                impact=impact,
             )
         except Exception:
             # Never serialize exception messages: drivers commonly include host names, DSNs and
             # credentials in them. The full error belongs in internal logs, not a public probe.
             result = CheckResult(
-                status="failed",
+                status=failed_status,
                 latency_ms=self._elapsed_ms(started),
                 details={"reason": "internal_error"},
+                impact=impact,
             )
         else:
-            result = CheckResult(status="ok", latency_ms=self._elapsed_ms(started), details=details)
+            result = CheckResult(
+                status="ok",
+                latency_ms=self._elapsed_ms(started),
+                details=details,
+                impact=impact,
+            )
         return name, result
 
     def _elapsed_ms(self, started: float) -> float:
@@ -321,6 +360,10 @@ def build_readiness_checker(
             "celery_queue_depth": celery_check,
         },
         timeout_seconds=timeout_seconds,
+        # These probes remain visible for operators, but neither dependency is required for the
+        # API process to serve most request paths. Draining API pods cannot heal an LLM outage or
+        # reduce a worker backlog, so their failures must never change the readiness verdict.
+        report_only={"anthropic", "celery_queue_depth"},
     )
 
 

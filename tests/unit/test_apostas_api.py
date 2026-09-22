@@ -116,6 +116,7 @@ def _banco(
     upsert_vence=True,
     revisoes=(),
     total=1,
+    referencias_canonicas_ausentes=(),
 ):
     class Banco:
         def __init__(self):
@@ -218,7 +219,11 @@ def _banco(
             banco.sql.append((str(statement), params))
 
         async def scalar(self, statement, params=None):
-            banco.sql.append((str(statement), params))
+            sql = str(statement)
+            banco.sql.append((sql, params))
+            for tabela in ("tipsters", "times", "mercados", "competicoes"):
+                if f"FROM {tabela}" in sql:
+                    return None if tabela in referencias_canonicas_ausentes else 1
             return trava_livre
 
         async def commit(self):
@@ -435,6 +440,57 @@ def test_an_account_that_is_not_yours_is_refused_before_the_write(monkeypatch, c
     assert [t for t, _, _ in banco.eventos] == ["APOSTA_CRIADA"]
 
 
+@pytest.mark.parametrize(
+    ("campo", "tabela"),
+    [
+        ("tipster_id", "tipsters"),
+        ("time_casa_id", "times"),
+        ("time_fora_id", "times"),
+        ("mercado_id", "mercados"),
+        ("competicao_id", "competicoes"),
+    ],
+)
+def test_an_unknown_shared_reference_is_refused_before_the_write(
+    monkeypatch, chave_rsa, campo, tabela
+) -> None:
+    privada, _ = chave_rsa
+    banco = _banco(referencias_canonicas_ausentes={tabela})
+    cliente = _cliente(monkeypatch, chave_rsa, banco)
+
+    resposta = cliente.patch(
+        f"/api/v1/apostas/{CHAVE}", json={campo: 99}, headers=_cabecalho(privada)
+    )
+
+    assert resposta.status_code == 422
+    assert resposta.json()["detail"] == f"{campo} não existe no catálogo compartilhado"
+    assert [t for t, _, _ in banco.eventos] == ["APOSTA_CRIADA"]
+
+
+@pytest.mark.parametrize(
+    "campo",
+    [
+        "conta_casa_id",
+        "tipster_id",
+        "time_casa_id",
+        "time_fora_id",
+        "mercado_id",
+        "competicao_id",
+    ],
+)
+def test_a_boolean_is_never_accepted_as_a_reference_id(monkeypatch, chave_rsa, campo) -> None:
+    privada, _ = chave_rsa
+    banco = _banco()
+    cliente = _cliente(monkeypatch, chave_rsa, banco)
+
+    resposta = cliente.patch(
+        f"/api/v1/apostas/{CHAVE}", json={campo: True}, headers=_cabecalho(privada)
+    )
+
+    assert resposta.status_code == 422
+    assert resposta.json()["detail"] == f"{campo} tem de ser um número"
+    assert [t for t, _, _ in banco.eventos] == ["APOSTA_CRIADA"]
+
+
 def test_the_state_is_only_corrected_on_a_bet_marked_for_review(monkeypatch, chave_rsa) -> None:
     privada, _ = chave_rsa
     banco = _banco()
@@ -645,6 +701,31 @@ def test_a_bet_created_by_hand_is_born_from_its_own_creation_event(monkeypatch, 
     assert corpo["conta_casa_id"] == 42
     assert resposta.json()["casa_id"] == 1
     assert "aviso" not in resposta.json()
+
+
+def test_a_bet_created_without_a_date_uses_brazil_time(monkeypatch, chave_rsa) -> None:
+    privada, _ = chave_rsa
+    banco = _banco()
+    instante = datetime(2026, 9, 22, 14, 30, tzinfo=rota.FUSO_DO_BRASIL)
+
+    class Relogio(datetime):
+        @classmethod
+        def now(cls, tz=None):
+            assert tz is rota.FUSO_DO_BRASIL
+            return instante
+
+    monkeypatch.setattr(rota, "datetime", Relogio)
+    cliente = _cliente(monkeypatch, chave_rsa, banco)
+
+    resposta = cliente.post(
+        "/api/v1/apostas",
+        json={"casa": "betano", "odd": 2.0, "stake_unidades": 1.0},
+        headers=_cabecalho(privada),
+    )
+
+    assert resposta.status_code == 201
+    assert banco.eventos[-1][2]["data_aposta"] == instante.isoformat()
+    assert banco.gravados[-1]["data_aposta"] == instante
 
 
 def test_the_bet_written_by_the_route_carries_what_the_history_says(monkeypatch, chave_rsa) -> None:

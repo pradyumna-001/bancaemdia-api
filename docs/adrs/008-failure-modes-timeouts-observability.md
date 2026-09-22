@@ -114,7 +114,8 @@ We implement **comprehensive resilience and observability** at launch: **circuit
     - `anthropic_daily_cost_usd > 80%_limit`
 - [ ] **Health Checks**:
   - [ ] `GET /health` (liveness): process alive
-  - [ ] `GET /ready` (readiness): PG primary writable, Anthropic reachable (HEAD), queue depth < threshold
+  - [ ] `GET /ready` (readiness): PG primary/replica and Redis gate traffic; Anthropic and queue
+        depth remain visible as report-only degradation signals
 - [ ] **Clock Synchronization**:
   - [ ] Server: NTP (AWS default)
   - [ ] Extension: sends `capturado_em`; server records `recebido_em = now()`

@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from datetime import UTC, datetime
+from datetime import UTC, date, datetime
 from typing import Any
 from uuid import UUID
 
@@ -12,6 +12,7 @@ from bancaemdia.repositories.banca_repo import BancaRepo
 from bancaemdia.repositories.conta_casa_repo import ContaCasaRepo
 from bancaemdia.repositories.extrato_repo import ExtratoRepo
 from bancaemdia.repositories.movimento_repo import MovimentoRepo
+from bancaemdia.repositories.movimento_requisicao_repo import MovimentoRequisicaoRepo
 
 AGORA = datetime(2026, 9, 21, 12, 0, tzinfo=UTC)
 ONTEM = datetime(2026, 9, 20, 12, 0, tzinfo=UTC)
@@ -29,6 +30,11 @@ class _Result:
         return iter(self.valor)
 
     def scalar_one(self) -> Any:
+        return self.valor[0] if isinstance(self.valor, list) else self.valor
+
+    def scalar_one_or_none(self) -> Any:
+        if not self.valor:
+            return None
         return self.valor[0] if isinstance(self.valor, list) else self.valor
 
 
@@ -73,6 +79,22 @@ class _LinhaExtrato:
         self.total = total
 
 
+class _LinhaSaldo:
+    conta_casa_id = 3
+    depositado_centavos = 100_000
+    sacado_centavos = 20_000
+    bonus_centavos = 5_000
+    movido_centavos = -10_000
+    apostado_centavos = 30_000
+    retornado_centavos = 50_000
+    em_jogo_centavos = 10_000
+    apostas_pendentes = 1
+    movimentos = 4
+    apostado_no_periodo_centavos = 30_000
+    retornado_no_periodo_centavos = 50_000
+    desde = date(2026, 9, 1)
+
+
 def _sql(statement: Any) -> str:
     return str(statement.compile(dialect=postgresql.dialect()))
 
@@ -107,6 +129,17 @@ def _banca() -> models.Banca:
         nome="Principal",
         saldo_inicial_centavos=100_000,
         criado_em=ONTEM,
+    )
+
+
+def _requisicao() -> models.MovimentoRequisicao:
+    return models.MovimentoRequisicao(
+        id=9,
+        usuario_id=1,
+        chave_idempotencia="cliente:123",
+        requisicao_hash="a" * 64,
+        resposta_json={"tipo": "DEPOSITO", "movimentos": []},
+        criado_em=AGORA,
     )
 
 
@@ -172,6 +205,56 @@ async def test_movimento_empty_later_page_still_returns_the_filtered_total() -> 
     assert contagem.startswith("SELECT count(*) AS count_1")
     assert "movimentos.tipo = " in contagem
     assert "LIMIT" not in contagem and "OFFSET" not in contagem
+
+
+async def test_saldo_is_aggregated_in_sql_and_returns_at_most_one_row_per_account() -> None:
+    session = _Session([_LinhaSaldo()])
+
+    saldos = await MovimentoRepo().aggregate_saldos_by_usuario(
+        session,
+        1,
+        date(2026, 9, 21),
+    )
+
+    assert saldos[3].saldo_centavos == 95_000
+    assert saldos[3].depositado_centavos == 100_000
+    assert saldos[3].apostas_pendentes == 1
+    sql = _sql(session.statements[0])
+    for trecho in (
+        "WITH saldo_movimentos AS",
+        "saldo_apostas AS",
+        "sum(CASE WHEN",
+        "count(*) FILTER (WHERE apostas.estado = ",
+        "CAST(timezone(",
+        "movimentos.usuario_id = ",
+        "apostas.usuario_id = ",
+        "apostas.selecionada IS true",
+        "contas_casa.usuario_id = ",
+        "GROUP BY movimentos.conta_casa_id",
+        "GROUP BY apostas.conta_casa_id, saldo_movimentos.desde",
+        "ORDER BY contas_casa.id",
+    ):
+        assert trecho in sql
+    assert "movimentos.id" not in sql
+    assert "apostas.id" not in sql
+
+
+async def test_idempotency_lookup_is_scoped_by_user_and_key() -> None:
+    session = _Session([_requisicao()])
+
+    encontrada = await MovimentoRequisicaoRepo().get(session, 1, "cliente:123")
+
+    assert encontrada == registros.MovimentoRequisicao(
+        9,
+        1,
+        "cliente:123",
+        "a" * 64,
+        {"tipo": "DEPOSITO", "movimentos": []},
+        AGORA,
+    )
+    sql = _sql(session.statements[0])
+    assert "movimento_requisicoes.usuario_id = " in sql
+    assert "movimento_requisicoes.chave_idempotencia = " in sql
 
 
 async def test_extrato_unions_filtered_sources_and_orders_tied_ids_numerically() -> None:
