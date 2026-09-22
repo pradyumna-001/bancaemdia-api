@@ -324,10 +324,21 @@ async def _register_adjustment(
         await asyncio.sleep(0)
         return object()
 
+    async def no_previous_request(*args: object, **kwargs: object) -> None:
+        await asyncio.sleep(0)
+        return None
+
+    async def append_request(*args: object, **kwargs: object) -> object:
+        await asyncio.sleep(0)
+        return object()
+
     monkeypatch.setattr(caixa, "caixa_movimentos_total", counter)
     monkeypatch.setattr(caixa, "_travar", locked)
+    monkeypatch.setattr(caixa, "_travar_idempotencia", locked)
     monkeypatch.setattr(caixa.MovimentoRepo, "append", append_movement)
     monkeypatch.setattr(caixa.EventoRepo, "append", append_event)
+    monkeypatch.setattr(caixa.MovimentoRequisicaoRepo, "get", no_previous_request)
+    monkeypatch.setattr(caixa.MovimentoRequisicaoRepo, "append", append_request)
 
     await caixa.registrar_movimento(
         caixa.MovimentoNovo(
@@ -337,6 +348,7 @@ async def _register_adjustment(
         ),
         SimpleNamespace(id=7),
         session,  # type: ignore[arg-type]
+        "observability-adjustment",
     )
 
 

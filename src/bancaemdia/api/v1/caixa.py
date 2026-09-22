@@ -1,10 +1,12 @@
-from datetime import date, datetime, time
+import hashlib
+import json
+from datetime import UTC, date, datetime, time
 from enum import StrEnum
 from typing import Annotated, Literal
 from uuid import UUID
 from zoneinfo import ZoneInfo
 
-from fastapi import APIRouter, Depends, Query, status
+from fastapi import APIRouter, Depends, Header, Query, status
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 from pydantic.config import JsonDict
@@ -18,17 +20,16 @@ from bancaemdia.domain.caixa_service import (
     BIGINT_MIN,
     MovimentoInvalidoError,
     planejar_movimento,
-    saldo_da_conta,
 )
-from bancaemdia.domain.registros import Aposta, Banca, ContaCasa, LinhaExtrato, Movimento, Usuario
+from bancaemdia.domain.registros import Banca, ContaCasa, LinhaExtrato, Movimento, Usuario
 from bancaemdia.domain.temporal import SaldoDaCasa
 from bancaemdia.observability.metrics import caixa_movimentos_total
-from bancaemdia.repositories.aposta_repo import ApostaRepo
 from bancaemdia.repositories.banca_repo import BancaRepo
 from bancaemdia.repositories.conta_casa_repo import ContaCasaRepo
 from bancaemdia.repositories.evento_repo import EventoRepo
 from bancaemdia.repositories.extrato_repo import ExtratoRepo
 from bancaemdia.repositories.movimento_repo import MovimentoRepo
+from bancaemdia.repositories.movimento_requisicao_repo import MovimentoRequisicaoRepo
 
 TAMANHO_PADRAO_DA_PAGINA = 50
 TAMANHO_MAXIMO_DA_PAGINA = 100
@@ -37,6 +38,7 @@ TIPOS_DE_MOVIMENTO = frozenset({"DEPOSITO", "SAQUE", "TRANSFERENCIA", "BONUS", "
 FUSO_DO_BRASIL = ZoneInfo("America/Sao_Paulo")
 CONTA_OCUPADA = "esta conta está recebendo outro lançamento — tente de novo em instantes"
 CONTA_NAO_ENCONTRADA = "não achei uma das contas informadas"
+CHAVE_IDEMPOTENCIA_EM_CONFLITO = "esta Idempotency-Key já foi usada com outro pedido"
 SEM_VINCULO_COM_BANCA = "as contas das casas ainda não têm vínculo com uma banca"
 
 router = APIRouter()
@@ -278,13 +280,44 @@ async def _travar(session: AsyncSession, usuario_id: int, conta_ids: list[int]) 
     return True
 
 
+async def _travar_idempotencia(
+    session: AsyncSession,
+    usuario_id: int,
+    chave_idempotencia: str,
+) -> None:
+    # Repetições da mesma chave esperam a primeira transação terminar. Assim uma repetição
+    # concorrente devolve a resposta já gravada em vez de falhar ou duplicar dinheiro.
+    chave = f"caixa:idempotencia:{usuario_id}:{chave_idempotencia}"
+    await session.scalar(
+        text("SELECT pg_advisory_xact_lock(hashtextextended(:chave, 0))"),
+        {"chave": chave},
+    )
+
+
+def _hash_do_pedido(pedido: MovimentoNovo) -> str:
+    ocorrido_em = _com_fuso(pedido.ocorrido_em).astimezone(UTC)
+    canonico = {
+        "conta_casa_destino_id": pedido.conta_casa_destino_id,
+        "conta_casa_id": pedido.conta_casa_id,
+        "descricao": pedido.descricao,
+        "ocorrido_em": ocorrido_em.isoformat(),
+        "tipo": pedido.tipo,
+        "valor_centavos": pedido.valor_centavos,
+    }
+    serializado = json.dumps(canonico, ensure_ascii=False, separators=(",", ":"), sort_keys=True)
+    return hashlib.sha256(serializado.encode()).hexdigest()
+
+
 @router.post(
     "/api/v1/caixa",
     status_code=status.HTTP_201_CREATED,
     response_model=MovimentoCriadoSaida,
     responses={
         404: {"model": ErroSaida, "description": "Conta não encontrada"},
-        409: {"model": ErroSaida, "description": "Conta ocupada por outro lançamento"},
+        409: {
+            "model": ErroSaida,
+            "description": "Conta ocupada ou chave de idempotência reutilizada com outro pedido",
+        },
         422: {
             "model": ErroSaida | ErroValidacaoSaida,
             "description": "Pedido malformado ou movimento inválido",
@@ -295,6 +328,19 @@ async def registrar_movimento(
     pedido: MovimentoNovo,
     usuario: Annotated[Usuario, Depends(get_current_user)],
     session: Annotated[AsyncSession, Depends(get_db)],
+    idempotency_key: Annotated[
+        str,
+        Header(
+            alias="Idempotency-Key",
+            min_length=1,
+            max_length=200,
+            pattern=r"^[!-~]+$",
+            description=(
+                "Chave opaca do cliente. Repetir a mesma chave e o mesmo corpo devolve a "
+                "resposta original sem criar outro lançamento."
+            ),
+        ),
+    ],
 ) -> JSONResponse:
     try:
         plano = planejar_movimento(
@@ -306,6 +352,19 @@ async def registrar_movimento(
     except MovimentoInvalidoError as recusa:
         await session.rollback()
         return erro(status.HTTP_422_UNPROCESSABLE_ENTITY, str(recusa))
+
+    requisicao_hash = _hash_do_pedido(pedido)
+    requisicoes = MovimentoRequisicaoRepo()
+    await _travar_idempotencia(session, usuario.id, idempotency_key)
+    anterior = await requisicoes.get(session, usuario.id, idempotency_key)
+    if anterior is not None:
+        await session.rollback()
+        if anterior.requisicao_hash != requisicao_hash:
+            return erro(status.HTTP_409_CONFLICT, CHAVE_IDEMPOTENCIA_EM_CONFLITO)
+        return JSONResponse(
+            status_code=status.HTTP_201_CREATED,
+            content=anterior.resposta_json,
+        )
 
     conta_ids = sorted({
         lancamento.conta_casa_id
@@ -346,6 +405,11 @@ async def registrar_movimento(
                 )
             )
 
+        resposta = {
+            "tipo": plano.tipo,
+            "transferencia_id": _uuid_texto(plano.transferencia_id),
+            "movimentos": [linha_do_movimento(movimento) for movimento in movimentos],
+        }
         payload = {
             "tipo": plano.tipo,
             "transferencia_id": _uuid_texto(plano.transferencia_id),
@@ -374,6 +438,15 @@ async def registrar_movimento(
                 "aposta_chave": None,
             },
         )
+        await requisicoes.append(
+            session,
+            {
+                "usuario_id": usuario.id,
+                "chave_idempotencia": idempotency_key,
+                "requisicao_hash": requisicao_hash,
+                "resposta_json": resposta,
+            },
+        )
         await session.commit()
     except Exception:
         await session.rollback()
@@ -382,11 +455,7 @@ async def registrar_movimento(
         caixa_movimentos_total.labels(tipo=movimento.tipo).inc()
     return JSONResponse(
         status_code=status.HTTP_201_CREATED,
-        content={
-            "tipo": plano.tipo,
-            "transferencia_id": _uuid_texto(plano.transferencia_id),
-            "movimentos": [linha_do_movimento(movimento) for movimento in movimentos],
-        },
+        content=resposta,
     )
 
 
@@ -473,28 +542,17 @@ async def consultar_saldo(
     data_corte: date | None = None,
 ) -> JSONResponse:
     contas = await ContaCasaRepo().list_by_usuario(session, usuario.id)
-    movimentos = await MovimentoRepo().list_by_usuario(session, usuario.id)
-    apostas = await ApostaRepo().list_by_usuario(session, usuario.id)
+    saldos_por_conta = await MovimentoRepo().aggregate_saldos_by_usuario(
+        session,
+        usuario.id,
+        data_corte,
+    )
     bancas = await BancaRepo().list_by_usuario(session, usuario.id)
-
-    apostas_por_conta: dict[int, list[Aposta]] = {}
-    for aposta in apostas:
-        if aposta.conta_casa_id is not None:
-            apostas_por_conta.setdefault(aposta.conta_casa_id, []).append(aposta)
-    movimentos_por_conta: dict[int, list[Movimento]] = {}
-    for movimento in movimentos:
-        if movimento.conta_casa_id is not None:
-            movimentos_por_conta.setdefault(movimento.conta_casa_id, []).append(movimento)
 
     linhas = [
         _linha_do_saldo(
             conta,
-            saldo_da_conta(
-                conta.id,
-                apostas_por_conta.get(conta.id, []),
-                movimentos_por_conta.get(conta.id, []),
-                data_corte,
-            ),
+            saldos_por_conta.get(conta.id, SaldoDaCasa(conta.id)),
         )
         for conta in contas
     ]
