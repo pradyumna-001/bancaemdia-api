@@ -6,7 +6,7 @@ from uuid import uuid4
 from fastapi import APIRouter, Depends, Query, status
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel, ConfigDict
-from sqlalchemy import text
+from sqlalchemy import select, text
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from bancaemdia.api.deps import get_current_user
@@ -26,6 +26,7 @@ from bancaemdia.domain.financeiro import Aposta as ApostaFinanceira
 from bancaemdia.domain.materializar import EventoNovo, casa_canonica, projetar
 from bancaemdia.domain.registros import Aposta, Usuario
 from bancaemdia.domain.temporal import VALOR_UNIDADE_PADRAO_CENTAVOS
+from bancaemdia.models import Competicao, Mercado, Time, Tipster
 from bancaemdia.repositories.aposta_repo import ApostaRepo
 from bancaemdia.repositories.casa_repo import CasaRepo
 from bancaemdia.repositories.conta_casa_repo import ContaCasaRepo
@@ -209,11 +210,36 @@ async def _conferir_ids(
     session: AsyncSession, usuario_id: int, pedido: dict[str, Any]
 ) -> str | None:
     conta_casa_id = pedido.get("conta_casa_id")
-    if conta_casa_id is None:
-        return None
-    # Um id que não é da pessoa viraria erro 500 na chave estrangeira; e sob a RLS ele nem existe.
-    if await ContaCasaRepo().get_by_id(session, usuario_id, int(conta_casa_id)) is None:
-        return "conta_casa_id não existe nas suas contas"
+    if (
+        conta_casa_id is not None
+        and isinstance(conta_casa_id, int)
+        and not isinstance(conta_casa_id, bool)
+    ):
+        # Um id que não é da pessoa viraria erro 500 na chave estrangeira; e sob a RLS ele nem
+        # existe. Esta é a única referência deste grupo que pertence a um usuário.
+        if await ContaCasaRepo().get_by_id(session, usuario_id, int(conta_casa_id)) is None:
+            return "conta_casa_id não existe nas suas contas"
+
+    # Estes catálogos são vocabulário canônico compartilhado, deliberadamente sem usuario_id e sem
+    # RLS (ADR 014, issue 7). Não há referência cross-tenant possível nesses campos; ainda assim
+    # validamos a existência antes de escrever para transformar um FK inválido em 422.
+    referencias = (
+        ("tipster_id", Tipster.id),
+        ("time_casa_id", Time.id),
+        ("time_fora_id", Time.id),
+        ("mercado_id", Mercado.id),
+        ("competicao_id", Competicao.id),
+    )
+    for campo, coluna in referencias:
+        valor = pedido.get(campo)
+        # O domínio produz a mensagem de tipo amigável; não tente consultar um valor inválido.
+        if (
+            valor is not None
+            and isinstance(valor, int)
+            and not isinstance(valor, bool)
+            and (await session.scalar(select(coluna).where(coluna == valor)) is None)
+        ):
+            return f"{campo} não existe no catálogo compartilhado"
     return None
 
 
@@ -453,7 +479,7 @@ async def criar_aposta(
     # A chave manual não vem de mensagem nenhuma; os prefixos `t:` e `c:` já dizem de onde as
     # outras vieram.
     chave = f"m:{uuid4().hex}"
-    data_aposta = _data_do_estado(manual.data_aposta) or datetime.now(tz=None)
+    data_aposta = _data_do_estado(manual.data_aposta) or datetime.now(FUSO_DO_BRASIL)
     unidade = await UnidadeRepo().get_vigente(session, usuario.id, data_aposta)
     valor_unidade = VALOR_UNIDADE_PADRAO_CENTAVOS if unidade is None else unidade.valor_centavos
     casa_id = await CasaRepo().get_id_by_nome(session, nome)
