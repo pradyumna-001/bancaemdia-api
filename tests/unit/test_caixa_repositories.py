@@ -11,7 +11,7 @@ from bancaemdia.domain import registros
 from bancaemdia.repositories.banca_repo import BancaRepo
 from bancaemdia.repositories.conta_casa_repo import ContaCasaRepo
 from bancaemdia.repositories.extrato_repo import ExtratoRepo
-from bancaemdia.repositories.movimento_repo import MovimentoRepo
+from bancaemdia.repositories.movimento_repo import MovimentoRepo, _fim_exclusivo_no_brasil
 from bancaemdia.repositories.movimento_requisicao_repo import MovimentoRequisicaoRepo
 
 AGORA = datetime(2026, 9, 21, 12, 0, tzinfo=UTC)
@@ -92,7 +92,9 @@ class _LinhaSaldo:
     movimentos = 4
     apostado_no_periodo_centavos = 30_000
     retornado_no_periodo_centavos = 50_000
+    apostas_antes_do_caixa = 2
     desde = date(2026, 9, 1)
+    lucro_centavos = 7_000
 
 
 def _sql(statement: Any) -> str:
@@ -219,6 +221,8 @@ async def test_saldo_is_aggregated_in_sql_and_returns_at_most_one_row_per_accoun
     assert saldos[3].saldo_centavos == 95_000
     assert saldos[3].depositado_centavos == 100_000
     assert saldos[3].apostas_pendentes == 1
+    assert saldos[3].apostas_antes_do_caixa == 2
+    assert saldos[3].lucro_centavos == 7_000
     sql = _sql(session.statements[0])
     for trecho in (
         "WITH saldo_movimentos AS",
@@ -229,14 +233,47 @@ async def test_saldo_is_aggregated_in_sql_and_returns_at_most_one_row_per_accoun
         "movimentos.usuario_id = ",
         "apostas.usuario_id = ",
         "apostas.selecionada IS true",
+        "apostas.revisao_grave IS false",
+        "apostas.estado NOT IN",
         "contas_casa.usuario_id = ",
         "GROUP BY movimentos.conta_casa_id",
         "GROUP BY apostas.conta_casa_id, saldo_movimentos.desde",
         "ORDER BY contas_casa.id",
     ):
         assert trecho in sql
+    assert "abs(CAST(movimentos.valor_centavos AS NUMERIC))" in sql
+    assert "movimentos.ocorrido_em < " in sql
+    assert "apostas.data_aposta < " in sql
+    assert "apostas.criada_em < " in sql
+    assert "CAST(timezone(%(timezone_1)s, movimentos.ocorrido_em) AS DATE) <=" not in sql
+    assert (
+        "CAST(timezone(%(timezone_2)s, coalesce(apostas.data_aposta"
+        not in sql.split("WHERE apostas.usuario_id", maxsplit=1)[1]
+    )
     assert "movimentos.id" not in sql
     assert "apostas.id" not in sql
+
+    limites = [
+        valor
+        for valor in _params(session.statements[0]).values()
+        if isinstance(valor, datetime) and valor.tzinfo is not None
+    ]
+    assert limites
+    assert {limite.astimezone(UTC) for limite in limites} == {datetime(2026, 9, 22, 3, tzinfo=UTC)}
+
+
+def test_corte_civil_brasileiro_vira_limite_utc_exclusivo_sem_estourar_date_max() -> None:
+    limite = _fim_exclusivo_no_brasil(date(2026, 9, 21))
+
+    assert limite is not None
+    assert limite.astimezone(UTC) == datetime(2026, 9, 22, 3, tzinfo=UTC)
+    # Em 2018 o horário de verão pulou a meia-noite brasileira. Mesmo esse limite inexistente
+    # escrito no relógio civil representa exatamente o primeiro instante válido do dia seguinte.
+    limite_horario_de_verao = _fim_exclusivo_no_brasil(date(2018, 11, 3))
+    assert limite_horario_de_verao is not None
+    assert limite_horario_de_verao.astimezone(UTC) == datetime(2018, 11, 4, 3, tzinfo=UTC)
+    assert _fim_exclusivo_no_brasil(None) is None
+    assert _fim_exclusivo_no_brasil(date.max) is None
 
 
 async def test_idempotency_lookup_is_scoped_by_user_and_key() -> None:

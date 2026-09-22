@@ -16,6 +16,7 @@ from bancaemdia import models
 from bancaemdia.api.v1 import caixa
 from bancaemdia.core.context import current_user_id
 from bancaemdia.db import session as db_session
+from bancaemdia.domain.caixa_service import BIGINT_MIN, saldo_da_conta
 from bancaemdia.domain.registros import ContaCasa, Usuario
 from bancaemdia.repositories.aposta_repo import ApostaRepo
 from bancaemdia.repositories.conta_casa_repo import ContaCasaRepo
@@ -119,6 +120,93 @@ async def test_retry_idempotente_deposito_retorna_a_mesma_resposta_e_uma_linha(
         **pedido,
     )
 
+    assert primeira.status_code == repetida.status_code == 201
+    assert _json(primeira) == _json(repetida)
+    async with como(engine_app, usuario_id) as session:
+        assert await session.scalar(select(func.count()).select_from(models.Movimento)) == 1
+        assert await session.scalar(select(func.count()).select_from(models.Evento)) == 1
+        assert (
+            await session.scalar(select(func.count()).select_from(models.MovimentoRequisicao)) == 1
+        )
+
+
+async def test_retries_concorrentes_esperam_e_reapresentam_a_resposta_original(
+    engine_admin: AsyncEngine,
+    engine_app: AsyncEngine,
+    como: Como,
+    novo_usuario: NovoUsuario,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    usuario_id = await novo_usuario()
+    (conta,) = await _criar_contas(engine_admin, engine_app, como, usuario_id, 1)
+    chave = f"deposito-concorrente:{uuid4()}"
+    pedido = {
+        "tipo": "deposito",
+        "valor_centavos": 100_000,
+        "conta_casa_id": conta.id,
+        "ocorrido_em": datetime(2026, 9, 20, 12, tzinfo=UTC),
+    }
+    primeira_no_evento = asyncio.Event()
+    segunda_na_trava = asyncio.Event()
+    liberar_primeira = asyncio.Event()
+    chamadas_da_trava = 0
+    append_evento_real = caixa.EventoRepo.append
+    travar_real = caixa._travar_idempotencia
+
+    async def observar_trava(
+        session: AsyncSession,
+        usuario_lido: int,
+        chave_lida: str,
+    ) -> None:
+        nonlocal chamadas_da_trava
+        chamadas_da_trava += 1
+        if chamadas_da_trava == 2:
+            segunda_na_trava.set()
+        await travar_real(session, usuario_lido, chave_lida)
+
+    async def pausar_primeiro_evento(
+        self: EventoRepo,
+        session: AsyncSession,
+        dados: dict[str, object],
+    ) -> object:
+        primeira_no_evento.set()
+        await liberar_primeira.wait()
+        return await append_evento_real(self, session, dados)
+
+    monkeypatch.setattr(caixa, "_travar_idempotencia", observar_trava)
+    monkeypatch.setattr(caixa.EventoRepo, "append", pausar_primeiro_evento)
+    primeira_tarefa = asyncio.create_task(
+        _postar(
+            engine_app,
+            como,
+            usuario_id,
+            chave_idempotencia=chave,
+            **pedido,
+        )
+    )
+    segunda_tarefa: asyncio.Task[JSONResponse] | None = None
+    try:
+        await asyncio.wait_for(primeira_no_evento.wait(), timeout=5)
+        segunda_tarefa = asyncio.create_task(
+            _postar(
+                engine_app,
+                como,
+                usuario_id,
+                chave_idempotencia=chave,
+                **pedido,
+            )
+        )
+        await asyncio.wait_for(segunda_na_trava.wait(), timeout=5)
+        concluidas, _ = await asyncio.wait({segunda_tarefa}, timeout=0.05)
+        assert not concluidas
+    finally:
+        liberar_primeira.set()
+
+    assert segunda_tarefa is not None
+    primeira, repetida = await asyncio.wait_for(
+        asyncio.gather(primeira_tarefa, segunda_tarefa),
+        timeout=5,
+    )
     assert primeira.status_code == repetida.status_code == 201
     assert _json(primeira) == _json(repetida)
     async with como(engine_app, usuario_id) as session:
@@ -382,6 +470,176 @@ async def test_saldo_temporal_nao_conta_o_green_duas_vezes_e_nao_inventa_banca(
     assert atual["bancas"][0]["saldo_inicial_centavos"] == 50_000
     assert atual["bancas"][0]["saldo_total_centavos"] is None
     assert "vínculo" in atual["bancas"][0]["motivo_saldo_indisponivel"]
+
+
+async def test_agregado_sql_equivale_ao_dominio_em_casos_financeiros_e_de_fronteira(
+    engine_admin: AsyncEngine,
+    engine_app: AsyncEngine,
+    como: Como,
+    novo_usuario: NovoUsuario,
+) -> None:
+    usuario_id = await novo_usuario()
+    principal, sem_movimentos, limite_bigint = await _criar_contas(
+        engine_admin,
+        engine_app,
+        como,
+        usuario_id,
+        3,
+    )
+    corte = date(2026, 9, 21)
+
+    for valor, ocorrido_em in (
+        (100_000, datetime(2026, 9, 21, 12, tzinfo=UTC)),
+        (20_000, datetime(2026, 9, 22, 2, 59, 59, 999999, tzinfo=UTC)),
+        (500_000, datetime(2026, 9, 22, 3, tzinfo=UTC)),
+    ):
+        resposta = await _postar(
+            engine_app,
+            como,
+            usuario_id,
+            tipo="deposito",
+            valor_centavos=valor,
+            conta_casa_id=principal.id,
+            ocorrido_em=ocorrido_em,
+        )
+        assert resposta.status_code == 201
+
+    async with como(engine_app, usuario_id) as session:
+        apostas = (
+            # Antes do primeiro movimento: afeta lucro histórico, mas não o saldo do período.
+            {
+                "conta_casa_id": principal.id,
+                "stake_centavos": 10_000,
+                "valor_aposta_centavos": 10_000,
+                "estado": "RED",
+                "retorno_centavos": 0,
+                "data_aposta": datetime(2026, 9, 20, 12, tzinfo=UTC),
+            },
+            # Freebet: a stake contábil é zero e apenas o retorno entra no caixa/lucro.
+            {
+                "conta_casa_id": principal.id,
+                "stake_centavos": 0,
+                "valor_aposta_centavos": 10_000,
+                "estado": "GREEN",
+                "retorno_centavos": 8_000,
+                "freebet": True,
+                "data_aposta": datetime(2026, 9, 21, 15, tzinfo=UTC),
+            },
+            # Revisão grave movimenta o caixa, mas não entra no lucro canônico.
+            {
+                "conta_casa_id": principal.id,
+                "stake_centavos": 10_000,
+                "valor_aposta_centavos": 10_000,
+                "estado": "GREEN",
+                "retorno_centavos": 20_000,
+                "revisao_grave": True,
+                "data_aposta": datetime(2026, 9, 21, 16, tzinfo=UTC),
+            },
+            {
+                "conta_casa_id": principal.id,
+                "stake_centavos": 5_000,
+                "valor_aposta_centavos": 5_000,
+                "estado": "PENDENTE",
+                "retorno_centavos": None,
+                "data_aposta": datetime(2026, 9, 21, 17, tzinfo=UTC),
+            },
+            {
+                "conta_casa_id": principal.id,
+                "stake_centavos": 4_000,
+                "valor_aposta_centavos": 4_000,
+                "estado": "ANULADA",
+                "retorno_centavos": 4_000,
+                "data_aposta": datetime(2026, 9, 21, 18, tzinfo=UTC),
+            },
+            {
+                "conta_casa_id": principal.id,
+                "stake_centavos": 90_000,
+                "valor_aposta_centavos": 90_000,
+                "estado": "RED",
+                "retorno_centavos": 0,
+                "selecionada": False,
+                "data_aposta": datetime(2026, 9, 21, 19, tzinfo=UTC),
+            },
+            # Sem data_aposta, o corte usa criada_em; ainda é o último microssegundo do dia no Brasil.
+            {
+                "conta_casa_id": principal.id,
+                "stake_centavos": 2_000,
+                "valor_aposta_centavos": 2_000,
+                "estado": "RED",
+                "retorno_centavos": 0,
+                "data_aposta": None,
+                "criada_em": datetime(2026, 9, 22, 2, 59, 59, 999999, tzinfo=UTC),
+            },
+            # Exatamente 03:00 UTC já é 22/09 no Brasil e fica fora do corte de 21/09.
+            {
+                "conta_casa_id": principal.id,
+                "stake_centavos": 7_000,
+                "valor_aposta_centavos": 7_000,
+                "estado": "GREEN",
+                "retorno_centavos": 14_000,
+                "data_aposta": datetime(2026, 9, 22, 3, tzinfo=UTC),
+            },
+            {
+                "conta_casa_id": sem_movimentos.id,
+                "stake_centavos": 3_000,
+                "valor_aposta_centavos": 3_000,
+                "estado": "RED",
+                "retorno_centavos": 0,
+                "data_aposta": datetime(2026, 9, 21, 15, tzinfo=UTC),
+            },
+        )
+        for indice, dados in enumerate(apostas):
+            await ApostaRepo().upsert_idempotent(
+                session,
+                {
+                    "usuario_id": usuario_id,
+                    "chave": f"diferencial:{uuid4()}:{indice}",
+                    "origem": "manual",
+                    "stake_unidades": 1.0,
+                    "odd": 2.0,
+                    "selecionada": True,
+                    "freebet": False,
+                    "revisao_grave": False,
+                    **dados,
+                },
+            )
+        await MovimentoRepo().append(
+            session,
+            {
+                "usuario_id": usuario_id,
+                "conta_casa_id": limite_bigint.id,
+                "tipo": "SAQUE",
+                "valor_centavos": BIGINT_MIN,
+                "ocorrido_em": datetime(2026, 9, 21, 12, tzinfo=UTC),
+                "descricao": "limite inferior válido do ledger",
+                "transferencia_id": None,
+            },
+        )
+        await session.commit()
+
+    async with como(engine_app, usuario_id) as session:
+        apostas_persistidas = await ApostaRepo().list_by_usuario(session, usuario_id)
+        movimentos_persistidos = await MovimentoRepo().list_by_usuario(session, usuario_id)
+        observado = await MovimentoRepo().aggregate_saldos_by_usuario(
+            session,
+            usuario_id,
+            corte,
+        )
+
+    for conta in (principal, sem_movimentos, limite_bigint):
+        esperado = saldo_da_conta(
+            conta.id,
+            apostas_persistidas,
+            movimentos_persistidos,
+            corte,
+        )
+        assert observado[conta.id] == esperado
+
+    assert observado[principal.id].apostas_antes_do_caixa == 1
+    assert observado[principal.id].lucro_centavos == -4_000
+    assert observado[sem_movimentos.id].saldo_centavos is None
+    assert observado[sem_movimentos.id].lucro_centavos == -3_000
+    assert observado[limite_bigint.id].sacado_centavos == abs(BIGINT_MIN)
 
 
 async def test_saldo_uses_one_snapshot_when_money_changes_between_its_reads(
