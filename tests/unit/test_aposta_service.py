@@ -208,6 +208,8 @@ def test_every_id_the_person_can_choose_reaches_the_bet() -> None:
         ({"data_jogo": 20260920}, "tem de ser uma data"),
         ({"tipster_id": "três"}, "tipster_id tem de ser um número"),
         ({"conta_casa_id": True}, "conta_casa_id tem de ser um número"),
+        ({"mercado_id": 2**63}, "mercado_id tem de caber em um BIGINT"),
+        ({"competicao_id": -(2**63) - 1}, "competicao_id tem de caber em um BIGINT"),
         ({"odd": "alta"}, "a odd tem de ser pelo menos"),
         ({"stake_unidades": "uma"}, "a stake em unidades tem de ser positiva"),
         ({"comissao_centavos": "cinco"}, "a comissão não pode ser negativa"),

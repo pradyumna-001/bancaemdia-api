@@ -125,6 +125,7 @@ def _banco(
             self.commits = 0
             self.rollbacks = 0
             self.sql = []
+            self.consultas_de_conta = []
             self.resolvidas = []
 
     banco = Banco()
@@ -191,6 +192,7 @@ def _banco(
 
     class ContaCasaRepo:
         async def get_by_id(self, session, usuario_id, id_):
+            banco.consultas_de_conta.append((usuario_id, id_))
             if id_ != 42:
                 return None
             return ContaCasa(
@@ -488,6 +490,49 @@ def test_a_boolean_is_never_accepted_as_a_reference_id(monkeypatch, chave_rsa, c
 
     assert resposta.status_code == 422
     assert resposta.json()["detail"] == f"{campo} tem de ser um número"
+    assert [t for t, _, _ in banco.eventos] == ["APOSTA_CRIADA"]
+    assert banco.consultas_de_conta == []
+    assert banco.sql == []
+    assert banco.gravados == []
+    assert banco.commits == 0
+
+
+@pytest.mark.parametrize("valor", [2**63, -(2**63) - 1])
+@pytest.mark.parametrize(
+    "campo",
+    [
+        "conta_casa_id",
+        "tipster_id",
+        "time_casa_id",
+        "time_fora_id",
+        "mercado_id",
+        "competicao_id",
+    ],
+)
+def test_an_id_outside_bigint_is_refused_before_any_database_access(
+    monkeypatch, chave_rsa, campo, valor
+) -> None:
+    privada, _ = chave_rsa
+    banco = _banco()
+    cliente = _cliente(monkeypatch, chave_rsa, banco)
+    ids = {
+        "conta_casa_id": 42,
+        "tipster_id": 1,
+        "time_casa_id": 1,
+        "time_fora_id": 1,
+        "mercado_id": 1,
+        "competicao_id": 1,
+    }
+    ids[campo] = valor
+
+    resposta = cliente.patch(f"/api/v1/apostas/{CHAVE}", json=ids, headers=_cabecalho(privada))
+
+    assert resposta.status_code == 422
+    assert resposta.json()["detail"] == f"{campo} tem de caber em um BIGINT"
+    assert banco.consultas_de_conta == []
+    assert banco.sql == []
+    assert banco.gravados == []
+    assert banco.commits == 0
     assert [t for t, _, _ in banco.eventos] == ["APOSTA_CRIADA"]
 
 
