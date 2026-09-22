@@ -81,6 +81,13 @@ def test_a_correction_that_makes_no_sense_is_refused_in_portuguese(pedido, recad
         validar_correcao(pedido, {})
 
 
+@pytest.mark.parametrize("campo", ["odd", "stake_unidades", "comissao_centavos"])
+@pytest.mark.parametrize("valor", [float("nan"), float("inf"), float("-inf")])
+def test_a_non_finite_number_never_reaches_the_event_log(campo: str, valor: float) -> None:
+    with pytest.raises(ApostaInvalidaError):
+        validar_correcao({campo: valor}, {})
+
+
 def test_a_settle_names_the_state_and_only_what_was_sent() -> None:
     [sem_comissao] = eventos_do_resultado("GREEN")
     [com_comissao] = eventos_do_resultado("GREEN", comissao_centavos=0)

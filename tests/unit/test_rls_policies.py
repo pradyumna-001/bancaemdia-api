@@ -17,6 +17,8 @@ UPLOADS = "8f1c4a2b9d33"
 SELECIONADA = "9c2d5e7f1a08"
 TRANSFERENCIA = "a4e7d2c9f103"
 IDEMPOTENCIA_CAIXA = "c7b1e9a42d60"
+REVISAO_RESOLVIDA = "f2a9c4e7b106"
+CAIXA_REVISAO_MERGE = "e5a1c7d9b204"
 USUARIO_ATUAL = "NULLIF(current_setting('app.current_user_id', true), '')::bigint"
 JOB_OFERECIDO = "NULLIF(current_setting('app.upload_job_id', true), '')::uuid"
 POR_USUARIO = {
@@ -178,17 +180,24 @@ def test_the_deleted_flag_revision_follows_the_uploads() -> None:
     assert "005_aposta_selecionada" in script.get_revision(SELECIONADA).doc
 
 
-def test_the_transfer_revision_follows_the_deleted_flag() -> None:
+def test_cash_and_review_branches_merge_without_rewriting_published_revisions() -> None:
     script = ScriptDirectory.from_config(_config())
 
+    assert script.get_current_head() == CAIXA_REVISAO_MERGE
     assert script.get_revision(TRANSFERENCIA).down_revision == SELECIONADA
     assert "006_movimento_transferencia" in script.get_revision(TRANSFERENCIA).doc
+    assert script.get_revision(IDEMPOTENCIA_CAIXA).down_revision == TRANSFERENCIA
+    assert "007_caixa_idempotencia" in script.get_revision(IDEMPOTENCIA_CAIXA).doc
+    assert script.get_revision(REVISAO_RESOLVIDA).down_revision == TRANSFERENCIA
+    assert "007_revisao_resolvida_evento" in script.get_revision(REVISAO_RESOLVIDA).doc
+    merge = script.get_revision(CAIXA_REVISAO_MERGE)
+    assert set(merge.down_revision) == {IDEMPOTENCIA_CAIXA, REVISAO_RESOLVIDA}
+    assert "008_merge_caixa_revisao" in merge.doc
 
 
 def test_cash_idempotency_follows_the_transfer_and_protects_its_table() -> None:
     script = ScriptDirectory.from_config(_config())
 
-    assert script.get_current_head() == IDEMPOTENCIA_CAIXA
     assert script.get_revision(IDEMPOTENCIA_CAIXA).down_revision == TRANSFERENCIA
     assert "007_caixa_idempotencia" in script.get_revision(IDEMPOTENCIA_CAIXA).doc
     sql = _upgrade_sql(f"{TRANSFERENCIA}:{IDEMPOTENCIA_CAIXA}")

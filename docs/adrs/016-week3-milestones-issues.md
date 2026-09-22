@@ -207,6 +207,36 @@
 
 **Acceptance**: Review queue visible; resolution creates correct aposta or discards; events logged
 
+#### Decision note - implementation of issue #29 (2026-09-21)
+
+The API keeps the intent of the issue, with the following choices made against the schema that
+actually exists:
+
+- Materialization already creates the `Aposta` before opening `revisao_pendente`. `CORRIGIR`
+  therefore updates and confirms that projection; it does not create a second bet. It clears
+  `revisao_motivo`/`revisao_grave` through the append-only event history. `DESCARTAR` also clears
+  those flags and soft-deletes the existing projection with `selecionada=false`; neither action
+  physically deletes the bet or its history.
+- A pending review is linked to its bet by `extracao_bruta.aposta_chave`. Legacy or damaged rows
+  without a matching bet answer `409` and remain open instead of creating an incomplete financial
+  record.
+- Each successful action writes one `REVISAO_RESOLVIDA` audit event in the same transaction as the
+  bet projection and `resolvido_em`. Migration 007 adds that value to `ck_eventos_tipo`; correction
+  and soft-delete events remain the source of truth for replaying the bet itself. Its downgrade
+  keeps this audit value accepted because removing it after first use would either fail or destroy
+  history; the older projector already ignores audit-only event types safely.
+- Photos still live in PostgreSQL (`midia_arquivos`) and there is no S3 client or bucket before
+  issue #41. Until then, `foto_url` points to the authenticated local route
+  `GET /api/v1/revisao/{id}/foto`. The route authorizes the review by user and RLS before returning
+  the bytes, and does not expose a public URL or a lookup by arbitrary media hash. S3 pre-signed
+  URLs can replace this adapter when the storage infrastructure exists.
+- Queue reads use the replica; resolution uses the primary, an advisory lock shared with the bet
+  materializer, a row lock on the review, and one transaction. The normal read-after-write window
+  sends the same user's immediate follow-up reads to the primary.
+- A materialized bet without its creation event is treated as damaged (`409`) instead of being
+  rewritten from defaults. Cashout is also refused in this correction shape because it needs the
+  actual amount paid; it remains available through the dedicated result endpoint.
+
 ---
 
 ### Issue 7: Painel Endpoint — Dashboard Aggregates (MV-Backed)
