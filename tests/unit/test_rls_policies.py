@@ -16,6 +16,7 @@ TOKEN_LOOKUP = "3c1f0a9d7b21"
 UPLOADS = "8f1c4a2b9d33"
 SELECIONADA = "9c2d5e7f1a08"
 TRANSFERENCIA = "a4e7d2c9f103"
+IDEMPOTENCIA_CAIXA = "c7b1e9a42d60"
 REVISAO_RESOLVIDA = "f2a9c4e7b106"
 PAINEL = "d3f6a8c1e209"
 USUARIO_ATUAL = "NULLIF(current_setting('app.current_user_id', true), '')::bigint"
@@ -37,6 +38,7 @@ POR_USUARIO_UPLOAD = {
     "upload_bilhetes",
     "upload_arquivos",
 }
+POR_USUARIO_IDEMPOTENCIA = {"movimento_requisicoes"}
 COMPARTILHADAS = {
     "midia_arquivos",
     "casas",
@@ -91,11 +93,10 @@ def test_rls_revision_follows_the_baseline() -> None:
 
 
 def test_protected_and_shared_tables_cover_the_whole_schema() -> None:
-    assert POR_USUARIO | POR_USUARIO_UPLOAD | COMPARTILHADAS | {"usuarios"} == set(
-        Base.metadata.tables
-    )
-    assert not (POR_USUARIO | POR_USUARIO_UPLOAD) & COMPARTILHADAS
-    for tabela in POR_USUARIO | POR_USUARIO_UPLOAD:
+    protegidas = POR_USUARIO | POR_USUARIO_UPLOAD | POR_USUARIO_IDEMPOTENCIA
+    assert protegidas | COMPARTILHADAS | {"usuarios"} == set(Base.metadata.tables)
+    assert not protegidas & COMPARTILHADAS
+    for tabela in protegidas:
         assert "usuario_id" in Base.metadata.tables[tabela].c
     for tabela in COMPARTILHADAS:
         assert "usuario_id" not in Base.metadata.tables[tabela].c
@@ -179,16 +180,36 @@ def test_the_deleted_flag_revision_follows_the_uploads() -> None:
     assert "005_aposta_selecionada" in script.get_revision(SELECIONADA).doc
 
 
-def test_the_transfer_review_and_panel_revisions_keep_the_chain_and_panel_is_head() -> None:
+def test_the_transfer_idempotency_review_and_panel_revisions_keep_one_chain() -> None:
     script = ScriptDirectory.from_config(_config())
 
     assert script.get_current_head() == PAINEL
     assert script.get_revision(TRANSFERENCIA).down_revision == SELECIONADA
     assert "006_movimento_transferencia" in script.get_revision(TRANSFERENCIA).doc
-    assert script.get_revision(REVISAO_RESOLVIDA).down_revision == TRANSFERENCIA
-    assert "007_revisao_resolvida_evento" in script.get_revision(REVISAO_RESOLVIDA).doc
+    assert script.get_revision(IDEMPOTENCIA_CAIXA).down_revision == TRANSFERENCIA
+    assert "007_caixa_idempotencia" in script.get_revision(IDEMPOTENCIA_CAIXA).doc
+    assert script.get_revision(REVISAO_RESOLVIDA).down_revision == IDEMPOTENCIA_CAIXA
+    assert "008_revisao_resolvida_evento" in script.get_revision(REVISAO_RESOLVIDA).doc
     assert script.get_revision(PAINEL).down_revision == REVISAO_RESOLVIDA
-    assert "008_painel_materialized_views" in script.get_revision(PAINEL).doc
+    assert "009_painel_materialized_views" in script.get_revision(PAINEL).doc
+
+
+def test_cash_idempotency_follows_the_transfer_and_protects_its_table() -> None:
+    script = ScriptDirectory.from_config(_config())
+
+    assert script.get_revision(IDEMPOTENCIA_CAIXA).down_revision == TRANSFERENCIA
+    assert "007_caixa_idempotencia" in script.get_revision(IDEMPOTENCIA_CAIXA).doc
+    sql = _upgrade_sql(f"{TRANSFERENCIA}:{IDEMPOTENCIA_CAIXA}")
+    tabela = "movimento_requisicoes"
+    assert f"ALTER TABLE {tabela} ENABLE ROW LEVEL SECURITY" in sql
+    assert f"ALTER TABLE {tabela} FORCE ROW LEVEL SECURITY" in sql
+    assert _policy(tabela) in sql
+    assert "UNIQUE (usuario_id, chave_idempotencia)" in sql
+
+    downgrade = _downgrade_sql(f"{IDEMPOTENCIA_CAIXA}:{TRANSFERENCIA}")
+    assert f"DROP POLICY {tabela}_por_usuario ON {tabela}" in downgrade
+    assert f"ALTER TABLE {tabela} DISABLE ROW LEVEL SECURITY" in downgrade
+    assert f"DROP TABLE {tabela}" in downgrade
 
 
 def test_every_upload_table_is_protected_by_user() -> None:

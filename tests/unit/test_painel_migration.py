@@ -57,13 +57,13 @@ def _downgrade_sql() -> str:
     return buffer.getvalue()
 
 
-def test_revision_008_is_the_head_after_pending_review() -> None:
+def test_revision_009_is_the_head_after_pending_review() -> None:
     script = ScriptDirectory.from_config(_config())
     painel = script.get_revision(PAINEL)
 
     assert script.get_current_head() == PAINEL
     assert painel.down_revision == PREVIOUS
-    assert "008_painel_materialized_views" in painel.doc
+    assert "009_painel_materialized_views" in painel.doc
 
 
 def test_private_schema_has_the_six_requested_materialized_views() -> None:
