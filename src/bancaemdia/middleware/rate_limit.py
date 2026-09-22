@@ -6,8 +6,11 @@ from collections.abc import Awaitable, Callable
 from dataclasses import dataclass
 from functools import lru_cache
 from ipaddress import IPv4Network, IPv6Network, ip_address, ip_network
+from threading import Lock
 from typing import Any, cast
+from urllib.parse import urlsplit
 
+import structlog
 from slowapi import Limiter
 from slowapi.errors import RateLimitExceeded
 from starlette.middleware.base import BaseHTTPMiddleware
@@ -15,6 +18,7 @@ from starlette.requests import Request
 from starlette.responses import JSONResponse, Response
 
 from bancaemdia.config import get_settings
+from bancaemdia.observability.metrics import rate_limiter_fallback_total
 
 COLETA_TOKEN_HEADER = "X-Coleta-Token"
 RATE_LIMIT_HEADERS = (
@@ -98,10 +102,52 @@ def _coleta_ip_limit() -> str:
     return get_settings().COLETA_IP_RATE_LIMIT
 
 
+class ObservableLimiter(Limiter):
+    """Report each transition from shared storage to the process-local fallback."""
+
+    def __init__(
+        self,
+        *,
+        fallback_policy: str,
+        fallback_backend: str,
+        **kwargs: Any,
+    ) -> None:
+        self._fallback_policy = fallback_policy
+        self._fallback_backend = fallback_backend
+        self._storage_dead_value = False
+        self._fallback_transition_lock = Lock()
+        super().__init__(**kwargs)
+
+    @property
+    def _storage_dead(self) -> bool:
+        return self._storage_dead_value
+
+    @_storage_dead.setter
+    def _storage_dead(self, value: bool) -> None:
+        # SlowAPI writes this flag from both its request-check and header-injection paths. The
+        # lock keeps simultaneous failures from reporting the same transition more than once.
+        with self._fallback_transition_lock:
+            was_dead = self._storage_dead_value
+            self._storage_dead_value = value
+            entered_fallback = value and not was_dead
+        if entered_fallback:
+            rate_limiter_fallback_total.labels(
+                policy=self._fallback_policy,
+                storage_backend=self._fallback_backend,
+            ).inc()
+            structlog.get_logger(__name__).warning(
+                "rate_limiter_fallback",
+                policy=self._fallback_policy,
+                storage_backend=self._fallback_backend,
+                fallback_backend="memory",
+            )
+
+
 def _limiter(
     limit: Callable[[], str], key_func: Callable[[Request], str], namespace: str
 ) -> Limiter:
     settings = get_settings()
+    storage_backend = urlsplit(settings.RATE_LIMIT_STORAGE).scheme or "memory"
     storage_options = cast(
         dict[str, str],
         {
@@ -111,7 +157,9 @@ def _limiter(
         if settings.RATE_LIMIT_STORAGE.lower().startswith(("redis://", "rediss://"))
         else {},
     )
-    return Limiter(
+    return ObservableLimiter(
+        fallback_policy=namespace,
+        fallback_backend=storage_backend,
         key_func=key_func,
         default_limits=[limit],
         headers_enabled=True,
