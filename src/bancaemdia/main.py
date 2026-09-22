@@ -10,8 +10,9 @@ from sqlalchemy import text
 
 from bancaemdia.api.v1 import coleta
 from bancaemdia.auth.middleware import JWTAuthMiddleware
-from bancaemdia.db.session import check_db_health, engine
+from bancaemdia.db.session import check_db_health, engine, replica_engine
 from bancaemdia.middleware.rls import RLSMiddleware
+from bancaemdia.middleware.router import RouterMiddleware
 from bancaemdia.observability.metrics import metrics_registry
 from bancaemdia.resilience.circuit_breaker import breaker_states
 from bancaemdia.workers.celery_app import get_queue_depth_collector
@@ -25,6 +26,7 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
         yield
     finally:
         await engine.dispose()
+        await replica_engine.dispose()
 
 
 app = FastAPI(title="Bancaemdia API")
@@ -33,6 +35,9 @@ app.add_exception_handler(RateLimitExceeded, coleta.limite_estourado)
 app.include_router(coleta.router)
 
 
+# O roteador precisa do usuário que a autenticação põe no pedido: registrado primeiro, ele roda por
+# último, depois da autenticação e do RLS.
+app.add_middleware(RouterMiddleware)
 app.add_middleware(RLSMiddleware)
 # O Starlette roda primeiro o último middleware registrado: a autenticação vem depois do RLS aqui para
 # rodar antes dele. Na ordem inversa a rota responde 200 sem enxergar as linhas do usuário (medido).
