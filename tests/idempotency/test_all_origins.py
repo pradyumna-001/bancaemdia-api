@@ -10,7 +10,8 @@ from uuid import uuid4
 
 import httpx
 import pytest
-from sqlalchemy import func, insert, select
+from sqlalchemy import func, select
+from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.ext.asyncio import AsyncEngine, AsyncSession
 
 from bancaemdia import main, models
@@ -168,6 +169,7 @@ async def test_house_open_settled_and_repeat_keep_one_raw_row(
             session, {**base, "hash_conteudo": "settled", "bruto_json": {"status": "settled"}}
         )
         await session.commit()
+    async with como(engine_app, usuario) as session:
         quantas = await session.scalar(
             select(func.count())
             .select_from(models.ColetaCasa)
@@ -221,6 +223,7 @@ async def test_house_open_settled_replay_materializes_one_bet(
             session, usuario, "betano", casa_id, [liquidada]
         )
         await session.commit()
+    async with como(engine_app, usuario) as session:
         aposta_final = await ApostaRepo().get_by_chave(session, usuario, chave)
         eventos = await EventoRepo().list_by_aposta_chave(session, usuario, chave)
         quantas = await session.scalar(
