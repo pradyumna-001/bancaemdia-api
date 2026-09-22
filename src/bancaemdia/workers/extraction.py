@@ -4,6 +4,7 @@ from datetime import datetime
 
 import anthropic
 import pybreaker
+import redis
 from celery import chain, signals
 from celery.canvas import Signature
 
@@ -25,12 +26,14 @@ from bancaemdia.workers.celery_app import EXTRACTION_QUEUE, app
 
 RETRY_ON = (
     anthropic.APIConnectionError,
+    anthropic.APITimeoutError,
     anthropic.RateLimitError,
     anthropic.InternalServerError,
     anthropic.OverloadedError,
     anthropic.ServiceUnavailableError,
     anthropic.DeadlineExceededError,
     pybreaker.CircuitBreakerError,
+    redis.RedisError,
 )
 
 

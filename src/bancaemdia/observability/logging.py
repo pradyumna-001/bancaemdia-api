@@ -11,6 +11,7 @@ from uuid import UUID, uuid4
 
 import structlog
 from opentelemetry import trace
+from sqlalchemy.exc import InterfaceError, OperationalError
 from starlette.datastructures import URL, MutableHeaders
 from starlette.requests import Request
 from starlette.responses import JSONResponse
@@ -319,5 +320,9 @@ class UnhandledErrorMiddleware:
                 # The connection still needs to abort, but rethrowing the original value lets the
                 # outer OTel middleware export exception messages and stack frames containing PII.
                 raise ResponseStreamAbortedError("response_stream_aborted") from None
-            response = JSONResponse({"detail": "Internal server error"}, status_code=500)
+            unavailable = isinstance(error, (OperationalError, InterfaceError))
+            response = JSONResponse(
+                {"detail": "Service unavailable" if unavailable else "Internal server error"},
+                status_code=503 if unavailable else 500,
+            )
             await response(scope, receive, send)

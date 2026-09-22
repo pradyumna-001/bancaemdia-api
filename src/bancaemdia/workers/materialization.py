@@ -1,4 +1,5 @@
 import asyncio
+import errno
 import re
 from collections.abc import Sequence
 from dataclasses import dataclass, replace
@@ -398,8 +399,13 @@ def materializar_aposta(
             gravadas = asyncio.run(
                 gravar_leitura(get_engine(), usuario_id, extracao, extracao_json, midia_hash)
             )
-        except RETRY_ON:
-            materialization_failures.labels(reason="banco").inc()
+        except RETRY_ON as error:
+            cause = getattr(error, "orig", None)
+            disk_full = isinstance(error, OperationalError) and (
+                getattr(cause, "sqlstate", None) == "53100"
+                or getattr(cause, "errno", None) == errno.ENOSPC
+            )
+            materialization_failures.labels(reason="disk_full" if disk_full else "banco").inc()
             raise
         except Exception:
             materialization_failures.labels(reason="inesperado").inc()
