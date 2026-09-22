@@ -26,6 +26,7 @@ dependencies = [
     "python-jose[cryptography]>=3.3.0",
     "passlib[bcrypt]>=1.7.4",
     "httpx>=0.27.2",
+    "anthropic>=1.5.0",
     "redis>=5.0.8",
     "celery>=5.4.0",
     "pybreaker>=0.8.1",
@@ -122,6 +123,18 @@ module = ["pydantic.*", "sqlalchemy.*"]
 ignore_missing_imports = true
 
 [[tool.mypy.overrides]]
+module = ["celery.*", "kombu.*"]
+ignore_missing_imports = true
+
+[[tool.mypy.overrides]]
+module = ["asyncpg.*"]
+ignore_missing_imports = true
+
+[[tool.mypy.overrides]]
+module = ["bancaemdia.observability.metrics"]
+disallow_untyped_calls = false
+
+[[tool.mypy.overrides]]
 module = ["bancaemdia.config"]
 disallow_any_generics = false
 disallow_subclassing_any = false
@@ -132,7 +145,7 @@ testpaths = ["tests"]
 python_files = ["test_*.py"]
 python_classes = ["Test*"]
 python_functions = ["test_*"]
-addopts = "-n 8 --tb=short -q --strict-markers"
+addopts = "-n 8 --dist loadgroup --tb=short -q --strict-markers"
 markers = [
     "unit: Unit tests (no I/O)",
     "integration: Integration tests (Testcontainers)",

@@ -232,7 +232,7 @@
   - `CASHOUT`: valor informado
 - [ ] `saldo(usuario_id, casa_id, data_corte)` — temporal: only bets >= first movimento of that casa
 - [ ] `unidade_vigente(usuario_id, data)` — `vigente_de <= data < vigente_ate`
-- [ ] `conta_casa_vigente(usuario_id, casa_id, data)` — `desde <= data < ate`
+- [ ] `conta_casa_vigente(usuario_id, casa_id, data)` — `desde <= data <= ate`
 - [ ] ROI denominator: freebet enters by `valor_aposta_centavos` (face value)
 - [ ] `roi` and `roi_sem_bonus` side by side
 
