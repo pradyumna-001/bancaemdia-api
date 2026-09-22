@@ -358,11 +358,11 @@ but they do not drain otherwise healthy API pods during a provider outage or wor
 
 CI tests and builds the image. The [AWS Terraform environments](infra/terraform/README.md)
 define staging and production infrastructure with a guarded plan/apply workflow; no AWS
-resources have been applied by this repository yet. Application deployment and migrations
-still need issue #42's `.github/workflows/cd.yml`. Use the
-[operations runbook index](docs/RUNBOOKS.md) for prerequisites, staged deployment,
-rollback, migration, incident response, and scaling. The future CD workflow must implement
-the documented `sha` and `environment` inputs before those commands become executable.
+resources have been applied by this repository yet. Application deployment uses the
+[CD workflow](.github/workflows/cd.yml); Alembic migrations follow a separately reviewed
+procedure. Use the [operations runbook index](docs/RUNBOOKS.md) for prerequisites, staged deployment,
+rollback, migration, incident response, and scaling. Configure AWS OIDC roles, GitHub
+environments, and runtime secrets before enabling the pipeline or dispatching a release.
 
 ---
 
