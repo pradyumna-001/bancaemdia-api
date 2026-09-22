@@ -1,0 +1,165 @@
+name: Terraform infrastructure
+
+on:
+  pull_request:
+    paths:
+      - infra/terraform/**
+      - .github/workflows/terraform.yml
+  push:
+    branches: [main]
+    tags: ['v*']
+    paths:
+      - infra/terraform/**
+      - .github/workflows/terraform.yml
+
+permissions:
+  contents: read
+  id-token: write
+  pull-requests: write
+
+concurrency:
+  group: terraform-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: 1.14.9
+      - run: terraform fmt -check -recursive infra/terraform
+      - name: Validate staging
+        run: |
+          terraform -chdir=infra/terraform/environments/staging init -backend=false -input=false
+          terraform -chdir=infra/terraform/environments/staging validate
+          terraform -chdir=infra/terraform/environments/staging test
+      - name: Validate production
+        run: |
+          terraform -chdir=infra/terraform/environments/production init -backend=false -input=false
+          terraform -chdir=infra/terraform/environments/production validate
+      - name: Validate backend bootstrap and module invariants
+        run: |
+          terraform -chdir=infra/terraform/bootstrap init -backend=false -input=false
+          terraform -chdir=infra/terraform/bootstrap validate
+          terraform -chdir=infra/terraform/modules/vpc init -backend=false -input=false
+          terraform -chdir=infra/terraform/modules/vpc test
+          terraform -chdir=infra/terraform/modules/elasticache init -backend=false -input=false
+          terraform -chdir=infra/terraform/modules/elasticache test
+
+  plan-staging:
+    if: >-
+      github.event_name == 'pull_request' &&
+      github.event.pull_request.head.repo.full_name == github.repository &&
+      vars.TF_STAGING_ROLE_ARN != '' && vars.TF_STATE_BUCKET != ''
+    needs: validate
+    runs-on: ubuntu-latest
+    environment: staging
+    env:
+      TF_VAR_region: ${{ vars.TF_REGION }}
+      TF_VAR_dr_region: ${{ vars.TF_DR_REGION }}
+      TF_VAR_api_domain: ${{ vars.TF_STAGING_API_DOMAIN }}
+      TF_VAR_route53_zone_id: ${{ vars.TF_ROUTE53_ZONE_ID }}
+      TF_VAR_image_uri: ${{ vars.TF_STAGING_IMAGE_URI }}
+      TF_VAR_deploy_enabled: ${{ vars.TF_STAGING_DEPLOY_ENABLED || 'false' }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: 1.14.9
+          terraform_wrapper: false
+      - uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ vars.TF_STAGING_ROLE_ARN }}
+          aws-region: ${{ vars.TF_REGION }}
+      - name: Plan staging
+        shell: bash
+        env:
+          STATE_BUCKET: ${{ vars.TF_STATE_BUCKET }}
+        run: |
+          set -euo pipefail
+          cd infra/terraform/environments/staging
+          terraform init -input=false -backend-config="bucket=$STATE_BUCKET" -backend-config="key=staging/terraform.tfstate" -backend-config="region=$TF_VAR_region" -backend-config="encrypt=true" -backend-config="use_lockfile=true"
+          terraform plan -input=false -out=plan.tfplan
+          terraform show -json plan.tfplan | jq -r '.resource_changes[]? | "\(.address): \(.change.actions | join(","))"' > "$RUNNER_TEMP/plan-summary.txt"
+      - name: Comment reviewed plan summary
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          {
+            echo '### Terraform staging plan'
+            echo 'Resource actions (values and secrets omitted):'
+            echo '```'
+            head -n 100 "$RUNNER_TEMP/plan-summary.txt"
+            echo '```'
+            echo "[Full plan run]($GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID)"
+          } > "$RUNNER_TEMP/plan-comment.md"
+          gh pr comment "${{ github.event.pull_request.number }}" --body-file "$RUNNER_TEMP/plan-comment.md"
+
+  apply-staging:
+    if: >-
+      github.event_name == 'push' && github.ref == 'refs/heads/main' &&
+      vars.TF_APPLY_ENABLED == 'true'
+    needs: validate
+    runs-on: ubuntu-latest
+    environment: staging
+    env:
+      TF_VAR_region: ${{ vars.TF_REGION }}
+      TF_VAR_dr_region: ${{ vars.TF_DR_REGION }}
+      TF_VAR_api_domain: ${{ vars.TF_STAGING_API_DOMAIN }}
+      TF_VAR_route53_zone_id: ${{ vars.TF_ROUTE53_ZONE_ID }}
+      TF_VAR_image_uri: ${{ vars.TF_STAGING_IMAGE_URI }}
+      TF_VAR_deploy_enabled: ${{ vars.TF_STAGING_DEPLOY_ENABLED || 'false' }}
+      STATE_BUCKET: ${{ vars.TF_STATE_BUCKET }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: 1.14.9
+      - uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ vars.TF_STAGING_ROLE_ARN }}
+          aws-region: ${{ vars.TF_REGION }}
+      - name: Apply reviewed staging configuration
+        run: |
+          terraform -chdir=infra/terraform/environments/staging init -input=false -backend-config="bucket=$STATE_BUCKET" -backend-config="key=staging/terraform.tfstate" -backend-config="region=$TF_VAR_region" -backend-config="encrypt=true" -backend-config="use_lockfile=true"
+          terraform -chdir=infra/terraform/environments/staging apply -input=false -auto-approve
+
+  apply-production:
+    if: >-
+      github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v') &&
+      vars.TF_APPLY_ENABLED == 'true'
+    needs: validate
+    runs-on: ubuntu-latest
+    environment: production
+    env:
+      TF_VAR_region: ${{ vars.TF_REGION }}
+      TF_VAR_dr_region: ${{ vars.TF_DR_REGION }}
+      TF_VAR_api_domain: ${{ vars.TF_PRODUCTION_API_DOMAIN }}
+      TF_VAR_route53_zone_id: ${{ vars.TF_ROUTE53_ZONE_ID }}
+      TF_VAR_image_uri: ${{ vars.TF_PRODUCTION_IMAGE_URI }}
+      TF_VAR_deploy_enabled: ${{ vars.TF_PRODUCTION_DEPLOY_ENABLED || 'false' }}
+      STATE_BUCKET: ${{ vars.TF_STATE_BUCKET }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Require release tag on main
+        shell: bash
+        run: |
+          git fetch origin main
+          git merge-base --is-ancestor "$GITHUB_SHA" origin/main
+      - uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: 1.14.9
+      - uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ vars.TF_PRODUCTION_ROLE_ARN }}
+          aws-region: ${{ vars.TF_REGION }}
+      - name: Apply production configuration
+        run: |
+          terraform -chdir=infra/terraform/environments/production init -input=false -backend-config="bucket=$STATE_BUCKET" -backend-config="key=production/terraform.tfstate" -backend-config="region=$TF_VAR_region" -backend-config="encrypt=true" -backend-config="use_lockfile=true"
+          terraform -chdir=infra/terraform/environments/production apply -input=false -auto-approve

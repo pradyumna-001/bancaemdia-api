@@ -1,0 +1,9 @@
+output "api_url" { value = module.stack.api_url }
+output "ecs_cluster_name" { value = module.stack.ecs_cluster_name }
+output "ecs_service_names" { value = module.stack.ecs_service_names }
+output "rds_primary_endpoint" { value = module.stack.rds_primary_endpoint }
+output "rds_read_endpoint" { value = module.stack.rds_read_endpoint }
+output "rds_dr_identifier" { value = module.stack.rds_dr_identifier }
+output "bucket_names" { value = module.stack.bucket_names }
+output "ecr_repository_url" { value = module.stack.ecr_repository_url }
+output "runtime_secret_arns" { value = module.stack.runtime_secret_arns }

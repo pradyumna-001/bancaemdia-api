@@ -1,0 +1,16 @@
+variable "name" { type = string }
+variable "environment" { type = string }
+variable "region" { type = string }
+variable "private_subnet_ids" { type = list(string) }
+variable "private_cidrs" { type = list(string) }
+variable "security_group_id" { type = string }
+variable "api_target_group_arn" { type = string }
+variable "api_hostname" { type = string }
+variable "image_uri" { type = string }
+variable "deploy_enabled" { type = bool }
+variable "redis_endpoint" { type = string }
+variable "jwt_audience" { type = string }
+variable "jwt_issuer" { type = string }
+variable "secret_arns" { type = map(string) }
+variable "log_group_names" { type = map(string) }
+variable "tags" { type = map(string) }
