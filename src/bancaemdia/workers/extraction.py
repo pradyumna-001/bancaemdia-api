@@ -19,6 +19,7 @@ from bancaemdia.extracao.cliente import (
 from bancaemdia.extracao.escada import Leitor
 from bancaemdia.extracao.rodada import ler_mensagem
 from bancaemdia.observability.metrics import anthropic_cost, batch_bets_processed, observe_stage
+from bancaemdia.observability.tracing import custom_span
 from bancaemdia.rate_limit.anthropic_limiter import AnthropicLimiter, get_limiter
 from bancaemdia.workers.celery_app import EXTRACTION_QUEUE, app
 
@@ -34,10 +35,20 @@ RETRY_ON = (
 
 
 class LeitorLimitado:
-    def __init__(self, leitor: Leitor, limiter: AnthropicLimiter, usuario_id: int) -> None:
+    def __init__(
+        self,
+        leitor: Leitor,
+        limiter: AnthropicLimiter,
+        usuario_id: int,
+        *,
+        chat_id: int | None = None,
+        message_id: int | None = None,
+    ) -> None:
         self.leitor = leitor
         self.limiter = limiter
         self.usuario_id = usuario_id
+        self.chat_id = chat_id
+        self.message_id = message_id
         self.modelo_escalonamento = leitor.modelo_escalonamento
 
     def ler(
@@ -51,10 +62,22 @@ class LeitorLimitado:
     ) -> Leitura:
         self.limiter.acquire(self.usuario_id)
         custo = anthropic_cost.labels(usuario_id=str(self.usuario_id))
+        modelo = (
+            self.modelo_escalonamento
+            if escalonar
+            else str(getattr(self.leitor, "modelo", "unknown"))
+        )
         try:
-            leitura = self.leitor.ler(
-                imagem, tipo, legenda=legenda, postada_em=postada_em, escalonar=escalonar
-            )
+            with custom_span(
+                "extraction.chamar_anthropic",
+                model=modelo,
+                versao_prompt=VERSAO_PROMPT,
+                chat_id=self.chat_id,
+                message_id=self.message_id,
+            ):
+                leitura = self.leitor.ler(
+                    imagem, tipo, legenda=legenda, postada_em=postada_em, escalonar=escalonar
+                )
         except LeituraFalhouError as erro:
             # Resposta cortada, recusa ou JSON incompleto também foram cobrados.
             custo.inc(erro.custo_usd)
@@ -76,7 +99,13 @@ def extrair_bilhete(
 ) -> dict[str, object]:
     with observe_stage(EXTRACTION_QUEUE):
         leitura = ler_mensagem(
-            LeitorLimitado(get_leitor(), get_limiter(), usuario_id),
+            LeitorLimitado(
+                get_leitor(),
+                get_limiter(),
+                usuario_id,
+                chat_id=chat_id,
+                message_id=message_id,
+            ),
             base64.b64decode(imagem_base64),
             tipo_da_imagem(nome_do_arquivo),
             legenda=legenda,

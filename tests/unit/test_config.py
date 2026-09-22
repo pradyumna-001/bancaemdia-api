@@ -89,6 +89,26 @@ class TestWorkerMetricsPort:
         assert s.WORKER_METRICS_PORT == 9808
 
 
+class TestReadinessDefaults:
+    def test_timeout_and_queue_limit_are_bounded(self, monkeypatch):
+        monkeypatch.delenv("READINESS_CHECK_TIMEOUT_SECONDS", raising=False)
+        monkeypatch.delenv("CELERY_QUEUE_DEPTH_LIMIT", raising=False)
+        s = Settings(_env_file=None)
+
+        assert s.READINESS_CHECK_TIMEOUT_SECONDS == pytest.approx(2.0)
+        assert s.CELERY_QUEUE_DEPTH_LIMIT == 1000
+
+    @pytest.mark.parametrize(
+        ("name", "value"),
+        [("READINESS_CHECK_TIMEOUT_SECONDS", "0"), ("CELERY_QUEUE_DEPTH_LIMIT", "0")],
+    )
+    def test_nonpositive_values_are_rejected(self, monkeypatch, name, value):
+        monkeypatch.setenv(name, value)
+
+        with pytest.raises(ValidationError):
+            Settings(_env_file=None)
+
+
 class TestJwtExpiryMinutes:
     def test_defaults_to_an_hour(self, monkeypatch):
         monkeypatch.delenv("JWT_EXPIRY_MINUTES", raising=False)

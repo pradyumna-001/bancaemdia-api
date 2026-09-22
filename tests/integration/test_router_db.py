@@ -32,6 +32,7 @@ from bancaemdia.config import get_settings
 from bancaemdia.db import session as db_session
 from bancaemdia.db.session import get_db
 from bancaemdia.middleware import router
+from bancaemdia.observability import logging as observability_logging
 from bancaemdia.repositories.aposta_repo import ApostaRepo
 from bancaemdia.repositories.usuario_repo import UsuarioRepo
 
@@ -233,11 +234,24 @@ def test_a_read_that_writes_is_refused_by_the_database(banco, chave, monkeypatch
     privada, _ = chave
     ana, _ = asyncio.run(_usuario_com_aposta(banco.url_app))
     cliente, _ = _cliente(monkeypatch, chave, banco.url_app, banco.url_app)
+    events = []
 
-    with pytest.raises(DBAPIError) as erro:
-        cliente.get("/api/v1/teste/escreve", headers=_cabecalho(privada, ana))
+    class Recorder:
+        def error(self, event, **values):
+            events.append((event, values))
 
-    assert erro.value.orig.sqlstate == "25006"
+    monkeypatch.setattr(
+        observability_logging.structlog, "get_logger", lambda *args, **kwargs: Recorder()
+    )
+
+    response = cliente.get("/api/v1/teste/escreve", headers=_cabecalho(privada, ana))
+
+    assert response.status_code == 500
+    assert response.json() == {"detail": "Internal server error"}
+    assert events[-1] == (
+        "unhandled_request_error",
+        {"error_type": DBAPIError.__name__, "error_code": "25006"},
+    )
 
 
 def test_lag_is_unknown_on_a_server_that_is_not_a_standby(banco) -> None:

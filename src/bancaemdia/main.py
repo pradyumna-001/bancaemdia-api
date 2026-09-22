@@ -1,7 +1,7 @@
 from collections.abc import AsyncGenerator
 from contextlib import asynccontextmanager
 
-from fastapi import FastAPI, status
+from fastapi import FastAPI
 from fastapi.concurrency import run_in_threadpool
 from fastapi.responses import JSONResponse, Response
 from prometheus_client import CONTENT_TYPE_LATEST, generate_latest
@@ -12,12 +12,23 @@ from starlette.middleware.body_limit import RequestBodyLimitMiddleware
 from bancaemdia.api.v1 import apostas, caixa, coleta, painel, revisao, upload
 from bancaemdia.auth.middleware import JWTAuthMiddleware
 from bancaemdia.config import get_settings
-from bancaemdia.db.session import check_db_health, engine, replica_engine
+from bancaemdia.db.session import engine, replica_engine
 from bancaemdia.middleware.rls import RLSMiddleware
 from bancaemdia.middleware.router import RouterMiddleware
-from bancaemdia.observability.metrics import metrics_registry
+from bancaemdia.observability.health import get_readiness_checker, liveness
+from bancaemdia.observability.logging import (
+    RequestIdMiddleware,
+    UnhandledErrorMiddleware,
+    UserLogContextMiddleware,
+    configure_logging,
+)
+from bancaemdia.observability.metrics import instrument_http_metrics, metrics_registry
+from bancaemdia.observability.tracing import configure_tracing
 from bancaemdia.resilience.circuit_breaker import breaker_states
 from bancaemdia.workers.celery_app import get_queue_depth_collector
+
+settings = get_settings()
+configure_logging(settings.LOG_LEVEL)
 
 
 @asynccontextmanager
@@ -52,21 +63,36 @@ app.add_middleware(
 # último, depois da autenticação e do RLS.
 app.add_middleware(RouterMiddleware)
 app.add_middleware(RLSMiddleware)
+# A autenticação roda antes deste middleware; assim os logs do restante do pedido recebem o usuário,
+# enquanto um 401 ainda conserva só o request_id e nunca atribui uma identidade não validada.
+app.add_middleware(UserLogContextMiddleware)
 # O Starlette roda primeiro o último middleware registrado: a autenticação vem depois do RLS aqui para
 # rodar antes dele. Na ordem inversa a rota responde 200 sem enxergar as linhas do usuário (medido).
 app.add_middleware(JWTAuthMiddleware)
 
+# Métricas entram depois dos middlewares de domínio, e o request_id por último: entre os middlewares
+# da aplicação, o último registrado é o primeiro a rodar e envolve autenticação e métricas. O OTel
+# instala por fora sua própria camada ao construir a pilha, deixando o span ativo para todos eles.
+instrument_http_metrics(app)
+app.add_middleware(UnhandledErrorMiddleware)
+app.add_middleware(RequestIdMiddleware)
+configure_tracing(
+    app=app,
+    engines=(engine, replica_engine),
+    environment=settings.APP_ENV,
+    otlp_endpoint=settings.OTEL_EXPORTER_OTLP_ENDPOINT,
+)
+
 
 @app.get("/health")
 async def health() -> JSONResponse:
-    db_ok = await check_db_health()
-    circuit_breakers = await run_in_threadpool(breaker_states)
-    if db_ok:
-        return JSONResponse({"status": "ok", "db": "ok", "circuit_breakers": circuit_breakers})
-    return JSONResponse(
-        {"status": "degraded", "db": "unreachable", "circuit_breakers": circuit_breakers},
-        status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-    )
+    return JSONResponse(liveness())
+
+
+@app.get("/ready")
+async def ready() -> JSONResponse:
+    report = await get_readiness_checker().check()
+    return JSONResponse(report.as_dict(), status_code=report.status_code)
 
 
 @app.get("/metrics")

@@ -28,6 +28,7 @@ from bancaemdia.domain.upload import (
     bilhetes_do_export,
     estimar,
 )
+from bancaemdia.observability.tracing import custom_span, set_custom_span_attributes
 from bancaemdia.repositories.upload_repo import UploadArquivoRepo, UploadBilheteRepo, UploadRepo
 from bancaemdia.workers.celery_app import app as celery
 from bancaemdia.workers.materialization import FUSO_DO_BRASIL
@@ -65,9 +66,11 @@ def _inicio_do_dia() -> datetime:
 
 
 def _abrir(conteudo: bytes, nome: str) -> tuple[int, list[BilheteDoExport], int]:
-    with ExportTelegram(io.BytesIO(conteudo), nome) as export:
-        mensagens = sum(1 for _ in export.mensagens())
-        return export.chat_id, bilhetes_do_export(export), mensagens
+    with custom_span("upload.parse", file_size=len(conteudo)) as span:
+        with ExportTelegram(io.BytesIO(conteudo), nome) as export:
+            mensagens = sum(1 for _ in export.mensagens())
+            set_custom_span_attributes(span, "upload.parse", message_count=mensagens)
+            return export.chat_id, bilhetes_do_export(export), mensagens
 
 
 def _chats_pedidos(valores: list[str]) -> list[int] | None:

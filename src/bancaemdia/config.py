@@ -82,6 +82,12 @@ class Settings(BaseSettings):
     OTEL_EXPORTER_OTLP_ENDPOINT: str | None = Field(
         default=None, description="OpenTelemetry collector endpoint"
     )
+    READINESS_CHECK_TIMEOUT_SECONDS: float = Field(
+        default=2.0, gt=0, description="Timeout for each external readiness dependency"
+    )
+    CELERY_QUEUE_DEPTH_LIMIT: int = Field(
+        default=1000, gt=0, description="Largest total queued task count considered ready"
+    )
     RATE_LIMIT_STORAGE: str = Field(default="memory://", description="Rate-limit backend URL")
     STATEMENT_TIMEOUT_PRIMARY: int = Field(
         default=5000, description="Query timeout in ms for primary DB"

@@ -41,12 +41,14 @@ from bancaemdia.domain.registros import ColetaCasa
 from bancaemdia.domain.temporal import VALOR_UNIDADE_PADRAO_CENTAVOS
 from bancaemdia.extracao.modelos import ExtracaoBilhete
 from bancaemdia.observability.metrics import (
+    apostas_created_total,
     batch_bets_processed,
     materialization_duration,
     materialization_failures,
     observe_stage,
     revisao_pendente_created,
 )
+from bancaemdia.observability.tracing import custom_span
 from bancaemdia.repositories.aposta_repo import ApostaRepo
 from bancaemdia.repositories.casa_repo import CasaRepo
 from bancaemdia.repositories.coleta_casa_repo import ColetaCasaRepo
@@ -128,6 +130,7 @@ class Gravada:
     eventos: int
     revisao: str | None
     revisao_grave: bool
+    estado: str
 
 
 def motivo_da_metrica(motivo: str) -> str:
@@ -265,7 +268,8 @@ async def _gravar(
         conta_casa_id = None if conta is None else conta.id
     if conta_casa_id is not None or criada or any("casa" in e.payload for e in novos):
         dados["conta_casa_id"] = conta_casa_id
-    aposta = await ApostaRepo().upsert_materializada(session, dados)
+    with custom_span("materializacao.upsert", origem=nova.origem, usuario_id=usuario_id):
+        aposta = await ApostaRepo().upsert_materializada(session, dados)
     if aposta is None:
         raise GravacaoConcorrenteError(f"outra gravação mais nova de {nova.chave} chegou antes")
 
@@ -280,7 +284,13 @@ async def _gravar(
         {"aposta_chave": nova.chave, "extracao": extracao_json},
     )
     return Gravada(
-        nova.chave, nova.origem, criada, len(novos), revisao, bool(estado.get("revisao_grave"))
+        nova.chave,
+        nova.origem,
+        criada,
+        len(novos),
+        revisao,
+        bool(estado.get("revisao_grave")),
+        str(estado.get("estado") or "PENDENTE"),
     )
 
 
@@ -351,6 +361,8 @@ async def gravar_leitura(
             async with session.begin():
                 gravada = await _gravar(session, usuario_id, nova, extracao_json, midia_hash)
             gravadas.append(gravada)
+            if gravada.criada:
+                apostas_created_total.labels(origem=gravada.origem, estado=gravada.estado).inc()
             if gravada.revisao is not None:
                 revisao_pendente_created.labels(reason=motivo_da_metrica(gravada.revisao)).inc()
             if gravada.criada:
@@ -488,7 +500,9 @@ async def _gravar_coletada(
             session, usuario_id, nome_da_casa, data_aposta
         )
         dados["conta_casa_id"] = None if conta is None else conta.id
-    if await ApostaRepo().upsert_materializada(session, dados) is None:
+    with custom_span("materializacao.upsert", origem="casa", usuario_id=usuario_id):
+        aposta = await ApostaRepo().upsert_materializada(session, dados)
+    if aposta is None:
         raise GravacaoConcorrenteError(f"outra gravação mais nova de {chave} chegou antes")
 
     revisao = await _revisar(
@@ -501,7 +515,15 @@ async def _gravar_coletada(
         None,
         {"aposta_chave": chave, "coleta_id": coleta_da_revisao},
     )
-    return Gravada(chave, "casa", criada, len(novos), revisao, bool(estado.get("revisao_grave")))
+    return Gravada(
+        chave,
+        "casa",
+        criada,
+        len(novos),
+        revisao,
+        bool(estado.get("revisao_grave")),
+        str(estado.get("estado") or "PENDENTE"),
+    )
 
 
 async def gravar_coletas(
@@ -546,6 +568,7 @@ async def gravar_coletas(
         if gravada.revisao is not None:
             revisao_pendente_created.labels(reason=motivo_da_metrica(gravada.revisao)).inc()
         if gravada.criada:
+            apostas_created_total.labels(origem=gravada.origem, estado=gravada.estado).inc()
             get_event_bus().publish(
                 ApostaCriada(usuario_id, gravada.chave, "casa", gravada.revisao_grave)
             )

@@ -30,6 +30,7 @@ from bancaemdia.domain.coleta_casa import (
 from bancaemdia.domain.materializar import casa_canonica
 from bancaemdia.domain.temporal import VALOR_UNIDADE_PADRAO_CENTAVOS
 from bancaemdia.observability.metrics import coleta_dedup, coleta_received
+from bancaemdia.observability.tracing import custom_span
 from bancaemdia.repositories.aposta_repo import ApostaRepo
 from bancaemdia.repositories.casa_repo import CasaRepo
 from bancaemdia.repositories.coleta_casa_repo import ColetaCasaRepo
@@ -259,8 +260,9 @@ async def receber_coleta(request: Request, session: AsyncSession = Depends(get_d
             f"não conheço a casa {casa!r} — confira o nome que a extensão mandou",
         )
 
-    resultado, fila = await registrar(session, usuario_id, casa, casa_id, apostas)
-    await session.commit()
+    with custom_span("coleta.casa", casa=casa, quantidade=len(apostas), usuario_id=usuario_id):
+        resultado, fila = await registrar(session, usuario_id, casa, casa_id, apostas)
+        await session.commit()
     try:
         await run_in_threadpool(_enfileirar, usuario_id, fila)
     except OperationalError:
