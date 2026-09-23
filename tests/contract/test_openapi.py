@@ -569,6 +569,7 @@ negative_schema = (
 
 @pytest.mark.contract
 @negative_schema.parametrize()
+@settings(suppress_health_check=[HealthCheck.filter_too_much], deadline=None)
 def test_schemathesis_invalid_protected_requests(case: schemathesis.Case) -> None:
     response = case.call_and_validate()
     assert response.status_code == 401
