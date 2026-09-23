@@ -9,12 +9,14 @@ from kombu.exceptions import OperationalError
 from prometheus_client import start_http_server
 
 from bancaemdia.config import get_settings
+from bancaemdia.observability.logging import clear_request_context, configure_logging
 from bancaemdia.observability.metrics import (
     MULTIPROC_DIR,
     QueueDepthCollector,
     metrics_registry,
     multiprocess_mode,
 )
+from bancaemdia.observability.tracing import configure_tracing, shutdown_owned_tracing
 
 settings = get_settings()
 
@@ -116,6 +118,37 @@ def start_metrics_server(sender: WorkController, **kwargs: object) -> None:
     start_http_server(port, registry=metrics_registry())
 
 
+def configure_worker_observability(**kwargs: object) -> None:
+    """Initialize exporters after Celery forks and instrument the worker's lazy DB engine."""
+
+    # Import here so each child creates and instruments its own asyncpg engine. Constructing the
+    # engine or BatchSpanProcessor in the parent would leave forked children with inherited state.
+    from bancaemdia.workers.materialization import get_engine
+
+    worker_settings = get_settings()
+    clear_request_context()
+    configure_logging(worker_settings.LOG_LEVEL)
+    configure_tracing(
+        engines=(get_engine(),),
+        service_name="bancaemdia-worker",
+        environment=worker_settings.APP_ENV,
+        otlp_endpoint=worker_settings.OTEL_EXPORTER_OTLP_ENDPOINT,
+    )
+
+
+def configure_worker_logging(**kwargs: object) -> None:
+    """Replace Celery's text handlers after its parent/task loggers are initialized."""
+
+    clear_request_context()
+    configure_logging(get_settings().LOG_LEVEL)
+
+
+def shutdown_worker_observability(**kwargs: object) -> None:
+    """Drain the child process span batch before billiard terminates it."""
+
+    shutdown_owned_tracing()
+
+
 @lru_cache
 def get_queue_depth_collector() -> QueueDepthCollector:
     client = redis.Redis.from_url(
@@ -128,4 +161,8 @@ def get_queue_depth_collector() -> QueueDepthCollector:
 
 signals.worker_init.connect(apply_queue_prefetch)
 signals.worker_init.connect(start_metrics_server)
+signals.after_setup_logger.connect(configure_worker_logging)
+signals.after_setup_task_logger.connect(configure_worker_logging)
+signals.worker_process_init.connect(configure_worker_observability)
+signals.worker_process_shutdown.connect(shutdown_worker_observability)
 signals.task_failure.connect(send_to_dead_letter)

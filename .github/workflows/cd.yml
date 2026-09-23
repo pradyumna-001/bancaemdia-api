@@ -1,0 +1,311 @@
+name: CD
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+    inputs:
+      sha:
+        description: Full 40-character SHA of an existing, scanned GHCR image
+        required: true
+        type: string
+      environment:
+        description: Deployment destination
+        required: true
+        type: choice
+        options: [staging, production]
+      operation:
+        description: Promote a staged SHA or roll production back to an older SHA
+        required: true
+        type: choice
+        options: [release, rollback]
+
+permissions:
+  contents: read
+  deployments: read
+  packages: write
+  id-token: write
+
+concurrency:
+  group: cd-${{ github.event.inputs.environment || 'staging' }}
+  cancel-in-progress: >-
+    ${{ github.event_name == 'workflow_dispatch' &&
+        github.event.inputs.environment == 'production' &&
+        github.event.inputs.operation == 'rollback' }}
+
+jobs:
+  build:
+    if: github.event_name == 'push'
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build immutable SHA image
+        env:
+          IMAGE: ghcr.io/${{ github.repository }}:${{ github.sha }}
+        run: docker build -t "$IMAGE" .
+      - name: Generate Syft SBOM
+        uses: anchore/sbom-action@v0
+        with:
+          image: ghcr.io/${{ github.repository }}:${{ github.sha }}
+          artifact-name: sbom-${{ github.sha }}.spdx.json
+      - name: Scan image with Grype
+        uses: anchore/scan-action@v7
+        with:
+          image: ghcr.io/${{ github.repository }}:${{ github.sha }}
+          fail-build: true
+          severity-cutoff: critical
+      - name: Push scanned image to GHCR
+        env:
+          IMAGE: ghcr.io/${{ github.repository }}:${{ github.sha }}
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          echo "$GH_TOKEN" | docker login ghcr.io -u "$GITHUB_ACTOR" --password-stdin
+          docker push "$IMAGE"
+
+  staging:
+    if: >-
+      always() && vars.CD_ENABLED == 'true' &&
+      (needs.build.result == 'success' || needs.build.result == 'skipped') &&
+      (github.event_name == 'push' || github.event.inputs.environment == 'staging')
+    needs: [build]
+    # A skipped build is expected for a manual deployment of a previously scanned SHA.
+    runs-on: ubuntu-latest
+    environment: staging
+    timeout-minutes: 25
+    env:
+      RELEASE_SHA: ${{ github.event.inputs.sha || github.sha }}
+      AWS_REGION: ${{ vars.AWS_REGION }}
+      AWS_ROLE_ARN: ${{ vars.CD_AWS_ROLE_ARN }}
+      ECR_REPOSITORY_URL: ${{ vars.CD_ECR_REPOSITORY_URL }}
+      BASE_URL: ${{ vars.STAGING_BASE_URL }}
+      DEPLOY_SMOKE_TOKEN: ${{ secrets.CD_SMOKE_JWT }}
+      SLACK_WEBHOOK_URL: ${{ secrets.CD_SLACK_WEBHOOK_URL }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Check deployment prerequisites
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -n "$AWS_REGION" && test -n "$AWS_ROLE_ARN" && test -n "$ECR_REPOSITORY_URL"
+          test -n "$BASE_URL" && test -n "$DEPLOY_SMOKE_TOKEN" && test -n "$SLACK_WEBHOOK_URL"
+          [[ "$RELEASE_SHA" =~ ^[0-9a-f]{40}$ ]]
+          git merge-base --is-ancestor "$RELEASE_SHA" origin/main
+      - name: Notify deploy started
+        env:
+          DEPLOY_EVENT: deploy started
+        run: python scripts/notify_deploy.py
+      - uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ vars.CD_AWS_ROLE_ARN }}
+          aws-region: ${{ vars.AWS_REGION }}
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: pip install boto3
+      - uses: grafana/setup-k6-action@v1
+        with:
+          k6-version: '1.3.0'
+      - name: Copy scanned image to staging ECR
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          repo="${ECR_REPOSITORY_URL##*/}"
+          if ! aws ecr describe-images --repository-name "$repo" --image-ids imageTag="$RELEASE_SHA" > /dev/null 2>&1; then
+            echo "$GH_TOKEN" | docker login ghcr.io -u "$GITHUB_ACTOR" --password-stdin
+            aws ecr get-login-password | docker login --username AWS --password-stdin "${ECR_REPOSITORY_URL%%/*}"
+            docker pull "ghcr.io/$GITHUB_REPOSITORY:$RELEASE_SHA"
+            docker tag "ghcr.io/$GITHUB_REPOSITORY:$RELEASE_SHA" "$ECR_REPOSITORY_URL:$RELEASE_SHA"
+            docker push "$ECR_REPOSITORY_URL:$RELEASE_SHA"
+          fi
+      - name: Rolling staging deploy and integrity check
+        run: >-
+          python scripts/deploy_ecs.py staging
+          --environment staging --sha "$RELEASE_SHA"
+          --repository-url "$ECR_REPOSITORY_URL"
+          --base-url "$BASE_URL"
+          --cluster bancaemdia-staging-ecs
+      - name: Short authenticated staging load smoke
+        shell: bash
+        run: |
+          set -euo pipefail
+          export JWT_TOKENS_JSON="$(jq -nc --arg token "$DEPLOY_SMOKE_TOKEN" '[$token]')"
+          BASE_URL="$BASE_URL" LOAD_PROFILE=cd-smoke k6 run k6/load-test.js
+      - name: Notify staging ready
+        if: success()
+        env:
+          DEPLOY_EVENT: staging ready
+        run: python scripts/notify_deploy.py
+      - name: Notify automatic rollback
+        if: failure()
+        env:
+          DEPLOY_EVENT: rollback triggered
+        run: python scripts/notify_deploy.py
+
+  production-canary:
+    if: >-
+      vars.CD_ENABLED == 'true' &&
+      github.event_name == 'workflow_dispatch' &&
+      github.event.inputs.environment == 'production' &&
+      github.event.inputs.operation == 'release'
+    needs: [build]
+    runs-on: ubuntu-latest
+    environment: production-canary
+    timeout-minutes: 30
+    env:
+      RELEASE_SHA: ${{ github.event.inputs.sha }}
+      AWS_REGION: ${{ vars.AWS_REGION }}
+      AWS_ROLE_ARN: ${{ vars.CD_AWS_ROLE_ARN }}
+      ECR_REPOSITORY_URL: ${{ vars.CD_ECR_REPOSITORY_URL }}
+      BASE_URL: ${{ vars.PRODUCTION_BASE_URL }}
+      DEPLOY_SMOKE_TOKEN: ${{ secrets.CD_SMOKE_JWT }}
+      SLACK_WEBHOOK_URL: ${{ secrets.CD_SLACK_WEBHOOK_URL }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Check staged image
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -n "$AWS_REGION" && test -n "$AWS_ROLE_ARN" && test -n "$ECR_REPOSITORY_URL"
+          test -n "$BASE_URL" && test -n "$DEPLOY_SMOKE_TOKEN" && test -n "$SLACK_WEBHOOK_URL"
+          [[ "$RELEASE_SHA" =~ ^[0-9a-f]{40}$ ]]
+          git merge-base --is-ancestor "$RELEASE_SHA" origin/main
+      - name: Require successful staging deployment for release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          deployment_id="$(gh api -X GET "repos/$GITHUB_REPOSITORY/deployments?sha=$RELEASE_SHA&environment=staging&per_page=100" | jq -r '.[0].id // empty')"
+          test -n "$deployment_id" || { echo 'No staging deployment for this SHA'; exit 1; }
+          gh api -X GET "repos/$GITHUB_REPOSITORY/deployments/$deployment_id/statuses" | jq -e '.[0].state == "success"'
+      - uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ vars.CD_AWS_ROLE_ARN }}
+          aws-region: ${{ vars.AWS_REGION }}
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: pip install boto3
+      - name: Copy scanned image to production ECR
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          repo="${ECR_REPOSITORY_URL##*/}"
+          if ! aws ecr describe-images --repository-name "$repo" --image-ids imageTag="$RELEASE_SHA" > /dev/null 2>&1; then
+            echo "$GH_TOKEN" | docker login ghcr.io -u "$GITHUB_ACTOR" --password-stdin
+            aws ecr get-login-password | docker login --username AWS --password-stdin "${ECR_REPOSITORY_URL%%/*}"
+            docker pull "ghcr.io/$GITHUB_REPOSITORY:$RELEASE_SHA"
+            docker tag "ghcr.io/$GITHUB_REPOSITORY:$RELEASE_SHA" "$ECR_REPOSITORY_URL:$RELEASE_SHA"
+            docker push "$ECR_REPOSITORY_URL:$RELEASE_SHA"
+          fi
+      - name: Confirm production image matches staged digest
+        shell: bash
+        run: |
+          set -euo pipefail
+          staging_digest="$(aws ecr describe-images --repository-name bancaemdia-staging-api --image-ids imageTag="$RELEASE_SHA" --query 'imageDetails[0].imageDigest' --output text)"
+          production_digest="$(aws ecr describe-images --repository-name "${ECR_REPOSITORY_URL##*/}" --image-ids imageTag="$RELEASE_SHA" --query 'imageDetails[0].imageDigest' --output text)"
+          test "$staging_digest" = "$production_digest" || { echo 'Production image differs from staged image'; exit 1; }
+      - name: Observe 10% canary and restore stable traffic
+        run: >-
+          python scripts/deploy_ecs.py canary
+          --environment production --sha "$RELEASE_SHA"
+          --repository-url "$ECR_REPOSITORY_URL"
+          --base-url "$BASE_URL"
+          --cluster bancaemdia-production-ecs
+          --listener-arn '${{ vars.CD_HTTPS_LISTENER_ARN }}'
+          --stable-target-group '${{ vars.CD_STABLE_TARGET_GROUP_ARN }}'
+          --canary-target-group '${{ vars.CD_CANARY_TARGET_GROUP_ARN }}'
+          --alb-arn-suffix '${{ vars.CD_ALB_ARN_SUFFIX }}'
+      - name: Notify canary failure
+        if: failure()
+        env:
+          DEPLOY_EVENT: rollback triggered
+        run: python scripts/notify_deploy.py
+
+  production:
+    if: >-
+      always() && vars.CD_ENABLED == 'true' &&
+      needs.build.result == 'skipped' &&
+      github.event.inputs.environment == 'production' &&
+      (github.event.inputs.operation == 'rollback' || needs.production-canary.result == 'success')
+    needs: [build, production-canary]
+    runs-on: ubuntu-latest
+    # Rollback bypasses the human promotion gate.
+    environment: ${{ github.event.inputs.operation == 'rollback' && 'production-rollback' || 'production' }}
+    timeout-minutes: 50
+    env:
+      RELEASE_SHA: ${{ github.event.inputs.sha }}
+      AWS_REGION: ${{ vars.AWS_REGION }}
+      AWS_ROLE_ARN: ${{ vars.CD_AWS_ROLE_ARN }}
+      ECR_REPOSITORY_URL: ${{ vars.CD_ECR_REPOSITORY_URL }}
+      BASE_URL: ${{ vars.PRODUCTION_BASE_URL }}
+      DEPLOY_SMOKE_TOKEN: ${{ secrets.CD_SMOKE_JWT }}
+      SLACK_WEBHOOK_URL: ${{ secrets.CD_SLACK_WEBHOOK_URL }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Check requested operation
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -n "$AWS_REGION" && test -n "$AWS_ROLE_ARN" && test -n "$ECR_REPOSITORY_URL"
+          test -n "$BASE_URL" && test -n "$DEPLOY_SMOKE_TOKEN" && test -n "$SLACK_WEBHOOK_URL"
+          [[ "$RELEASE_SHA" =~ ^[0-9a-f]{40}$ ]]
+          git merge-base --is-ancestor "$RELEASE_SHA" origin/main
+      - name: Notify deploy started
+        env:
+          DEPLOY_EVENT: deploy started
+        run: python scripts/notify_deploy.py
+      - uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ vars.CD_AWS_ROLE_ARN }}
+          aws-region: ${{ vars.AWS_REGION }}
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: pip install boto3
+      - name: Copy approved image to production ECR
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          repo="${ECR_REPOSITORY_URL##*/}"
+          if ! aws ecr describe-images --repository-name "$repo" --image-ids imageTag="$RELEASE_SHA" > /dev/null 2>&1; then
+            echo "$GH_TOKEN" | docker login ghcr.io -u "$GITHUB_ACTOR" --password-stdin
+            aws ecr get-login-password | docker login --username AWS --password-stdin "${ECR_REPOSITORY_URL%%/*}"
+            docker pull "ghcr.io/$GITHUB_REPOSITORY:$RELEASE_SHA"
+            docker tag "ghcr.io/$GITHUB_REPOSITORY:$RELEASE_SHA" "$ECR_REPOSITORY_URL:$RELEASE_SHA"
+            docker push "$ECR_REPOSITORY_URL:$RELEASE_SHA"
+          fi
+      - name: Canary, promotion, or immediate rollback
+        run: >-
+          python scripts/deploy_ecs.py '${{ github.event.inputs.operation }}'
+          --environment production --sha "$RELEASE_SHA"
+          --repository-url "$ECR_REPOSITORY_URL"
+          --base-url "$BASE_URL"
+          --cluster bancaemdia-production-ecs
+          --listener-arn '${{ vars.CD_HTTPS_LISTENER_ARN }}'
+          --stable-target-group '${{ vars.CD_STABLE_TARGET_GROUP_ARN }}'
+          --canary-target-group '${{ vars.CD_CANARY_TARGET_GROUP_ARN }}'
+          --alb-arn-suffix '${{ vars.CD_ALB_ARN_SUFFIX }}'
+      - name: Notify canary promoted
+        if: success() && github.event.inputs.operation == 'release'
+        env:
+          DEPLOY_EVENT: canary promoted
+        run: python scripts/notify_deploy.py
+      - name: Notify rollback
+        if: failure() || github.event.inputs.operation == 'rollback'
+        env:
+          DEPLOY_EVENT: rollback triggered
+        run: python scripts/notify_deploy.py

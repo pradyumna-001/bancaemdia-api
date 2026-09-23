@@ -177,21 +177,28 @@ def test_an_encoded_query_or_fragment_does_not_make_a_route_public(
 def test_public_paths_answer_without_a_bearer_token(monkeypatch, chave) -> None:
     _, publica = chave
 
-    class Banco:
+    class Report:
+        status_code = 200
+
+        def as_dict(self):
+            return {"status": "ready", "checks": {}}
+
+    class Readiness:
         async def check(self):
-            return True
+            return Report()
 
     class Filas:
         def collect(self):
             return iter(())
 
-    monkeypatch.setattr(main, "check_db_health", Banco().check)
+    monkeypatch.setattr(main, "get_readiness_checker", Readiness)
     monkeypatch.setattr(main, "breaker_states", lambda: {"anthropic": "closed"})
     monkeypatch.setattr(main, "get_queue_depth_collector", Filas)
     monkeypatch.setattr(coleta.limiter, "enabled", False)
     cliente = _cliente(monkeypatch, _chaves(publica))
 
     assert cliente.get("/health").status_code == 200
+    assert cliente.get("/ready").status_code == 200
     assert cliente.get("/metrics").status_code == 200
     assert cliente.get("/docs").status_code == 200
     for caminho in ("/coleta", "/api/v1/coleta"):

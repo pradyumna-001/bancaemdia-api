@@ -15,6 +15,15 @@ class Usuario:
 
 
 @dataclass(frozen=True)
+class Banca:
+    id: int
+    usuario_id: int
+    nome: str
+    saldo_inicial_centavos: int | None
+    criado_em: datetime
+
+
+@dataclass(frozen=True)
 class ContaCasa:
     id: int
     usuario_id: int
@@ -23,6 +32,7 @@ class ContaCasa:
     desde: datetime | None
     ate: datetime | None
     ativa: bool
+    banca_id: int | None = None
 
 
 @dataclass(frozen=True)
@@ -43,6 +53,37 @@ class Movimento:
     valor_centavos: int
     ocorrido_em: datetime
     descricao: str | None
+    transferencia_id: UUID | None = None
+
+
+@dataclass(frozen=True)
+class MovimentoRequisicao:
+    id: int
+    usuario_id: int
+    chave_idempotencia: str
+    requisicao_hash: str
+    resposta_json: dict[str, Any]
+    criado_em: datetime
+
+
+@dataclass(frozen=True)
+class LinhaExtrato:
+    origem: str
+    id: int
+    conta_casa_id: int | None
+    tipo: str
+    data_referencia: datetime
+    data_referencia_origem: str
+    valor_centavos: int | None
+    transferencia_id: UUID | None
+    ocorrido_em: datetime | None
+    descricao: str | None
+    chave: str | None
+    estado: str | None
+    stake_centavos: int | None
+    retorno_centavos: int | None
+    resultado_liquido_centavos: int | None
+    revisao_grave: bool | None
 
 
 @dataclass(frozen=True)
@@ -75,6 +116,7 @@ class Aposta:
     parceira_chave: str | None
     duplicada_de: str | None
     revisao_grave: bool
+    selecionada: bool
     criada_em: datetime
     atualizada_em: datetime
 
@@ -123,6 +165,20 @@ class RevisaoPendente:
     extracao_bruta: dict[str, Any] | None
     criado_em: datetime
     resolvido_em: datetime | None
+
+
+@dataclass(frozen=True)
+class EstatisticasRevisao:
+    total: int
+    por_motivo: dict[str, int]
+    mais_antiga_em: datetime | None
+    idade_maxima_segundos: int
+
+
+@dataclass(frozen=True)
+class FotoRevisao:
+    conteudo: bytes
+    tipo: str
 
 
 @dataclass(frozen=True)

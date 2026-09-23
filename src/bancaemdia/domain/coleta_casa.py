@@ -25,8 +25,8 @@ class ApostaInvalidaError(ValueError):
 
 @dataclass
 class Resultado:
-    # É a resposta que a extensão já conhece: o painel mostra `em_duvida` e `iguais_a_existentes`,
-    # e o corte por data e o pareador que preenchem esses campos ainda não foram portados.
+    # É a resposta que a extensão já conhece. O pareamento é confirmado na transação de
+    # materialização, após esta resposta de ingestão; estas contagens refletem apenas o recebimento.
     novas_contando: int = 0
     iguais_a_existentes: int = 0
     em_duvida: int = 0

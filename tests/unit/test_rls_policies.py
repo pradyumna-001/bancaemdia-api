@@ -14,6 +14,14 @@ BASELINE = "be7d60cb5437"
 RLS = "faf3ac7240ef"
 TOKEN_LOOKUP = "3c1f0a9d7b21"
 UPLOADS = "8f1c4a2b9d33"
+SELECIONADA = "9c2d5e7f1a08"
+TRANSFERENCIA = "a4e7d2c9f103"
+IDEMPOTENCIA_CAIXA = "c7b1e9a42d60"
+REVISAO_RESOLVIDA = "f2a9c4e7b106"
+PAINEL = "d3f6a8c1e209"
+CAIXA_REVISAO_MERGE = "e5a1c7d9b204"
+PAINEL_CAIXA_MERGE = "f8b2d4a6c901"
+HEAD = "a9d6e3f1c210"
 USUARIO_ATUAL = "NULLIF(current_setting('app.current_user_id', true), '')::bigint"
 JOB_OFERECIDO = "NULLIF(current_setting('app.upload_job_id', true), '')::uuid"
 POR_USUARIO = {
@@ -33,6 +41,7 @@ POR_USUARIO_UPLOAD = {
     "upload_bilhetes",
     "upload_arquivos",
 }
+POR_USUARIO_IDEMPOTENCIA = {"movimento_requisicoes"}
 COMPARTILHADAS = {
     "midia_arquivos",
     "casas",
@@ -87,11 +96,10 @@ def test_rls_revision_follows_the_baseline() -> None:
 
 
 def test_protected_and_shared_tables_cover_the_whole_schema() -> None:
-    assert POR_USUARIO | POR_USUARIO_UPLOAD | COMPARTILHADAS | {"usuarios"} == set(
-        Base.metadata.tables
-    )
-    assert not (POR_USUARIO | POR_USUARIO_UPLOAD) & COMPARTILHADAS
-    for tabela in POR_USUARIO | POR_USUARIO_UPLOAD:
+    protegidas = POR_USUARIO | POR_USUARIO_UPLOAD | POR_USUARIO_IDEMPOTENCIA
+    assert protegidas | COMPARTILHADAS | {"usuarios"} == set(Base.metadata.tables)
+    assert not protegidas & COMPARTILHADAS
+    for tabela in protegidas:
         assert "usuario_id" in Base.metadata.tables[tabela].c
     for tabela in COMPARTILHADAS:
         assert "usuario_id" not in Base.metadata.tables[tabela].c
@@ -161,12 +169,56 @@ def test_token_lookup_follows_the_rls_revision() -> None:
     assert script.get_revision(TOKEN_LOOKUP).down_revision == RLS
 
 
-def test_uploads_revision_follows_the_token_lookup_and_is_the_head() -> None:
+def test_uploads_revision_follows_the_token_lookup() -> None:
     script = ScriptDirectory.from_config(_config())
 
-    assert script.get_current_head() == UPLOADS
     assert script.get_revision(UPLOADS).down_revision == TOKEN_LOOKUP
     assert "004_uploads" in script.get_revision(UPLOADS).doc
+
+
+def test_the_deleted_flag_revision_follows_the_uploads() -> None:
+    script = ScriptDirectory.from_config(_config())
+
+    assert script.get_revision(SELECIONADA).down_revision == UPLOADS
+    assert "005_aposta_selecionada" in script.get_revision(SELECIONADA).doc
+
+
+def test_late_branches_merge_without_rewriting_published_revisions() -> None:
+    script = ScriptDirectory.from_config(_config())
+
+    assert script.get_current_head() == HEAD
+    assert script.get_revision(TRANSFERENCIA).down_revision == SELECIONADA
+    assert "006_movimento_transferencia" in script.get_revision(TRANSFERENCIA).doc
+    assert script.get_revision(IDEMPOTENCIA_CAIXA).down_revision == TRANSFERENCIA
+    assert "007_caixa_idempotencia" in script.get_revision(IDEMPOTENCIA_CAIXA).doc
+    assert script.get_revision(REVISAO_RESOLVIDA).down_revision == TRANSFERENCIA
+    assert "007_revisao_resolvida_evento" in script.get_revision(REVISAO_RESOLVIDA).doc
+    caixa_revisao = script.get_revision(CAIXA_REVISAO_MERGE)
+    assert set(caixa_revisao.down_revision) == {IDEMPOTENCIA_CAIXA, REVISAO_RESOLVIDA}
+    assert "008_merge_caixa_revisao" in caixa_revisao.doc
+    assert script.get_revision(PAINEL).down_revision == REVISAO_RESOLVIDA
+    assert "008_painel_materialized_views" in script.get_revision(PAINEL).doc
+    merge = script.get_revision(PAINEL_CAIXA_MERGE)
+    assert set(merge.down_revision) == {CAIXA_REVISAO_MERGE, PAINEL}
+    assert "009_merge_painel_caixa" in merge.doc
+
+
+def test_cash_idempotency_follows_the_transfer_and_protects_its_table() -> None:
+    script = ScriptDirectory.from_config(_config())
+
+    assert script.get_revision(IDEMPOTENCIA_CAIXA).down_revision == TRANSFERENCIA
+    assert "007_caixa_idempotencia" in script.get_revision(IDEMPOTENCIA_CAIXA).doc
+    sql = _upgrade_sql(f"{TRANSFERENCIA}:{IDEMPOTENCIA_CAIXA}")
+    tabela = "movimento_requisicoes"
+    assert f"ALTER TABLE {tabela} ENABLE ROW LEVEL SECURITY" in sql
+    assert f"ALTER TABLE {tabela} FORCE ROW LEVEL SECURITY" in sql
+    assert _policy(tabela) in sql
+    assert "UNIQUE (usuario_id, chave_idempotencia)" in sql
+
+    downgrade = _downgrade_sql(f"{IDEMPOTENCIA_CAIXA}:{TRANSFERENCIA}")
+    assert f"DROP POLICY {tabela}_por_usuario ON {tabela}" in downgrade
+    assert f"ALTER TABLE {tabela} DISABLE ROW LEVEL SECURITY" in downgrade
+    assert f"DROP TABLE {tabela}" in downgrade
 
 
 def test_every_upload_table_is_protected_by_user() -> None:

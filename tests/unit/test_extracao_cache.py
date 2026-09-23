@@ -212,7 +212,8 @@ def test_limpar_versoes_antigas_deletes_in_batches(monkeypatch) -> None:
     ).limpar_versoes_antigas()
 
     assert apagadas == 5
-    assert lotes == [2, 2, 1]
+    # Redis Cluster requires every UNLINK call to stay within one hash slot.
+    assert lotes == [1, 1, 1, 1, 1]
 
 
 def test_get_cache_reads_redis_url_with_short_timeouts(monkeypatch) -> None:

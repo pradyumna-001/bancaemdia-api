@@ -54,6 +54,67 @@ class ApostaRepo:
             stmt = stmt.limit(limite)
         return [Aposta(**colunas(obj)) for obj in (await session.execute(stmt)).scalars()]
 
+    async def get_by_chave_for_update(
+        self, session: AsyncSession, usuario_id: int, chave: str
+    ) -> Aposta | None:
+        obj = (
+            await session.execute(
+                select(models.Aposta)
+                .where(models.Aposta.usuario_id == usuario_id, models.Aposta.chave == chave)
+                .with_for_update()
+            )
+        ).scalar_one_or_none()
+        return None if obj is None else Aposta(**colunas(obj))
+
+    async def list_page(
+        self,
+        session: AsyncSession,
+        usuario_id: int,
+        filtros: dict[str, object],
+        pagina: int = 1,
+        tamanho: int = 50,
+    ) -> tuple[list[Aposta], int]:
+        stmt = select(models.Aposta, func.count().over().label("total")).where(
+            models.Aposta.usuario_id == usuario_id
+        )
+        # A apagada só aparece quando a pessoa pede: ela saiu das contas por decisão dela.
+        if not filtros.get("incluir_apagadas"):
+            stmt = stmt.where(models.Aposta.selecionada)
+        for campo in ("estado", "origem", "tipster_id", "mercado_id", "competicao_id"):
+            if filtros.get(campo) is not None:
+                stmt = stmt.where(getattr(models.Aposta, campo) == filtros[campo])
+        if filtros.get("revisao_grave") is not None:
+            stmt = stmt.where(models.Aposta.revisao_grave == filtros["revisao_grave"])
+        if filtros.get("casa_id") is not None:
+            # A aposta guarda a CONTA da casa, não a casa: quem filtra por casa passa por elas.
+            contas = select(models.ContaCasa.id).where(
+                models.ContaCasa.usuario_id == usuario_id,
+                models.ContaCasa.casa_id == filtros["casa_id"],
+            )
+            stmt = stmt.where(models.Aposta.conta_casa_id.in_(contas))
+        if filtros.get("desde") is not None:
+            stmt = stmt.where(models.Aposta.data_aposta >= filtros["desde"])
+        if filtros.get("ate") is not None:
+            stmt = stmt.where(models.Aposta.data_aposta < filtros["ate"])
+        stmt = (
+            stmt
+            .order_by(models.Aposta.criada_em.desc(), models.Aposta.id.desc())
+            .limit(tamanho)
+            .offset((pagina - 1) * tamanho)
+        )
+        linhas = (await session.execute(stmt)).all()
+        # O total vem na mesma ida ao banco: um COUNT separado leria a tabela duas vezes e podia
+        # discordar da página quando uma aposta entra no meio. Página vazia não tem de onde tirá-lo,
+        # e devolver 0 depois do fim faria a tela dizer que a pessoa não tem aposta nenhuma.
+        if linhas:
+            return [Aposta(**colunas(linha[0])) for linha in linhas], int(linhas[0].total)
+        if pagina == 1:
+            return [], 0
+        contagem = select(func.count()).select_from(
+            stmt.limit(None).offset(None).order_by(None).subquery()
+        )
+        return [], int((await session.execute(contagem)).scalar_one())
+
     async def count_by_origem(
         self,
         session: AsyncSession,
@@ -93,9 +154,14 @@ class ApostaRepo:
     async def upsert_materializada(
         self, session: AsyncSession, dados: dict[str, object]
     ) -> Aposta | None:
-        stmt = insert(models.Aposta).values(**dados, atualizada_em=func.clock_timestamp())
+        # Replays can carry their source timestamp. A stale replay must not replace a newer row;
+        # live materialization uses the database clock when the source has no timestamp.
+        valores = {**dados, "atualizada_em": dados.get("atualizada_em", func.clock_timestamp())}
+        stmt = insert(models.Aposta).values(**valores)
         mutaveis = {
-            campo: getattr(stmt.excluded, campo) for campo in dados if campo not in IMUTAVEIS
+            campo: getattr(stmt.excluded, campo)
+            for campo in dados
+            if campo not in IMUTAVEIS and campo != "atualizada_em"
         }
         stmt = stmt.on_conflict_do_update(
             index_elements=["usuario_id", "chave"],

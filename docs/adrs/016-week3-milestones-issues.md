@@ -170,6 +170,17 @@
 
 **Acceptance**: Movimentos created atomically; balances correct; temporal queries work
 
+**Implementation decision (2026-09-21)**:
+- Emit the existing `MOVIMENTO_REGISTRADO` event. `MOVIMENTO_CAIXA` is not part of
+  `ck_eventos_tipo` and would be rejected by the database.
+- Keep `domain.temporal.saldo` as the single balance rule instead of adding a cached
+  `ContaCasa` column. A cache updated only by cash endpoints would become stale when a bet is
+  created, settled, corrected, or deselected, and could count stake/returns twice.
+- Return the per-account calculated balances and expose each bank total as unavailable, with an
+  explicit reason, until the schema has an unambiguous `ContaCasa` → `Banca` relationship.
+- Represent a transfer as two atomic, opposite `Movimento` rows linked by `transferencia_id`.
+  This preserves the ledger and avoids an unsafe foreign key to the partitioned composite key.
+
 ---
 
 ### Issue 6: Revisão Pendente Endpoints — Review Queue
@@ -195,6 +206,36 @@
 - [ ] `GET /api/v1/revisao/stats` — Counts by motivo, aging
 
 **Acceptance**: Review queue visible; resolution creates correct aposta or discards; events logged
+
+#### Decision note - implementation of issue #29 (2026-09-21)
+
+The API keeps the intent of the issue, with the following choices made against the schema that
+actually exists:
+
+- Materialization already creates the `Aposta` before opening `revisao_pendente`. `CORRIGIR`
+  therefore updates and confirms that projection; it does not create a second bet. It clears
+  `revisao_motivo`/`revisao_grave` through the append-only event history. `DESCARTAR` also clears
+  those flags and soft-deletes the existing projection with `selecionada=false`; neither action
+  physically deletes the bet or its history.
+- A pending review is linked to its bet by `extracao_bruta.aposta_chave`. Legacy or damaged rows
+  without a matching bet answer `409` and remain open instead of creating an incomplete financial
+  record.
+- Each successful action writes one `REVISAO_RESOLVIDA` audit event in the same transaction as the
+  bet projection and `resolvido_em`. Migration 007 adds that value to `ck_eventos_tipo`; correction
+  and soft-delete events remain the source of truth for replaying the bet itself. Its downgrade
+  keeps this audit value accepted because removing it after first use would either fail or destroy
+  history; the older projector already ignores audit-only event types safely.
+- Photos still live in PostgreSQL (`midia_arquivos`) and there is no S3 client or bucket before
+  issue #41. Until then, `foto_url` points to the authenticated local route
+  `GET /api/v1/revisao/{id}/foto`. The route authorizes the review by user and RLS before returning
+  the bytes, and does not expose a public URL or a lookup by arbitrary media hash. S3 pre-signed
+  URLs can replace this adapter when the storage infrastructure exists.
+- Queue reads use the replica; resolution uses the primary, an advisory lock shared with the bet
+  materializer, a row lock on the review, and one transaction. The normal read-after-write window
+  sends the same user's immediate follow-up reads to the primary.
+- A materialized bet without its creation event is treated as damaged (`409`) instead of being
+  rewritten from defaults. Cashout is also refused in this correction shape because it needs the
+  actual amount paid; it remains available through the dedicated result endpoint.
 
 ---
 
@@ -226,6 +267,22 @@
 - [ ] Cache-Control: `public, max-age=30, stale-while-revalidate=60`
 
 **Acceptance**: Painel loads < 500ms (P95); data < 30s stale; badge shows correct lag
+
+**Implementation notes (#30):**
+- Dashboard responses are authenticated financial data and therefore use `Cache-Control: private,
+  no-store` plus `Vary: Authorization, Cookie`; the proposed shared public cache is intentionally
+  not used.
+- Materialized views live in a private schema and are exposed to the application only through
+  tenant-filtered security-barrier views. Queries also keep an explicit `usuario_id` predicate.
+- The persisted time of the last complete refresh, response time, materialized-view age and replica
+  replay lag are separate fields. Primary/single-node deployments report replica lag as unavailable.
+- A five-minute full-refresh schedule cannot also promise data less than 30 seconds old. The API
+  reports the real age and the operational procedure is documented in
+  `docs/runbooks/painel-refresh.md`; no request timestamp is relabelled as refresh time.
+- Cash-ledger balance remains an all-time snapshot across house accounts. Deposits and withdrawals
+  cannot be attributed to a `banca`, tipster or market because that relationship does not exist in
+  the schema. Bankroll evolution therefore uses only each banca's optional initial balance and the
+  current projection of linked bet results, labelled with that limitation.
 
 ---
 
@@ -261,8 +318,10 @@
   - Exporter: OTLP → CloudWatch / Jaeger / Grafana Tempo
 - [ ] **Health Checks**:
   - `GET /health` (liveness): process alive, returns `{"status": "ok"}`
-  - `GET /ready` (readiness): PG primary writable, PG replica readable, Anthropic reachable (HEAD), Redis ping, Celery queue depth < threshold
-  - Returns 503 if not ready
+  - `GET /ready` (readiness): PG primary writable, PG replica readable and Redis ping are
+    required; Anthropic availability and Celery queue depth are report-only components
+  - Returns 503 only when a required API dependency is not ready; report-only failures remain
+    visible as `degraded` without removing API pods from rotation
 
 **Acceptance**: 
 - Logs in CloudWatch are JSON, searchable by `request_id` / `usuario_id`

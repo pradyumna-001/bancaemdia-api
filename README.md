@@ -42,7 +42,7 @@ Backend API for the Bet Spreadsheet SaaS — transforms betting slips (photos, T
 | Week | Milestone | Focus |
 |------|-----------|-------|
 | **1** | [Foundation](https://github.com/pradyumna-001/bancaemdia-api/milestone/1) | PostgreSQL + SQLAlchemy 2.x + RLS + CI/CD (local Docker) |
-| **2** | [Async Pipeline](https://github.com/pradyumna-001/bancaemdia-api/milestone/2) | Celery + Redis dual-pool: extraction (OCR→Haiku→Sonnet) + materialization |
+| **2** | [Async Pipeline](https://github.com/pradyumna-001/bancaemdia-api/milestone/2) | Celery + Redis dual-pool: extraction (cache→Haiku→Sonnet; [OCR/provider under review](docs/decisions/ai-extraction-provider.md)) + materialization |
 | **3** | [API Surface](https://github.com/pradyumna-001/bancaemdia-api/milestone/3) | JWT auth, Primary/Replica router, REST endpoints, OTel observability, rate limiting |
 | **4** | [Hardening & Deploy](https://github.com/pradyumna-001/bancaemdia-api/milestone/4) | Replay CLI, idempotency tests, chaos testing, runbooks, k6, Terraform, CD pipeline |
 
@@ -139,6 +139,57 @@ make seed         # Seed canonical data
 make shell        # Shell into API container
 ```
 
+### Replay and stored-media rereading
+
+Run these operational CLIs with primary database credentials. They are not HTTP endpoints.
+
+```bash
+python scripts/replay.py --usuario-id 42 --dry-run
+python scripts/replay.py --usuario-id 42
+python scripts/replay.py --usuario-id 42 --desde 2026-09-01 --ate 2026-09-30
+python scripts/conferir_numeros.py --usuario-id 42
+python scripts/conferir_numeros.py --todos
+python scripts/reler_todas.py --versao-prompt extrair_bilhete_v3 --tudo --dry-run
+python scripts/reler_todas.py --versao-prompt extrair_bilhete_v3 --tudo --sim
+```
+
+Replay folds every event of each selected bet in `id` order. The date interval selects bets by
+their business date in `America/Sao_Paulo` (inclusive endpoints on the CLI); it never truncates
+their event history. It reconciles proven derived columns in place, preserving bet IDs and creation
+and update timestamps. New creation events include a normalized snapshot, so replay can recreate
+a deleted bet projection; legacy events without that snapshot remain fail-closed. Legacy events without a unit
+snapshot use the unit effective at the bet date only when the resulting cents match the stored row.
+An account ID in the event wins; otherwise the existing tenant-owned account is retained so an
+account created later cannot take an old bet. `eventos`, `coletas_casa`, reviews, and the cash ledger
+are never deleted or rewritten. Cash movements with complete audit events can be restored with
+their original IDs and are checked against idempotency responses. Older movements without events
+are counted and preserved.
+
+A live replay takes PostgreSQL table locks with `NOWAIT` for one transaction. It fails if a writer
+is active and blocks new writes until commit, so run it in a maintenance window. `--dry-run` uses a
+read-only consistent snapshot and publishes no tasks. `--tudo --confirm` is restricted to
+`development` and `testing`, and reconciles users one at a time.
+
+Rereading uses the prompt version compiled into the extraction worker; an unknown version is refused
+before queue publication. It discovers media through tenant-owned upload records, deduplicates by
+user/chat/message, reads one blob at a time, and reports missing media. It logs the estimated cost
+before enqueueing. A retry may enqueue a task again after a broker failure; the bet's event lock,
+stable key, and version marker keep the resulting projection and manual corrections idempotent.
+
+House and Telegram/print bets are paired conservatively after materialization. An exact match
+keeps the house bet in the totals and excludes the duplicate tip. An uncertain match excludes the
+new bet and opens a review containing the suspected partner key. Resolve that review with `MESMA`
+to keep the house bet, `CORRIGIR` to confirm a distinct bet and restore it to the totals, or
+`DESCARTAR` to keep it excluded. Every decision is recorded as events for replay.
+
+Excel bets can be imported with `POST /api/v1/apostas/importar-planilha` as multipart fields
+`arquivo` (`.xlsx`, up to 5 MB and 1,000 rows) and `origem_id`. Each nonempty worksheet needs
+headers `casa`, `data_aposta`, `odd`, `stake_unidades`, `atualizada_em`; optional headers are
+`evento`, `descricao`, `mercado_bruto`, and `freebet`. Dates accept ISO 8601 or Excel dates; naive
+dates use `America/Sao_Paulo`. Keep `origem_id`, sheet name, and row number stable across imports:
+they define the bet key. Rows with a newer `atualizada_em` update the same bet; older or equal
+versions are ignored. The entire workbook commits atomically.
+
 ### Local Access Points
 - **API**: http://localhost:8000
 - **Swagger Docs**: http://localhost:8000/docs
@@ -152,6 +203,10 @@ make shell        # Shell into API container
 ---
 
 ## Project Structure
+
+This target layout includes planned Week 4 files such as `cd.yml`, `load-test.yml`,
+`k6/`, and the Terraform environments; see [RUNBOOKS.md](docs/RUNBOOKS.md) for the
+current deployment boundary.
 
 ```
 bancaemdia-api/
@@ -306,11 +361,15 @@ make typecheck         # MyPy
 | **Alerts** | CloudWatch → SNS → Slack/PagerDuty | See ADR-008 |
 | **Health** | `/health` (liveness) + `/ready` (readiness) | :8000/health |
 
+`/ready` gates API traffic only on PostgreSQL and Redis. Anthropic availability and Celery queue
+depth are still probed concurrently and shown as `report_only` components (`degraded` on failure),
+but they do not drain otherwise healthy API pods during a provider outage or worker backlog.
+
 ---
 
 ## Security & Compliance
 
-- **Secrets**: AWS Secrets Manager (zero in code/env)
+- **Secrets**: AWS Secrets Manager; ECS injects values at runtime, never through Terraform variables
 - **Rate Limiting**: `slowapi` by `usuario_id` (10/min coleta, 100/min API, 1/5min upload)
 - **Circuit Breaker**: `pybreaker` on Anthropic (fail_max=5, reset=60s)
 - **Headers**: CSP, HSTS, X-Frame-Options, X-Content-Type-Options
@@ -319,35 +378,15 @@ make typecheck         # MyPy
 
 ---
 
-## Deploy
+## Deploy and operations
 
-### Staging (auto on push to main)
-```bash
-git push origin main
-# → GitHub Actions: test → build → deploy staging (ECS Fargate spot)
-# → Health check /ready
-# → Smoke tests
-# → conferir_numeros.py on staging DB
-```
-
-### Production (manual, canary)
-```bash
-# Via GitHub Actions UI or CLI
-gh workflow run cd.yml -f sha=<commit> -f environment=production
-
-# Pipeline:
-# 1. Build + push GHCR
-# 2. Deploy Green (staging) → smoke tests
-# 3. Canary 10% (10 min monitoring)
-# 4. Promote 10% → 50% → 100% (30 min total)
-# 5. Rollback < 5 min at any point
-```
-
-### Rollback
-```bash
-gh workflow run cd.yml -f sha=<previous_sha> -f environment=production
-# Target: < 5 min decision → healthy
-```
+CI tests and builds the image. The [AWS Terraform environments](infra/terraform/README.md)
+define staging and production infrastructure with a guarded plan/apply workflow; no AWS
+resources have been applied by this repository yet. Application deployment uses the
+[CD workflow](.github/workflows/cd.yml); Alembic migrations follow a separately reviewed
+procedure. Use the [operations runbook index](docs/RUNBOOKS.md) for prerequisites, staged deployment,
+rollback, migration, incident response, and scaling. Configure AWS OIDC roles, GitHub
+environments, and runtime secrets before enabling the pipeline or dispatching a release.
 
 ---
 
@@ -356,7 +395,7 @@ gh workflow run cd.yml -f sha=<previous_sha> -f environment=production
 | Document | Location |
 |----------|----------|
 | **API Reference** | `/docs/API.md` (auto-generated from OpenAPI) |
-| **Runbooks** | `docs/runbooks/` (deploy, rollback, migration, incident, scaling) |
+| **Runbooks** | [`docs/RUNBOOKS.md`](docs/RUNBOOKS.md) (deploy, rollback, migration, incident, scaling) |
 | **ADRs** | `docs/adrs/` (all architectural decisions) |
 | **Roadmap** | `docs/adrs/HIGH_LEVEL_PLAN.md` (M0–M5) |
 

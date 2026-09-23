@@ -1,7 +1,8 @@
 from __future__ import annotations
 
 from dataclasses import FrozenInstanceError
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
+from types import SimpleNamespace
 from typing import Any
 
 import pytest
@@ -194,6 +195,99 @@ async def test_aposta_list_applies_every_filter() -> None:
     ):
         assert trecho in sql
     assert _params(session.statements[0])["param_1"] == 20
+
+
+async def test_aposta_get_by_chave_for_update_locks_the_row() -> None:
+    session = _Session(_aposta())
+
+    aposta = await ApostaRepo().get_by_chave_for_update(session, 1, "t:1:1:0")
+
+    assert aposta is not None and aposta.chave == "t:1:1:0"
+    assert "FOR UPDATE" in _sql(session.statements[0])
+
+
+async def test_aposta_page_counts_the_filter_in_the_same_query() -> None:
+    class _Linha:
+        def __init__(self, aposta: Any, total: int) -> None:
+            self.aposta = aposta
+            self.total = total
+
+        def __getitem__(self, indice: int) -> Any:
+            return self.aposta
+
+    class _Session2(_Session):
+        async def execute(self, statement: Any, params: Any = None) -> Any:
+            self.statements.append(statement)
+
+            class _R:
+                def all(self) -> list[Any]:
+                    return [_Linha(_aposta(), 137)]
+
+            return _R()
+
+    session = _Session2()
+
+    apostas, total = await ApostaRepo().list_page(session, 1, {}, 3, 25)
+
+    assert (len(apostas), total) == (1, 137)
+    sql = _sql(session.statements[0])
+    # O total vem na mesma ida ao banco, e a apagada fica de fora até alguém pedir.
+    assert "count(*) OVER ()" in sql
+    assert "AND apostas.selecionada" in sql
+    assert "LIMIT %(param_1)s OFFSET %(param_2)s" in sql
+    assert "ORDER BY apostas.criada_em DESC, apostas.id DESC" in sql
+
+
+async def test_aposta_page_applies_every_filter_of_the_list() -> None:
+    session = _Session()
+
+    await ApostaRepo().list_page(
+        session,
+        1,
+        {
+            "estado": "GREEN",
+            "origem": "telegram",
+            "tipster_id": 2,
+            "mercado_id": 3,
+            "competicao_id": 4,
+            "revisao_grave": True,
+            "casa_id": 5,
+            "desde": AGORA,
+            "ate": AGORA,
+            "incluir_apagadas": True,
+        },
+        1,
+        10,
+    )
+
+    sql = _sql(session.statements[0])
+    for coluna in ("estado", "origem", "tipster_id", "mercado_id", "competicao_id"):
+        assert f"apostas.{coluna} = " in sql
+    assert "apostas.revisao_grave = " in sql
+    # A aposta guarda a conta da casa, não a casa: o filtro por casa passa pelas contas.
+    assert "apostas.conta_casa_id IN (SELECT contas_casa.id" in sql
+    assert "apostas.data_aposta >= " in sql and "apostas.data_aposta < " in sql
+    # Com `incluir_apagadas`, a coluna sai do filtro (ela continua na lista de colunas lidas).
+    assert "WHERE" in sql and "AND apostas.selecionada" not in sql
+
+
+async def test_revisao_lists_the_open_ones_of_one_bet() -> None:
+    session = _Session()
+
+    await RevisaoPendenteRepo().list_abertas_by_aposta_chave(session, 1, "t:1:1:0")
+
+    sql = _sql(session.statements[0])
+    assert "revisao_pendente.resolvido_em IS NULL" in sql
+    assert "extracao_bruta ->> %(extracao_bruta_1)s" in sql
+
+
+async def test_conta_casa_get_by_id_is_scoped_to_the_person() -> None:
+    session = _Session()
+
+    await ContaCasaRepo().get_by_id(session, 1, 42)
+
+    sql = _sql(session.statements[0])
+    assert "contas_casa.usuario_id = " in sql and "contas_casa.id = " in sql
 
 
 async def test_aposta_upsert_updates_only_mutable_columns_on_the_key() -> None:
@@ -510,6 +604,145 @@ async def test_revisao_pendente_create_list_and_resolve() -> None:
     assert sql.startswith("UPDATE revisao_pendente SET resolvido_em=now()")
     assert "revisao_pendente.id = %(id_1)s AND revisao_pendente.resolvido_em IS NULL" in sql
     assert await RevisaoPendenteRepo().resolve(_Session(), 1, 6) is None
+
+
+async def test_revisao_pendente_get_by_id_and_lock_are_tenant_scoped() -> None:
+    leitura = _Session(_revisao())
+    travada = _Session(_revisao())
+
+    assert await RevisaoPendenteRepo().get_by_id(leitura, 1, 6) == registros.RevisaoPendente(
+        6, 1, "h", "odd fora da faixa", None, AGORA, None
+    )
+    assert await RevisaoPendenteRepo().get_by_id_for_update(
+        travada, 1, 6
+    ) == registros.RevisaoPendente(6, 1, "h", "odd fora da faixa", None, AGORA, None)
+
+    for session in (leitura, travada):
+        sql = _sql(session.statements[0])
+        assert "revisao_pendente.usuario_id = " in sql
+        assert "revisao_pendente.id = " in sql
+        # O detalhe também pode mostrar uma revisão já resolvida; só a resolução decide o 409.
+        assert "resolvido_em IS NULL" not in sql
+    assert _sql(travada.statements[0]).endswith("FOR UPDATE")
+    assert await RevisaoPendenteRepo().get_by_id(_Session(), 1, 99) is None
+
+
+async def test_revisao_pendente_page_is_open_filtered_fifo_and_has_total() -> None:
+    class _Linha:
+        def __init__(self, revisao: Any, total: int) -> None:
+            self.revisao = revisao
+            self.total = total
+
+        def __getitem__(self, indice: int) -> Any:
+            return self.revisao
+
+    class _PageSession(_Session):
+        async def execute(self, statement: Any, params: Any = None) -> Any:
+            self.statements.append(statement)
+
+            class _PageResult:
+                def all(self) -> list[Any]:
+                    return [_Linha(_revisao(), 17)]
+
+            return _PageResult()
+
+    session = _PageSession()
+    revisoes, total = await RevisaoPendenteRepo().list_page(
+        session,
+        1,
+        {"motivo": "odd fora da faixa", "desde": ONTEM, "ate": AGORA},
+        pagina=2,
+        tamanho=10,
+    )
+
+    assert revisoes == [
+        registros.RevisaoPendente(6, 1, "h", "odd fora da faixa", None, AGORA, None)
+    ]
+    assert total == 17
+    sql = _sql(session.statements[0])
+    assert "count(*) OVER ()" in sql
+    assert "revisao_pendente.usuario_id = " in sql
+    assert "revisao_pendente.resolvido_em IS NULL" in sql
+    assert "revisao_pendente.motivo = " in sql
+    assert "revisao_pendente.criado_em >= " in sql
+    assert "revisao_pendente.criado_em < " in sql
+    assert "ORDER BY revisao_pendente.criado_em, revisao_pendente.id" in sql
+    assert "LIMIT %(param_1)s OFFSET %(param_2)s" in sql
+
+
+async def test_revisao_pendente_page_keeps_total_after_the_last_page() -> None:
+    class _EmptyPageSession(_Session):
+        async def execute(self, statement: Any, params: Any = None) -> _Result:
+            self.statements.append(statement)
+            return _Result([] if len(self.statements) == 1 else [7])
+
+    session = _EmptyPageSession()
+
+    assert await RevisaoPendenteRepo().list_page(session, 1, {}, pagina=3, tamanho=10) == ([], 7)
+    assert len(session.statements) == 2
+    assert "FROM (SELECT" in _sql(session.statements[1])
+    assert "LIMIT" not in _sql(session.statements[1])
+    assert "OFFSET" not in _sql(session.statements[1])
+
+
+async def test_revisao_pendente_stats_are_for_open_rows_of_one_tenant() -> None:
+    session = _Session(
+        SimpleNamespace(
+            motivo="campo faltando",
+            quantidade=2,
+            mais_antiga_em=ONTEM,
+            idade_maxima_segundos=86_400,
+        ),
+        SimpleNamespace(
+            motivo="odd",
+            quantidade=3,
+            mais_antiga_em=AGORA - timedelta(hours=2),
+            idade_maxima_segundos=7_200,
+        ),
+    )
+
+    resultado = await RevisaoPendenteRepo().stats(session, 1)
+
+    assert resultado == registros.EstatisticasRevisao(
+        total=5,
+        por_motivo={"campo faltando": 2, "odd": 3},
+        mais_antiga_em=ONTEM,
+        idade_maxima_segundos=86_400,
+    )
+    sql = _sql(session.statements[0])
+    assert "revisao_pendente.usuario_id = " in sql
+    assert "revisao_pendente.resolvido_em IS NULL" in sql
+    assert "GROUP BY revisao_pendente.motivo" in sql
+    assert "greatest(" in sql
+    assert "EXTRACT(epoch FROM now() - min(revisao_pendente.criado_em))" in sql
+    assert await RevisaoPendenteRepo().stats(_Session(), 1) == registros.EstatisticasRevisao(
+        0, {}, None, 0
+    )
+
+    futura = _Session(
+        SimpleNamespace(
+            motivo="relógio adiantado",
+            quantidade=1,
+            mais_antiga_em=AGORA + timedelta(seconds=10),
+            idade_maxima_segundos=-10,
+        )
+    )
+    assert (await RevisaoPendenteRepo().stats(futura, 1)).idade_maxima_segundos == 0
+
+
+async def test_revisao_photo_is_loaded_by_open_owned_review_not_by_raw_hash() -> None:
+    session = _Session((b"jpeg", "image/jpeg"))
+
+    assert await RevisaoPendenteRepo().get_foto_by_id(session, 1, 6) == registros.FotoRevisao(
+        b"jpeg", "image/jpeg"
+    )
+    sql = _sql(session.statements[0])
+    assert "FROM revisao_pendente JOIN midias" in sql
+    assert "JOIN midia_arquivos" in sql
+    assert "revisao_pendente.usuario_id = " in sql
+    assert "revisao_pendente.id = " in sql
+    assert "revisao_pendente.resolvido_em IS NULL" in sql
+    assert await RevisaoPendenteRepo().get_foto_by_id(_Session(), 1, 6) is None
 
 
 async def test_revisao_pendente_open_review_is_found_by_bet_and_reason() -> None:

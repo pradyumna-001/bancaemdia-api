@@ -14,6 +14,8 @@ __pycache__/
 .coverage
 coverage.xml
 test-results.xml
+load-test-report.html
+load-test-summary.json
 *.cover
 .hypothesis/
 .tox/

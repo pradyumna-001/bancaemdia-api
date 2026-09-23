@@ -17,6 +17,7 @@ from bancaemdia.models.mercado import Mercado
 from bancaemdia.models.midia import Midia
 from bancaemdia.models.midia_arquivo import MidiaArquivo
 from bancaemdia.models.movimento import Movimento
+from bancaemdia.models.movimento_requisicao import MovimentoRequisicao
 from bancaemdia.models.revisao_pendente import RevisaoPendente
 from bancaemdia.models.time import Time
 from bancaemdia.models.tipster import Tipster
@@ -44,6 +45,7 @@ __all__ = [
     "Midia",
     "MidiaArquivo",
     "Movimento",
+    "MovimentoRequisicao",
     "RevisaoPendente",
     "Time",
     "Tipster",

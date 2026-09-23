@@ -66,9 +66,20 @@ replica_engine = create_async_engine(
     connect_args=connect_args(replica=True),
 )
 
+# Saldo e extrato juntam mais de uma tabela. READ COMMITTED poderia combinar um movimento antigo
+# com uma aposta nova; os option engines compartilham o pool, mas abrem essas leituras num snapshot.
+snapshot_engine = engine.execution_options(isolation_level="REPEATABLE READ")
+snapshot_replica_engine = replica_engine.execution_options(isolation_level="REPEATABLE READ")
+
 
 SessionLocal = async_sessionmaker(engine, expire_on_commit=False, class_=AsyncSession)
 ReplicaSession = async_sessionmaker(replica_engine, expire_on_commit=False, class_=AsyncSession)
+SnapshotSessionLocal = async_sessionmaker(
+    snapshot_engine, expire_on_commit=False, class_=AsyncSession
+)
+SnapshotReplicaSession = async_sessionmaker(
+    snapshot_replica_engine, expire_on_commit=False, class_=AsyncSession
+)
 
 
 async def replica_lag_seconds(conn: AsyncConnection) -> float | None:
@@ -103,8 +114,12 @@ replica_lag = ReplicaLagCheck()
 
 
 @asynccontextmanager
-async def _open(replica: bool) -> AsyncIterator[AsyncSession]:
-    async with (ReplicaSession if replica else SessionLocal)() as session:
+async def _open(replica: bool, *, snapshot: bool = False) -> AsyncIterator[AsyncSession]:
+    if snapshot:
+        fabrica = SnapshotReplicaSession if replica else SnapshotSessionLocal
+    else:
+        fabrica = ReplicaSession if replica else SessionLocal
+    async with fabrica() as session:
         # Antes de a sessão pegar a sua conexão: a checagem devolve a dela ao pool, e um pedido nunca
         # segura duas conexões da cópia.
         if replica:
@@ -119,6 +134,11 @@ async def _open(replica: bool) -> AsyncIterator[AsyncSession]:
 
 async def get_db() -> AsyncGenerator[AsyncSession, None]:
     async with _open(replica=not use_primary.get()) as session:
+        yield session
+
+
+async def get_db_snapshot() -> AsyncGenerator[AsyncSession, None]:
+    async with _open(replica=not use_primary.get(), snapshot=True) as session:
         yield session
 
 

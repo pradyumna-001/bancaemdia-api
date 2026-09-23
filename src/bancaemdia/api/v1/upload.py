@@ -14,6 +14,12 @@ from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
 from starlette.datastructures import UploadFile
 
+from bancaemdia.api.contracts import (
+    AUTHENTICATED_ERROR_RESPONSES,
+    ErrorResponse,
+    UploadAcceptedResponse,
+    UploadStatusResponse,
+)
 from bancaemdia.api.deps import get_current_user
 from bancaemdia.config import get_settings
 from bancaemdia.db.session import get_db
@@ -28,6 +34,7 @@ from bancaemdia.domain.upload import (
     bilhetes_do_export,
     estimar,
 )
+from bancaemdia.observability.tracing import custom_span, set_custom_span_attributes
 from bancaemdia.repositories.upload_repo import UploadArquivoRepo, UploadBilheteRepo, UploadRepo
 from bancaemdia.workers.celery_app import app as celery
 from bancaemdia.workers.materialization import FUSO_DO_BRASIL
@@ -42,7 +49,7 @@ TAMANHO_DE_CAMPO = 64 * 1024
 WEBHOOK_HEADER = "X-Webhook-Token"
 WEBHOOK_PATH = "/webhook/upload-complete"
 
-router = APIRouter()
+router = APIRouter(responses=AUTHENTICATED_ERROR_RESPONSES)
 
 
 class ConclusaoDoUpload(BaseModel):
@@ -65,9 +72,11 @@ def _inicio_do_dia() -> datetime:
 
 
 def _abrir(conteudo: bytes, nome: str) -> tuple[int, list[BilheteDoExport], int]:
-    with ExportTelegram(io.BytesIO(conteudo), nome) as export:
-        mensagens = sum(1 for _ in export.mensagens())
-        return export.chat_id, bilhetes_do_export(export), mensagens
+    with custom_span("upload.parse", file_size=len(conteudo)) as span:
+        with ExportTelegram(io.BytesIO(conteudo), nome) as export:
+            mensagens = sum(1 for _ in export.mensagens())
+            set_custom_span_attributes(span, "upload.parse", message_count=mensagens)
+            return export.chat_id, bilhetes_do_export(export), mensagens
 
 
 def _chats_pedidos(valores: list[str]) -> list[int] | None:
@@ -104,7 +113,15 @@ def _enfileirar(upload_id: int, usuario_id: int) -> None:
     )
 
 
-@router.post("/api/v1/upload", status_code=status.HTTP_202_ACCEPTED)
+@router.post(
+    "/api/v1/upload",
+    status_code=status.HTTP_202_ACCEPTED,
+    response_model=UploadAcceptedResponse,
+    responses={
+        400: {"model": ErrorResponse, "description": "Malformed multipart upload."},
+        413: {"model": ErrorResponse, "description": "The uploaded export is too large."},
+    },
+)
 async def receber_export(
     request: Request,
     usuario: Annotated[Usuario, Depends(get_current_user)],
@@ -238,7 +255,11 @@ async def receber_export(
     return JSONResponse(status_code=status.HTTP_202_ACCEPTED, content=corpo)
 
 
-@router.get("/api/v1/upload/{job_id}")
+@router.get(
+    "/api/v1/upload/{job_id}",
+    response_model=UploadStatusResponse,
+    responses={404: {"model": ErrorResponse, "description": "Upload job not found."}},
+)
 async def consultar_upload(
     job_id: UUID,
     usuario: Annotated[Usuario, Depends(get_current_user)],

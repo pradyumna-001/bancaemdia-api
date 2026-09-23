@@ -34,6 +34,7 @@ FROM python:3.12-slim AS runtime
 
 ENV PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1 \
+    PYTHONPATH="/app/src" \
     PATH="/home/app/.local/bin:$PATH"
 
 RUN apt-get update && apt-get install -y --no-install-recommends \
@@ -42,7 +43,8 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     && rm -rf /var/lib/apt/lists/*
 
 RUN groupadd --gid 1000 app && \
-    useradd --uid 1000 --gid 1000 --create-home --shell /bin/bash app
+    useradd --uid 1000 --gid 1000 --create-home --shell /bin/bash app && \
+    mkdir -p /tmp/prometheus && chown app:app /tmp/prometheus
 
 WORKDIR /app
 

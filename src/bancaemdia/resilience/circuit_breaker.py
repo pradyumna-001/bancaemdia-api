@@ -5,6 +5,7 @@ import anthropic
 import pybreaker
 import redis
 
+from bancaemdia.cache.redis_client import sync_client
 from bancaemdia.config import get_settings
 from bancaemdia.observability.metrics import circuit_breaker_state
 
@@ -59,10 +60,9 @@ def new_anthropic_breaker(
 
 @lru_cache
 def get_redis() -> redis.Redis:
-    return redis.Redis.from_url(
-        get_settings().REDIS_URL,
-        socket_timeout=TIMEOUT_SECONDS,
-        socket_connect_timeout=TIMEOUT_SECONDS,
+    settings = get_settings()
+    return sync_client(
+        settings.REDIS_URL, cluster=settings.REDIS_CLUSTER_MODE, timeout=TIMEOUT_SECONDS
     )
 
 

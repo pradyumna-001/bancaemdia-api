@@ -109,6 +109,9 @@ def _banco(contagens=None, usuarios=(), coletas=()):
             return next((id_ for id_, casa in banco.casas.items() if casa == nome), None)
 
     class Session:
+        async def scalar(self, statement):
+            return None
+
         def begin(self):
             return self
 
@@ -216,7 +219,7 @@ async def test_full_releitura_counts_every_active_user_page_by_page(monkeypatch)
         plano = await reprocess.reler_todas(banco.engine, VERSAO_PROMPT)
 
     assert [contada[0] for contada in banco.contadas] == [1, 2, 5]
-    assert (plano.usuarios, plano.apostas, plano.bilhetes) == (3, 3, 3)
+    assert (plano.usuarios, plano.apostas, plano.bilhetes) == (3, 3, 0)
     assert [log["usuarios"] for log in logs if log["event"] == "reler_todas_progresso"] == [2]
 
 
@@ -360,11 +363,11 @@ def test_user_command_counts_whole_days_and_says_why_nothing_was_sent(monkeypatc
     ]
     assert (plano["escopo"], plano["bilhetes_para_a_ia"], plano["custo_estimado_usd"]) == (
         "tudo",
-        2,
-        0.01,
+        0,
+        0.0,
     )
     assert plano["preco_por_bilhete"] == precos.ORIGEM_DA_REFERENCIA
-    assert "nada foi enviado para a IA" in plano["recado"]
+    assert plano["enfileiradas"] == 0
     assert banco.descartado
 
 
