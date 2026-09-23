@@ -161,12 +161,12 @@ resource "aws_ecs_task_definition" "service" {
     cpu_architecture        = "X86_64"
   }
   container_definitions = jsonencode(concat([merge({
-    name         = each.key
-    image        = var.image_uri
-    essential    = true
-    stopTimeout  = contains(["extraction", "materialization"], each.key) ? 120 : 30
-    environment  = concat(local.common_environment, contains(["extraction", "materialization"], each.key) ? [{ name = "PROMETHEUS_MULTIPROC_DIR", value = "/tmp/prometheus" }] : [])
-    secrets      = concat(
+    name        = each.key
+    image       = var.image_uri
+    essential   = true
+    stopTimeout = contains(["extraction", "materialization"], each.key) ? 120 : 30
+    environment = concat(local.common_environment, contains(["extraction", "materialization"], each.key) ? [{ name = "PROMETHEUS_MULTIPROC_DIR", value = "/tmp/prometheus" }] : [])
+    secrets = concat(
       local.common_secrets,
       each.key == "api" ? [{ name = "TELEGRAM_WEBHOOK_SECRET", valueFrom = var.secret_arns["telegram-webhook-secret"] }] : [],
       each.key == "materialization" ? [{ name = "TELEGRAM_BOT_TOKEN", valueFrom = var.secret_arns["telegram-bot-token"] }] : []
