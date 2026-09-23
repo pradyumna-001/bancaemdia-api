@@ -116,6 +116,14 @@ OPERATION_DOCUMENTATION: dict[OperationKey, tuple[str, str]] = {
         "Consultar revisão",
         "Retorna os dados auditáveis de uma revisão pertencente ao usuário.",
     ),
+    ("post", "/api/v1/titulares/trocas/preview"): (
+        "Prévia de troca de conta",
+        "Mostra as apostas cuja atribuição difere após a troca, sem alterar as contas.",
+    ),
+    ("post", "/api/v1/titulares/trocas"): (
+        "Trocar conta da casa",
+        "Aplica uma prévia feita com a mesma chave; fecha a origem e abre o destino no instante escolhido.",
+    ),
     ("get", "/api/v1/usuario/me/export"): (
         "Exportar meus registros",
         "Baixa perfil e registros vinculados à conta em JSON ou Excel, sem arquivos binários.",
@@ -146,7 +154,7 @@ OPERATION_DOCUMENTATION: dict[OperationKey, tuple[str, str]] = {
 PARAMETER_DESCRIPTIONS = {
     "Idempotency-Key": (
         "Chave opaca obrigatória do cliente; reutilizá-la com o mesmo corpo reproduz a resposta "
-        "original sem lançar dinheiro novamente."
+        "original sem repetir a operação."
     ),
     "ate": "Limite final exclusivo do intervalo, em ISO 8601.",
     "casa_id": "Identificador canônico da casa usada como filtro.",
@@ -212,6 +220,26 @@ REQUEST_EXAMPLES: dict[OperationKey, tuple[str, JsonObject]] = {
     ("post", "/api/v1/revisao/{revisao_id}/resolver"): (
         "Corrigir e resolver",
         {"acao": "CORRIGIR", "aposta_corrigida": {"odd": 2.05}},
+    ),
+    ("post", "/api/v1/titulares/trocas/preview"): (
+        "Prévia de troca de conta",
+        {
+            "casa_id": 3,
+            "conta_origem_id": 42,
+            "conta_destino_id": 43,
+            "efetiva_em": "2026-09-22T14:30:00-03:00",
+            "estado_origem": "LIMITADA",
+        },
+    ),
+    ("post", "/api/v1/titulares/trocas"): (
+        "Aplicar troca após prévia",
+        {
+            "casa_id": 3,
+            "conta_origem_id": 42,
+            "conta_destino_id": 43,
+            "efetiva_em": "2026-09-22T14:30:00-03:00",
+            "estado_origem": "LIMITADA",
+        },
     ),
 }
 
