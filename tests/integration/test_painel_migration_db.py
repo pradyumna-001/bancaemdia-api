@@ -272,6 +272,9 @@ async def _restore_app_grants(url: str) -> None:
                     f"ON ALL TABLES IN SCHEMA public TO {APP_ROLE}"
                 )
             )
+            await connection.execute(
+                text(f"GRANT USAGE, SELECT ON ALL SEQUENCES IN SCHEMA public TO {APP_ROLE}")
+            )
     finally:
         await engine.dispose()
 
