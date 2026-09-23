@@ -17,6 +17,16 @@ resource "aws_db_parameter_group" "primary" {
     value        = "bancaemdia"
     apply_method = "pending-reboot"
   }
+  parameter {
+    name         = "rds.force_ssl"
+    value        = "1"
+    apply_method = "immediate"
+  }
+  parameter {
+    name         = "ssl_min_protocol_version"
+    value        = "TLSv1.2"
+    apply_method = "immediate"
+  }
   tags = var.tags
 }
 
@@ -29,7 +39,7 @@ resource "aws_db_instance" "primary" {
   username                        = "bancaemdia_admin"
   manage_master_user_password     = true
   allocated_storage               = 200
-  max_allocated_storage           = 400
+  max_allocated_storage           = 500
   storage_type                    = "gp3"
   storage_encrypted               = true
   multi_az                        = true

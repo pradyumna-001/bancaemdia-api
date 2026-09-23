@@ -61,6 +61,17 @@ resource "aws_s3_bucket_policy" "alb" {
         Resource  = [aws_s3_bucket.this["alb"].arn, "${aws_s3_bucket.this["alb"].arn}/*"]
         Condition = { Bool = { "aws:SecureTransport" = "false" } }
       },
+      {
+        Sid       = "DenyOldTLSForClients"
+        Effect    = "Deny"
+        Principal = "*"
+        Action    = "s3:*"
+        Resource  = [aws_s3_bucket.this["alb"].arn, "${aws_s3_bucket.this["alb"].arn}/*"]
+        Condition = {
+          NumericLessThan = { "s3:TlsVersion" = "1.2" }
+          Bool            = { "aws:PrincipalIsAWSService" = "false" }
+        }
+      },
     ]
   })
 }
@@ -70,13 +81,26 @@ resource "aws_s3_bucket_policy" "data" {
   bucket   = each.value.id
   policy = jsonencode({
     Version = "2012-10-17"
-    Statement = [{
-      Sid       = "DenyInsecureTransport"
-      Effect    = "Deny"
-      Principal = "*"
-      Action    = "s3:*"
-      Resource  = [each.value.arn, "${each.value.arn}/*"]
-      Condition = { Bool = { "aws:SecureTransport" = "false" } }
-    }]
+    Statement = [
+      {
+        Sid       = "DenyInsecureTransport"
+        Effect    = "Deny"
+        Principal = "*"
+        Action    = "s3:*"
+        Resource  = [each.value.arn, "${each.value.arn}/*"]
+        Condition = { Bool = { "aws:SecureTransport" = "false" } }
+      },
+      {
+        Sid       = "DenyOldTLSForClients"
+        Effect    = "Deny"
+        Principal = "*"
+        Action    = "s3:*"
+        Resource  = [each.value.arn, "${each.value.arn}/*"]
+        Condition = {
+          NumericLessThan = { "s3:TlsVersion" = "1.2" }
+          Bool            = { "aws:PrincipalIsAWSService" = "false" }
+        }
+      },
+    ]
   })
 }
