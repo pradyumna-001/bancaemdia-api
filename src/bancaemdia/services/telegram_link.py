@@ -193,6 +193,9 @@ async def redeem_command(
         pair.linked_at = now
         pair.revoked_at = None
     code.consumed_at = now
+    # The transport checks ownership through a SQL function before committing.
+    # Flush the new link and consumed code so that function sees this transaction.
+    await session.flush()
     await REPO.clear_attempts(session, sender_digest)
     if commit:
         await session.commit()
