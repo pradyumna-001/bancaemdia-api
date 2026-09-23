@@ -62,6 +62,18 @@ class Settings(BaseSettings):
     COLETA_TOKEN_SECRET: str = Field(
         ..., description="HMAC key for the browser extension's coleta tokens"
     )
+    TELEGRAM_BOT_TOKEN: str | None = Field(
+        default=None, description="Bot API token; required when sending or polling"
+    )
+    TELEGRAM_WEBHOOK_SECRET: str | None = Field(
+        default=None, description="Secret supplied to Telegram setWebhook"
+    )
+    TELEGRAM_MODE: str = Field(
+        default="webhook", description="Telegram update transport: webhook or local polling"
+    )
+    TELEGRAM_API_BASE_URL: str = Field(
+        default="https://api.telegram.org", description="Telegram Bot API origin"
+    )
     COLETA_RATE_LIMIT: str = Field(
         default="10/minute", description="Coleta sends allowed per extension token"
     )
@@ -157,6 +169,13 @@ class Settings(BaseSettings):
             except ValueError as exc:
                 raise ValueError(f"invalid trusted proxy network: {network}") from exc
         return ",".join(networks)
+
+    @field_validator("TELEGRAM_MODE")
+    @classmethod
+    def validate_telegram_mode(cls, value: str) -> str:
+        if value not in {"webhook", "polling"}:
+            raise ValueError("TELEGRAM_MODE must be webhook or polling")
+        return value
 
 
 @lru_cache

@@ -37,6 +37,7 @@ EXPORT_TABLES = (
     "trocas_titular_eventos",
     "telegram_links",
     "telegram_link_codes",
+    "telegram_outbox",
     "unidades",
     "revisao_pendente",
     "coletas_casa",
@@ -51,6 +52,7 @@ EXPORT_TABLES = (
 EXCLUDED_COLUMNS = frozenset({
     "token_hash",
     "code_hash",
+    "payload_ciphertext",
     "conteudo",
     "provider_customer_ref",
     "provider_subscription_ref",

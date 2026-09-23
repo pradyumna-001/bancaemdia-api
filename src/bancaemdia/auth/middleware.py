@@ -21,6 +21,7 @@ PUBLIC_PATHS = frozenset({
     "/coleta",
     "/api/v1/coleta",
     "/webhook/upload-complete",
+    "/api/v1/integrations/telegram/webhook",
     "/openapi.json",
     "/docs",
     "/docs/oauth2-redirect",
