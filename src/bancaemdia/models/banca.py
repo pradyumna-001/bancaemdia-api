@@ -18,6 +18,7 @@ class Banca(Base):
     __tablename__ = "bancas"
     __table_args__ = (
         UniqueConstraint("usuario_id", "nome", name="uq_bancas_usuario_nome"),
+        UniqueConstraint("usuario_id", "id", name="uq_bancas_usuario_id"),
         CheckConstraint(
             "saldo_inicial_centavos IS NULL OR saldo_inicial_centavos >= 0",
             name="ck_bancas_saldo_inicial",

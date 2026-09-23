@@ -55,6 +55,13 @@ class Aposta(Base):
         Index("idx_apostas_data", "usuario_id", "data_aposta"),
         Index("idx_apostas_duplicada", "usuario_id", "duplicada_de"),
         Index(
+            "idx_apostas_print_ordem",
+            "usuario_id",
+            "midia_hash",
+            "ordem_na_mensagem",
+            postgresql_where=text("origem = 'print' AND midia_hash IS NOT NULL"),
+        ),
+        Index(
             "idx_apostas_revisao",
             "usuario_id",
             "revisao_grave",

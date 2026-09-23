@@ -25,14 +25,18 @@ tenant filter and denial of direct materialized-view access.
 
 ## Schedule
 
-Migration 008 registers the named job `bancaemdia_painel_refresh` every five minutes when
-`pg_cron` is already installed and usable by the migration owner. It never attempts to install the
-extension. On RDS or environments without `pg_cron`, run this command every five minutes with the
-primary migration/maintenance credential:
+Migration 008 registers the named job `bancaemdia_painel_refresh` every 15 seconds when
+`pg_cron` is installed and usable by the migration owner; migration 010 changes an existing
+five-minute job to 15 seconds. Terraform configures RDS PostgreSQL 16 to preload `pg_cron`
+in the `bancaemdia` database. After the parameter group becomes active, run this once with
+the primary migration/maintenance credential to install the extension and create or update the job:
 
 ```bash
-python -m bancaemdia.cli.refresh_painel
+python -m bancaemdia.cli.configure_painel_cron
 ```
+
+For a local database without `pg_cron`, schedule
+`python -m bancaemdia.cli.refresh_painel` every 15 seconds using an external scheduler.
 
 Do not run it with the read-only HTTP role or against the replica. The command needs ownership of
 the materialized views. It takes advisory lock `20260930`, opens one repeatable-read transaction,
@@ -57,11 +61,10 @@ The public API deliberately reports three different values:
 `fresh=true` routes the main dashboard request to the primary, which removes replica replay lag but
 does not force or pretend to force a materialized-view refresh.
 
-A five-minute refresh cadence cannot guarantee the issue's separate “less than 30 seconds stale”
-criterion. Expected worst-case age is the schedule interval plus refresh duration and replica lag.
-Reducing the interval below 30 seconds would materially increase full-refresh work and WAL; do that
-only after measuring production cardinality and refresh cost, or replace full refresh with an
-incremental architecture in a later issue.
+The 15-second cadence leaves at most 15 seconds for refresh duration and replica lag to satisfy
+the issue's “less than 30 seconds stale” criterion. Full refresh work may exceed that budget as
+data grows. Measure duration, WAL volume, replica lag, and HTTP P95 with representative data;
+if the budget fails, switch to incremental aggregation before claiming that target is met.
 
 ## Checks
 

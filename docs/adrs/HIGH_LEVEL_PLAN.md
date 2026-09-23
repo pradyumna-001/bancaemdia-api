@@ -185,6 +185,8 @@
 
 ## Orçamento Estimado (AWS, USD/mês) — **Right-Sized para 50 Users**
 
+> **Revisão de orçamento necessária (22/09/2026):** esta estimativa histórica descreve uma configuração menor que a exigida pela issue #41 e implementada no Terraform. Ela não é uma previsão de custo do Terraform atual. As metas informadas são cerca de R$ 100/mês no começo, R$ 200/mês para os primeiros 100 usuários e US$ 300/mês com 1.000 usuários; veja a [comparação de custos e o pedido aberto ao administrador](../decisions/aws-initial-budget.md) antes de provisionar.
+
 | Componente | Spec (Launch 50 users) | M0-M1 (Dev) | M2-M3 (Launch) | M4-M5 (Scale 200 users) |
 |------------|------------------------|-------------|----------------|-------------------------|
 | **RDS PostgreSQL** | `db.t3.medium` Multi-AZ, 100 GB GP3 | $0 (dev) | **$68** | **$135** (r6g.large + read replica) |

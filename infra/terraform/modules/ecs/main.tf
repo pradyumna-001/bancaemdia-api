@@ -5,19 +5,61 @@ locals {
     materialization = { cpu = 1024, memory = 2048, count = 8, command = ["celery", "-A", "bancaemdia.workers.celery_app:app", "worker", "-Q", "materialization", "--concurrency=2", "--loglevel=INFO"], log = "materialization" }
     beat            = { cpu = 512, memory = 1024, count = 1, command = ["celery", "-A", "bancaemdia.workers.celery_app:app", "beat", "--loglevel=INFO"], log = "beat" }
   }
-  redis_base = "rediss://${var.redis_endpoint}:6379"
+  redis_base      = "rediss://${var.redis_endpoint}:6379"
+  cache_base      = "rediss://${var.redis_cache_endpoint}:6379"
+  telemetry_roles = toset(["api", "extraction", "materialization"])
+  collector_config = {
+    for role in local.telemetry_roles : role => yamlencode({
+      receivers = {
+        otlp = { protocols = { grpc = { endpoint = "127.0.0.1:4317" } } }
+        prometheus = { config = { scrape_configs = [{
+          job_name        = role
+          scrape_interval = "15s"
+          static_configs = [{
+            targets = [role == "api" ? "127.0.0.1:8000" : "127.0.0.1:9100"]
+            labels  = { service = "bancaemdia", environment = var.environment }
+          }]
+        }] } }
+      }
+      processors = { batch = {} }
+      exporters = {
+        "otlphttp/metrics" = {
+          metrics_endpoint = "https://monitoring.${var.region}.amazonaws.com/v1/metrics"
+          auth             = { authenticator = "sigv4auth/metrics" }
+        }
+        "otlphttp/traces" = {
+          traces_endpoint = "https://xray.${var.region}.amazonaws.com/v1/traces"
+          auth            = { authenticator = "sigv4auth/traces" }
+        }
+      }
+      extensions = {
+        "sigv4auth/metrics" = { region = var.region, service = "monitoring" }
+        "sigv4auth/traces"  = { region = var.region, service = "xray" }
+      }
+      service = {
+        extensions = ["sigv4auth/metrics", "sigv4auth/traces"]
+        pipelines = {
+          metrics = { receivers = ["prometheus"], processors = ["batch"], exporters = ["otlphttp/metrics"] }
+          traces  = { receivers = ["otlp"], processors = ["batch"], exporters = ["otlphttp/traces"] }
+        }
+      }
+    })
+  }
   common_environment = [
     { name = "APP_ENV", value = var.environment },
     { name = "JWT_ALGORITHM", value = "RS256" },
     { name = "JWT_AUDIENCE", value = var.jwt_audience },
     { name = "JWT_ISSUER", value = var.jwt_issuer },
-    { name = "REDIS_URL", value = "${local.redis_base}/0?ssl_cert_reqs=required" },
+    { name = "REDIS_URL", value = "${local.cache_base}/0?ssl_cert_reqs=required" },
+    { name = "REDIS_CLUSTER_MODE", value = "true" },
+    { name = "S3_UPLOAD_BUCKET", value = var.upload_bucket_name },
     { name = "CELERY_BROKER_URL", value = "${local.redis_base}/0?ssl_cert_reqs=required" },
     { name = "CELERY_RESULT_BACKEND", value = "${local.redis_base}/1?ssl_cert_reqs=required" },
-    { name = "RATE_LIMIT_STORAGE", value = "${local.redis_base}/2?ssl_cert_reqs=required" },
+    { name = "RATE_LIMIT_STORAGE", value = "redis+cluster://${var.redis_cache_endpoint}:6379" },
     { name = "RATE_LIMIT_TRUSTED_PROXY_CIDRS", value = join(",", var.private_cidrs) },
     { name = "API_INTERNAL_URL", value = "https://${var.api_hostname}" },
     { name = "WORKER_METRICS_PORT", value = "9100" },
+    { name = "OTEL_EXPORTER_OTLP_ENDPOINT", value = "http://127.0.0.1:4317" },
   ]
   common_secrets = [
     { name = "DATABASE_URL", valueFrom = var.secret_arns["database-primary-url"] },
@@ -87,6 +129,24 @@ resource "aws_iam_role" "task" {
   tags               = var.tags
 }
 
+resource "aws_iam_role_policy" "media" {
+  name = "${var.name}-media-objects"
+  role = aws_iam_role.task.id
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [{
+      Effect   = "Allow"
+      Action   = ["s3:PutObject", "s3:GetObject"]
+      Resource = "${var.upload_bucket_arn}/media/*"
+    }]
+  })
+}
+
+resource "aws_iam_role_policy_attachment" "telemetry" {
+  role       = aws_iam_role.task.name
+  policy_arn = "arn:aws:iam::aws:policy/CloudWatchAgentServerPolicy"
+}
+
 resource "aws_ecs_task_definition" "service" {
   for_each                 = { for role, config in local.roles : role => config if var.deploy_enabled }
   family                   = "${var.name}-${each.key}"
@@ -100,11 +160,11 @@ resource "aws_ecs_task_definition" "service" {
     operating_system_family = "LINUX"
     cpu_architecture        = "X86_64"
   }
-  container_definitions = jsonencode([merge({
+  container_definitions = jsonencode(concat([merge({
     name         = each.key
     image        = var.image_uri
     essential    = true
-    environment  = local.common_environment
+    environment  = concat(local.common_environment, contains(["extraction", "materialization"], each.key) ? [{ name = "PROMETHEUS_MULTIPROC_DIR", value = "/tmp/prometheus" }] : [])
     secrets      = local.common_secrets
     portMappings = each.key == "api" ? [{ containerPort = 8000, hostPort = 8000, protocol = "tcp" }] : []
     logConfiguration = {
@@ -115,7 +175,20 @@ resource "aws_ecs_task_definition" "service" {
         awslogs-stream-prefix = "ecs"
       }
     }
-  }, each.value.command == null ? {} : { command = each.value.command })])
+    }, each.value.command == null ? {} : { command = each.value.command })], contains(local.telemetry_roles, each.key) ? [{
+    name        = "otel-collector"
+    image       = "public.ecr.aws/aws-observability/aws-otel-collector:v0.49.0"
+    essential   = true
+    environment = [{ name = "AOT_CONFIG_CONTENT", value = local.collector_config[each.key] }]
+    logConfiguration = {
+      logDriver = "awslogs"
+      options = {
+        awslogs-group         = var.log_group_names[each.value.log]
+        awslogs-region        = var.region
+        awslogs-stream-prefix = "otel"
+      }
+    }
+  }] : []))
   tags = var.tags
 }
 

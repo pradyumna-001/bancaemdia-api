@@ -30,7 +30,7 @@ from bancaemdia.observability.logging import (
     UnhandledErrorMiddleware,
     UserLogContextMiddleware,
 )
-from bancaemdia.workers import extraction, materialization
+from bancaemdia.workers import extraction, materialization, pairing
 from bancaemdia.workers import upload as upload_worker
 
 
@@ -446,14 +446,12 @@ def _literal_custom_spans(module: ModuleType) -> set[str]:
 
 
 def test_custom_spans_are_wired_into_the_real_pipeline_paths() -> None:
-    # `cruzamento.pareador` deliberately is not listed: there is no crossing/matcher component in
-    # the current repository to instrument.  The tracing helper still reserves and validates that
-    # span name so the future component can add it without weakening the attribute allowlist.
     expected = {
         upload: {"upload.parse"},
         upload_worker: {"upload.parse"},
         extraction: {"extraction.chamar_anthropic"},
         materialization: {"materializacao.upsert"},
+        pairing: {"cruzamento.pareador"},
         coleta: {"coleta.casa"},
     }
 

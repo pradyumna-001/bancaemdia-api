@@ -412,7 +412,7 @@ async def test_conta_alheia_fica_invisivel_e_trava_ocupada_responde_rapido(
         assert await session.scalar(select(func.count()).select_from(models.Movimento)) == 0
 
 
-async def test_saldo_temporal_nao_conta_o_green_duas_vezes_e_nao_inventa_banca(
+async def test_saldo_temporal_nao_conta_o_green_duas_vezes_e_soma_banca_vinculada(
     engine_admin: AsyncEngine,
     engine_app: AsyncEngine,
     como: Como,
@@ -447,13 +447,16 @@ async def test_saldo_temporal_nao_conta_o_green_duas_vezes_e_nao_inventa_banca(
                 "selecionada": True,
             },
         )
-        await session.execute(
-            insert(models.Banca).values(
+        banca_id = await session.scalar(
+            insert(models.Banca)
+            .values(
                 usuario_id=usuario_id,
                 nome="Principal",
                 saldo_inicial_centavos=50_000,
             )
+            .returning(models.Banca.id)
         )
+        assert banca_id is not None
         await session.commit()
 
     async with como(engine_app, usuario_id) as session:
@@ -470,6 +473,19 @@ async def test_saldo_temporal_nao_conta_o_green_duas_vezes_e_nao_inventa_banca(
     assert atual["bancas"][0]["saldo_inicial_centavos"] == 50_000
     assert atual["bancas"][0]["saldo_total_centavos"] is None
     assert "vínculo" in atual["bancas"][0]["motivo_saldo_indisponivel"]
+
+    async with como(engine_app, usuario_id) as session:
+        usuario = await _usuario(session, usuario_id)
+        resposta = await caixa.vincular_banca(
+            conta.id, caixa.VinculoBancaNovo(banca_id=banca_id), usuario, session
+        )
+        assert _json(resposta) == {"conta_casa_id": conta.id, "banca_id": banca_id}
+    async with como(engine_app, usuario_id) as session:
+        usuario = await _usuario(session, usuario_id)
+        vinculada = _json(await caixa.consultar_saldo(usuario, session, None))
+    assert vinculada["contas"][0]["banca_id"] == banca_id
+    assert vinculada["bancas"][0]["saldo_total_centavos"] == 110_000
+    assert vinculada["bancas"][0]["motivo_saldo_indisponivel"] is None
 
 
 async def test_agregado_sql_equivale_ao_dominio_em_casos_financeiros_e_de_fronteira(

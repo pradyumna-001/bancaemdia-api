@@ -1,9 +1,10 @@
+import asyncio
 from collections.abc import Callable
 from datetime import datetime
 from typing import Annotated, Any
 from uuid import uuid4
 
-from fastapi import APIRouter, Depends, Query, status
+from fastapi import APIRouter, Depends, File, Form, Query, UploadFile, status
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel, ConfigDict
 from sqlalchemy import select, text
@@ -33,6 +34,7 @@ from bancaemdia.domain.aposta_service import (
 )
 from bancaemdia.domain.financeiro import Aposta as ApostaFinanceira
 from bancaemdia.domain.materializar import EventoNovo, casa_canonica, projetar
+from bancaemdia.domain.planilha_import import MAX_BYTES, PlanilhaInvalidaError, ler_planilha
 from bancaemdia.domain.registros import Aposta, Usuario
 from bancaemdia.domain.temporal import VALOR_UNIDADE_PADRAO_CENTAVOS
 from bancaemdia.models import Competicao, Mercado, Time, Tipster
@@ -84,6 +86,12 @@ class ApostaManual(BaseModel):
     mercado_bruto: str | None = None
     freebet: bool = False
     comissao_centavos: int | None = None
+
+
+class PlanilhaImportada(BaseModel):
+    criadas: int
+    atualizadas: int
+    ignoradas: int
 
 
 def erro(status_code: int, mensagem: str) -> JSONResponse:
@@ -563,6 +571,19 @@ async def criar_aposta(
     if conta is not None:
         payload["conta_casa_id"] = conta.id
 
+    payload["snapshot_replay"] = {
+        "snapshot_completo": True,
+        "origem": "manual",
+        "stake_unidades": manual.stake_unidades,
+        "valor_unidade_centavos": valor_unidade,
+        "conta_casa_id": None if conta is None else conta.id,
+        "chat_id": None,
+        "message_id": None,
+        "ordem_na_mensagem": 0,
+        "data_aposta": data_aposta.isoformat(),
+        "freebet": manual.freebet,
+    }
+
     novos = [EventoNovo("APOSTA_CRIADA", "manual", payload)]
     depois, _ = projetar([(e.tipo, e.fonte, e.payload) for e in novos])
     gravada = await _aplicar(session, usuario, chave, novos, depois)
@@ -581,3 +602,104 @@ async def criar_aposta(
             " por casa até a conta existir"
         )
     return JSONResponse(status_code=status.HTTP_201_CREATED, content=corpo)
+
+
+@router.post(
+    "/api/v1/apostas/importar-planilha",
+    response_model=PlanilhaImportada,
+    responses={422: {"model": ErrorResponse, "description": "Planilha inválida"}},
+)
+async def importar_planilha(
+    arquivo: Annotated[UploadFile, File(description="Arquivo .xlsx no modelo de importação")],
+    origem_id: Annotated[
+        str, Form(description="Identificador estável da planilha entre importações")
+    ],
+    usuario: Annotated[Usuario, Depends(get_current_user)],
+    session: Annotated[AsyncSession, Depends(get_db)],
+) -> JSONResponse:
+    if not (arquivo.filename or "").lower().endswith(".xlsx"):
+        return erro(status.HTTP_422_UNPROCESSABLE_ENTITY, "envie um arquivo .xlsx")
+    conteudo = await arquivo.read(MAX_BYTES + 1)
+    await arquivo.close()
+    try:
+        linhas = await asyncio.to_thread(ler_planilha, conteudo, origem_id)
+    except PlanilhaInvalidaError as recusa:
+        return erro(status.HTTP_422_UNPROCESSABLE_ENTITY, str(recusa))
+    if not linhas:
+        return erro(status.HTTP_422_UNPROCESSABLE_ENTITY, "a planilha não tem apostas")
+
+    criadas = atualizadas = ignoradas = 0
+    try:
+        # Ordenação estável evita deadlock entre duas planilhas com as mesmas linhas em abas
+        # diferentes. O lock protege a leitura do histórico e a gravação de cada versão.
+        for linha in sorted(linhas, key=lambda item: item.chave):
+            if not await _travar(session, usuario.id, linha.chave):
+                await session.rollback()
+                return erro(status.HTTP_409_CONFLICT, OCUPADA)
+            historico = await _historico(session, usuario.id, linha.chave)
+            antes, _ = projetar(historico)
+            instante_anterior = _data_do_estado(antes.get("fonte_atualizada_em"))
+            if instante_anterior is not None and linha.atualizada_em <= instante_anterior:
+                ignoradas += 1
+                continue
+            unidade = await UnidadeRepo().get_vigente(session, usuario.id, linha.data_aposta)
+            valor_unidade = (
+                VALOR_UNIDADE_PADRAO_CENTAVOS if unidade is None else unidade.valor_centavos
+            )
+            conta = await ContaCasaRepo().get_vigente_by_nome_da_casa(
+                session, usuario.id, linha.casa, linha.data_aposta
+            )
+            payload: dict[str, Any] = {
+                "origem": "planilha",
+                "linha_hash": linha.chave[2:],
+                "casa": linha.casa,
+                "data_aposta": linha.data_aposta.isoformat(),
+                "fonte_atualizada_em": linha.atualizada_em.isoformat(),
+                "odd": linha.odd,
+                "stake_unidades": linha.stake_unidades,
+                "valor_unidade_centavos": valor_unidade,
+                "conta_casa_id": None if conta is None else conta.id,
+                **({"evento": linha.evento} if "evento" in linha.presentes else {}),
+                **({"descricao": linha.descricao} if "descricao" in linha.presentes else {}),
+                **(
+                    {"mercado_bruto": linha.mercado_bruto}
+                    if "mercado_bruto" in linha.presentes
+                    else {}
+                ),
+                **({"freebet": linha.freebet} if "freebet" in linha.presentes else {}),
+            }
+            if not historico:
+                payload["selecionada"] = True
+                payload["snapshot_replay"] = {
+                    "snapshot_completo": True,
+                    "origem": "planilha",
+                    "stake_unidades": linha.stake_unidades,
+                    "valor_unidade_centavos": valor_unidade,
+                    "conta_casa_id": None if conta is None else conta.id,
+                    "chat_id": None,
+                    "message_id": None,
+                    "ordem_na_mensagem": 0,
+                    "data_aposta": linha.data_aposta.isoformat(),
+                    "freebet": linha.freebet,
+                }
+                novos = [EventoNovo("APOSTA_CRIADA", "planilha", payload)]
+                criadas += 1
+            else:
+                mudancas = {
+                    campo: valor
+                    for campo, valor in payload.items()
+                    if campo != "origem" and antes.get(campo) != valor
+                }
+                novos = [EventoNovo("CORRECAO_MANUAL", "planilha", mudancas)]
+                atualizadas += 1
+            depois, _ = projetar([*historico, *((e.tipo, e.fonte, e.payload) for e in novos)])
+            gravada = await _aplicar(session, usuario, linha.chave, novos, depois)
+            if gravada is None:
+                raise RuntimeError(f"a linha {linha.numero} foi alterada durante a importação")
+        await session.commit()
+    except Exception:
+        await session.rollback()
+        raise
+    for _ in range(criadas):
+        apostas_created_total.labels(origem="planilha", estado="PENDENTE").inc()
+    return JSONResponse({"criadas": criadas, "atualizadas": atualizadas, "ignoradas": ignoradas})

@@ -40,6 +40,8 @@ CAMPOS_DA_CRIACAO = (
     "competicao_id",
     "data_jogo",
     "versao_prompt",
+    "fonte_atualizada_em",
+    "linha_hash",
 )
 TIPOS_DE_APOSTA = frozenset({
     "APOSTA_CRIADA",
@@ -113,6 +115,9 @@ def projetar(eventos: Iterable[tuple[str, str, dict[str, Any]]]) -> tuple[dict[s
             estado["selecionada"] = False
         elif tipo == "SELECAO_ALTERADA":
             estado["selecionada"] = bool(payload.get("selecionada", True))
+            for campo in ("parceira_chave", "duvida_de_par"):
+                if campo in payload:
+                    estado[campo] = payload[campo]
         elif tipo == "CORRECAO_MANUAL":
             estado.update(payload)
             if payload.get("retorno_centavos") is not None:

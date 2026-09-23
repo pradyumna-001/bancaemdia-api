@@ -288,6 +288,21 @@ def _cliente(monkeypatch, banco) -> TestClient:
     return TestClient(app)
 
 
+def test_saldo_da_banca_exige_contas_vinculadas_e_saldos_confiaveis() -> None:
+    banca = Banca(1, USUARIO, "Principal", 50_000, AGORA)
+    sem_vinculo = rota._linha_da_banca(banca, [])
+    assert sem_vinculo["saldo_total_centavos"] is None
+
+    vinculadas = [
+        {"banca_id": 1, "saldo_atual_centavos": 70_000},
+        {"banca_id": 1, "saldo_atual_centavos": 30_000},
+        {"banca_id": 2, "saldo_atual_centavos": 999_000},
+    ]
+    assert rota._linha_da_banca(banca, vinculadas)["saldo_total_centavos"] == 100_000
+    vinculadas[1]["saldo_atual_centavos"] = None
+    assert rota._linha_da_banca(banca, vinculadas)["saldo_total_centavos"] is None
+
+
 def test_transfer_is_two_signed_rows_one_event_and_one_commit(monkeypatch) -> None:
     banco = _banco()
     cliente = _cliente(monkeypatch, banco)

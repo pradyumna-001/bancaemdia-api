@@ -6,7 +6,7 @@ from typing import Annotated, Literal
 from uuid import UUID
 from zoneinfo import ZoneInfo
 
-from fastapi import APIRouter, Depends, Header, Query, status
+from fastapi import APIRouter, Depends, Header, Path, Query, status
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel, ConfigDict, Field, JsonValue, field_validator
 from pydantic.config import JsonDict
@@ -40,7 +40,8 @@ FUSO_DO_BRASIL = ZoneInfo("America/Sao_Paulo")
 CONTA_OCUPADA = "esta conta está recebendo outro lançamento — tente de novo em instantes"
 CONTA_NAO_ENCONTRADA = "não achei uma das contas informadas"
 CHAVE_IDEMPOTENCIA_EM_CONFLITO = "esta Idempotency-Key já foi usada com outro pedido"
-SEM_VINCULO_COM_BANCA = "as contas das casas ainda não têm vínculo com uma banca"
+SEM_VINCULO_COM_BANCA = "nenhuma conta da casa tem vínculo com esta banca"
+SALDO_DA_BANCA_DESCONHECIDO = "uma ou mais contas vinculadas não têm saldo confiável"
 
 router = APIRouter(responses=AUTHENTICATED_ERROR_RESPONSES)
 
@@ -149,6 +150,7 @@ class MovimentosPaginaSaida(BaseModel):
 class SaldoContaSaida(BaseModel):
     conta_casa_id: int
     casa_id: int
+    banca_id: int | None
     apelido: str
     saldo_atual_centavos: int | None
     saldo_confiavel: bool
@@ -169,8 +171,8 @@ class SaldoBancaSaida(BaseModel):
     id: int
     nome: str
     saldo_inicial_centavos: int | None
-    saldo_total_centavos: None
-    motivo_saldo_indisponivel: str
+    saldo_total_centavos: int | None
+    motivo_saldo_indisponivel: str | None
 
 
 class SaldoSaida(BaseModel):
@@ -181,6 +183,17 @@ class SaldoSaida(BaseModel):
     saldo_total_escopo: Literal["contas_casa"]
     contas_sem_saldo_confiavel: int
     bancas: list[SaldoBancaSaida]
+
+
+class VinculoBancaNovo(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    banca_id: Identificador | None
+
+
+class VinculoBancaSaida(BaseModel):
+    conta_casa_id: int
+    banca_id: int | None
 
 
 class MovimentoExtratoSaida(MovimentoSaida):
@@ -507,6 +520,7 @@ def _linha_do_saldo(conta: ContaCasa, saldo: SaldoDaCasa) -> dict[str, object]:
     return {
         "conta_casa_id": conta.id,
         "casa_id": conta.casa_id,
+        "banca_id": conta.banca_id,
         "apelido": conta.apelido,
         "saldo_atual_centavos": saldo.saldo_centavos,
         "saldo_confiavel": saldo.saldo_centavos is not None,
@@ -524,14 +538,25 @@ def _linha_do_saldo(conta: ContaCasa, saldo: SaldoDaCasa) -> dict[str, object]:
     }
 
 
-def _linha_da_banca(banca: Banca) -> dict[str, object]:
-    # Sem uma relação entre banca e conta da casa, qualquer soma seria uma escolha inventada.
+def _linha_da_banca(banca: Banca, contas: list[dict[str, object]]) -> dict[str, object]:
+    vinculadas = [conta for conta in contas if conta["banca_id"] == banca.id]
+    saldos = [conta["saldo_atual_centavos"] for conta in vinculadas]
+    desconhecidos = any(not isinstance(saldo, int) for saldo in saldos)
+    motivo = (
+        SEM_VINCULO_COM_BANCA
+        if not vinculadas
+        else SALDO_DA_BANCA_DESCONHECIDO
+        if desconhecidos
+        else None
+    )
     return {
         "id": banca.id,
         "nome": banca.nome,
         "saldo_inicial_centavos": banca.saldo_inicial_centavos,
-        "saldo_total_centavos": None,
-        "motivo_saldo_indisponivel": SEM_VINCULO_COM_BANCA,
+        "saldo_total_centavos": None
+        if motivo
+        else sum(saldo for saldo in saldos if isinstance(saldo, int)),
+        "motivo_saldo_indisponivel": motivo,
     }
 
 
@@ -570,8 +595,30 @@ async def consultar_saldo(
         "saldo_total_centavos": None if desconhecidos else saldo_conhecido,
         "saldo_total_escopo": "contas_casa",
         "contas_sem_saldo_confiavel": desconhecidos,
-        "bancas": [_linha_da_banca(banca) for banca in bancas],
+        "bancas": [_linha_da_banca(banca, linhas) for banca in bancas],
     })
+
+
+@router.patch(
+    "/api/v1/caixa/contas/{conta_casa_id}/banca",
+    response_model=VinculoBancaSaida,
+    responses={404: {"model": ErroSaida, "description": "Conta ou banca não encontrada"}},
+)
+async def vincular_banca(
+    conta_casa_id: Annotated[int, Path(ge=1, le=BIGINT_MAX)],
+    pedido: VinculoBancaNovo,
+    usuario: Annotated[Usuario, Depends(get_current_user)],
+    session: Annotated[AsyncSession, Depends(get_db)],
+) -> JSONResponse:
+    if pedido.banca_id is not None:
+        banca = await BancaRepo().get_by_id(session, usuario.id, pedido.banca_id)
+        if banca is None:
+            return erro(status.HTTP_404_NOT_FOUND, "não achei esta banca")
+    conta = await ContaCasaRepo().update_banca(session, usuario.id, conta_casa_id, pedido.banca_id)
+    if conta is None:
+        return erro(status.HTTP_404_NOT_FOUND, "não achei esta conta")
+    await session.commit()
+    return JSONResponse({"conta_casa_id": conta.id, "banca_id": conta.banca_id})
 
 
 def linha_do_extrato(item: LinhaExtrato) -> dict[str, object]:

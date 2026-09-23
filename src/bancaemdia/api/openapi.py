@@ -44,6 +44,10 @@ OPERATION_DOCUMENTATION: dict[OperationKey, tuple[str, str]] = {
         "Criar aposta manual",
         "Cria uma aposta manual e registra o primeiro evento em seu histórico auditável.",
     ),
+    ("post", "/api/v1/apostas/importar-planilha"): (
+        "Importar apostas do Excel",
+        "Importa um XLSX com origem_id estável; identifica cada aposta pela aba e linha e aplica somente versões mais recentes.",
+    ),
     ("get", "/api/v1/apostas/{chave}"): (
         "Consultar aposta",
         "Retorna a aposta materializada, suas seleções, eventos e eventual revisão pendente.",
@@ -75,6 +79,10 @@ OPERATION_DOCUMENTATION: dict[OperationKey, tuple[str, str]] = {
     ("get", "/api/v1/caixa/saldo"): (
         "Consultar saldos",
         "Calcula saldos conhecidos das contas a partir de movimentos e apostas.",
+    ),
+    ("patch", "/api/v1/caixa/contas/{conta_casa_id}/banca"): (
+        "Vincular conta à banca",
+        "Associa ou desassocia uma conta da casa a uma banca do mesmo usuário.",
     ),
     ("get", "/api/v1/caixa/extrato"): (
         "Consultar extrato",
@@ -157,6 +165,10 @@ PARAMETER_DESCRIPTIONS = {
 
 
 REQUEST_EXAMPLES: dict[OperationKey, tuple[str, JsonObject]] = {
+    ("patch", "/api/v1/caixa/contas/{conta_casa_id}/banca"): (
+        "Vincular conta à banca",
+        {"banca_id": 12},
+    ),
     ("post", "/api/v1/apostas"): (
         "Aposta manual",
         {
@@ -409,6 +421,34 @@ def _install_manual_request_bodies(document: JsonObject) -> None:
                     "default": {
                         "summary": "Exportação ZIP com filtro opcional",
                         "value": {"file": "telegram-export.zip", "chat_filter": [123456789]},
+                    }
+                },
+            }
+        },
+    }
+
+    planilha_operation = _object(
+        _object(paths["/api/v1/apostas/importar-planilha"], context="path importar-planilha")[
+            "post"
+        ],
+        context="POST importar-planilha",
+    )
+    planilha_operation["requestBody"] = {
+        "required": True,
+        "content": {
+            "multipart/form-data": {
+                "schema": {
+                    "type": "object",
+                    "required": ["arquivo", "origem_id"],
+                    "properties": {
+                        "arquivo": {"type": "string", "format": "binary"},
+                        "origem_id": {"type": "string", "minLength": 1, "maxLength": 128},
+                    },
+                },
+                "examples": {
+                    "default": {
+                        "summary": "Planilha de apostas",
+                        "value": {"arquivo": "apostas.xlsx", "origem_id": "planilha-principal"},
                     }
                 },
             }

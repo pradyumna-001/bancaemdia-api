@@ -19,6 +19,7 @@ python scripts/generate_openapi.py
 | --- | --- | --- | --- | --- |
 | `GET` | `/api/v1/apostas` | Listar apostas | `200`, `401`, `422`, `429`, `500`, `503` | — |
 | `POST` | `/api/v1/apostas` | Criar aposta manual | `201`, `401`, `409`, `413`, `422`, `429`, `500`, `503` | — |
+| `POST` | `/api/v1/apostas/importar-planilha` | Importar apostas do Excel | `200`, `401`, `413`, `422`, `429`, `500`, `503` | — |
 | `GET` | `/api/v1/apostas/{chave}` | Consultar aposta | `200`, `401`, `404`, `422`, `429`, `500`, `503` | — |
 | `PATCH` | `/api/v1/apostas/{chave}` | Corrigir aposta | `200`, `401`, `404`, `409`, `413`, `422`, `429`, `500`, `503` | — |
 | `DELETE` | `/api/v1/apostas/{chave}` | Excluir aposta da apuração | `200`, `401`, `404`, `409`, `422`, `429`, `500`, `503` | — |
@@ -26,6 +27,7 @@ python scripts/generate_openapi.py
 | `POST` | `/api/v1/apostas/{chave}/resultado` | Registrar resultado da aposta | `200`, `401`, `404`, `409`, `413`, `422`, `429`, `500`, `503` | — |
 | `GET` | `/api/v1/caixa` | Listar movimentos de caixa | `200`, `401`, `422`, `429`, `500`, `503` | — |
 | `POST` | `/api/v1/caixa` | Registrar movimento de caixa | `201`, `401`, `404`, `409`, `413`, `422`, `429`, `500`, `503` | — |
+| `PATCH` | `/api/v1/caixa/contas/{conta_casa_id}/banca` | Vincular conta à banca | `200`, `401`, `404`, `413`, `422`, `429`, `500`, `503` | — |
 | `GET` | `/api/v1/caixa/extrato` | Consultar extrato | `200`, `401`, `422`, `429`, `500`, `503` | — |
 | `GET` | `/api/v1/caixa/saldo` | Consultar saldos | `200`, `401`, `422`, `429`, `500`, `503` | — |
 | `POST` | `/api/v1/coleta` | Receber coleta da extensão | `200`, `400`, `403`, `413`, `429`, `500`, `503` | — |

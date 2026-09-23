@@ -5,6 +5,7 @@ from zoneinfo import ZoneInfo
 from fastapi import APIRouter, Depends, Path, Query, status
 from fastapi.responses import JSONResponse, Response
 from pydantic import BaseModel, ConfigDict, JsonValue, field_validator
+from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from bancaemdia.api.contracts import (
@@ -14,6 +15,7 @@ from bancaemdia.api.contracts import (
 )
 from bancaemdia.api.deps import get_current_user, get_current_user_snapshot
 from bancaemdia.api.v1 import apostas as apostas_api
+from bancaemdia.config import get_settings
 from bancaemdia.db.session import get_db, get_db_snapshot
 from bancaemdia.domain.materializar import projetar
 from bancaemdia.domain.registros import RevisaoPendente, Usuario
@@ -24,7 +26,11 @@ from bancaemdia.domain.revisao_service import (
     planejar_resolucao,
 )
 from bancaemdia.repositories.aposta_repo import ApostaRepo
+from bancaemdia.repositories.evento_repo import EventoRepo
+from bancaemdia.repositories.mensagem_repo import MidiaArquivoRepo
 from bancaemdia.repositories.revisao_pendente_repo import RevisaoPendenteRepo
+from bancaemdia.storage.midia_s3 import signed_url
+from bancaemdia.workers.pairing import confirmar_par
 
 BIGINT_MAX = 2**63 - 1
 TAMANHO_PADRAO_DA_PAGINA = 50
@@ -51,7 +57,7 @@ class CorrecaoDaRevisao(BaseModel):
 class ResolucaoNova(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
-    acao: Literal["CORRIGIR", "DESCARTAR"]
+    acao: Literal["CORRIGIR", "DESCARTAR", "MESMA"]
     aposta_corrigida: CorrecaoDaRevisao | None = None
 
     @field_validator("acao", mode="before")
@@ -99,7 +105,7 @@ class RevisaoFechadaSaida(BaseModel):
 
 class ResolucaoSaida(BaseModel):
     revisao: RevisaoFechadaSaida
-    acao: Literal["CORRIGIR", "DESCARTAR"]
+    acao: Literal["CORRIGIR", "DESCARTAR", "MESMA"]
     aposta: BetResponse
     eventos_gravados: int
 
@@ -118,13 +124,21 @@ def _quando(valor: datetime | None) -> str | None:
     return None if valor is None else valor.isoformat()
 
 
-def _foto_url(revisao: RevisaoPendente) -> str | None:
+def _foto_url(revisao: RevisaoPendente, storage: tuple[str, str] | None = None) -> str | None:
     if revisao.midia_hash is None or revisao.resolvido_em is not None:
         return None
+    bucket = get_settings().S3_UPLOAD_BUCKET
+    if bucket is not None and storage is not None:
+        key, tipo = storage
+        return signed_url(
+            bucket, key, tipo if tipo in TIPOS_DE_IMAGEM else "application/octet-stream"
+        )
     return f"/api/v1/revisao/{revisao.id}/foto"
 
 
-def linha_da_revisao(revisao: RevisaoPendente) -> dict[str, object]:
+def linha_da_revisao(
+    revisao: RevisaoPendente, storage: tuple[str, str] | None = None
+) -> dict[str, object]:
     return {
         "id": revisao.id,
         "midia_hash": revisao.midia_hash,
@@ -132,7 +146,7 @@ def linha_da_revisao(revisao: RevisaoPendente) -> dict[str, object]:
         "extracao_bruta": revisao.extracao_bruta,
         "criado_em": _quando(revisao.criado_em),
         "resolvido_em": _quando(revisao.resolvido_em),
-        "foto_url": _foto_url(revisao),
+        "foto_url": _foto_url(revisao, storage),
     }
 
 
@@ -181,8 +195,15 @@ async def listar_revisoes(
         page,
         page_size,
     )
+    storage: dict[str, tuple[str, str]] = {}
+    if get_settings().S3_UPLOAD_BUCKET is not None:
+        storage = await MidiaArquivoRepo().keys_for_hashes(
+            session, [item.midia_hash for item in revisoes if item.midia_hash is not None]
+        )
     return JSONResponse({
-        "data": [linha_da_revisao(revisao) for revisao in revisoes],
+        "data": [
+            linha_da_revisao(revisao, storage.get(revisao.midia_hash or "")) for revisao in revisoes
+        ],
         "pagination": {"page": page, "page_size": page_size, "total": total},
     })
 
@@ -233,7 +254,12 @@ async def ver_revisao(
     revisao = await RevisaoPendenteRepo().get_by_id(session, usuario.id, revisao_id)
     if revisao is None:
         return erro(status.HTTP_404_NOT_FOUND, NAO_ACHEI)
-    return JSONResponse(linha_da_revisao(revisao))
+    storage = None
+    if revisao.midia_hash is not None and get_settings().S3_UPLOAD_BUCKET is not None:
+        storage = (await MidiaArquivoRepo().keys_for_hashes(session, [revisao.midia_hash])).get(
+            revisao.midia_hash
+        )
+    return JSONResponse(linha_da_revisao(revisao, storage))
 
 
 @router.post(
@@ -276,7 +302,8 @@ async def resolver_revisao(
     if travada.resolvido_em is not None:
         await session.rollback()
         return erro(status.HTTP_409_CONFLICT, JA_RESOLVIDA)
-    if await ApostaRepo().get_by_chave_for_update(session, usuario.id, chave) is None:
+    aposta_atual = await ApostaRepo().get_by_chave_for_update(session, usuario.id, chave)
+    if aposta_atual is None:
         await session.rollback()
         return erro(status.HTTP_409_CONFLICT, ORFA)
 
@@ -287,6 +314,70 @@ async def resolver_revisao(
         await session.rollback()
         return erro(status.HTTP_409_CONFLICT, HISTORICO_INCOMPLETO)
     antes, _ = projetar(historico)
+    if pedido.acao == "MESMA":
+        candidata = (
+            revisao.extracao_bruta.get("parceira_suspeita")
+            if isinstance(revisao.extracao_bruta, dict)
+            else None
+        )
+        if (
+            pedido.aposta_corrigida is not None
+            or not antes.get("duvida_de_par")
+            or not isinstance(candidata, str)
+        ):
+            await session.rollback()
+            return erro(
+                status.HTTP_422_UNPROCESSABLE_ENTITY, "esta revisão não tem um par para confirmar"
+            )
+        livre = await session.scalar(
+            text("SELECT pg_try_advisory_xact_lock(hashtextextended(:key, 0))"),
+            {"key": f"pareador:{usuario.id}"},
+        )
+        if not livre:
+            await session.rollback()
+            return erro(status.HTTP_409_CONFLICT, OCUPADA)
+        parceira = await ApostaRepo().get_by_chave_for_update(session, usuario.id, candidata)
+        if parceira is None:
+            await session.rollback()
+            return erro(status.HTTP_409_CONFLICT, "a aposta candidata não existe mais")
+        try:
+            await confirmar_par(session, usuario.id, aposta_atual, parceira)
+            await EventoRepo().append(
+                session,
+                {
+                    "usuario_id": usuario.id,
+                    "tipo": "REVISAO_RESOLVIDA",
+                    "fonte": "manual",
+                    "payload_json": evento_da_resolucao(
+                        travada.id, "MESMA", travada.motivo, ()
+                    ).payload,
+                    "confianca": None,
+                    "chat_id": None,
+                    "message_id": None,
+                    "aposta_chave": chave,
+                },
+            )
+            resolvida = await repositorio.resolve(session, usuario.id, revisao_id)
+            if resolvida is None:
+                await session.rollback()
+                return erro(status.HTTP_409_CONFLICT, JA_RESOLVIDA)
+            depois_eventos = await apostas_api._historico(session, usuario.id, chave)
+            depois, _ = projetar(depois_eventos)
+            gravada = await ApostaRepo().get_by_chave(session, usuario.id, chave)
+            assert gravada is not None
+            await session.commit()
+        except ValueError as recusa:
+            await session.rollback()
+            return erro(status.HTTP_409_CONFLICT, str(recusa))
+        except Exception:
+            await session.rollback()
+            raise
+        return JSONResponse({
+            "revisao": {"id": resolvida.id, "resolvido_em": _quando(resolvida.resolvido_em)},
+            "acao": "MESMA",
+            "aposta": apostas_api.linha_da_aposta(gravada, depois),
+            "eventos_gravados": len(depois_eventos) - len(historico),
+        })
     correcoes = (
         None
         if pedido.aposta_corrigida is None

@@ -21,6 +21,7 @@ REVISAO_RESOLVIDA = "f2a9c4e7b106"
 PAINEL = "d3f6a8c1e209"
 CAIXA_REVISAO_MERGE = "e5a1c7d9b204"
 PAINEL_CAIXA_MERGE = "f8b2d4a6c901"
+HEAD = "a9d6e3f1c210"
 USUARIO_ATUAL = "NULLIF(current_setting('app.current_user_id', true), '')::bigint"
 JOB_OFERECIDO = "NULLIF(current_setting('app.upload_job_id', true), '')::uuid"
 POR_USUARIO = {
@@ -185,7 +186,7 @@ def test_the_deleted_flag_revision_follows_the_uploads() -> None:
 def test_late_branches_merge_without_rewriting_published_revisions() -> None:
     script = ScriptDirectory.from_config(_config())
 
-    assert script.get_current_head() == PAINEL_CAIXA_MERGE
+    assert script.get_current_head() == HEAD
     assert script.get_revision(TRANSFERENCIA).down_revision == SELECIONADA
     assert "006_movimento_transferencia" in script.get_revision(TRANSFERENCIA).doc
     assert script.get_revision(IDEMPOTENCIA_CAIXA).down_revision == TRANSFERENCIA

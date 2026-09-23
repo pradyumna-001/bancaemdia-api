@@ -40,6 +40,13 @@ def test_empty_correction_means_confirm_and_clears_the_queue() -> None:
     ]
 
 
+def test_confirming_a_distinct_pair_restores_the_bet_to_totals() -> None:
+    plano = planejar_resolucao("CORRIGIR", None, _estado(duvida_de_par=True, selecionada=False))
+
+    assert plano.eventos[-1].tipo == "SELECAO_ALTERADA"
+    assert plano.eventos[-1].payload == {"selecionada": True, "duvida_de_par": False}
+
+
 def test_correction_records_only_changed_user_fields_and_also_clears_review() -> None:
     plano = planejar_resolucao(
         "CORRIGIR",

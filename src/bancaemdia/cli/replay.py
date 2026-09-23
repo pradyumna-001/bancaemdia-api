@@ -1,8 +1,4 @@
-"""Safe reconciliation of bet projections against the immutable event log.
-
-The cash ledger is deliberately read-only: older rows have no corresponding event and
-idempotency responses refer to its original row IDs. No replay deletes a ledger row.
-"""
+"""Reconcile bet projections and restore event-backed cash rows safely."""
 
 import argparse
 import asyncio
@@ -10,11 +6,13 @@ import time
 from dataclasses import dataclass
 from datetime import date, datetime, timedelta
 from datetime import time as day_time
+from types import SimpleNamespace
 from typing import Any
+from uuid import UUID
 from zoneinfo import ZoneInfo
 
 import structlog
-from sqlalchemy import func, select, text, update
+from sqlalchemy import func, insert, select, text, update
 from sqlalchemy.ext.asyncio import AsyncEngine, AsyncSession
 
 from bancaemdia import models
@@ -22,6 +20,7 @@ from bancaemdia.config import get_settings
 from bancaemdia.domain.financeiro import Aposta as ApostaFinanceira
 from bancaemdia.domain.projecao import EventoIrrecuperavelError, projetar_validado
 from bancaemdia.domain.temporal import VALOR_UNIDADE_PADRAO_CENTAVOS
+from bancaemdia.models.movimento import TIPOS_DE_MOVIMENTO
 from bancaemdia.repositories.conta_casa_repo import ContaCasaRepo
 from bancaemdia.repositories.unidade_repo import UnidadeRepo
 from bancaemdia.workers.materialization import get_engine
@@ -51,6 +50,8 @@ COLUNAS = (
     "freebet",
     "revisao_grave",
     "selecionada",
+    "duvida_de_par",
+    "parceira_chave",
 )
 IDENTIFICADORES = (
     "conta_casa_id",
@@ -72,8 +73,10 @@ class ResultadoReplay:
     eventos: int = 0
     apostas: int = 0
     alteradas: int = 0
+    recriadas: int = 0
     movimentos: int = 0
     movimentos_sem_evento: int = 0
+    movimentos_restaurados: int = 0
     seco: bool = False
 
 
@@ -142,7 +145,7 @@ async def _pagina_chaves(
 
 
 async def _valores(
-    session: AsyncSession, usuario_id: int, estado: dict[str, Any], atual: models.Aposta
+    session: AsyncSession, usuario_id: int, estado: dict[str, Any], atual: Any
 ) -> dict[str, object]:
     valor_unidade = estado.get("valor_unidade_centavos")
     instante = _data(estado.get("data_aposta")) if "data_aposta" in estado else atual.data_aposta
@@ -174,6 +177,8 @@ async def _valores(
         "retorno_centavos": estado.get("retorno_centavos"),
         "revisao_grave": bool(estado.get("revisao_grave")),
         "selecionada": bool(estado.get("selecionada", True)),
+        "duvida_de_par": bool(estado.get("duvida_de_par")),
+        "parceira_chave": estado.get("parceira_chave"),
         "data_aposta": instante,
         "data_jogo": _data(estado["data_jogo"]) if "data_jogo" in estado else atual.data_jogo,
     }
@@ -191,6 +196,86 @@ async def _valores(
     ):
         raise ReplayInseguroError("conta histórica não pertence ao usuário")
     return dados
+
+
+async def _restaurar_ledger(
+    session: AsyncSession, usuario_id: int, resultado: ResultadoReplay, seco: bool
+) -> None:
+    """Restore only rows whose immutable event records every material field and original ID."""
+    depois = 0
+    while True:
+        eventos = (
+            (
+                await session.execute(
+                    select(models.Evento)
+                    .where(
+                        models.Evento.usuario_id == usuario_id,
+                        models.Evento.tipo == "MOVIMENTO_REGISTRADO",
+                        models.Evento.id > depois,
+                    )
+                    .order_by(models.Evento.id)
+                    .limit(PAGE_SIZE)
+                )
+            )
+            .scalars()
+            .all()
+        )
+        if not eventos:
+            break
+        for evento in eventos:
+            depois = evento.id
+            payload = evento.payload_json
+            lancamentos = payload.get("lancamentos")
+            instante = _data(payload.get("ocorrido_em"))
+            if not isinstance(lancamentos, list) or instante is None:
+                raise ReplayInseguroError(f"evento de caixa {evento.id} incompleto")
+            transferencia = payload.get("transferencia_id")
+            try:
+                transferencia_id = None if transferencia is None else UUID(str(transferencia))
+            except ValueError as erro:
+                raise ReplayInseguroError(f"transferência inválida no evento {evento.id}") from erro
+            for linha in lancamentos:
+                if not isinstance(linha, dict) or not isinstance(linha.get("movimento_id"), int):
+                    raise ReplayInseguroError(f"lançamento inválido no evento {evento.id}")
+                movimento_id = linha["movimento_id"]
+                existente = (
+                    await session.execute(
+                        select(models.Movimento).where(
+                            models.Movimento.usuario_id == usuario_id,
+                            models.Movimento.id == movimento_id,
+                        )
+                    )
+                ).scalar_one_or_none()
+                if existente is not None:
+                    if existente.ocorrido_em != instante:
+                        raise ReplayInseguroError(f"movimento {movimento_id} existe em outra data")
+                    continue
+                conta_id = linha.get("conta_casa_id")
+                if conta_id is not None and (
+                    not isinstance(conta_id, int)
+                    or await ContaCasaRepo().get_by_id(session, usuario_id, conta_id) is None
+                ):
+                    raise ReplayInseguroError(f"conta inválida no evento {evento.id}")
+                if linha.get("tipo") not in TIPOS_DE_MOVIMENTO or not isinstance(
+                    linha.get("valor_centavos"), int
+                ):
+                    raise ReplayInseguroError(f"valor/tipo inválido no evento {evento.id}")
+                resultado.movimentos_restaurados += 1
+                if not seco:
+                    await session.execute(
+                        insert(models.Movimento).values(
+                            id=movimento_id,
+                            usuario_id=usuario_id,
+                            conta_casa_id=conta_id,
+                            tipo=linha["tipo"],
+                            valor_centavos=linha["valor_centavos"],
+                            ocorrido_em=instante,
+                            descricao=payload.get("descricao"),
+                            transferencia_id=transferencia_id,
+                        )
+                    )
+        if len(eventos) < PAGE_SIZE:
+            break
 
 
 async def _conferir_ledger(
@@ -430,10 +515,6 @@ async def reconstruir_usuario(
                 historico = por_chave[chave]
                 resultado.eventos += len(historico)
                 aposta = apostas.get(chave)
-                if aposta is None:
-                    raise ReplayInseguroError(
-                        f"aposta {chave} sem linha; ID histórico não recuperável"
-                    )
                 try:
                     estado, _ = projetar_validado(
                         (evento.tipo, evento.fonte, evento.payload_json) for evento in historico
@@ -443,11 +524,58 @@ async def reconstruir_usuario(
                         f"histórico irrecuperável de {chave}: {erro}"
                     ) from erro
                 referencia = (
-                    _data(estado.get("data_aposta")) or aposta.data_aposta or historico[0].criado_em
+                    _data(estado.get("data_aposta"))
+                    or (None if aposta is None else aposta.data_aposta)
+                    or historico[0].criado_em
                 )
                 if not _selecionada(referencia, inicio, fim):
                     continue
                 resultado.apostas += 1
+                if aposta is None:
+                    snapshot = historico[0].payload_json.get("snapshot_replay")
+                    if (
+                        not isinstance(snapshot, dict)
+                        or not snapshot.get("snapshot_completo")
+                        or not all(
+                            campo in snapshot
+                            for campo in (
+                                "origem",
+                                "stake_unidades",
+                                "valor_unidade_centavos",
+                                "conta_casa_id",
+                                "chat_id",
+                                "message_id",
+                                "ordem_na_mensagem",
+                                "data_aposta",
+                                "freebet",
+                            )
+                        )
+                    ):
+                        raise ReplayInseguroError(
+                            f"aposta {chave} sem linha; ID histórico não recuperável"
+                        )
+                    estado = {**snapshot, **estado}
+                    referencia_antiga = SimpleNamespace(
+                        data_aposta=_data(snapshot["data_aposta"]),
+                        criada_em=historico[0].criado_em,
+                        data_jogo=_data(snapshot.get("data_jogo")),
+                        conta_casa_id=snapshot["conta_casa_id"],
+                        stake_centavos=0,
+                        valor_aposta_centavos=0,
+                    )
+                    dados = await _valores(session, usuario_id, estado, referencia_antiga)
+                    resultado.recriadas += 1
+                    if not dry_run:
+                        await session.execute(
+                            insert(models.Aposta).values(
+                                usuario_id=usuario_id,
+                                chave=chave,
+                                criada_em=historico[0].criado_em,
+                                atualizada_em=historico[-1].criado_em,
+                                **dados,
+                            )
+                        )
+                    continue
                 dados = await _valores(session, usuario_id, estado, aposta)
                 diferencas = {
                     campo: valor
@@ -502,7 +630,9 @@ async def reconstruir_usuario(
         )
         if orfas is not None:
             raise ReplayInseguroError(f"aposta {orfas} sem histórico")
-        await _conferir_ledger(session, usuario_id, resultado)
+        await _restaurar_ledger(session, usuario_id, resultado, dry_run)
+        if not dry_run or resultado.movimentos_restaurados == 0:
+            await _conferir_ledger(session, usuario_id, resultado)
         if dry_run:
             await session.rollback()
     return resultado

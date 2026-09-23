@@ -23,6 +23,12 @@ class Settings(BaseSettings):
         ..., description="Read-replica DSN; same as primary in local dev"
     )
     REDIS_URL: str = Field(..., description="Redis connection URL")
+    REDIS_CLUSTER_MODE: bool = Field(
+        default=False, description="Use Redis Cluster for cache and Anthropic quota"
+    )
+    S3_UPLOAD_BUCKET: str | None = Field(
+        default=None, description="Private bucket for uploaded review images"
+    )
     CELERY_BROKER_URL: str = Field(
         default="redis://redis:6379/0", description="Celery broker URL (Redis db 0)"
     )

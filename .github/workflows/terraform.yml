@@ -80,7 +80,7 @@ jobs:
         run: |
           set -euo pipefail
           cd infra/terraform/environments/staging
-          terraform init -input=false -backend-config="bucket=$STATE_BUCKET" -backend-config="key=staging/terraform.tfstate" -backend-config="region=$TF_VAR_region" -backend-config="encrypt=true" -backend-config="use_lockfile=true"
+          terraform init -input=false -backend-config="bucket=$STATE_BUCKET" -backend-config="key=staging/terraform.tfstate" -backend-config="region=$TF_VAR_region" -backend-config="encrypt=true" -backend-config="use_lockfile=true" -backend-config="dynamodb_table=bancaemdia-terraform-lock"
           terraform plan -input=false -out=plan.tfplan
           terraform show -json plan.tfplan | jq -r '.resource_changes[]? | "\(.address): \(.change.actions | join(","))"' > "$RUNNER_TEMP/plan-summary.txt"
       - name: Comment reviewed plan summary
@@ -125,7 +125,7 @@ jobs:
           aws-region: ${{ vars.TF_REGION }}
       - name: Apply reviewed staging configuration
         run: |
-          terraform -chdir=infra/terraform/environments/staging init -input=false -backend-config="bucket=$STATE_BUCKET" -backend-config="key=staging/terraform.tfstate" -backend-config="region=$TF_VAR_region" -backend-config="encrypt=true" -backend-config="use_lockfile=true"
+          terraform -chdir=infra/terraform/environments/staging init -input=false -backend-config="bucket=$STATE_BUCKET" -backend-config="key=staging/terraform.tfstate" -backend-config="region=$TF_VAR_region" -backend-config="encrypt=true" -backend-config="use_lockfile=true" -backend-config="dynamodb_table=bancaemdia-terraform-lock"
           terraform -chdir=infra/terraform/environments/staging apply -input=false -auto-approve
 
   apply-production:
@@ -161,5 +161,5 @@ jobs:
           aws-region: ${{ vars.TF_REGION }}
       - name: Apply production configuration
         run: |
-          terraform -chdir=infra/terraform/environments/production init -input=false -backend-config="bucket=$STATE_BUCKET" -backend-config="key=production/terraform.tfstate" -backend-config="region=$TF_VAR_region" -backend-config="encrypt=true" -backend-config="use_lockfile=true"
+          terraform -chdir=infra/terraform/environments/production init -input=false -backend-config="bucket=$STATE_BUCKET" -backend-config="key=production/terraform.tfstate" -backend-config="region=$TF_VAR_region" -backend-config="encrypt=true" -backend-config="use_lockfile=true" -backend-config="dynamodb_table=bancaemdia-terraform-lock"
           terraform -chdir=infra/terraform/environments/production apply -input=false -auto-approve

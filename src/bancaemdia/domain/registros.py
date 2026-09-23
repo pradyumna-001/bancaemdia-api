@@ -32,6 +32,7 @@ class ContaCasa:
     desde: datetime | None
     ate: datetime | None
     ativa: bool
+    banca_id: int | None = None
 
 
 @dataclass(frozen=True)
