@@ -489,6 +489,7 @@ async def listar_movimentos(
     usuario: Annotated[Usuario, Depends(get_current_user)],
     session: Annotated[AsyncSession, Depends(get_db)],
     conta_casa_id: Annotated[int | None, Query(ge=1, le=BIGINT_MAX)] = None,
+    titular_id: Annotated[int | None, Query(ge=1, le=BIGINT_MAX)] = None,
     tipo: TipoMovimentoConsulta | None = None,
     desde: datetime | None = None,
     ate: datetime | None = None,
@@ -503,6 +504,7 @@ async def listar_movimentos(
         usuario.id,
         {
             "conta_casa_id": conta_casa_id,
+            "titular_id": titular_id,
             "tipo": tipo_normalizado,
             "desde": _instante(desde),
             "ate": _instante(ate),
