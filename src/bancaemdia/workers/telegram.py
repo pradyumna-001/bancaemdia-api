@@ -25,6 +25,7 @@ from bancaemdia.observability.metrics import (
     telegram_transport_dlq_count,
     telegram_transport_retries_total,
 )
+from bancaemdia.services.telegram_conversation import handle_text, new_photo_reply
 from bancaemdia.services.telegram_link import REPO, IncomingCommand, redeem_command, resolve_sender
 from bancaemdia.workers.celery_app import app
 from bancaemdia.workers.materialization import get_engine
@@ -99,8 +100,46 @@ async def _handle_inbox(session: AsyncSession, item: TelegramInbox) -> None:
                 )
         return
     if chat_type == "private":
-        # Draft/photo/confirmation handlers (#99-101) will extend this branch.
-        await resolve_sender(session, sender, chat)
+        owner = await resolve_sender(session, sender, chat)
+        if owner is None:
+            return
+        photos = payload.get("photo")
+        if isinstance(photos, list) and photos and item.message_id is not None:
+            candidate = photos[-1]
+            file_id = candidate.get("file_id") if isinstance(candidate, dict) else None
+            if isinstance(file_id, str):
+                photo_reply = await new_photo_reply(
+                    session,
+                    user_id=owner,
+                    chat_id=chat,
+                    message_id=item.message_id,
+                    update_id=item.update_id,
+                    media_file_id=file_id,
+                )
+                await queue_reply(
+                    session,
+                    user_id=owner,
+                    chat_id=chat,
+                    key=f"telegram-draft:{item.update_id}:reply",
+                    message=photo_reply.text,
+                )
+            return
+        if isinstance(message_text, str):
+            text_reply = await handle_text(
+                session,
+                user_id=owner,
+                chat_id=chat,
+                update_id=item.update_id,
+                text=message_text,
+            )
+            if text_reply is not None:
+                await queue_reply(
+                    session,
+                    user_id=owner,
+                    chat_id=chat,
+                    key=f"telegram-draft:{item.update_id}:reply",
+                    message=text_reply.text,
+                )
 
 
 async def process_inbox_once(engine: AsyncEngine) -> bool:

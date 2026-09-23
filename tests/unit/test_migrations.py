@@ -17,7 +17,7 @@ REVISAO_RESOLVIDA = "f2a9c4e7b106"
 CAIXA_REVISAO_MERGE = "e5a1c7d9b204"
 PAINEL = "d3f6a8c1e209"
 PAINEL_CAIXA_MERGE = "f8b2d4a6c901"
-HEAD = "f98a7b1c2026"
+HEAD = "a99a7b1c2026"
 PARTICIONADAS = {
     "eventos": "criado_em",
     "movimentos": "ocorrido_em",
@@ -94,7 +94,7 @@ def test_upgrade_creates_every_model_table_once() -> None:
 def test_upgrade_renders_the_schema_of_the_models() -> None:
     sql = _upgrade_sql()
     # Billing adds singleton/user-keyed tables; Telegram throttling has a hash key.
-    assert sql.count("id BIGSERIAL NOT NULL") == len(Base.metadata.tables) - 4
+    assert sql.count("id BIGSERIAL NOT NULL") == len(Base.metadata.tables) - 5
     assert "CREATE TYPE familia_de_mercado AS ENUM ('GOLS'" in sql
     assert "payload_json JSONB NOT NULL" in sql
     assert "CHECK (NOT freebet OR stake_centavos = 0)" in sql
