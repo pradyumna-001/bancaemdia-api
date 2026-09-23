@@ -30,6 +30,10 @@ EXPORT_TABLES = (
     "movimento_requisicoes",
     "bancas",
     "contas_casa",
+    "titulares",
+    "usos_conta_casa",
+    "trocas_titular_requisicoes",
+    "trocas_titular_eventos",
     "unidades",
     "revisao_pendente",
     "coletas_casa",
@@ -202,7 +206,8 @@ async def anonimizar_minha_conta(
             )
     for table in reversed(Base.metadata.sorted_tables):
         if (
-            table.name in {"usuarios", "eventos", "audit_log", "assinaturas"}
+            table.name
+            in {"usuarios", "eventos", "audit_log", "assinaturas", "trocas_titular_eventos"}
             or "usuario_id" not in table.c
         ):
             continue

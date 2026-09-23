@@ -390,7 +390,7 @@ def _conta() -> models.ContaCasa:
 async def test_conta_casa_lookup_create_and_close() -> None:
     session = _Session(_conta())
     conta = await ContaCasaRepo().get_by_usuario_casa(session, 1, 2)
-    assert conta == registros.ContaCasa(3, 1, 2, "", ONTEM, None, True)
+    assert conta == registros.ContaCasa(3, 1, 2, "", ONTEM, None, True, estado=None)
     sql = _sql(session.statements[0])
     assert (
         "contas_casa.usuario_id = %(usuario_id_1)s AND contas_casa.casa_id = %(casa_id_1)s" in sql
@@ -793,7 +793,7 @@ async def test_conta_casa_is_found_by_the_house_name_and_the_bet_date() -> None:
 
     conta = await ContaCasaRepo().get_vigente_by_nome_da_casa(session, 1, "Betano")
 
-    assert conta == registros.ContaCasa(3, 1, 2, "", ONTEM, None, True)
+    assert conta == registros.ContaCasa(3, 1, 2, "", ONTEM, None, True, estado=None)
     sql = _sql(session.statements[0])
     assert "JOIN casas ON casas.id = contas_casa.casa_id" in sql
     assert "casas.nome = %(nome_1)s" in sql

@@ -32,8 +32,11 @@ from bancaemdia.models.movimento_requisicao import MovimentoRequisicao
 from bancaemdia.models.revisao_pendente import RevisaoPendente
 from bancaemdia.models.time import Time
 from bancaemdia.models.tipster import Tipster
+from bancaemdia.models.titular import Titular
+from bancaemdia.models.troca_titular import TrocaTitularEvento, TrocaTitularRequisicao
 from bancaemdia.models.unidade import Unidade
 from bancaemdia.models.upload import Upload, UploadArquivo, UploadBilhete
+from bancaemdia.models.uso_conta_casa import UsoContaCasa
 from bancaemdia.models.usuario import Usuario
 
 NUCLEO = (Usuario, Banca, ContaCasa, Unidade, Movimento, Aposta, Evento)
@@ -52,6 +55,7 @@ SUPORTE = (
 )
 UPLOAD = (Upload, UploadBilhete, UploadArquivo)
 BILLING = (Assinatura, BillingPrice, BillingPriceAudit, BillingRollout)
+HOLDERS = (Titular, UsoContaCasa, TrocaTitularEvento, TrocaTitularRequisicao)
 POR_USUARIO = (
     ChamadaIA,
     ColetaCasa,
@@ -89,11 +93,12 @@ def _indexes(modelo: type[Base]) -> dict[str, list[str]]:
     return {i.name: [c.name for c in i.columns] for i in modelo.__table__.indexes}
 
 
-def test_all_thirty_two_tables_are_registered() -> None:
+def test_all_thirty_six_tables_are_registered() -> None:
     esperadas = {
-        m.__tablename__ for m in NUCLEO + CANONICOS + SUPORTE + UPLOAD + BILLING + (AuditLog,)
+        m.__tablename__
+        for m in NUCLEO + CANONICOS + SUPORTE + UPLOAD + BILLING + HOLDERS + (AuditLog,)
     }
-    assert len(esperadas) == 32
+    assert len(esperadas) == 36
     assert set(Base.metadata.tables) == esperadas
     assert {m.__tablename__ for m in CANONICOS} == {
         "casas",

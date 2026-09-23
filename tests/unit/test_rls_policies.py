@@ -21,7 +21,7 @@ REVISAO_RESOLVIDA = "f2a9c4e7b106"
 PAINEL = "d3f6a8c1e209"
 CAIXA_REVISAO_MERGE = "e5a1c7d9b204"
 PAINEL_CAIXA_MERGE = "f8b2d4a6c901"
-HEAD = "c90b1a7e2026"
+HEAD = "d94a7b1c2026"
 USUARIO_ATUAL = "NULLIF(current_setting('app.current_user_id', true), '')::bigint"
 JOB_OFERECIDO = "NULLIF(current_setting('app.upload_job_id', true), '')::uuid"
 POR_USUARIO = {
@@ -42,6 +42,12 @@ POR_USUARIO_UPLOAD = {
     "upload_arquivos",
 }
 POR_USUARIO_IDEMPOTENCIA = {"movimento_requisicoes"}
+POR_USUARIO_TITULARES = {
+    "titulares",
+    "usos_conta_casa",
+    "trocas_titular_requisicoes",
+    "trocas_titular_eventos",
+}
 COMPARTILHADAS = {
     "midia_arquivos",
     "casas",
@@ -98,9 +104,10 @@ def test_rls_revision_follows_the_baseline() -> None:
 def test_protected_and_shared_tables_cover_the_whole_schema() -> None:
     protegidas = POR_USUARIO | POR_USUARIO_UPLOAD | POR_USUARIO_IDEMPOTENCIA
     billing = {"assinaturas", "billing_prices", "billing_price_audit", "billing_rollout"}
-    assert protegidas | COMPARTILHADAS | billing | {"usuarios", "audit_log"} == set(
-        Base.metadata.tables
-    )
+    assert protegidas | POR_USUARIO_TITULARES | COMPARTILHADAS | billing | {
+        "usuarios",
+        "audit_log",
+    } == set(Base.metadata.tables)
     assert not protegidas & COMPARTILHADAS
     for tabela in protegidas:
         assert "usuario_id" in Base.metadata.tables[tabela].c

@@ -3051,6 +3051,102 @@
         "title": "TipoMovimentoConsulta",
         "type": "string"
       },
+      "TrocaContaEntrada": {
+        "additionalProperties": false,
+        "properties": {
+          "casa_id": {
+            "minimum": 1.0,
+            "title": "Casa Id",
+            "type": "integer"
+          },
+          "conta_destino_id": {
+            "minimum": 1.0,
+            "title": "Conta Destino Id",
+            "type": "integer"
+          },
+          "conta_origem_id": {
+            "minimum": 1.0,
+            "title": "Conta Origem Id",
+            "type": "integer"
+          },
+          "efetiva_em": {
+            "format": "date-time",
+            "title": "Efetiva Em",
+            "type": "string"
+          },
+          "estado_origem": {
+            "enum": [
+              "DISPONIVEL",
+              "LIMITADA",
+              "ENCERRADA"
+            ],
+            "title": "Estado Origem",
+            "type": "string"
+          }
+        },
+        "required": [
+          "casa_id",
+          "conta_origem_id",
+          "conta_destino_id",
+          "efetiva_em",
+          "estado_origem"
+        ],
+        "title": "TrocaContaEntrada",
+        "type": "object"
+      },
+      "TrocaContaSaida": {
+        "additionalProperties": false,
+        "properties": {
+          "aplicada": {
+            "title": "Aplicada",
+            "type": "boolean"
+          },
+          "apostas_afetadas_ids": {
+            "items": {
+              "type": "integer"
+            },
+            "title": "Apostas Afetadas Ids",
+            "type": "array"
+          },
+          "casa_id": {
+            "title": "Casa Id",
+            "type": "integer"
+          },
+          "conta_destino_id": {
+            "title": "Conta Destino Id",
+            "type": "integer"
+          },
+          "conta_origem_id": {
+            "title": "Conta Origem Id",
+            "type": "integer"
+          },
+          "efetiva_em": {
+            "format": "date-time",
+            "title": "Efetiva Em",
+            "type": "string"
+          },
+          "estado_origem": {
+            "enum": [
+              "DISPONIVEL",
+              "LIMITADA",
+              "ENCERRADA"
+            ],
+            "title": "Estado Origem",
+            "type": "string"
+          }
+        },
+        "required": [
+          "casa_id",
+          "conta_origem_id",
+          "conta_destino_id",
+          "efetiva_em",
+          "estado_origem",
+          "apostas_afetadas_ids",
+          "aplicada"
+        ],
+        "title": "TrocaContaSaida",
+        "type": "object"
+      },
       "UploadAcceptedResponse": {
         "additionalProperties": false,
         "properties": {
@@ -4751,7 +4847,7 @@
         "operationId": "registrar_movimento_api_v1_caixa_post",
         "parameters": [
           {
-            "description": "Chave opaca obrigatória do cliente; reutilizá-la com o mesmo corpo reproduz a resposta original sem lançar dinheiro novamente.",
+            "description": "Chave opaca obrigatória do cliente; reutilizá-la com o mesmo corpo reproduz a resposta original sem repetir a operação.",
             "in": "header",
             "name": "Idempotency-Key",
             "required": true,
@@ -6459,6 +6555,248 @@
         "summary": "Resolver revisão"
       }
     },
+    "/api/v1/titulares/trocas": {
+      "post": {
+        "description": "Aplica uma prévia feita com a mesma chave; fecha a origem e abre o destino no instante escolhido.",
+        "operationId": "aplicar_troca_api_v1_titulares_trocas_post",
+        "parameters": [
+          {
+            "description": "Chave opaca obrigatória do cliente; reutilizá-la com o mesmo corpo reproduz a resposta original sem repetir a operação.",
+            "in": "header",
+            "name": "Idempotency-Key",
+            "required": true,
+            "schema": {
+              "maxLength": 160,
+              "minLength": 1,
+              "title": "Idempotency-Key",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "examples": {
+                "default": {
+                  "summary": "Aplicar troca após prévia",
+                  "value": {
+                    "casa_id": 3,
+                    "conta_destino_id": 43,
+                    "conta_origem_id": 42,
+                    "efetiva_em": "2026-09-22T14:30:00-03:00",
+                    "estado_origem": "LIMITADA"
+                  }
+                }
+              },
+              "schema": {
+                "$ref": "#/components/schemas/TrocaContaEntrada"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TrocaContaSaida"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Missing, expired, or invalid bearer token."
+          },
+          "413": {
+            "content": {
+              "text/plain": {
+                "example": "Content Too Large",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            },
+            "description": "The request body exceeds this endpoint's streaming limit."
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorOrValidationResponse"
+                }
+              }
+            },
+            "description": "The request does not satisfy the published contract or a domain rule."
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "The caller exceeded an applicable request limit."
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unexpected internal failure with no sensitive exception details."
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "A required dependency is temporarily unavailable."
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Trocar conta da casa"
+      }
+    },
+    "/api/v1/titulares/trocas/preview": {
+      "post": {
+        "description": "Mostra as apostas cuja atribuição difere após a troca, sem alterar as contas.",
+        "operationId": "preview_troca_api_v1_titulares_trocas_preview_post",
+        "parameters": [
+          {
+            "description": "Chave opaca obrigatória do cliente; reutilizá-la com o mesmo corpo reproduz a resposta original sem repetir a operação.",
+            "in": "header",
+            "name": "Idempotency-Key",
+            "required": true,
+            "schema": {
+              "maxLength": 160,
+              "minLength": 1,
+              "title": "Idempotency-Key",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "examples": {
+                "default": {
+                  "summary": "Prévia de troca de conta",
+                  "value": {
+                    "casa_id": 3,
+                    "conta_destino_id": 43,
+                    "conta_origem_id": 42,
+                    "efetiva_em": "2026-09-22T14:30:00-03:00",
+                    "estado_origem": "LIMITADA"
+                  }
+                }
+              },
+              "schema": {
+                "$ref": "#/components/schemas/TrocaContaEntrada"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TrocaContaSaida"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Missing, expired, or invalid bearer token."
+          },
+          "413": {
+            "content": {
+              "text/plain": {
+                "example": "Content Too Large",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            },
+            "description": "The request body exceeds this endpoint's streaming limit."
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorOrValidationResponse"
+                }
+              }
+            },
+            "description": "The request does not satisfy the published contract or a domain rule."
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "The caller exceeded an applicable request limit."
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unexpected internal failure with no sensitive exception details."
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "A required dependency is temporarily unavailable."
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Prévia de troca de conta"
+      }
+    },
     "/api/v1/upload": {
       "post": {
         "description": "Valida e guarda uma exportação do Telegram antes de agendar seu processamento assíncrono.",
@@ -6923,6 +7261,33 @@
                       },
                       "type": "array"
                     },
+                    "titulares": {
+                      "items": {
+                        "additionalProperties": {
+                          "$ref": "#/components/schemas/JsonValue"
+                        },
+                        "type": "object"
+                      },
+                      "type": "array"
+                    },
+                    "trocas_titular_eventos": {
+                      "items": {
+                        "additionalProperties": {
+                          "$ref": "#/components/schemas/JsonValue"
+                        },
+                        "type": "object"
+                      },
+                      "type": "array"
+                    },
+                    "trocas_titular_requisicoes": {
+                      "items": {
+                        "additionalProperties": {
+                          "$ref": "#/components/schemas/JsonValue"
+                        },
+                        "type": "object"
+                      },
+                      "type": "array"
+                    },
                     "unidades": {
                       "items": {
                         "additionalProperties": {
@@ -6959,6 +7324,15 @@
                       },
                       "type": "array"
                     },
+                    "usos_conta_casa": {
+                      "items": {
+                        "additionalProperties": {
+                          "$ref": "#/components/schemas/JsonValue"
+                        },
+                        "type": "object"
+                      },
+                      "type": "array"
+                    },
                     "usuario": {
                       "additionalProperties": {
                         "$ref": "#/components/schemas/JsonValue"
@@ -6974,6 +7348,10 @@
                     "movimento_requisicoes",
                     "bancas",
                     "contas_casa",
+                    "titulares",
+                    "usos_conta_casa",
+                    "trocas_titular_requisicoes",
+                    "trocas_titular_eventos",
                     "unidades",
                     "revisao_pendente",
                     "coletas_casa",
