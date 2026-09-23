@@ -33,6 +33,7 @@ from bancaemdia.domain.account_review import sync_account_review
 from bancaemdia.domain.aposta_service import (
     CAMPOS_DE_ID,
     ApostaInvalidaError,
+    campos_ausentes_criacao,
     erro_de_id,
     eventos_da_correcao,
     eventos_da_exclusao,
@@ -573,7 +574,7 @@ async def criar_aposta(
     session: Annotated[AsyncSession, Depends(get_db)],
 ) -> JSONResponse:
     nome = casa_canonica(manual.casa or "")
-    if not manual.casa or not manual.casa.strip():
+    if "casa" in campos_ausentes_criacao(manual.model_dump()):
         return erro(status.HTTP_422_UNPROCESSABLE_ENTITY, "falta a casa de apostas")
     if nome is None:
         return erro(

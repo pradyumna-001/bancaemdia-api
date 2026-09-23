@@ -9531,6 +9531,24 @@
                       },
                       "type": "array"
                     },
+                    "rascunho_correcoes": {
+                      "items": {
+                        "additionalProperties": {
+                          "$ref": "#/components/schemas/JsonValue"
+                        },
+                        "type": "object"
+                      },
+                      "type": "array"
+                    },
+                    "rascunhos_aposta": {
+                      "items": {
+                        "additionalProperties": {
+                          "$ref": "#/components/schemas/JsonValue"
+                        },
+                        "type": "object"
+                      },
+                      "type": "array"
+                    },
                     "revisao_pendente": {
                       "items": {
                         "additionalProperties": {
@@ -9661,6 +9679,8 @@
                     "telegram_links",
                     "telegram_link_codes",
                     "telegram_outbox",
+                    "rascunhos_aposta",
+                    "rascunho_correcoes",
                     "unidades",
                     "revisao_pendente",
                     "coletas_casa",
