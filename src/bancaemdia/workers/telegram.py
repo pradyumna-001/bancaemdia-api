@@ -123,6 +123,21 @@ async def _handle_inbox(session: AsyncSession, item: TelegramInbox) -> None:
             )
             return
         if isinstance(message_text, str):
+            if message_text.strip().lower() in {"/confirmar", "confirmar"}:
+                from bancaemdia.services.telegram_confirmation import confirm_draft
+
+                confirmation = await confirm_draft(
+                    session, user_id=owner, chat_id=chat, update_id=item.update_id
+                )
+                if not confirmation.queued:
+                    await queue_reply(
+                        session,
+                        user_id=owner,
+                        chat_id=chat,
+                        key=f"telegram-draft:{item.update_id}:reply",
+                        message=confirmation.text,
+                    )
+                return
             text_reply = await handle_text(
                 session,
                 user_id=owner,

@@ -56,7 +56,11 @@ async def _criacoes(
 
 async def confirmar_par(session: AsyncSession, usuario_id: int, uma: Any, outra: Any) -> None:
     """Keep the real house bet, exclude the tip and record both sides for replay."""
-    if {uma.origem, outra.origem} not in ({"casa", "telegram"}, {"casa", "print"}):
+    if {uma.origem, outra.origem} not in (
+        {"casa", "telegram"},
+        {"casa", "telegram_bot"},
+        {"casa", "print"},
+    ):
         raise ValueError("o par precisa de uma aposta da casa e uma dica")
     casa, dica = (uma, outra) if uma.origem == "casa" else (outra, uma)
     if not casa.chave or not dica.chave:
@@ -144,14 +148,14 @@ async def parear_criacao(
     if (
         nova.chave is None
         or nova.data_aposta is None
-        or nova.origem not in {"casa", "telegram", "print"}
+        or nova.origem not in {"casa", "telegram", "telegram_bot", "print"}
     ):
         return "nova"
     await session.execute(
         text("SELECT pg_advisory_xact_lock(hashtextextended(:key, 0))"),
         {"key": f"pareador:{usuario_id}"},
     )
-    opostas = ["telegram", "print"] if nova.origem == "casa" else ["casa"]
+    opostas = ["telegram", "telegram_bot", "print"] if nova.origem == "casa" else ["casa"]
     candidatas = (
         (
             await session.execute(
