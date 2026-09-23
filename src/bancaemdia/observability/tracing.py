@@ -36,6 +36,7 @@ type CustomSpanName = Literal[
     "materializacao.upsert",
     "cruzamento.pareador",
     "coleta.casa",
+    "telegram.confirmation",
 ]
 type SpanAttribute = str | bool | int | float | None
 
@@ -48,6 +49,13 @@ _ALLOWED_ATTRIBUTES: Mapping[CustomSpanName, frozenset[str]] = {
     "materializacao.upsert": frozenset({"origem", "usuario_id"}),
     "cruzamento.pareador": frozenset({"aposta_nova_id", "aposta_existente_id", "resultado"}),
     "coleta.casa": frozenset({"casa", "quantidade", "usuario_id"}),
+    "telegram.confirmation": frozenset({
+        "update_id",
+        "draft_id",
+        "event_id",
+        "bet_id",
+        "outbox_key",
+    }),
 }
 
 _setup_lock = Lock()

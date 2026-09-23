@@ -63,8 +63,8 @@ class NovaAposta:
     chave: str
     ordem: int
     origem: str
-    chat_id: int
-    message_id: int
+    chat_id: int | None
+    message_id: int | None
     bilhete: Bilhete | None
     casa: str | None
     data_aposta: str | None

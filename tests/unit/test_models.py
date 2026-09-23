@@ -131,12 +131,15 @@ def test_apostas_check_constraints() -> None:
     assert "CHECK (NOT freebet OR stake_centavos = 0)" in ddl
     assert "CHECK (origem <> 'telegram' OR (chat_id IS NOT NULL AND message_id IS NOT NULL))" in ddl
     assert "CHECK (estado IN ('PENDENTE', 'GREEN', 'RED', 'ANULADA', 'MEIO_GREEN'" in ddl
-    assert "CHECK (origem IN ('telegram', 'print', 'manual', 'planilha', 'casa'))" in ddl
+    assert (
+        "CHECK (origem IN ('telegram', 'telegram_bot', 'print', 'manual', 'planilha', 'casa'))"
+        in ddl
+    )
 
 
 def test_allowed_values_match_the_original_schema() -> None:
     assert ESTADOS == ("PENDENTE", "GREEN", "RED", "ANULADA", "MEIO_GREEN", "MEIO_RED", "CASHOUT")
-    assert ORIGENS == ("telegram", "print", "manual", "planilha", "casa")
+    assert ORIGENS == ("telegram", "telegram_bot", "print", "manual", "planilha", "casa")
     assert TIPOS_DE_MOVIMENTO == ("DEPOSITO", "SAQUE", "TRANSFERENCIA", "BONUS", "AJUSTE")
     assert FONTES == ("export", "ia", "manual", "liquidacao", "planilha", "casa")
     assert len(TIPOS_DE_EVENTO) == 12
