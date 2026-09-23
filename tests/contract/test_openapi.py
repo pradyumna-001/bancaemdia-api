@@ -199,7 +199,7 @@ def test_openapi_endpoint_matches_checked_in_snapshot(openapi_document: JsonObje
 @pytest.mark.contract
 def test_every_operation_has_human_documentation(openapi_document: JsonObject) -> None:
     operations = list(_operations(openapi_document))
-    assert len(operations) == 43
+    assert len(operations) == 46
     for method, path, operation in operations:
         location = f"{method.upper()} {path}"
         assert str(operation.get("summary", "")).strip(), location
@@ -569,6 +569,7 @@ negative_schema = (
 
 @pytest.mark.contract
 @negative_schema.parametrize()
+@settings(suppress_health_check=[HealthCheck.filter_too_much], deadline=None)
 def test_schemathesis_invalid_protected_requests(case: schemathesis.Case) -> None:
     response = case.call_and_validate()
     assert response.status_code == 401

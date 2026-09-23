@@ -20,6 +20,18 @@ MANUAL_BET_HOUSES = sorted(
 
 
 OPERATION_DOCUMENTATION: dict[OperationKey, tuple[str, str]] = {
+    ("post", "/api/v1/telegram/link-codes"): (
+        "Emitir código de vínculo Telegram",
+        "Invalida códigos anteriores e retorna um código de oito caracteres válido por 30 minutos uma única vez.",
+    ),
+    ("get", "/api/v1/telegram/link"): (
+        "Consultar vínculo Telegram",
+        "Consulta o vínculo ativo da conta sem expor identificadores do Telegram.",
+    ),
+    ("delete", "/api/v1/telegram/link"): (
+        "Revogar vínculo Telegram",
+        "Revoga o vínculo ativo para impedir novo ingresso desta identidade.",
+    ),
     ("post", "/coleta"): (
         "Receber coleta da extensão",
         "Recebe um lote bruto capturado pela extensão e agenda a materialização idempotente.",
