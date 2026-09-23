@@ -14,6 +14,7 @@ Never put database URLs, bearer tokens, or customer data in a ticket or chat.
 | [Scaling](runbooks/scaling.md) | Add or remove ECS capacity; plan RDS or Redis class changes |
 | [Final validation](runbooks/final-validation.md) | Gather staging evidence and enforce the go-live gate |
 | [Billing provider preflight](runbooks/billing-provider-preflight.md) | Check CPF production eligibility before enabling subscriptions |
+| [Billing foundation](runbooks/billing-foundation.md) | Activate the persisted trial rollout and administer price versions |
 
 Related procedures: [failure injection](chaos-testing.md) and
 [dashboard view refresh](runbooks/painel-refresh.md).

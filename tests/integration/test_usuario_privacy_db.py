@@ -35,6 +35,18 @@ async def test_export_then_anonymize_account_and_reject_late_writes(banco) -> No
                 text("INSERT INTO bancas (id, usuario_id, nome) VALUES (:id, :id, 'Principal')"),
                 {"id": user_id},
             )
+            await session.execute(
+                text(
+                    "INSERT INTO assinaturas "
+                    "(usuario_id, status, trial_started_at, trial_ends_at, provider_customer_ref) "
+                    "VALUES (:id, 'TRIALING', :start, :end, 'sensitive-customer')"
+                ),
+                {
+                    "id": user_id,
+                    "start": datetime(2026, 9, 1, tzinfo=UTC),
+                    "end": datetime(2026, 9, 8, tzinfo=UTC),
+                },
+            )
             await session.commit()
             await _set_tenant(session, user_id)
 
@@ -48,6 +60,8 @@ async def test_export_then_anonymize_account_and_reject_late_writes(banco) -> No
             exported = await collect_user_data(session, usuario)
             assert exported["usuario"]["email"] == email
             assert exported["bancas"][0]["nome"] == "Principal"
+            assert exported["assinaturas"][0]["status"] == "TRIALING"
+            assert "sensitive-customer" not in str(exported)
             await session.rollback()
 
             await _set_tenant(session, user_id)
@@ -66,6 +80,14 @@ async def test_export_then_anonymize_account_and_reject_late_writes(banco) -> No
                     text("SELECT count(*) FROM bancas WHERE usuario_id = :id"), {"id": user_id}
                 )
             ) == 0
+            assert (
+                await session.execute(
+                    text(
+                        "SELECT status, provider_customer_ref FROM assinaturas WHERE usuario_id=:id"
+                    ),
+                    {"id": user_id},
+                )
+            ).one() == ("EXPIRED", None)
             assert (
                 await session.scalar(
                     text("SELECT count(*) FROM audit_log WHERE usuario_id = :id"),

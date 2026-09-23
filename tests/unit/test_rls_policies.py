@@ -21,7 +21,7 @@ REVISAO_RESOLVIDA = "f2a9c4e7b106"
 PAINEL = "d3f6a8c1e209"
 CAIXA_REVISAO_MERGE = "e5a1c7d9b204"
 PAINEL_CAIXA_MERGE = "f8b2d4a6c901"
-HEAD = "b4e2a7d9c143"
+HEAD = "c90b1a7e2026"
 USUARIO_ATUAL = "NULLIF(current_setting('app.current_user_id', true), '')::bigint"
 JOB_OFERECIDO = "NULLIF(current_setting('app.upload_job_id', true), '')::uuid"
 POR_USUARIO = {
@@ -97,12 +97,23 @@ def test_rls_revision_follows_the_baseline() -> None:
 
 def test_protected_and_shared_tables_cover_the_whole_schema() -> None:
     protegidas = POR_USUARIO | POR_USUARIO_UPLOAD | POR_USUARIO_IDEMPOTENCIA
-    assert protegidas | COMPARTILHADAS | {"usuarios", "audit_log"} == set(Base.metadata.tables)
+    billing = {"assinaturas", "billing_prices", "billing_price_audit", "billing_rollout"}
+    assert protegidas | COMPARTILHADAS | billing | {"usuarios", "audit_log"} == set(
+        Base.metadata.tables
+    )
     assert not protegidas & COMPARTILHADAS
     for tabela in protegidas:
         assert "usuario_id" in Base.metadata.tables[tabela].c
     for tabela in COMPARTILHADAS:
         assert "usuario_id" not in Base.metadata.tables[tabela].c
+    assert "usuario_id" in Base.metadata.tables["assinaturas"].c
+
+
+def test_billing_rls_is_added_in_its_own_revision() -> None:
+    sql = _upgrade_sql("b4e2a7d9c143:c90b1a7e2026")
+    assert "ALTER TABLE assinaturas FORCE ROW LEVEL SECURITY" in sql
+    assert "CREATE POLICY assinaturas_por_usuario" in sql
+    assert "CREATE POLICY assinaturas_cadastro" in sql
 
 
 def test_every_per_user_table_is_protected() -> None:
