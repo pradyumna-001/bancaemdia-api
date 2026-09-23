@@ -226,6 +226,12 @@ def _sql_evolucao(
     filtros: FiltrosPainel,
 ) -> tuple[str, dict[str, object]]:
     onde_periodo, parametros = _filtro_evolucao("e", usuario_id, filtros, antes_da_janela=False)
+    caixa_dimensao = (
+        "AND FALSE" if filtros.tipster_id is not None or filtros.mercado_id is not None else ""
+    )
+    if filtros.casa_id is not None:
+        caixa_dimensao += " AND cc.casa_id = :casa_id"
+        parametros["casa_id"] = filtros.casa_id
     inicio = filtros.janela.inicio
     if inicio is None:
         historico = """
@@ -241,13 +247,16 @@ def _sql_evolucao(
         parametros.update(parametros_historico)
         historico = f"""
         historico AS (
-            SELECT
-                h.banca_id,
-                COALESCE(SUM(h.lucro_centavos), 0)::numeric
-                    AS acumulado_anterior_centavos
-            FROM public.painel_evolucao_banca AS h
-            WHERE {onde_historico}
-            GROUP BY h.banca_id
+            SELECT banca_id, COALESCE(SUM(valor), 0)::numeric AS acumulado_anterior_centavos
+            FROM (
+                SELECT h.banca_id, h.lucro_centavos AS valor
+                FROM public.painel_evolucao_banca AS h
+                WHERE {onde_historico}
+                UNION ALL
+                SELECT x.banca_id, x.valor_centavos AS valor
+                FROM caixa AS x WHERE x.data < :inicio
+            ) AS anteriores
+            GROUP BY banca_id
         )
         """
     bucket = _BUCKET_POSTGRES[filtros.janela.granularidade]
@@ -262,6 +271,20 @@ def _sql_evolucao(
             WHERE i.usuario_id = :usuario_id
             GROUP BY i.banca_id
         ),
+        caixa AS (
+            SELECT
+                cc.banca_id,
+                (m.ocorrido_em AT TIME ZONE 'America/Sao_Paulo')::date AS data,
+                m.valor_centavos::numeric AS valor_centavos
+            FROM public.movimentos AS m
+            JOIN public.contas_casa AS cc
+              ON cc.id = m.conta_casa_id AND cc.usuario_id = m.usuario_id
+            JOIN public.bancas AS b
+              ON b.id = cc.banca_id AND b.usuario_id = m.usuario_id
+            WHERE m.usuario_id = :usuario_id
+              AND m.ocorrido_em >= b.criado_em
+              {caixa_dimensao}
+        ),
         {historico},
         contribuicoes AS (
             SELECT
@@ -271,6 +294,21 @@ def _sql_evolucao(
             FROM public.painel_evolucao_banca AS e
             WHERE {onde_periodo}
             GROUP BY e.banca_id, 2
+            UNION ALL
+            SELECT
+                x.banca_id,
+                DATE_TRUNC('{bucket}', x.data::timestamp)::date AS periodo_inicio,
+                COALESCE(SUM(x.valor_centavos), 0)::numeric AS contribuicao_centavos
+            FROM caixa AS x
+            WHERE x.data < :fim
+            {"AND x.data >= :inicio" if inicio is not None else ""}
+            GROUP BY x.banca_id, 2
+        ),
+        agrupadas AS (
+            SELECT banca_id, periodo_inicio,
+                   SUM(contribuicao_centavos)::numeric AS contribuicao_centavos
+            FROM contribuicoes
+            GROUP BY banca_id, periodo_inicio
         )
         SELECT
             c.banca_id,
@@ -280,7 +318,7 @@ def _sql_evolucao(
             i.saldo_inicial_centavos,
             COALESCE(h.acumulado_anterior_centavos, 0)::numeric
                 AS acumulado_anterior_centavos
-        FROM contribuicoes AS c
+        FROM agrupadas AS c
         JOIN iniciais AS i ON i.banca_id = c.banca_id
         LEFT JOIN historico AS h ON h.banca_id = c.banca_id
         ORDER BY c.banca_id, c.periodo_inicio

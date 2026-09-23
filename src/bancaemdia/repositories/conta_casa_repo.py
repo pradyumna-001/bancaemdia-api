@@ -98,3 +98,15 @@ class ContaCasaRepo:
         )
         obj = (await session.execute(stmt)).scalar_one_or_none()
         return None if obj is None else ContaCasa(**colunas(obj))
+
+    async def update_banca(
+        self, session: AsyncSession, usuario_id: int, id_: int, banca_id: int | None
+    ) -> ContaCasa | None:
+        stmt = (
+            update(models.ContaCasa)
+            .where(models.ContaCasa.usuario_id == usuario_id, models.ContaCasa.id == id_)
+            .values(banca_id=banca_id)
+            .returning(models.ContaCasa)
+        )
+        obj = (await session.execute(stmt)).scalar_one_or_none()
+        return None if obj is None else ContaCasa(**colunas(obj))

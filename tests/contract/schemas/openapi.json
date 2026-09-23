@@ -851,6 +851,28 @@
         "title": "BetsPageResponse",
         "type": "object"
       },
+      "Body_importar_planilha_api_v1_apostas_importar_planilha_post": {
+        "additionalProperties": false,
+        "properties": {
+          "arquivo": {
+            "contentMediaType": "application/octet-stream",
+            "description": "Arquivo .xlsx no modelo de importação",
+            "title": "Arquivo",
+            "type": "string"
+          },
+          "origem_id": {
+            "description": "Identificador estável da planilha entre importações",
+            "title": "Origem Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "arquivo",
+          "origem_id"
+        ],
+        "title": "Body_importar_planilha_api_v1_apostas_importar_planilha_post",
+        "type": "object"
+      },
       "CollectionRejectedItem": {
         "additionalProperties": false,
         "properties": {
@@ -2448,6 +2470,30 @@
         "title": "PeriodoPainel",
         "type": "string"
       },
+      "PlanilhaImportada": {
+        "additionalProperties": false,
+        "properties": {
+          "atualizadas": {
+            "title": "Atualizadas",
+            "type": "integer"
+          },
+          "criadas": {
+            "title": "Criadas",
+            "type": "integer"
+          },
+          "ignoradas": {
+            "title": "Ignoradas",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "criadas",
+          "atualizadas",
+          "ignoradas"
+        ],
+        "title": "PlanilhaImportada",
+        "type": "object"
+      },
       "ReadinessCheckResponse": {
         "additionalProperties": false,
         "properties": {
@@ -2528,7 +2574,8 @@
           "acao": {
             "enum": [
               "CORRIGIR",
-              "DESCARTAR"
+              "DESCARTAR",
+              "MESMA"
             ],
             "title": "Acao",
             "type": "string"
@@ -2556,7 +2603,8 @@
           "acao": {
             "enum": [
               "CORRIGIR",
-              "DESCARTAR"
+              "DESCARTAR",
+              "MESMA"
             ],
             "title": "Acao",
             "type": "string"
@@ -2814,8 +2862,15 @@
             "type": "integer"
           },
           "motivo_saldo_indisponivel": {
-            "title": "Motivo Saldo Indisponivel",
-            "type": "string"
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Motivo Saldo Indisponivel"
           },
           "nome": {
             "title": "Nome",
@@ -2833,8 +2888,15 @@
             "title": "Saldo Inicial Centavos"
           },
           "saldo_total_centavos": {
-            "title": "Saldo Total Centavos",
-            "type": "null"
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Saldo Total Centavos"
           }
         },
         "required": [
@@ -2861,6 +2923,17 @@
           "apostas_pendentes": {
             "title": "Apostas Pendentes",
             "type": "integer"
+          },
+          "banca_id": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Banca Id"
           },
           "bonus_centavos": {
             "title": "Bonus Centavos",
@@ -2933,6 +3006,7 @@
         "required": [
           "conta_casa_id",
           "casa_id",
+          "banca_id",
           "apelido",
           "saldo_atual_centavos",
           "saldo_confiavel",
@@ -3219,6 +3293,55 @@
           "type"
         ],
         "title": "ValidationIssueResponse",
+        "type": "object"
+      },
+      "VinculoBancaNovo": {
+        "additionalProperties": false,
+        "properties": {
+          "banca_id": {
+            "anyOf": [
+              {
+                "maximum": 9.223372036854776e+18,
+                "minimum": 1.0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Banca Id"
+          }
+        },
+        "required": [
+          "banca_id"
+        ],
+        "title": "VinculoBancaNovo",
+        "type": "object"
+      },
+      "VinculoBancaSaida": {
+        "additionalProperties": false,
+        "properties": {
+          "banca_id": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Banca Id"
+          },
+          "conta_casa_id": {
+            "title": "Conta Casa Id",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "conta_casa_id",
+          "banca_id"
+        ],
+        "title": "VinculoBancaSaida",
         "type": "object"
       },
       "bancaemdia__api__v1__caixa__SaldoSaida": {
@@ -3728,6 +3851,126 @@
           }
         ],
         "summary": "Criar aposta manual"
+      }
+    },
+    "/api/v1/apostas/importar-planilha": {
+      "post": {
+        "description": "Importa um XLSX com origem_id estável; identifica cada aposta pela aba e linha e aplica somente versões mais recentes.",
+        "operationId": "importar_planilha_api_v1_apostas_importar_planilha_post",
+        "requestBody": {
+          "content": {
+            "multipart/form-data": {
+              "examples": {
+                "default": {
+                  "summary": "Planilha de apostas",
+                  "value": {
+                    "arquivo": "apostas.xlsx",
+                    "origem_id": "planilha-principal"
+                  }
+                }
+              },
+              "schema": {
+                "additionalProperties": false,
+                "properties": {
+                  "arquivo": {
+                    "format": "binary",
+                    "type": "string"
+                  },
+                  "origem_id": {
+                    "maxLength": 128,
+                    "minLength": 1,
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "arquivo",
+                  "origem_id"
+                ],
+                "type": "object"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PlanilhaImportada"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Missing, expired, or invalid bearer token."
+          },
+          "413": {
+            "content": {
+              "text/plain": {
+                "example": "Content Too Large",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            },
+            "description": "The request body exceeds the server-wide streaming limit."
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Planilha inválida"
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "The caller exceeded an applicable request limit."
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unexpected internal failure with no sensitive exception details."
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "A required dependency is temporarily unavailable."
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Importar apostas do Excel"
       }
     },
     "/api/v1/apostas/{chave}": {
@@ -4636,6 +4879,133 @@
           }
         ],
         "summary": "Registrar movimento de caixa"
+      }
+    },
+    "/api/v1/caixa/contas/{conta_casa_id}/banca": {
+      "patch": {
+        "description": "Associa ou desassocia uma conta da casa a uma banca do mesmo usuário.",
+        "operationId": "vincular_banca_api_v1_caixa_contas__conta_casa_id__banca_patch",
+        "parameters": [
+          {
+            "description": "Identificador da conta da casa usada como filtro.",
+            "in": "path",
+            "name": "conta_casa_id",
+            "required": true,
+            "schema": {
+              "maximum": 9223372036854775807,
+              "minimum": 1,
+              "title": "Conta Casa Id",
+              "type": "integer"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "examples": {
+                "default": {
+                  "summary": "Vincular conta à banca",
+                  "value": {
+                    "banca_id": 12
+                  }
+                }
+              },
+              "schema": {
+                "$ref": "#/components/schemas/VinculoBancaNovo"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/VinculoBancaSaida"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Missing, expired, or invalid bearer token."
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErroSaida"
+                }
+              }
+            },
+            "description": "Conta ou banca não encontrada"
+          },
+          "413": {
+            "content": {
+              "text/plain": {
+                "example": "Content Too Large",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            },
+            "description": "The request body exceeds the server-wide streaming limit."
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorOrValidationResponse"
+                }
+              }
+            },
+            "description": "The request does not satisfy the published contract or a domain rule."
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "The caller exceeded an applicable request limit."
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unexpected internal failure with no sensitive exception details."
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "A required dependency is temporarily unavailable."
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Vincular conta à banca"
       }
     },
     "/api/v1/caixa/extrato": {

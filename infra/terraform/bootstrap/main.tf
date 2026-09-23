@@ -53,8 +53,6 @@ resource "aws_s3_bucket_policy" "state" {
   })
 }
 
-# Legacy lock table is provided for older Terraform clients. New runs use the
-# S3 lockfile because DynamoDB locking is deprecated in current Terraform.
 resource "aws_dynamodb_table" "legacy_lock" {
   name         = "bancaemdia-terraform-lock"
   billing_mode = "PAY_PER_REQUEST"
@@ -64,7 +62,7 @@ resource "aws_dynamodb_table" "legacy_lock" {
     type = "S"
   }
   point_in_time_recovery { enabled = true }
-  tags = { Project = "bancaemdia", Purpose = "legacy-terraform-lock" }
+  tags = { Project = "bancaemdia", Purpose = "terraform-lock" }
 }
 
 output "state_bucket" { value = aws_s3_bucket.state.id }

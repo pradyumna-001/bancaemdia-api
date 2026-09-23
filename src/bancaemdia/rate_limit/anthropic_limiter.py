@@ -4,6 +4,7 @@ from functools import lru_cache
 
 import redis
 
+from bancaemdia.cache.redis_client import sync_client
 from bancaemdia.config import get_settings
 from bancaemdia.observability.metrics import rate_limit_errors, rate_limit_exceeded, rate_limit_wait
 
@@ -76,10 +77,8 @@ class AnthropicLimiter:
 @lru_cache
 def get_limiter() -> AnthropicLimiter:
     settings = get_settings()
-    client = redis.Redis.from_url(
-        settings.REDIS_URL,
-        socket_timeout=TIMEOUT_SECONDS,
-        socket_connect_timeout=TIMEOUT_SECONDS,
+    client = sync_client(
+        settings.REDIS_URL, cluster=settings.REDIS_CLUSTER_MODE, timeout=TIMEOUT_SECONDS
     )
     return AnthropicLimiter(
         client,

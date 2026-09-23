@@ -41,7 +41,7 @@ TASK_FIELDS = {
 
 def args_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("mode", choices=("staging", "release", "rollback"))
+    parser.add_argument("mode", choices=("staging", "canary", "release", "rollback"))
     parser.add_argument("--environment", choices=("staging", "production"), required=True)
     parser.add_argument("--sha", required=True)
     parser.add_argument("--repository-url", required=True)
@@ -305,7 +305,7 @@ def main() -> int:
         raise ValueError("staging mode requires staging environment")
     if args.mode != "staging" and args.environment != "production":
         raise ValueError("production mode requires production environment")
-    if args.mode == "release" and not all((
+    if args.mode in {"canary", "release"} and not all((
         args.listener_arn,
         args.stable_target_group,
         args.canary_target_group,
@@ -328,7 +328,7 @@ def main() -> int:
     )
     changed = False
     try:
-        if args.mode == "release":
+        if args.mode in {"canary", "release"}:
             require_stable_traffic(
                 elb, args.listener_arn, args.stable_target_group, args.canary_target_group
             )
@@ -337,7 +337,8 @@ def main() -> int:
             update_and_wait(ecs, args.cluster, canary_service, candidate, count=2)
             if healthy_targets(elb, args.canary_target_group) < 1:
                 raise RuntimeError("canary target group has no healthy targets")
-            for weight, minutes in ((10, 10), (50, 5), (100, 5)):
+            stages = ((10, 10),) if args.mode == "canary" else ((10, 1), (50, 5), (100, 5))
+            for weight, minutes in stages:
                 set_weights(
                     elb,
                     args.listener_arn,
@@ -346,6 +347,13 @@ def main() -> int:
                     weight,
                 )
                 monitor(cloudwatch, elb, args, minutes, token)
+            if args.mode == "canary":
+                # Never leave a candidate receiving traffic while an approval may wait indefinitely.
+                set_weights(
+                    elb, args.listener_arn, args.stable_target_group, args.canary_target_group, 0
+                )
+                ecs.update_service(cluster=args.cluster, service=canary_service, desiredCount=0)
+                return 0
             # Keep canary at 100% until stable API is healthy on the new image.
             revisions = {
                 role: register_image(ecs, before[role]["taskDefinition"], image)

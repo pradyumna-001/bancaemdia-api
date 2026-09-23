@@ -169,6 +169,59 @@ async def test_replay_refuses_missing_projection_without_deleting_history(
         ).scalar_one_or_none() is not None
 
 
+async def test_replay_recreates_bet_from_complete_creation_snapshot(
+    engine_app: AsyncEngine,
+    novo_usuario: Callable[[], Awaitable[int]],
+) -> None:
+    usuario = await novo_usuario()
+    chave = f"m:{uuid4().hex}"
+    snapshot = {
+        "snapshot_completo": True,
+        "origem": "manual",
+        "stake_unidades": 1.0,
+        "valor_unidade_centavos": 10_000,
+        "conta_casa_id": None,
+        "chat_id": None,
+        "message_id": None,
+        "ordem_na_mensagem": 0,
+        "data_aposta": "2026-09-20T12:00:00-03:00",
+        "freebet": False,
+    }
+    async with AsyncSession(engine_app) as session, session.begin():
+        await session.execute(
+            text("SELECT set_config('app.current_user_id', :uid, true)"), {"uid": str(usuario)}
+        )
+        await EventoRepo().append(
+            session,
+            {
+                "usuario_id": usuario,
+                "tipo": "APOSTA_CRIADA",
+                "fonte": "manual",
+                "payload_json": {**snapshot, "snapshot_replay": snapshot, "odd": 2.0},
+                "confianca": None,
+                "chat_id": None,
+                "message_id": None,
+                "aposta_chave": chave,
+            },
+        )
+    seco = await reconstruir_usuario(usuario, engine=engine_app, dry_run=True)
+    assert seco.recriadas == 1
+    feito = await reconstruir_usuario(usuario, engine=engine_app)
+    assert feito.recriadas == 1
+    async with AsyncSession(engine_app) as session, session.begin():
+        await session.execute(
+            text("SELECT set_config('app.current_user_id', :uid, true)"), {"uid": str(usuario)}
+        )
+        aposta = (
+            await session.execute(
+                select(models.Aposta).where(
+                    models.Aposta.usuario_id == usuario, models.Aposta.chave == chave
+                )
+            )
+        ).scalar_one()
+        assert (aposta.stake_centavos, aposta.odd) == (10_000, 2.0)
+
+
 async def test_replay_rolls_back_earlier_updates_if_later_history_is_invalid(
     engine_app: AsyncEngine,
     novo_usuario: Callable[[], Awaitable[int]],

@@ -147,13 +147,14 @@ python scripts/reler_todas.py --versao-prompt extrair_bilhete_v3 --tudo --sim
 Replay folds every event of each selected bet in `id` order. The date interval selects bets by
 their business date in `America/Sao_Paulo` (inclusive endpoints on the CLI); it never truncates
 their event history. It reconciles proven derived columns in place, preserving bet IDs and creation
-and update timestamps. Missing bet rows and malformed histories are refused because old creation
-events do not carry enough evidence to recover the original row IDs. Legacy events without a unit
+and update timestamps. New creation events include a normalized snapshot, so replay can recreate
+a deleted bet projection; legacy events without that snapshot remain fail-closed. Legacy events without a unit
 snapshot use the unit effective at the bet date only when the resulting cents match the stored row.
 An account ID in the event wins; otherwise the existing tenant-owned account is retained so an
 account created later cannot take an old bet. `eventos`, `coletas_casa`, reviews, and the cash ledger
-are never deleted or rewritten. Cash movements with complete audit events and idempotency responses
-are checked against the ledger; older movements without events are counted and preserved.
+are never deleted or rewritten. Cash movements with complete audit events can be restored with
+their original IDs and are checked against idempotency responses. Older movements without events
+are counted and preserved.
 
 A live replay takes PostgreSQL table locks with `NOWAIT` for one transaction. It fails if a writer
 is active and blocks new writes until commit, so run it in a maintenance window. `--dry-run` uses a
@@ -165,6 +166,20 @@ before queue publication. It discovers media through tenant-owned upload records
 user/chat/message, reads one blob at a time, and reports missing media. It logs the estimated cost
 before enqueueing. A retry may enqueue a task again after a broker failure; the bet's event lock,
 stable key, and version marker keep the resulting projection and manual corrections idempotent.
+
+House and Telegram/print bets are paired conservatively after materialization. An exact match
+keeps the house bet in the totals and excludes the duplicate tip. An uncertain match excludes the
+new bet and opens a review containing the suspected partner key. Resolve that review with `MESMA`
+to keep the house bet, `CORRIGIR` to confirm a distinct bet and restore it to the totals, or
+`DESCARTAR` to keep it excluded. Every decision is recorded as events for replay.
+
+Excel bets can be imported with `POST /api/v1/apostas/importar-planilha` as multipart fields
+`arquivo` (`.xlsx`, up to 5 MB and 1,000 rows) and `origem_id`. Each nonempty worksheet needs
+headers `casa`, `data_aposta`, `odd`, `stake_unidades`, `atualizada_em`; optional headers are
+`evento`, `descricao`, `mercado_bruto`, and `freebet`. Dates accept ISO 8601 or Excel dates; naive
+dates use `America/Sao_Paulo`. Keep `origem_id`, sheet name, and row number stable across imports:
+they define the bet key. Rows with a newer `atualizada_em` update the same bet; older or equal
+versions are ignored. The entire workbook commits atomically.
 
 ### Local Access Points
 - **API**: http://localhost:8000

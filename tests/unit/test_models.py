@@ -103,7 +103,9 @@ def test_payload_is_jsonb() -> None:
 
 def test_every_per_user_table_points_to_usuarios() -> None:
     for modelo in MODELOS[1:]:
-        assert _fk_targets(modelo)["usuario_id"] == "usuarios.id"
+        assert "usuarios.id" in {
+            str(chave.column) for chave in modelo.__table__.c.usuario_id.foreign_keys
+        }
         assert modelo.__table__.c.usuario_id.nullable is False
 
 
@@ -166,6 +168,7 @@ def test_apostas_indexes_from_adr_002() -> None:
         "idx_apostas_competicao": ["usuario_id", "competicao_id"],
         "idx_apostas_data": ["usuario_id", "data_aposta"],
         "idx_apostas_duplicada": ["usuario_id", "duplicada_de"],
+        "idx_apostas_print_ordem": ["usuario_id", "midia_hash", "ordem_na_mensagem"],
         "idx_apostas_revisao": ["usuario_id", "revisao_grave"],
         "idx_apostas_apagadas": ["usuario_id", "criada_em"],
         "idx_apostas_chave": ["usuario_id", "chave"],
@@ -200,7 +203,10 @@ def test_event_and_ledger_indexes() -> None:
     unidades = {i.name: [c.name for c in i.columns] for i in Unidade.__table__.indexes}
     assert unidades == {"idx_unidades_usuario": ["usuario_id", "vigente_de"]}
     contas = {i.name: [c.name for c in i.columns] for i in ContaCasa.__table__.indexes}
-    assert contas == {"idx_contas_casa_usuario": ["usuario_id", "ativa"]}
+    assert contas == {
+        "idx_contas_casa_usuario": ["usuario_id", "ativa"],
+        "idx_contas_casa_banca": ["usuario_id", "banca_id"],
+    }
 
 
 def test_unique_constraints_from_the_original_schema() -> None:

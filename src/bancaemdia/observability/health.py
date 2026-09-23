@@ -12,6 +12,7 @@ import redis.asyncio as redis
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncEngine
 
+from bancaemdia.cache.redis_client import async_client
 from bancaemdia.config import get_settings
 
 ANTHROPIC_API_BASE_URL = "https://api.anthropic.com"
@@ -307,6 +308,7 @@ def build_readiness_checker(
     anthropic_api_key: str | None,
     timeout_seconds: float,
     celery_queue_depth_limit: int,
+    redis_cluster_mode: bool = False,
     celery_queues: Sequence[str] = DEFAULT_CELERY_QUEUES,
     anthropic_base_url: str = ANTHROPIC_API_BASE_URL,
 ) -> ReadinessChecker:
@@ -316,11 +318,7 @@ def build_readiness_checker(
     async def redis_check() -> CheckDetails:
         client = cast(
             RedisProbe,
-            redis.Redis.from_url(
-                redis_url,
-                socket_timeout=timeout_seconds,
-                socket_connect_timeout=timeout_seconds,
-            ),
+            async_client(redis_url, cluster=redis_cluster_mode, timeout=timeout_seconds),
         )
         try:
             return await check_redis(client)
@@ -377,6 +375,7 @@ def get_readiness_checker() -> ReadinessChecker:
         primary_engine=engine,
         replica_engine=replica_engine,
         redis_url=settings.REDIS_URL,
+        redis_cluster_mode=settings.REDIS_CLUSTER_MODE,
         celery_broker_url=settings.CELERY_BROKER_URL,
         anthropic_api_key=settings.ANTHROPIC_API_KEY,
         timeout_seconds=settings.READINESS_CHECK_TIMEOUT_SECONDS,

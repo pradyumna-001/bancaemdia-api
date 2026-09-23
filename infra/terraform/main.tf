@@ -277,6 +277,9 @@ module "ecs" {
   image_uri               = var.image_uri
   deploy_enabled          = var.deploy_enabled
   redis_endpoint          = module.elasticache.primary_endpoint
+  redis_cache_endpoint    = module.elasticache.cache_configuration_endpoint
+  upload_bucket_name      = module.storage.bucket_names["uploads"]
+  upload_bucket_arn       = module.storage.bucket_arns["uploads"]
   jwt_audience            = var.jwt_audience
   jwt_issuer              = var.jwt_issuer
   secret_arns             = module.secrets.arns

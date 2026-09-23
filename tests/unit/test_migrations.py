@@ -16,7 +16,8 @@ IDEMPOTENCIA_CAIXA = "c7b1e9a42d60"
 REVISAO_RESOLVIDA = "f2a9c4e7b106"
 CAIXA_REVISAO_MERGE = "e5a1c7d9b204"
 PAINEL = "d3f6a8c1e209"
-HEAD = "f8b2d4a6c901"
+PAINEL_CAIXA_MERGE = "f8b2d4a6c901"
+HEAD = "a9d6e3f1c210"
 PARTICIONADAS = {
     "eventos": "criado_em",
     "movimentos": "ocorrido_em",
@@ -55,7 +56,7 @@ def test_late_branches_merge_without_rewriting_published_revisions() -> None:
     revisao = script.get_revision(REVISAO_RESOLVIDA)
     caixa_revisao = script.get_revision(CAIXA_REVISAO_MERGE)
     painel = script.get_revision(PAINEL)
-    merge = script.get_revision(HEAD)
+    merge = script.get_revision(PAINEL_CAIXA_MERGE)
 
     assert script.get_current_head() == HEAD
     assert script.get_revision(IDEMPOTENCIA_CAIXA).down_revision == TRANSFERENCIA

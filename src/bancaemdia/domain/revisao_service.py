@@ -81,6 +81,16 @@ def planejar_resolucao(
         {"revisao_motivo": None, "revisao_grave": False},
     )
     eventos = tuple(eventos_da_correcao({**alterados, **limpar_fila}))
+    if estado_atual.get("duvida_de_par"):
+        # CORRIGIR confirms this is a distinct bet. Restore it to the totals and clear the
+        # pending-pair marker in the same append-only transaction as the review resolution.
+        eventos += (
+            EventoNovo(
+                "SELECAO_ALTERADA",
+                "manual",
+                {"selecionada": True, "duvida_de_par": False},
+            ),
+        )
     return PlanoResolucao(acao, eventos, tuple(sorted(alterados)))
 
 

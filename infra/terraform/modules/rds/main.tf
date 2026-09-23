@@ -4,6 +4,22 @@ resource "aws_db_subnet_group" "primary" {
   tags       = var.tags
 }
 
+resource "aws_db_parameter_group" "primary" {
+  name   = "${var.name}-postgres16"
+  family = "postgres16"
+  parameter {
+    name         = "shared_preload_libraries"
+    value        = "pg_stat_statements,pg_cron"
+    apply_method = "pending-reboot"
+  }
+  parameter {
+    name         = "cron.database_name"
+    value        = "bancaemdia"
+    apply_method = "pending-reboot"
+  }
+  tags = var.tags
+}
+
 resource "aws_db_instance" "primary" {
   identifier                      = "${var.name}-primary"
   engine                          = "postgres"
@@ -24,6 +40,7 @@ resource "aws_db_instance" "primary" {
   skip_final_snapshot             = false
   final_snapshot_identifier       = "${var.name}-primary-final"
   db_subnet_group_name            = aws_db_subnet_group.primary.name
+  parameter_group_name            = aws_db_parameter_group.primary.name
   vpc_security_group_ids          = [var.security_group_id]
   publicly_accessible             = false
   auto_minor_version_upgrade      = true

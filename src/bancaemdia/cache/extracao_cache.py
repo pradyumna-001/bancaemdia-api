@@ -7,6 +7,7 @@ from functools import lru_cache
 import redis
 from pydantic import BaseModel, ValidationError
 
+from bancaemdia.cache.redis_client import sync_client
 from bancaemdia.config import get_settings
 from bancaemdia.extracao.cliente import VERSAO_PROMPT, Leitura
 from bancaemdia.extracao.modelos import ExtracaoBilhete
@@ -101,10 +102,10 @@ class ExtracaoCache:
                 if versao_anterior(texto.rsplit(":", 1)[-1], self.versao_prompt):
                     lote.append(texto)
                 if len(lote) == LOTE_DE_LIMPEZA:
-                    apagadas += self.client.unlink(*lote)
+                    apagadas += sum(self.client.unlink(nome) for nome in lote)
                     lote = []
             if lote:
-                apagadas += self.client.unlink(*lote)
+                apagadas += sum(self.client.unlink(nome) for nome in lote)
         except redis.RedisError:
             cache_errors.inc()
         return apagadas
@@ -112,9 +113,8 @@ class ExtracaoCache:
 
 @lru_cache
 def get_cache() -> ExtracaoCache:
-    client = redis.Redis.from_url(
-        get_settings().REDIS_URL,
-        socket_timeout=TIMEOUT_SEGUNDOS,
-        socket_connect_timeout=TIMEOUT_SEGUNDOS,
+    settings = get_settings()
+    client = sync_client(
+        settings.REDIS_URL, cluster=settings.REDIS_CLUSTER_MODE, timeout=TIMEOUT_SEGUNDOS
     )
     return ExtracaoCache(client)

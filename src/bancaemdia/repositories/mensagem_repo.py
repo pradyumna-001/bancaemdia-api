@@ -6,6 +6,8 @@ from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from bancaemdia import models
+from bancaemdia.config import get_settings
+from bancaemdia.storage import midia_s3
 
 
 class Salvamento(StrEnum):
@@ -125,11 +127,29 @@ class MidiaRepo:
 
 class MidiaArquivoRepo:
     async def upsert_idempotent(self, session: AsyncSession, hash_: str, conteudo: bytes) -> None:
-        await session.execute(
-            insert(models.MidiaArquivo)
-            .values(hash=hash_, conteudo=conteudo)
-            .on_conflict_do_nothing(index_elements=["hash"])
+        bucket = get_settings().S3_UPLOAD_BUCKET
+        key = None if bucket is None else await midia_s3.upload(bucket, hash_, conteudo)
+        stmt = insert(models.MidiaArquivo).values(hash=hash_, conteudo=conteudo, s3_key=key)
+        if key is None:
+            stmt = stmt.on_conflict_do_nothing(index_elements=["hash"])
+        else:
+            stmt = stmt.on_conflict_do_update(index_elements=["hash"], set_={"s3_key": key})
+        await session.execute(stmt)
+
+    async def keys_for_hashes(
+        self, session: AsyncSession, hashes: list[str]
+    ) -> dict[str, tuple[str, str]]:
+        if not hashes:
+            return {}
+        stmt = (
+            select(models.MidiaArquivo.hash, models.MidiaArquivo.s3_key, models.Midia.tipo)
+            .join(models.Midia, models.Midia.hash == models.MidiaArquivo.hash)
+            .where(models.MidiaArquivo.hash.in_(hashes), models.MidiaArquivo.s3_key.is_not(None))
         )
+        return {
+            str(hash_): (str(key), str(tipo))
+            for hash_, key, tipo in (await session.execute(stmt)).all()
+        }
 
     async def get_by_hash(self, session: AsyncSession, hash_: str) -> bytes | None:
         stmt = select(models.MidiaArquivo.conteudo).where(models.MidiaArquivo.hash == hash_)

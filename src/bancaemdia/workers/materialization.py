@@ -60,6 +60,7 @@ from bancaemdia.repositories.revisao_pendente_repo import RevisaoPendenteRepo
 from bancaemdia.repositories.unidade_repo import UnidadeRepo
 from bancaemdia.repositories.upload_repo import UploadBilheteRepo, UploadRepo
 from bancaemdia.workers.celery_app import MATERIALIZATION_QUEUE, app
+from bancaemdia.workers.pairing import parear_criacao
 
 MOTIVO_GRAVE_PADRAO = "conferência grave"
 FUSO_DO_BRASIL = timezone(timedelta(hours=-3))
@@ -225,23 +226,6 @@ async def _gravar(
     )
     if not criada and versao_prompt is not None and versao_prompt != atual.get("versao_prompt"):
         novos.append(EventoNovo("CORRECAO_MANUAL", "ia", {"versao_prompt": versao_prompt}))
-    eventos = EventoRepo()
-    for evento in novos:
-        da_mensagem = evento.tipo == "APOSTA_CRIADA"
-        await eventos.append(
-            session,
-            {
-                "usuario_id": usuario_id,
-                "tipo": evento.tipo,
-                "fonte": evento.fonte,
-                "payload_json": evento.payload,
-                "confianca": evento.confianca,
-                "chat_id": nova.chat_id if da_mensagem else None,
-                "message_id": nova.message_id if da_mensagem else None,
-                "aposta_chave": nova.chave,
-            },
-        )
-
     estado, _ = projetar([*historico, *((e.tipo, e.fonte, e.payload) for e in novos)])
     data_aposta = _data(estado.get("data_aposta"))
     financeira = _financeira(estado)
@@ -282,10 +266,39 @@ async def _gravar(
         conta_casa_id = None if conta is None else conta.id
     if conta_casa_id is not None or criada or any("casa" in e.payload for e in novos):
         dados["conta_casa_id"] = conta_casa_id
+    if criada:
+        # The first event now carries every derived association needed to recreate a deleted
+        # projection. Legacy events without this marker remain fail-closed during replay.
+        snapshot = {
+            campo: valor.isoformat() if isinstance(valor, datetime) else valor
+            for campo, valor in dados.items()
+            if campo not in {"usuario_id", "chave", "stake_centavos", "valor_aposta_centavos"}
+        }
+        snapshot["valor_unidade_centavos"] = financeira.valor_unidade_centavos
+        snapshot["snapshot_completo"] = True
+        novos[0] = replace(novos[0], payload={**novos[0].payload, "snapshot_replay": snapshot})
+    eventos = EventoRepo()
+    for evento in novos:
+        da_mensagem = evento.tipo == "APOSTA_CRIADA"
+        await eventos.append(
+            session,
+            {
+                "usuario_id": usuario_id,
+                "tipo": evento.tipo,
+                "fonte": evento.fonte,
+                "payload_json": evento.payload,
+                "confianca": evento.confianca,
+                "chat_id": nova.chat_id if da_mensagem else None,
+                "message_id": nova.message_id if da_mensagem else None,
+                "aposta_chave": nova.chave,
+            },
+        )
     with custom_span("materializacao.upsert", origem=nova.origem, usuario_id=usuario_id):
         aposta = await ApostaRepo().upsert_materializada(session, dados)
     if aposta is None:
         raise GravacaoConcorrenteError(f"outra gravação mais nova de {nova.chave} chegou antes")
+    if criada and getattr(aposta, "id", None) is not None:
+        await parear_criacao(session, usuario_id, aposta, estado)
 
     revisao = await _revisar(
         session,
@@ -295,7 +308,15 @@ async def _gravar(
         novos,
         criada,
         midia_hash,
-        {"aposta_chave": nova.chave, "extracao": extracao_json},
+        {
+            "aposta_chave": nova.chave,
+            "extracao": extracao_json,
+            **(
+                {"parceira_suspeita": estado["parceira_suspeita"]}
+                if estado.get("parceira_suspeita")
+                else {}
+            ),
+        },
     )
     return Gravada(
         nova.chave,
@@ -482,6 +503,31 @@ async def _gravar_coletada(
     if existia and aviso is not None and not atual.get("revisao_motivo"):
         novos.append(evento_do_aviso(aviso[1]))
         coleta_da_revisao = aviso[0].id
+    conta_criacao = None
+    if criada:
+        conta_criacao = await ContaCasaRepo().get_vigente_by_nome_da_casa(
+            session, usuario_id, nome_da_casa, data_aposta
+        )
+        financeira_criacao = _financeira(atual)
+        snapshot = {
+            "snapshot_completo": True,
+            "origem": "casa",
+            "stake_unidades": financeira_criacao.stake_unidades,
+            "valor_unidade_centavos": financeira_criacao.valor_unidade_centavos,
+            "conta_casa_id": None if conta_criacao is None else conta_criacao.id,
+            "chat_id": None,
+            "message_id": None,
+            "ordem_na_mensagem": 0,
+            "data_aposta": atual.get("data_aposta"),
+            "freebet": financeira_criacao.freebet,
+        }
+        for indice, evento in enumerate(novos):
+            if evento.tipo == "APOSTA_CRIADA":
+                novos[indice] = replace(
+                    evento,
+                    payload={**evento.payload, "snapshot_replay": snapshot},
+                )
+                break
     eventos = EventoRepo()
     for evento in novos:
         await eventos.append(
@@ -515,14 +561,13 @@ async def _gravar_coletada(
         "revisao_grave": bool(estado.get("revisao_grave")),
     }
     if criada:
-        conta = await ContaCasaRepo().get_vigente_by_nome_da_casa(
-            session, usuario_id, nome_da_casa, data_aposta
-        )
-        dados["conta_casa_id"] = None if conta is None else conta.id
+        dados["conta_casa_id"] = None if conta_criacao is None else conta_criacao.id
     with custom_span("materializacao.upsert", origem="casa", usuario_id=usuario_id):
         aposta = await ApostaRepo().upsert_materializada(session, dados)
     if aposta is None:
         raise GravacaoConcorrenteError(f"outra gravação mais nova de {chave} chegou antes")
+    if criada and getattr(aposta, "id", None) is not None:
+        await parear_criacao(session, usuario_id, aposta, estado)
 
     revisao = await _revisar(
         session,
@@ -532,7 +577,15 @@ async def _gravar_coletada(
         novos,
         criada,
         None,
-        {"aposta_chave": chave, "coleta_id": coleta_da_revisao},
+        {
+            "aposta_chave": chave,
+            "coleta_id": coleta_da_revisao,
+            **(
+                {"parceira_suspeita": estado["parceira_suspeita"]}
+                if estado.get("parceira_suspeita")
+                else {}
+            ),
+        },
     )
     return Gravada(
         chave,

@@ -149,7 +149,7 @@ def _limiter(
     settings = get_settings()
     storage_backend = urlsplit(settings.RATE_LIMIT_STORAGE).scheme or "memory"
     storage_options = cast(
-        dict[str, str],
+        dict[str, object],
         {
             "socket_connect_timeout": settings.RATE_LIMIT_STORAGE_TIMEOUT_SECONDS,
             "socket_timeout": settings.RATE_LIMIT_STORAGE_TIMEOUT_SECONDS,
@@ -157,6 +157,13 @@ def _limiter(
         if settings.RATE_LIMIT_STORAGE.lower().startswith(("redis://", "rediss://"))
         else {},
     )
+    if settings.RATE_LIMIT_STORAGE.lower().startswith("redis+cluster://"):
+        storage_options = {
+            "socket_connect_timeout": settings.RATE_LIMIT_STORAGE_TIMEOUT_SECONDS,
+            "socket_timeout": settings.RATE_LIMIT_STORAGE_TIMEOUT_SECONDS,
+            "ssl": True,
+            "ssl_cert_reqs": "required",
+        }
     return ObservableLimiter(
         fallback_policy=namespace,
         fallback_backend=storage_backend,

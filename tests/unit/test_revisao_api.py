@@ -254,6 +254,24 @@ def test_list_detail_and_stats_publish_the_review_contract(monkeypatch) -> None:
     }
 
 
+def test_review_photo_uses_short_lived_s3_url_when_object_is_uploaded(monkeypatch) -> None:
+    class Settings:
+        S3_UPLOAD_BUCKET = "private-uploads"
+
+    chamadas = []
+    monkeypatch.setattr(rota, "get_settings", lambda: Settings())
+    monkeypatch.setattr(
+        rota,
+        "signed_url",
+        lambda bucket, key, tipo: chamadas.append((bucket, key, tipo)) or "https://signed.test",
+    )
+    assert rota.linha_da_revisao(_revisao(), ("media/abc", "image/png"))["foto_url"] == (
+        "https://signed.test"
+    )
+    assert chamadas == [("private-uploads", "media/abc", "image/png")]
+    assert rota.linha_da_revisao(_revisao())["foto_url"] == "/api/v1/revisao/8/foto"
+
+
 def test_photo_is_private_not_sniffed_and_keeps_its_image_type(monkeypatch) -> None:
     resposta = _cliente(monkeypatch, _banco()).get("/api/v1/revisao/8/foto")
 
@@ -307,6 +325,16 @@ def test_discard_uses_safe_delete_before_audit(monkeypatch) -> None:
     ]
     assert resposta.json()["aposta"]["apagada"] is True
     assert banco.aposta.selecionada is False
+
+
+def test_same_pair_requires_a_pending_pair_review_with_a_candidate(monkeypatch) -> None:
+    banco = _banco()
+    resposta = _cliente(monkeypatch, banco).post(
+        "/api/v1/revisao/8/resolver", json={"acao": "MESMA"}
+    )
+
+    assert resposta.status_code == 422
+    assert banco.novos_eventos == []
 
 
 def test_busy_already_resolved_and_orphan_reviews_do_not_write(monkeypatch) -> None:
