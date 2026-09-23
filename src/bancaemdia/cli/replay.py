@@ -17,6 +17,10 @@ from sqlalchemy.ext.asyncio import AsyncEngine, AsyncSession
 
 from bancaemdia import models
 from bancaemdia.config import get_settings
+from bancaemdia.domain.account_attribution_service import (
+    InvalidAccountReferenceError,
+    attribute_account,
+)
 from bancaemdia.domain.financeiro import Aposta as ApostaFinanceira
 from bancaemdia.domain.projecao import EventoIrrecuperavelError, projetar_validado
 from bancaemdia.domain.temporal import VALOR_UNIDADE_PADRAO_CENTAVOS
@@ -195,6 +199,11 @@ async def _valores(
         or await ContaCasaRepo().get_by_id(session, usuario_id, conta_id) is None
     ):
         raise ReplayInseguroError("conta histórica não pertence ao usuário")
+    if conta_id is not None and estado.get("casa"):
+        try:
+            await attribute_account(session, usuario_id, estado["casa"], instante, conta_id)
+        except InvalidAccountReferenceError as invalid:
+            raise ReplayInseguroError("conta histórica não pertence a esta casa") from invalid
     return dados
 
 

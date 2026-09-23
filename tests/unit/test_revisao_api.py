@@ -230,6 +230,21 @@ def _cliente(monkeypatch, banco) -> TestClient:
     return TestClient(app)
 
 
+def test_account_review_requires_an_account_before_confirmation(monkeypatch) -> None:
+    review = _revisao(
+        motivo="conta da aposta não identificada",
+        extracao_bruta={"aposta_chave": CHAVE, "tipo_revisao": "conta"},
+    )
+    banco = _banco(revisao=review)
+    cliente = _cliente(monkeypatch, banco)
+
+    response = cliente.post("/api/v1/revisao/8/resolver", json={"acao": "CORRIGIR"})
+
+    assert response.status_code == 422
+    assert response.json()["detail"] == "escolha uma conta para esta aposta"
+    assert banco.commits == 0
+
+
 def test_list_detail_and_stats_publish_the_review_contract(monkeypatch) -> None:
     banco = _banco()
     cliente = _cliente(monkeypatch, banco)

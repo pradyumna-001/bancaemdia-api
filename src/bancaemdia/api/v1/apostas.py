@@ -6,7 +6,7 @@ from uuid import uuid4
 
 from fastapi import APIRouter, Depends, File, Form, Query, UploadFile, status
 from fastapi.responses import JSONResponse
-from pydantic import BaseModel, ConfigDict
+from pydantic import BaseModel, ConfigDict, StrictInt
 from sqlalchemy import select, text
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -20,6 +20,16 @@ from bancaemdia.api.contracts import (
 )
 from bancaemdia.api.deps import get_current_user
 from bancaemdia.db.session import get_db
+from bancaemdia.domain.account_attribution import (
+    AccountResolution,
+    ResolutionStatus,
+    review_reason,
+)
+from bancaemdia.domain.account_attribution_service import (
+    InvalidAccountReferenceError,
+    attribute_account,
+)
+from bancaemdia.domain.account_review import sync_account_review
 from bancaemdia.domain.aposta_service import (
     CAMPOS_DE_ID,
     ApostaInvalidaError,
@@ -86,6 +96,7 @@ class ApostaManual(BaseModel):
     mercado_bruto: str | None = None
     freebet: bool = False
     comissao_centavos: int | None = None
+    conta_casa_id: StrictInt | None = None
 
 
 class PlanilhaImportada(BaseModel):
@@ -124,6 +135,7 @@ def linha_da_aposta(aposta: Aposta, estado: dict[str, Any] | None = None) -> dic
         ),
         "freebet": aposta.freebet,
         "conta_casa_id": aposta.conta_casa_id,
+        "conta_atribuicao": "UNASSIGNED" if aposta.conta_casa_id is None else "ASSIGNED",
         "tipster_id": aposta.tipster_id,
         "time_casa_id": aposta.time_casa_id,
         "time_fora_id": aposta.time_fora_id,
@@ -390,6 +402,23 @@ async def _escrever(
         await session.rollback()
         return erro(status.HTTP_422_UNPROCESSABLE_ENTITY, str(recusa))
     depois, _ = projetar([*historico, *((e.tipo, e.fonte, e.payload) for e in novos)])
+    account_change = any("conta_casa_id" in e.payload or "casa" in e.payload for e in novos)
+    account_resolution = None
+    if account_change:
+        if depois.get("conta_casa_id") is None:
+            account_resolution = AccountResolution(ResolutionStatus.NONE)
+        else:
+            try:
+                account_resolution = await attribute_account(
+                    session,
+                    usuario.id,
+                    depois.get("casa"),
+                    _data_do_estado(depois.get("data_aposta")),
+                    depois["conta_casa_id"],
+                )
+            except InvalidAccountReferenceError as invalid:
+                await session.rollback()
+                return erro(status.HTTP_422_UNPROCESSABLE_ENTITY, str(invalid))
     gravada = await _aplicar(session, usuario, chave, novos, depois)
     if gravada is None:
         await session.rollback()
@@ -397,7 +426,11 @@ async def _escrever(
     saiu_da_conta = antes.get("selecionada", True) and not depois.get("selecionada", True)
     # Quem apagou a aposta não tem nada a confirmar: a revisão dela sai da fila junto.
     if (antes.get("revisao_motivo") and not depois.get("revisao_motivo")) or saiu_da_conta:
-        await RevisaoPendenteRepo().resolve_superseded(session, usuario.id, chave, None)
+        await RevisaoPendenteRepo().resolve_superseded(
+            session, usuario.id, chave, None, include_account=saiu_da_conta
+        )
+    if account_resolution is not None and not saiu_da_conta:
+        await sync_account_review(session, usuario.id, chave, account_resolution)
     await session.commit()
     return JSONResponse({
         "aposta": linha_da_aposta(gravada, depois),
@@ -431,7 +464,16 @@ async def corrigir_aposta(
         if "estado" in pedido and not antes.get("revisao_grave"):
             raise ApostaInvalidaError(SO_EM_REVISAO)
         validar_correcao(pedido, antes)
-        return eventos_da_correcao(mudancas(antes, pedido))
+        eventos = eventos_da_correcao(mudancas(antes, pedido))
+        if "conta_casa_id" in pedido:
+            eventos.append(
+                EventoNovo(
+                    "CORRECAO_MANUAL",
+                    "manual",
+                    {"conta_referencia_explicita": pedido["conta_casa_id"] is not None},
+                )
+            )
+        return eventos
 
     return await _escrever(session, usuario, chave, monta)
 
@@ -549,9 +591,16 @@ async def criar_aposta(
     unidade = await UnidadeRepo().get_vigente(session, usuario.id, data_aposta)
     valor_unidade = VALOR_UNIDADE_PADRAO_CENTAVOS if unidade is None else unidade.valor_centavos
     casa_id = await CasaRepo().get_id_by_nome(session, nome)
-    conta = await ContaCasaRepo().get_vigente_by_nome_da_casa(
-        session, usuario.id, nome, data_aposta
-    )
+    if manual.conta_casa_id is not None and (
+        erro_id := erro_de_id("conta_casa_id", manual.conta_casa_id)
+    ):
+        return erro(status.HTTP_422_UNPROCESSABLE_ENTITY, erro_id)
+    try:
+        account = await attribute_account(
+            session, usuario.id, nome, data_aposta, manual.conta_casa_id
+        )
+    except InvalidAccountReferenceError as invalid:
+        return erro(status.HTTP_422_UNPROCESSABLE_ENTITY, str(invalid))
     payload: dict[str, Any] = {
         "origem": "manual",
         "casa": nome,
@@ -565,18 +614,18 @@ async def criar_aposta(
         "selecionada": True,
         "data_aposta": data_aposta.isoformat(),
         "revisao_grave": False,
+        "conta_referencia_explicita": manual.conta_casa_id is not None,
     }
     if manual.comissao_centavos is not None:
         payload["comissao_centavos"] = manual.comissao_centavos
-    if conta is not None:
-        payload["conta_casa_id"] = conta.id
+    payload["conta_casa_id"] = account.conta_casa_id
 
     payload["snapshot_replay"] = {
         "snapshot_completo": True,
         "origem": "manual",
         "stake_unidades": manual.stake_unidades,
         "valor_unidade_centavos": valor_unidade,
-        "conta_casa_id": None if conta is None else conta.id,
+        "conta_casa_id": account.conta_casa_id,
         "chat_id": None,
         "message_id": None,
         "ordem_na_mensagem": 0,
@@ -590,17 +639,14 @@ async def criar_aposta(
     if gravada is None:
         await session.rollback()
         return erro(status.HTTP_409_CONFLICT, OCUPADA)
+    await sync_account_review(session, usuario.id, chave, account)
     await session.commit()
     apostas_created_total.labels(
         origem="manual", estado=str(depois.get("estado") or "PENDENTE")
     ).inc()
     corpo: dict[str, Any] = {"aposta": linha_da_aposta(gravada, depois), "casa_id": casa_id}
-    if conta is None:
-        # O filtro por casa passa pelas contas: sem conta, a aposta existe e não aparece nele.
-        corpo["aviso"] = (
-            f"você ainda não tem conta na {nome} — esta aposta entrou, mas não aparece no filtro"
-            " por casa até a conta existir"
-        )
+    if motivo := review_reason(account):
+        corpo["aviso"] = motivo
     return JSONResponse(status_code=status.HTTP_201_CREATED, content=corpo)
 
 
@@ -646,9 +692,15 @@ async def importar_planilha(
             valor_unidade = (
                 VALOR_UNIDADE_PADRAO_CENTAVOS if unidade is None else unidade.valor_centavos
             )
-            conta = await ContaCasaRepo().get_vigente_by_nome_da_casa(
-                session, usuario.id, linha.casa, linha.data_aposta
+            explicit_id = (
+                antes.get("conta_casa_id") if antes.get("conta_referencia_explicita") else None
             )
+            try:
+                account = await attribute_account(
+                    session, usuario.id, linha.casa, linha.data_aposta, explicit_id
+                )
+            except InvalidAccountReferenceError:
+                account = AccountResolution(ResolutionStatus.NONE)
             payload: dict[str, Any] = {
                 "origem": "planilha",
                 "linha_hash": linha.chave[2:],
@@ -658,7 +710,9 @@ async def importar_planilha(
                 "odd": linha.odd,
                 "stake_unidades": linha.stake_unidades,
                 "valor_unidade_centavos": valor_unidade,
-                "conta_casa_id": None if conta is None else conta.id,
+                "conta_casa_id": account.conta_casa_id,
+                "conta_referencia_explicita": explicit_id is not None
+                and account.conta_casa_id is not None,
                 **({"evento": linha.evento} if "evento" in linha.presentes else {}),
                 **({"descricao": linha.descricao} if "descricao" in linha.presentes else {}),
                 **(
@@ -675,7 +729,7 @@ async def importar_planilha(
                     "origem": "planilha",
                     "stake_unidades": linha.stake_unidades,
                     "valor_unidade_centavos": valor_unidade,
-                    "conta_casa_id": None if conta is None else conta.id,
+                    "conta_casa_id": account.conta_casa_id,
                     "chat_id": None,
                     "message_id": None,
                     "ordem_na_mensagem": 0,
@@ -696,6 +750,9 @@ async def importar_planilha(
             gravada = await _aplicar(session, usuario, linha.chave, novos, depois)
             if gravada is None:
                 raise RuntimeError(f"a linha {linha.numero} foi alterada durante a importação")
+            await sync_account_review(
+                session, usuario.id, linha.chave, account, context={"linha": linha.numero}
+            )
         await session.commit()
     except Exception:
         await session.rollback()

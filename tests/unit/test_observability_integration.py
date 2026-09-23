@@ -311,7 +311,14 @@ async def _prepare_manual_bet(
     monkeypatch.setattr(apostas, "casa_canonica", lambda value: value)
     monkeypatch.setattr(apostas.UnidadeRepo, "get_vigente", no_unit)
     monkeypatch.setattr(apostas.CasaRepo, "get_id_by_nome", house_id)
-    monkeypatch.setattr(apostas.ContaCasaRepo, "get_vigente_by_nome_da_casa", no_account)
+    from bancaemdia.domain.account_attribution import AccountResolution, ResolutionStatus
+
+    async def no_attribution(*args: object, **kwargs: object) -> AccountResolution:
+        await asyncio.sleep(0)
+        return AccountResolution(ResolutionStatus.NONE)
+
+    monkeypatch.setattr(apostas, "attribute_account", no_attribution)
+    monkeypatch.setattr(apostas, "sync_account_review", no_account)
     monkeypatch.setattr(apostas, "_aplicar", applied)
     monkeypatch.setattr(
         apostas,
