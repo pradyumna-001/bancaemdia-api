@@ -18,6 +18,7 @@ from bancaemdia.repositories.aposta_repo import ApostaRepo
 from bancaemdia.repositories.conta_casa_repo import ContaCasaRepo
 from bancaemdia.repositories.evento_repo import EventoRepo
 from bancaemdia.repositories.revisao_pendente_repo import RevisaoPendenteRepo
+from bancaemdia.repositories.uso_conta_casa_repo import UsoContaCasaRepo
 from bancaemdia.repositories.usuario_repo import UsuarioRepo
 from bancaemdia.workers import materialization
 
@@ -110,11 +111,12 @@ async def test_grave_reading_opens_one_review_even_when_resent(
 
     async with como(engine_app, usuario) as session:
         revisoes = await RevisaoPendenteRepo().list_by_usuario(session, usuario)
-    assert [(r.motivo, r.midia_hash) for r in revisoes] == [
+    extraction_reviews = [r for r in revisoes if r.extracao_bruta.get("tipo_revisao") != "conta"]
+    assert [(r.motivo, r.midia_hash) for r in extraction_reviews] == [
         ("coerência das odds: diverge", "hash-da-foto")
     ]
-    assert revisoes[0].extracao_bruta is not None
-    assert revisoes[0].extracao_bruta["aposta_chave"] == CHAVE
+    assert len(revisoes) == 2
+    assert extraction_reviews[0].extracao_bruta["aposta_chave"] == CHAVE
     aposta = await _aposta(engine_app, como, usuario)
     assert aposta is not None and aposta.revisao_grave is True
 
@@ -168,9 +170,17 @@ async def test_reviews_follow_the_latest_reading(
         abertas_depois = await RevisaoPendenteRepo().list_by_usuario(session, usuario)
         todas = await RevisaoPendenteRepo().list_by_usuario(session, usuario, apenas_abertas=False)
 
-    assert [r.motivo for r in abertas] == ["motivo B"]
-    assert abertas_depois == []
-    assert sorted(r.motivo for r in todas) == ["motivo A", "motivo B"]
+    assert [r.motivo for r in abertas if r.extracao_bruta.get("tipo_revisao") != "conta"] == [
+        "motivo B"
+    ]
+    assert [
+        r.motivo for r in abertas_depois if r.extracao_bruta.get("tipo_revisao") != "conta"
+    ] == []
+    assert sorted(r.motivo for r in todas if r.extracao_bruta.get("tipo_revisao") != "conta") == [
+        "motivo A",
+        "motivo B",
+    ]
+    assert len([r for r in abertas_depois if r.extracao_bruta.get("tipo_revisao") == "conta"]) == 1
 
 
 async def test_bet_goes_to_the_users_account_at_the_house_it_was_read_from(
@@ -186,6 +196,9 @@ async def test_bet_goes_to_the_users_account_at_the_house_it_was_read_from(
         casa_id = await conn.scalar(select(models.Casa.id).where(models.Casa.nome == "Betano"))
     async with como(engine_app, usuario) as session:
         conta = await ContaCasaRepo().create(session, {"usuario_id": usuario, "casa_id": casa_id})
+        await UsoContaCasaRepo().open(
+            session, usuario, casa_id, conta.id, datetime(2026, 7, 1, tzinfo=UTC)
+        )
         await session.commit()
 
     await _materializar(engine_app, usuario, _extracao())

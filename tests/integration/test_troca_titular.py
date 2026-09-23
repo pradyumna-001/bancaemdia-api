@@ -88,13 +88,24 @@ async def test_attribution_uses_bet_time_and_validates_explicit_account(
         house_name = await conn.scalar(select(models.Casa.nome).where(models.Casa.id == casa))
     assert house_name is not None
     effective = start + timedelta(days=5)
+    key = f"switch:{uuid4()}"
     async with AsyncSession(engine_app) as session:
         await _tenant(session, usuario_id)
         await trocar_conta(
             session,
             usuario_id,
             TrocaPedido(casa, source, target, effective, "LIMITADA"),
-            f"switch:{uuid4()}",
+            key,
+            aplicar=False,
+        )
+        await session.commit()
+    async with AsyncSession(engine_app) as session:
+        await _tenant(session, usuario_id)
+        await trocar_conta(
+            session,
+            usuario_id,
+            TrocaPedido(casa, source, target, effective, "LIMITADA"),
+            key,
             aplicar=True,
         )
         await session.commit()
