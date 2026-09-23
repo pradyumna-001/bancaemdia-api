@@ -102,10 +102,10 @@ async def test_two_matching_tips_are_serialized_and_only_one_owns_the_house_bet(
                 )
             ).scalars()
         }
-    assert apostas[casa].selecionada is True
-    assert apostas[casa].parceira_chave in dicas
-    assert sum(apostas[chave].duvida_de_par for chave in dicas) == 1
-    assert all(not apostas[chave].selecionada for chave in dicas)
+        assert apostas[casa].selecionada is True
+        assert apostas[casa].parceira_chave in dicas
+        assert sum(apostas[chave].duvida_de_par for chave in dicas) == 1
+        assert all(not apostas[chave].selecionada for chave in dicas)
 
 
 async def test_manual_confirmation_of_an_uncertain_pair_keeps_the_house_bet(
@@ -140,6 +140,6 @@ async def test_manual_confirmation_of_an_uncertain_pair_keeps_the_house_bet(
         )
         aposta_casa = await ApostaRepo().get_by_chave(session, usuario, casa)
         aposta_dica = await ApostaRepo().get_by_chave(session, usuario, dica)
-    assert aposta_casa is not None and aposta_dica is not None
-    assert aposta_casa.selecionada is True and aposta_casa.parceira_chave == dica
-    assert aposta_dica.selecionada is False and aposta_dica.duvida_de_par is False
+        assert aposta_casa is not None and aposta_dica is not None
+        assert aposta_casa.selecionada is True and aposta_casa.parceira_chave == dica
+        assert aposta_dica.selecionada is False and aposta_dica.duvida_de_par is False
