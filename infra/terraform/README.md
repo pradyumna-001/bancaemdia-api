@@ -2,6 +2,8 @@
 
 This project defines separate staging and production Terraform roots over shared modules. It has **not** provisioned an AWS account. The defaults create a large, continuously billed footprint: two NAT gateways, a Multi-AZ RDS primary plus an in-region read replica and a cross-region read replica, six Redis nodes, an ALB, and (after deployment is enabled) fifteen Fargate tasks per environment. Review the plan and budget before enabling an apply.
 
+The initial AWS spending ceiling is R$ 100/month. The current stack exceeds it even with `deploy_enabled=false`; see the [budget reconciliation and administrator decision](../../docs/decisions/aws-initial-budget.md). Keep `TF_APPLY_ENABLED` unset and do not apply either environment until the architecture and budget agree.
+
 ## Architecture and deliberate differences from #41
 
 - The main VPC has two public ALB subnets and two private ECS/RDS/Redis subnets across two AZs, each private subnet routed through a NAT gateway in its AZ. A separate private VPC in `dr_region` hosts the cross-region RDS read replica. The API uses the **in-region** replica for `/ready` and dashboard reads; the DR replica is for recovery, not the live read path.
