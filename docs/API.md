@@ -39,6 +39,8 @@ python scripts/generate_openapi.py
 | `GET` | `/api/v1/revisao/{revisao_id}` | Consultar revisão | `200`, `401`, `404`, `422`, `429`, `500`, `503` | — |
 | `GET` | `/api/v1/revisao/{revisao_id}/foto` | Consultar foto da revisão | `200`, `401`, `404`, `422`, `429`, `500`, `503` | — |
 | `POST` | `/api/v1/revisao/{revisao_id}/resolver` | Resolver revisão | `200`, `401`, `404`, `409`, `413`, `422`, `429`, `500`, `503` | — |
+| `POST` | `/api/v1/titulares/trocas` | Trocar conta da casa | `200`, `401`, `413`, `422`, `429`, `500`, `503` | — |
+| `POST` | `/api/v1/titulares/trocas/preview` | Prévia de troca de conta | `200`, `401`, `413`, `422`, `429`, `500`, `503` | — |
 | `POST` | `/api/v1/upload` | Enviar exportação do Telegram | `202`, `400`, `401`, `413`, `422`, `429`, `500`, `503` | — |
 | `GET` | `/api/v1/upload/{job_id}` | Consultar processamento do upload | `200`, `401`, `404`, `422`, `429`, `500`, `503` | — |
 | `DELETE` | `/api/v1/usuario/me` | Desativar e anonimizar minha conta | `200`, `401`, `409`, `422`, `429`, `500`, `503` | — |

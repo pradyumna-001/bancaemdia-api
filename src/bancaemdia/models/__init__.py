@@ -26,8 +26,11 @@ from bancaemdia.models.movimento_requisicao import MovimentoRequisicao
 from bancaemdia.models.revisao_pendente import RevisaoPendente
 from bancaemdia.models.time import Time
 from bancaemdia.models.tipster import Tipster
+from bancaemdia.models.titular import Titular
+from bancaemdia.models.troca_titular import TrocaTitularEvento, TrocaTitularRequisicao
 from bancaemdia.models.unidade import Unidade
 from bancaemdia.models.upload import Upload, UploadArquivo, UploadBilhete
+from bancaemdia.models.uso_conta_casa import UsoContaCasa
 from bancaemdia.models.usuario import Usuario
 
 __all__ = [
@@ -59,9 +62,13 @@ __all__ = [
     "RevisaoPendente",
     "Time",
     "Tipster",
+    "Titular",
+    "TrocaTitularEvento",
+    "TrocaTitularRequisicao",
     "Unidade",
     "Upload",
     "UploadArquivo",
     "UploadBilhete",
+    "UsoContaCasa",
     "Usuario",
 ]

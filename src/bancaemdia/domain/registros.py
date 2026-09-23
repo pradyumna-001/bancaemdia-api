@@ -33,6 +33,8 @@ class ContaCasa:
     ate: datetime | None
     ativa: bool
     banca_id: int | None = None
+    titular_id: int | None = None
+    estado: str = "DISPONIVEL"
 
 
 @dataclass(frozen=True)

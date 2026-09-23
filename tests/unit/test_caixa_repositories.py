@@ -387,7 +387,7 @@ async def test_contas_and_bancas_list_only_one_users_rows() -> None:
     contas = await ContaCasaRepo().list_by_usuario(contas_session, 1)
     bancas = await BancaRepo().list_by_usuario(bancas_session, 1)
 
-    assert contas == [registros.ContaCasa(3, 1, 13, "", ONTEM, None, True)]
+    assert contas == [registros.ContaCasa(3, 1, 13, "", ONTEM, None, True, estado=None)]
     assert bancas == [registros.Banca(8, 1, "Principal", 100_000, ONTEM)]
     assert "WHERE contas_casa.usuario_id = " in _sql(contas_session.statements[0])
     assert "ORDER BY contas_casa.id" in _sql(contas_session.statements[0])
