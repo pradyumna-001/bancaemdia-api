@@ -41,3 +41,41 @@ O valor de uma instância **não prova** que a aplicação inteira caiba no teto
 Por favor, proponha a arquitetura e o cronograma que considere adequados para as metas de custo acima. Explique como executar API, workers, PostgreSQL, Redis, arquivos, backups e deploy; apresente custo mensal completo para o início, 100 e 1.000 usuários; indique quais garantias da issue #41 serão mantidas ou revistas e como validar capacidade e recuperação. Se alguma meta for inviável com os requisitos atuais, explique a incompatibilidade e recomende a mudança necessária. A escolha de serviços, provedor e etapas fica aberta.
 
 Até essa revisão, `deploy_enabled=false` não deve ser tratado como modo econômico, e o Terraform atual não deve ser aplicado na conta com o orçamento informado.
+
+---
+
+## Decisão do administrador — 23/09/2026
+
+**GO em três fases; o Terraform atual permanece no repositório como alvo de escala e não é aplicado nesta conta.**
+
+### Revisão explícita da meta
+
+A meta de **R$ 100/mês no início é revista para R$ 200/mês já desde o lançamento.** R$ 100/mês não é atingível com segurança: uma instância Lightsail de 4 GB (US$ 24 ≈ R$ 123 na PTAX de 21/09/2026) já ultrapassa o teto antes de somar armazenamento, backups e IA, e qualquer banco gerenciado ou alta disponibilidade sai desse valor. A decisão registra R$ 200/mês como teto real da fase inicial.
+
+### Fase 0 — desenvolvimento (agora até o lançamento)
+
+- 100% local com o [Docker Compose](../../docker-compose.yml) (API, PostgreSQL, Redis, workers). **AWS R$ 0/mês.**
+- Terraform não aplicado; `TF_APPLY_ENABLED` continua desabilitado.
+
+### Fase 1 — lançamento e primeiros 100 usuários (teto R$ 200/mês)
+
+- Uma instância **Lightsail 4 GB (US$ 24/mês)** rodando API, workers Celery, PostgreSQL e Redis via Docker Compose — a mesma stack do desenvolvimento.
+- HTTPS via Caddy na própria instância (**sem ALB**); uploads/exports em S3 (~US$ 1–3/mês).
+- Backups: `pg_dump` diário para S3 + snapshot semanal da instância (~US$ 3–5/mês); **restore testado antes do lançamento e a cada trimestre**.
+- Alerta de custo via **AWS Budgets em US$ 50/mês** (o módulo de alerting do Terraform fica para a Fase 2+).
+- **Custos estimados: US$ 30–35/mês (~R$ 155–180)**, dentro do teto revisado, já incluindo o custo de IA da [decisão de provedor](ai-extraction-provider.md) (centavos/dia nesta fase).
+- Deploy: pull da imagem nova + health check + rollback pela tag anterior (não canary).
+
+### Fase 2 — ~100 a 1.000 usuários (teto US$ 300/mês)
+
+- Separar o banco (Lightsail managed DB ou RDS single-AZ pequeno) e uma segunda instância para workers; Redis continua na instância de aplicação.
+- Reavaliar a migração para o Terraform ECS/RDS quando houver receita que justifique. **Gatilhos objetivos:** custo real acima de R$ 150/mês por 2 meses consecutivos, ou necessidade contratual de disponibilidade/SLA.
+- Estimativa nesta fase: US$ 60–150/mês, com folga para o teto de US$ 300.
+
+### Garantias da issue #41 — mantidas e revisadas
+
+**Mantidas:** IaC versionada (Terraform como alvo de escala), mesma imagem em dev e produção, segredos fora do código/testes/tfvars, backup diário com restore testado trimestralmente, k6 local para validação de capacidade (issue #40) antes do lançamento e a cada mudança significativa de carga.
+
+**Adiadas para a Fase 2+:** staging espelho de produção, RDS Multi-AZ e réplicas cross-region, ALB/WAF, Fargate Spot, deploy canary automatizado.
+
+**Riscos aceitos e registrados:** RPO de 24 horas (backup diário) e RTO de horas — aceitáveis para um SaaS de registro de apostas ainda sem base pagante; extrapolar capacidade pelo número de contas cadastradas é inválido (a capacidade se mede no k6, não na contagem de usuários).
