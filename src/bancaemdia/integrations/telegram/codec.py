@@ -96,14 +96,22 @@ def normalize_update(raw: object) -> NormalizedUpdate:
                 item: dict[str, str | int] = {"file_id": file_id}
                 unique = photo.get("file_unique_id")
                 size = _positive(photo.get("file_size"))
+                width = _positive(photo.get("width"))
+                height = _positive(photo.get("height"))
                 if isinstance(unique, str) and len(unique) <= 512:
                     item["file_unique_id"] = unique
                 if size is not None:
                     item["file_size"] = size
+                if width is not None:
+                    item["width"] = width
+                if height is not None:
+                    item["height"] = height
                 safe_photos.append(item)
     text_value = message.get("text")
     caption_value = message.get("caption")
     callback_data = _object(raw.get("callback_query")).get("data")
+    forward_origin = _object(message.get("forward_origin"))
+    forward_type = forward_origin.get("type")
     payload = {
         "chat_type": chat.get("type")
         if chat.get("type") in {"private", "group", "supergroup", "channel"}
@@ -117,6 +125,11 @@ def normalize_update(raw: object) -> NormalizedUpdate:
         "forwarded": any(
             key in message for key in ("forward_origin", "forward_from", "forward_date")
         ),
+        "forward_origin_type": forward_type
+        if forward_type in {"user", "hidden_user", "chat", "channel"}
+        else None,
+        "forward_date": _positive(forward_origin.get("date"))
+        or _positive(message.get("forward_date")),
         "callback_data": callback_data[:256] if isinstance(callback_data, str) else None,
     }
     return NormalizedUpdate(
