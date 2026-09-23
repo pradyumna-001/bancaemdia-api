@@ -18,4 +18,5 @@ tests
 docs
 infra
 output
+validation-evidence
 *.log
