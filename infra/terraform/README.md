@@ -2,7 +2,7 @@
 
 This project defines separate staging and production Terraform roots over shared modules. It has **not** provisioned an AWS account. The defaults create a large, continuously billed footprint: two NAT gateways, a Multi-AZ RDS primary plus an in-region read replica and a cross-region read replica, six Redis nodes, an ALB, and (after deployment is enabled) fifteen Fargate tasks per environment. Review the plan and budget before enabling an apply.
 
-The initial AWS spending ceiling is R$ 100/month. The current stack exceeds it even with `deploy_enabled=false`; see the [budget reconciliation and administrator decision](../../docs/decisions/aws-initial-budget.md). Keep `TF_APPLY_ENABLED` unset and do not apply either environment until the architecture and budget agree.
+The owner's AWS spending targets are about R$ 100/month initially, up to R$ 200/month for the first 100 users, and up to US$ 300/month at 1,000 users. The current stack exceeds them even with `deploy_enabled=false`; see the [budget reconciliation and open request to the administrator](../../docs/decisions/aws-initial-budget.md). Keep `TF_APPLY_ENABLED` unset and do not apply either environment until the architecture and budget agree.
 
 ## Architecture and deliberate differences from #41
 
