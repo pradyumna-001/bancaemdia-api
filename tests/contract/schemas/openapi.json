@@ -3554,6 +3554,20 @@
         "title": "SaldoContaSaida",
         "type": "object"
       },
+      "TelegramWebhookAck": {
+        "additionalProperties": false,
+        "properties": {
+          "accepted": {
+            "title": "Accepted",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "accepted"
+        ],
+        "title": "TelegramWebhookAck",
+        "type": "object"
+      },
       "TipoMovimentoConsulta": {
         "enum": [
           "DEPOSITO",
@@ -4215,6 +4229,12 @@
       "HTTPBearer": {
         "scheme": "bearer",
         "type": "http"
+      },
+      "TelegramWebhookSecret": {
+        "description": "Secret configured through Telegram setWebhook; never log it.",
+        "in": "header",
+        "name": "X-Telegram-Bot-Api-Secret-Token",
+        "type": "apiKey"
       }
     }
   },
@@ -6211,6 +6231,155 @@
           }
         ],
         "summary": "Receber coleta da extensão"
+      }
+    },
+    "/api/v1/integrations/telegram/webhook": {
+      "post": {
+        "description": "Valida o segredo do webhook e persiste o update_id antes de responder; o processamento é assíncrono.",
+        "operationId": "telegram_webhook_api_v1_integrations_telegram_webhook_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "examples": {
+                "default": {
+                  "summary": "Mensagem privada",
+                  "value": {
+                    "message": {
+                      "chat": {
+                        "id": 123,
+                        "type": "private"
+                      },
+                      "from": {
+                        "id": 123
+                      },
+                      "message_id": 1,
+                      "text": "/start"
+                    },
+                    "update_id": 123456
+                  }
+                }
+              },
+              "schema": {
+                "additionalProperties": {
+                  "$ref": "#/components/schemas/JsonValue"
+                },
+                "properties": {
+                  "callback_query": {
+                    "additionalProperties": {
+                      "$ref": "#/components/schemas/JsonValue"
+                    },
+                    "type": "object"
+                  },
+                  "edited_message": {
+                    "additionalProperties": {
+                      "$ref": "#/components/schemas/JsonValue"
+                    },
+                    "type": "object"
+                  },
+                  "message": {
+                    "additionalProperties": {
+                      "$ref": "#/components/schemas/JsonValue"
+                    },
+                    "type": "object"
+                  },
+                  "update_id": {
+                    "minimum": 1,
+                    "type": "integer"
+                  }
+                },
+                "required": [
+                  "update_id"
+                ],
+                "type": "object"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "202": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TelegramWebhookAck"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Invalid Telegram update."
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Invalid webhook secret."
+          },
+          "413": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              },
+              "text/plain": {
+                "example": "Content Too Large",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            },
+            "description": "Update body exceeds 128 KiB."
+          },
+          "415": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "JSON content type is required."
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Webhook request limit exceeded."
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Webhook is not configured."
+          }
+        },
+        "security": [
+          {
+            "TelegramWebhookSecret": []
+          }
+        ],
+        "summary": "Receber atualização do bot Telegram"
       }
     },
     "/api/v1/painel": {
@@ -9389,6 +9558,15 @@
                       },
                       "type": "array"
                     },
+                    "telegram_outbox": {
+                      "items": {
+                        "additionalProperties": {
+                          "$ref": "#/components/schemas/JsonValue"
+                        },
+                        "type": "object"
+                      },
+                      "type": "array"
+                    },
                     "titulares": {
                       "items": {
                         "additionalProperties": {
@@ -9482,6 +9660,7 @@
                     "trocas_titular_eventos",
                     "telegram_links",
                     "telegram_link_codes",
+                    "telegram_outbox",
                     "unidades",
                     "revisao_pendente",
                     "coletas_casa",

@@ -36,6 +36,7 @@ from bancaemdia.models.telegram_link import (
     TelegramLinkAttemptEvent,
     TelegramLinkCode,
 )
+from bancaemdia.models.telegram_message import TelegramInbox, TelegramOutbox
 from bancaemdia.models.time import Time
 from bancaemdia.models.tipster import Tipster
 from bancaemdia.models.titular import Titular
@@ -63,6 +64,7 @@ UPLOAD = (Upload, UploadBilhete, UploadArquivo)
 BILLING = (Assinatura, BillingPrice, BillingPriceAudit, BillingRollout)
 HOLDERS = (Titular, UsoContaCasa, TrocaTitularEvento, TrocaTitularRequisicao)
 TELEGRAM_LINKING = (TelegramLink, TelegramLinkCode, TelegramLinkAttempt, TelegramLinkAttemptEvent)
+TELEGRAM_TRANSPORT = (TelegramInbox, TelegramOutbox)
 POR_USUARIO = (
     ChamadaIA,
     ColetaCasa,
@@ -100,7 +102,7 @@ def _indexes(modelo: type[Base]) -> dict[str, list[str]]:
     return {i.name: [c.name for c in i.columns] for i in modelo.__table__.indexes}
 
 
-def test_all_forty_tables_are_registered() -> None:
+def test_all_forty_two_tables_are_registered() -> None:
     esperadas = {
         m.__tablename__
         for m in NUCLEO
@@ -110,9 +112,10 @@ def test_all_forty_tables_are_registered() -> None:
         + BILLING
         + HOLDERS
         + TELEGRAM_LINKING
+        + TELEGRAM_TRANSPORT
         + (AuditLog,)
     }
-    assert len(esperadas) == 40
+    assert len(esperadas) == 42
     assert set(Base.metadata.tables) == esperadas
     assert {m.__tablename__ for m in CANONICOS} == {
         "casas",
