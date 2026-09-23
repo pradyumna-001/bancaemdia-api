@@ -11,7 +11,7 @@ from alembic.script import ScriptDirectory
 ROOT = Path(__file__).resolve().parents[2]
 PREVIOUS = "f2a9c4e7b106"
 PAINEL = "d3f6a8c1e209"
-HEAD = "b4e2a7d9c143"
+HEAD = "c90b1a7e2026"
 MATERIALIZED_VIEWS = (
     "mv_painel_resumo",
     "mv_painel_por_casa",

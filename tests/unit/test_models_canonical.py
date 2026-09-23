@@ -7,8 +7,12 @@ from sqlalchemy.sql.ddl import DDLElement
 from bancaemdia.db.models import Base
 from bancaemdia.models.apelido import ENTIDADES, Apelido
 from bancaemdia.models.aposta import Aposta
+from bancaemdia.models.assinatura import Assinatura
 from bancaemdia.models.audit_log import AuditLog
 from bancaemdia.models.banca import Banca
+from bancaemdia.models.billing_price import BillingPrice
+from bancaemdia.models.billing_price_audit import BillingPriceAudit
+from bancaemdia.models.billing_rollout import BillingRollout
 from bancaemdia.models.casa import Casa
 from bancaemdia.models.chamada_ia import ChamadaIA
 from bancaemdia.models.coleta_casa import ColetaCasa
@@ -47,6 +51,7 @@ SUPORTE = (
     MovimentoRequisicao,
 )
 UPLOAD = (Upload, UploadBilhete, UploadArquivo)
+BILLING = (Assinatura, BillingPrice, BillingPriceAudit, BillingRollout)
 POR_USUARIO = (
     ChamadaIA,
     ColetaCasa,
@@ -84,9 +89,11 @@ def _indexes(modelo: type[Base]) -> dict[str, list[str]]:
     return {i.name: [c.name for c in i.columns] for i in modelo.__table__.indexes}
 
 
-def test_all_twenty_eight_tables_are_registered() -> None:
-    esperadas = {m.__tablename__ for m in NUCLEO + CANONICOS + SUPORTE + UPLOAD + (AuditLog,)}
-    assert len(esperadas) == 28
+def test_all_thirty_two_tables_are_registered() -> None:
+    esperadas = {
+        m.__tablename__ for m in NUCLEO + CANONICOS + SUPORTE + UPLOAD + BILLING + (AuditLog,)
+    }
+    assert len(esperadas) == 32
     assert set(Base.metadata.tables) == esperadas
     assert {m.__tablename__ for m in CANONICOS} == {
         "casas",
@@ -266,6 +273,6 @@ def test_revisao_pendente_indexes() -> None:
     assert RevisaoPendente.__table__.c.midia_hash.nullable is True
 
 
-def test_bigserial_everywhere_except_the_cache() -> None:
-    for nome in set(Base.metadata.tables) - {"extracoes_cache"}:
+def test_bigserial_except_composite_and_billing_owner_keys() -> None:
+    for nome in set(Base.metadata.tables) - {"extracoes_cache", "assinaturas", "billing_rollout"}:
         assert "id BIGSERIAL NOT NULL" in _create_table(nome)

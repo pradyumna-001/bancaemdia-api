@@ -17,7 +17,7 @@ REVISAO_RESOLVIDA = "f2a9c4e7b106"
 CAIXA_REVISAO_MERGE = "e5a1c7d9b204"
 PAINEL = "d3f6a8c1e209"
 PAINEL_CAIXA_MERGE = "f8b2d4a6c901"
-HEAD = "b4e2a7d9c143"
+HEAD = "c90b1a7e2026"
 PARTICIONADAS = {
     "eventos": "criado_em",
     "movimentos": "ocorrido_em",
@@ -93,7 +93,8 @@ def test_upgrade_creates_every_model_table_once() -> None:
 
 def test_upgrade_renders_the_schema_of_the_models() -> None:
     sql = _upgrade_sql()
-    assert sql.count("id BIGSERIAL NOT NULL") == len(Base.metadata.tables) - 1
+    # Billing adds two singleton/user-keyed tables and two generated-key tables.
+    assert sql.count("id BIGSERIAL NOT NULL") == len(Base.metadata.tables) - 3
     assert "CREATE TYPE familia_de_mercado AS ENUM ('GOLS'" in sql
     assert "payload_json JSONB NOT NULL" in sql
     assert "CHECK (NOT freebet OR stake_centavos = 0)" in sql
@@ -107,6 +108,10 @@ def test_upgrade_renders_the_schema_of_the_models() -> None:
         "CREATE UNIQUE INDEX idx_coleta_token_vivo ON coleta_token (usuario_id) WHERE ativo" in sql
     )
     assert "FOREIGN KEY(casa_id) REFERENCES casas (id)" in sql
+    assert "CREATE EXTENSION IF NOT EXISTS btree_gist" in sql
+    assert "ex_billing_price_published_overlap" in sql
+    assert "CREATE POLICY assinaturas_por_usuario" in sql
+    assert "CREATE TRIGGER billing_usuario_created" in sql
 
 
 def test_upgrade_creates_every_index_of_the_models() -> None:
