@@ -202,19 +202,20 @@ class OutboxClaim:
     token: str
 
 
-async def _claim_outbox(engine: AsyncEngine) -> OutboxClaim | None:
+async def _claim_outbox(engine: AsyncEngine, *, outbox_id: int | None = None) -> OutboxClaim | None:
     async with AsyncSession(engine, expire_on_commit=False) as session:
         async with session.begin():
             await _transport_scope(session)
             item = await session.scalar(
                 select(TelegramOutbox)
                 .where(
+                    *([TelegramOutbox.id == outbox_id] if outbox_id is not None else []),
                     or_(
                         (TelegramOutbox.status == "PENDING")
                         & (TelegramOutbox.next_attempt_at <= func.clock_timestamp()),
                         (TelegramOutbox.status == "SENDING")
                         & (TelegramOutbox.lease_until <= func.clock_timestamp()),
-                    )
+                    ),
                 )
                 .order_by(TelegramOutbox.next_attempt_at, TelegramOutbox.id)
                 .with_for_update(skip_locked=True)
@@ -288,8 +289,10 @@ async def _finish_outbox(
                 telegram_transport_retries_total.labels(stage="outbox").inc()
 
 
-async def deliver_outbox_once(engine: AsyncEngine, client: TelegramClient) -> bool:
-    claim = await _claim_outbox(engine)
+async def deliver_outbox_once(
+    engine: AsyncEngine, client: TelegramClient, *, outbox_id: int | None = None
+) -> bool:
+    claim = await _claim_outbox(engine, outbox_id=outbox_id)
     if claim is None:
         return False
     try:
