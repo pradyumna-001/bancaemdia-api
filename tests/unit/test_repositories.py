@@ -766,9 +766,14 @@ async def test_revisao_pendente_superseded_reviews_of_a_bet_are_resolved() -> No
     assert "revisao_pendente.extracao_bruta ->>" in sql
     assert "revisao_pendente.resolvido_em IS NULL" in sql
     assert "revisao_pendente.motivo != %(motivo_1)s" in sql
+    assert "tipo_revisao" in _params(session.statements[0]).values()
 
     await RevisaoPendenteRepo().resolve_superseded(session, 1, "t:1:1:0", None)
     assert "motivo !=" not in _sql(session.statements[1])
+    await RevisaoPendenteRepo().resolve_superseded(
+        session, 1, "t:1:1:0", None, include_account=True
+    )
+    assert "tipo_revisao" not in _params(session.statements[2]).values()
 
 
 async def test_aposta_upsert_materializada_only_lets_a_newer_write_in() -> None:

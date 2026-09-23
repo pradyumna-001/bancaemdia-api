@@ -426,7 +426,9 @@ async def _escrever(
     saiu_da_conta = antes.get("selecionada", True) and not depois.get("selecionada", True)
     # Quem apagou a aposta não tem nada a confirmar: a revisão dela sai da fila junto.
     if (antes.get("revisao_motivo") and not depois.get("revisao_motivo")) or saiu_da_conta:
-        await RevisaoPendenteRepo().resolve_superseded(session, usuario.id, chave, None)
+        await RevisaoPendenteRepo().resolve_superseded(
+            session, usuario.id, chave, None, include_account=saiu_da_conta
+        )
     if account_resolution is not None and not saiu_da_conta:
         await sync_account_review(session, usuario.id, chave, account_resolution)
     await session.commit()

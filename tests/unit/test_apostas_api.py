@@ -191,7 +191,9 @@ def _banco(
         async def list_abertas_by_aposta_chave(self, session, usuario_id, chave):
             return list(revisoes)
 
-        async def resolve_superseded(self, session, usuario_id, chave, motivo):
+        async def resolve_superseded(
+            self, session, usuario_id, chave, motivo, *, include_account=False
+        ):
             banco.resolvidas.append((chave, motivo))
 
     class ContaCasaRepo:
