@@ -83,6 +83,60 @@ class TelegramClient:
             raise TelegramApiError("invalid_response", retryable=True)
         return int(result["message_id"])
 
+    async def download_file(self, file_id: str, *, max_bytes: int) -> bytes:
+        if not file_id or len(file_id) > 512:
+            raise TelegramApiError("invalid_file_id", retryable=False)
+        result = await self._request("getFile", {"file_id": file_id})
+        if not isinstance(result, dict):
+            raise TelegramApiError("invalid_response", retryable=True)
+        path = result.get("file_path")
+        if (
+            not isinstance(path, str)
+            or not path
+            or len(path) > 512
+            or path.startswith("/")
+            or any(part in {"", ".", ".."} for part in path.split("/"))
+            or "\\" in path
+            or "?" in path
+            or "#" in path
+        ):
+            raise TelegramApiError("invalid_file_path", retryable=False)
+        size = result.get("file_size")
+        if type(size) is int and size > max_bytes:
+            raise TelegramApiError("file_too_large", retryable=False)
+        start = time.perf_counter()
+        outcome = "error"
+        try:
+            with suppress_instrumentation():
+                async with self._client.stream("GET", f"/file/bot{self._token}/{path}") as response:
+                    if response.status_code >= 500 or response.status_code == 429:
+                        raise TelegramApiError("server", retryable=True)
+                    if response.status_code >= 400:
+                        raise TelegramApiError("client", retryable=False)
+                    content_length = response.headers.get("content-length")
+                    if (
+                        content_length
+                        and content_length.isdigit()
+                        and int(content_length) > max_bytes
+                    ):
+                        raise TelegramApiError("file_too_large", retryable=False)
+                    parts = bytearray()
+                    async for chunk in response.aiter_bytes():
+                        if len(parts) + len(chunk) > max_bytes:
+                            raise TelegramApiError("file_too_large", retryable=False)
+                        parts.extend(chunk)
+            outcome = "success"
+            return bytes(parts)
+        except (httpx.TimeoutException, httpx.NetworkError) as exc:
+            raise TelegramApiError("network", retryable=True) from exc
+        except TelegramApiError as exc:
+            telegram_api_errors_total.labels(method="downloadFile", reason=exc.reason).inc()
+            raise
+        finally:
+            telegram_api_latency_seconds.labels(method="downloadFile", outcome=outcome).observe(
+                time.perf_counter() - start
+            )
+
     async def webhook_info(self) -> dict[str, Any]:
         result = await self._request("getWebhookInfo", {})
         if not isinstance(result, dict):

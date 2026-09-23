@@ -25,8 +25,9 @@ from bancaemdia.observability.metrics import (
     telegram_transport_dlq_count,
     telegram_transport_retries_total,
 )
-from bancaemdia.services.telegram_conversation import handle_text, new_photo_reply
+from bancaemdia.services.telegram_conversation import handle_text
 from bancaemdia.services.telegram_link import REPO, IncomingCommand, redeem_command, resolve_sender
+from bancaemdia.services.telegram_photo_intake import SUPPORTED_FLOW, intake_photo
 from bancaemdia.workers.celery_app import app
 from bancaemdia.workers.materialization import get_engine
 
@@ -104,25 +105,22 @@ async def _handle_inbox(session: AsyncSession, item: TelegramInbox) -> None:
         if owner is None:
             return
         photos = payload.get("photo")
-        if isinstance(photos, list) and photos and item.message_id is not None:
-            candidate = photos[-1]
-            file_id = candidate.get("file_id") if isinstance(candidate, dict) else None
-            if isinstance(file_id, str):
-                photo_reply = await new_photo_reply(
-                    session,
-                    user_id=owner,
-                    chat_id=chat,
-                    message_id=item.message_id,
-                    update_id=item.update_id,
-                    media_file_id=file_id,
-                )
-                await queue_reply(
-                    session,
-                    user_id=owner,
-                    chat_id=chat,
-                    key=f"telegram-draft:{item.update_id}:reply",
-                    message=photo_reply.text,
-                )
+        if (photos or payload.get("media_group_id")) and item.message_id is not None:
+            photo_reply = await intake_photo(
+                session,
+                user_id=owner,
+                chat_id=chat,
+                message_id=item.message_id,
+                update_id=item.update_id,
+                payload=payload,
+            )
+            await queue_reply(
+                session,
+                user_id=owner,
+                chat_id=chat,
+                key=f"telegram-draft:{item.update_id}:reply",
+                message=photo_reply.text,
+            )
             return
         if isinstance(message_text, str):
             text_reply = await handle_text(
@@ -132,13 +130,13 @@ async def _handle_inbox(session: AsyncSession, item: TelegramInbox) -> None:
                 update_id=item.update_id,
                 text=message_text,
             )
-            if text_reply is not None:
+            if text_reply is not None or message_text.strip():
                 await queue_reply(
                     session,
                     user_id=owner,
                     chat_id=chat,
                     key=f"telegram-draft:{item.update_id}:reply",
-                    message=text_reply.text,
+                    message=text_reply.text if text_reply is not None else SUPPORTED_FLOW,
                 )
 
 
@@ -343,8 +341,13 @@ async def refresh_telegram_metrics(engine: AsyncEngine) -> None:
 async def run_cycle(
     engine: AsyncEngine, client: TelegramClient, *, limit: int = BATCH_SIZE
 ) -> None:
+    from bancaemdia.workers.telegram_extraction import process_photo_once
+
     for _ in range(limit):
         if not await process_inbox_once(engine):
+            break
+    for _ in range(limit):
+        if not await process_photo_once(engine, client):
             break
     for _ in range(limit):
         if not await deliver_outbox_once(engine, client):
