@@ -1025,6 +1025,234 @@
         "title": "CollectionWithoutReaderItem",
         "type": "object"
       },
+      "ContaEdicao": {
+        "additionalProperties": false,
+        "properties": {
+          "apelido": {
+            "anyOf": [
+              {
+                "maxLength": 160,
+                "minLength": 1,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Apelido"
+          },
+          "estado": {
+            "anyOf": [
+              {
+                "enum": [
+                  "DISPONIVEL",
+                  "LIMITADA",
+                  "ENCERRADA"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Estado"
+          }
+        },
+        "title": "ContaEdicao",
+        "type": "object"
+      },
+      "ContaEntrada": {
+        "additionalProperties": false,
+        "properties": {
+          "apelido": {
+            "maxLength": 160,
+            "minLength": 1,
+            "title": "Apelido",
+            "type": "string"
+          },
+          "casa_id": {
+            "minimum": 1.0,
+            "title": "Casa Id",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "casa_id",
+          "apelido"
+        ],
+        "title": "ContaEntrada",
+        "type": "object"
+      },
+      "ContaFinanceiraSaida": {
+        "additionalProperties": false,
+        "properties": {
+          "apelido": {
+            "title": "Apelido",
+            "type": "string"
+          },
+          "casa_id": {
+            "title": "Casa Id",
+            "type": "integer"
+          },
+          "casa_nome": {
+            "title": "Casa Nome",
+            "type": "string"
+          },
+          "conta_casa_id": {
+            "title": "Conta Casa Id",
+            "type": "integer"
+          },
+          "metricas": {
+            "additionalProperties": {
+              "anyOf": [
+                {
+                  "type": "integer"
+                },
+                {
+                  "type": "string"
+                }
+              ]
+            },
+            "title": "Metricas",
+            "type": "object"
+          },
+          "saldo_atual_centavos": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Saldo Atual Centavos"
+          },
+          "titular_id": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Titular Id"
+          }
+        },
+        "required": [
+          "conta_casa_id",
+          "titular_id",
+          "casa_id",
+          "casa_nome",
+          "apelido",
+          "metricas",
+          "saldo_atual_centavos"
+        ],
+        "title": "ContaFinanceiraSaida",
+        "type": "object"
+      },
+      "ContaMatrizSaida": {
+        "additionalProperties": false,
+        "properties": {
+          "acoes_validas": {
+            "items": {
+              "enum": [
+                "ATIVAR",
+                "TROCAR_PARA",
+                "TROCAR_DE",
+                "EDITAR"
+              ],
+              "type": "string"
+            },
+            "title": "Acoes Validas",
+            "type": "array"
+          },
+          "apelido": {
+            "title": "Apelido",
+            "type": "string"
+          },
+          "ativa": {
+            "title": "Ativa",
+            "type": "boolean"
+          },
+          "casa_id": {
+            "title": "Casa Id",
+            "type": "integer"
+          },
+          "casa_nome": {
+            "title": "Casa Nome",
+            "type": "string"
+          },
+          "conta_casa_id": {
+            "title": "Conta Casa Id",
+            "type": "integer"
+          },
+          "estado": {
+            "enum": [
+              "DISPONIVEL",
+              "EM_USO",
+              "LIMITADA",
+              "ENCERRADA"
+            ],
+            "title": "Estado",
+            "type": "string"
+          },
+          "historico_uso": {
+            "items": {
+              "$ref": "#/components/schemas/IntervaloSaida"
+            },
+            "title": "Historico Uso",
+            "type": "array"
+          },
+          "intervalo_ativo": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/IntervaloSaida"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "titular_id": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Titular Id"
+          },
+          "titular_nome": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Titular Nome"
+          }
+        },
+        "required": [
+          "conta_casa_id",
+          "titular_id",
+          "titular_nome",
+          "casa_id",
+          "casa_nome",
+          "apelido",
+          "estado",
+          "ativa",
+          "intervalo_ativo",
+          "historico_uso",
+          "acoes_validas"
+        ],
+        "title": "ContaMatrizSaida",
+        "type": "object"
+      },
       "Correcao": {
         "additionalProperties": false,
         "description": "Campos de domínio que podem ser corrigidos; campos desconhecidos são recusados.",
@@ -1609,6 +1837,79 @@
         "title": "ExtratoSaida",
         "type": "object"
       },
+      "FinanceiroSaida": {
+        "additionalProperties": false,
+        "properties": {
+          "contas_sem_titular": {
+            "items": {
+              "$ref": "#/components/schemas/ContaFinanceiraSaida"
+            },
+            "title": "Contas Sem Titular",
+            "type": "array"
+          },
+          "nao_atribuidas": {
+            "additionalProperties": {
+              "anyOf": [
+                {
+                  "type": "integer"
+                },
+                {
+                  "type": "string"
+                }
+              ]
+            },
+            "title": "Nao Atribuidas",
+            "type": "object"
+          },
+          "nao_atribuidas_status": {
+            "const": "UNASSIGNED",
+            "title": "Nao Atribuidas Status",
+            "type": "string"
+          },
+          "saldo_atual_centavos": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Saldo Atual Centavos"
+          },
+          "titulares": {
+            "items": {
+              "$ref": "#/components/schemas/TitularFinanceiroSaida"
+            },
+            "title": "Titulares",
+            "type": "array"
+          },
+          "total": {
+            "additionalProperties": {
+              "anyOf": [
+                {
+                  "type": "integer"
+                },
+                {
+                  "type": "string"
+                }
+              ]
+            },
+            "title": "Total",
+            "type": "object"
+          }
+        },
+        "required": [
+          "total",
+          "nao_atribuidas",
+          "nao_atribuidas_status",
+          "titulares",
+          "contas_sem_titular",
+          "saldo_atual_centavos"
+        ],
+        "title": "FinanceiroSaida",
+        "type": "object"
+      },
       "GrupoSaida": {
         "additionalProperties": false,
         "properties": {
@@ -1656,6 +1957,50 @@
           "metricas"
         ],
         "title": "GrupoSaida",
+        "type": "object"
+      },
+      "IntervaloSaida": {
+        "additionalProperties": false,
+        "properties": {
+          "origem": {
+            "enum": [
+              "LEGADO",
+              "EXPLICITA"
+            ],
+            "title": "Origem",
+            "type": "string"
+          },
+          "vigente_ate": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Vigente Ate"
+          },
+          "vigente_de": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Vigente De"
+          }
+        },
+        "required": [
+          "vigente_de",
+          "vigente_ate",
+          "origem"
+        ],
+        "title": "IntervaloSaida",
         "type": "object"
       },
       "ItemErroValidacaoSaida": {
@@ -1752,6 +2097,68 @@
           "status"
         ],
         "title": "LivenessResponse",
+        "type": "object"
+      },
+      "MatrizCasaSaida": {
+        "additionalProperties": false,
+        "properties": {
+          "casa_id": {
+            "title": "Casa Id",
+            "type": "integer"
+          },
+          "casa_nome": {
+            "title": "Casa Nome",
+            "type": "string"
+          },
+          "contas": {
+            "items": {
+              "$ref": "#/components/schemas/ContaMatrizSaida"
+            },
+            "title": "Contas",
+            "type": "array"
+          },
+          "proxima_acao_sem_conta": {
+            "const": "CRIAR_CONTA",
+            "title": "Proxima Acao Sem Conta",
+            "type": "string"
+          },
+          "titulares_sem_conta": {
+            "items": {
+              "$ref": "#/components/schemas/TitularSaida"
+            },
+            "title": "Titulares Sem Conta",
+            "type": "array"
+          }
+        },
+        "required": [
+          "casa_id",
+          "casa_nome",
+          "contas",
+          "titulares_sem_conta",
+          "proxima_acao_sem_conta"
+        ],
+        "title": "MatrizCasaSaida",
+        "type": "object"
+      },
+      "MatrizTitularSaida": {
+        "additionalProperties": false,
+        "properties": {
+          "contas": {
+            "items": {
+              "$ref": "#/components/schemas/ContaMatrizSaida"
+            },
+            "title": "Contas",
+            "type": "array"
+          },
+          "titular": {
+            "$ref": "#/components/schemas/TitularSaida"
+          }
+        },
+        "required": [
+          "titular",
+          "contas"
+        ],
+        "title": "MatrizTitularSaida",
         "type": "object"
       },
       "MetricasGraficosSaida": {
@@ -3071,6 +3478,138 @@
         "title": "TipoMovimentoConsulta",
         "type": "string"
       },
+      "TitularEntrada": {
+        "additionalProperties": false,
+        "properties": {
+          "nome": {
+            "maxLength": 160,
+            "minLength": 1,
+            "title": "Nome",
+            "type": "string"
+          }
+        },
+        "required": [
+          "nome"
+        ],
+        "title": "TitularEntrada",
+        "type": "object"
+      },
+      "TitularFinanceiroSaida": {
+        "additionalProperties": false,
+        "properties": {
+          "contas": {
+            "items": {
+              "$ref": "#/components/schemas/ContaFinanceiraSaida"
+            },
+            "title": "Contas",
+            "type": "array"
+          },
+          "metricas": {
+            "additionalProperties": {
+              "anyOf": [
+                {
+                  "type": "integer"
+                },
+                {
+                  "type": "string"
+                }
+              ]
+            },
+            "title": "Metricas",
+            "type": "object"
+          },
+          "nome": {
+            "title": "Nome",
+            "type": "string"
+          },
+          "saldo_atual_centavos": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Saldo Atual Centavos"
+          },
+          "titular_id": {
+            "title": "Titular Id",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "titular_id",
+          "nome",
+          "metricas",
+          "saldo_atual_centavos",
+          "contas"
+        ],
+        "title": "TitularFinanceiroSaida",
+        "type": "object"
+      },
+      "TitularSaida": {
+        "additionalProperties": false,
+        "properties": {
+          "arquivado": {
+            "title": "Arquivado",
+            "type": "boolean"
+          },
+          "criado_em": {
+            "format": "date-time",
+            "title": "Criado Em",
+            "type": "string"
+          },
+          "id": {
+            "title": "Id",
+            "type": "integer"
+          },
+          "nome": {
+            "title": "Nome",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "nome",
+          "arquivado",
+          "criado_em"
+        ],
+        "title": "TitularSaida",
+        "type": "object"
+      },
+      "TitularesPaginaSaida": {
+        "additionalProperties": false,
+        "properties": {
+          "data": {
+            "items": {
+              "$ref": "#/components/schemas/TitularSaida"
+            },
+            "title": "Data",
+            "type": "array"
+          },
+          "page": {
+            "title": "Page",
+            "type": "integer"
+          },
+          "page_size": {
+            "title": "Page Size",
+            "type": "integer"
+          },
+          "total": {
+            "title": "Total",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "data",
+          "page",
+          "page_size",
+          "total"
+        ],
+        "title": "TitularesPaginaSaida",
+        "type": "object"
+      },
       "TrocaContaEntrada": {
         "additionalProperties": false,
         "properties": {
@@ -3672,6 +4211,42 @@
                 }
               ],
               "title": "Casa Id"
+            }
+          },
+          {
+            "description": "Identificador do titular pertencente ao usuário.",
+            "in": "query",
+            "name": "titular_id",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "minimum": 1,
+                  "type": "integer"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Titular Id"
+            }
+          },
+          {
+            "description": "Identificador da conta da casa usada como filtro.",
+            "in": "query",
+            "name": "conta_casa_id",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "minimum": 1,
+                  "type": "integer"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Conta Casa Id"
             }
           },
           {
@@ -4703,6 +5278,25 @@
                 }
               ],
               "title": "Conta Casa Id"
+            }
+          },
+          {
+            "description": "Identificador do titular pertencente ao usuário.",
+            "in": "query",
+            "name": "titular_id",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "maximum": 9223372036854775807,
+                  "minimum": 1,
+                  "type": "integer"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Titular Id"
             }
           },
           {
@@ -6575,6 +7169,489 @@
         "summary": "Resolver revisão"
       }
     },
+    "/api/v1/titulares": {
+      "get": {
+        "description": "Lista titulares do usuário com busca e paginação.",
+        "operationId": "listar_titulares_api_v1_titulares_get",
+        "parameters": [
+          {
+            "description": "Busca textual pelo nome do titular.",
+            "in": "query",
+            "name": "search",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "maxLength": 160,
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Search"
+            }
+          },
+          {
+            "description": "Inclui titulares arquivados na listagem quando verdadeiro.",
+            "in": "query",
+            "name": "include_archived",
+            "required": false,
+            "schema": {
+              "default": false,
+              "title": "Include Archived",
+              "type": "boolean"
+            }
+          },
+          {
+            "description": "Número da página, começando em 1.",
+            "in": "query",
+            "name": "page",
+            "required": false,
+            "schema": {
+              "default": 1,
+              "minimum": 1,
+              "title": "Page",
+              "type": "integer"
+            }
+          },
+          {
+            "description": "Quantidade máxima de itens retornados na página.",
+            "in": "query",
+            "name": "page_size",
+            "required": false,
+            "schema": {
+              "default": 50,
+              "maximum": 100,
+              "minimum": 1,
+              "title": "Page Size",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TitularesPaginaSaida"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Missing, expired, or invalid bearer token."
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorOrValidationResponse"
+                }
+              }
+            },
+            "description": "The request does not satisfy the published contract or a domain rule."
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "The caller exceeded an applicable request limit."
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unexpected internal failure with no sensitive exception details."
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "A required dependency is temporarily unavailable."
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Listar titulares"
+      },
+      "post": {
+        "description": "Cria um titular pertencente ao usuário autenticado.",
+        "operationId": "criar_titular_api_v1_titulares_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "examples": {
+                "default": {
+                  "summary": "Criar titular",
+                  "value": {
+                    "nome": "Ana"
+                  }
+                }
+              },
+              "schema": {
+                "$ref": "#/components/schemas/TitularEntrada"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TitularSaida"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Missing, expired, or invalid bearer token."
+          },
+          "413": {
+            "content": {
+              "text/plain": {
+                "example": "Content Too Large",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            },
+            "description": "The request body exceeds this endpoint's streaming limit."
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorOrValidationResponse"
+                }
+              }
+            },
+            "description": "The request does not satisfy the published contract or a domain rule."
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "The caller exceeded an applicable request limit."
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unexpected internal failure with no sensitive exception details."
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "A required dependency is temporarily unavailable."
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Criar titular"
+      }
+    },
+    "/api/v1/titulares/casas/{casa_id}/matriz": {
+      "get": {
+        "description": "Lista contas, estados e histórico de uso nesta casa; inclui titulares sem conta.",
+        "operationId": "matriz_casa_api_v1_titulares_casas__casa_id__matriz_get",
+        "parameters": [
+          {
+            "description": "Identificador canônico da casa usada como filtro.",
+            "in": "path",
+            "name": "casa_id",
+            "required": true,
+            "schema": {
+              "title": "Casa Id",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MatrizCasaSaida"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Missing, expired, or invalid bearer token."
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorOrValidationResponse"
+                }
+              }
+            },
+            "description": "The request does not satisfy the published contract or a domain rule."
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "The caller exceeded an applicable request limit."
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unexpected internal failure with no sensitive exception details."
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "A required dependency is temporarily unavailable."
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Consultar titulares por casa"
+      }
+    },
+    "/api/v1/titulares/financeiro": {
+      "get": {
+        "description": "Concilia apostas por conta, titular e usuário em centavos; mantém caixa e não atribuídas separados.",
+        "operationId": "consultar_financeiro_api_v1_titulares_financeiro_get",
+        "parameters": [
+          {
+            "description": "Limite inicial inclusivo do intervalo, em ISO 8601.",
+            "in": "query",
+            "name": "desde",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "format": "date-time",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Desde"
+            }
+          },
+          {
+            "description": "Limite final exclusivo do intervalo, em ISO 8601.",
+            "in": "query",
+            "name": "ate",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "format": "date-time",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Ate"
+            }
+          },
+          {
+            "description": "Identificador canônico da casa usada como filtro.",
+            "in": "query",
+            "name": "casa_id",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "minimum": 1,
+                  "type": "integer"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Casa Id"
+            }
+          },
+          {
+            "description": "Identificador do titular pertencente ao usuário.",
+            "in": "query",
+            "name": "titular_id",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "minimum": 1,
+                  "type": "integer"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Titular Id"
+            }
+          },
+          {
+            "description": "Identificador da conta da casa usada como filtro.",
+            "in": "query",
+            "name": "conta_casa_id",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "minimum": 1,
+                  "type": "integer"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Conta Casa Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FinanceiroSaida"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Missing, expired, or invalid bearer token."
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorOrValidationResponse"
+                }
+              }
+            },
+            "description": "The request does not satisfy the published contract or a domain rule."
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "The caller exceeded an applicable request limit."
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unexpected internal failure with no sensitive exception details."
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "A required dependency is temporarily unavailable."
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Consultar financeiro por titular e conta"
+      }
+    },
     "/api/v1/titulares/trocas": {
       "post": {
         "description": "Aplica uma prévia feita com a mesma chave; fecha a origem e abre o destino no instante escolhido.",
@@ -6815,6 +7892,712 @@
           }
         ],
         "summary": "Prévia de troca de conta"
+      }
+    },
+    "/api/v1/titulares/{titular_id}": {
+      "delete": {
+        "description": "Arquiva um titular que não tenha conta em uso.",
+        "operationId": "arquivar_titular_api_v1_titulares__titular_id__delete",
+        "parameters": [
+          {
+            "description": "Identificador do titular pertencente ao usuário.",
+            "in": "path",
+            "name": "titular_id",
+            "required": true,
+            "schema": {
+              "title": "Titular Id",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TitularSaida"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Missing, expired, or invalid bearer token."
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorOrValidationResponse"
+                }
+              }
+            },
+            "description": "The request does not satisfy the published contract or a domain rule."
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "The caller exceeded an applicable request limit."
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unexpected internal failure with no sensitive exception details."
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "A required dependency is temporarily unavailable."
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Arquivar titular"
+      },
+      "get": {
+        "description": "Retorna um titular pertencente ao usuário.",
+        "operationId": "obter_titular_api_v1_titulares__titular_id__get",
+        "parameters": [
+          {
+            "description": "Identificador do titular pertencente ao usuário.",
+            "in": "path",
+            "name": "titular_id",
+            "required": true,
+            "schema": {
+              "title": "Titular Id",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TitularSaida"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Missing, expired, or invalid bearer token."
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorOrValidationResponse"
+                }
+              }
+            },
+            "description": "The request does not satisfy the published contract or a domain rule."
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "The caller exceeded an applicable request limit."
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unexpected internal failure with no sensitive exception details."
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "A required dependency is temporarily unavailable."
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Consultar titular"
+      },
+      "patch": {
+        "description": "Atualiza o nome de um titular ativo.",
+        "operationId": "editar_titular_api_v1_titulares__titular_id__patch",
+        "parameters": [
+          {
+            "description": "Identificador do titular pertencente ao usuário.",
+            "in": "path",
+            "name": "titular_id",
+            "required": true,
+            "schema": {
+              "title": "Titular Id",
+              "type": "integer"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "examples": {
+                "default": {
+                  "summary": "Renomear titular",
+                  "value": {
+                    "nome": "Ana Silva"
+                  }
+                }
+              },
+              "schema": {
+                "$ref": "#/components/schemas/TitularEntrada"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TitularSaida"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Missing, expired, or invalid bearer token."
+          },
+          "413": {
+            "content": {
+              "text/plain": {
+                "example": "Content Too Large",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            },
+            "description": "The request body exceeds this endpoint's streaming limit."
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorOrValidationResponse"
+                }
+              }
+            },
+            "description": "The request does not satisfy the published contract or a domain rule."
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "The caller exceeded an applicable request limit."
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unexpected internal failure with no sensitive exception details."
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "A required dependency is temporarily unavailable."
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Editar titular"
+      }
+    },
+    "/api/v1/titulares/{titular_id}/contas": {
+      "post": {
+        "description": "Cria uma conta estável da casa para o titular.",
+        "operationId": "criar_conta_titular_api_v1_titulares__titular_id__contas_post",
+        "parameters": [
+          {
+            "description": "Identificador do titular pertencente ao usuário.",
+            "in": "path",
+            "name": "titular_id",
+            "required": true,
+            "schema": {
+              "title": "Titular Id",
+              "type": "integer"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "examples": {
+                "default": {
+                  "summary": "Criar conta estável",
+                  "value": {
+                    "apelido": "Ana Betano",
+                    "casa_id": 7
+                  }
+                }
+              },
+              "schema": {
+                "$ref": "#/components/schemas/ContaEntrada"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ContaMatrizSaida"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Missing, expired, or invalid bearer token."
+          },
+          "413": {
+            "content": {
+              "text/plain": {
+                "example": "Content Too Large",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            },
+            "description": "The request body exceeds this endpoint's streaming limit."
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorOrValidationResponse"
+                }
+              }
+            },
+            "description": "The request does not satisfy the published contract or a domain rule."
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "The caller exceeded an applicable request limit."
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unexpected internal failure with no sensitive exception details."
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "A required dependency is temporarily unavailable."
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Criar conta da casa"
+      }
+    },
+    "/api/v1/titulares/{titular_id}/contas/{conta_id}": {
+      "patch": {
+        "description": "Altera apelido ou estado de uma conta fora de uso.",
+        "operationId": "editar_conta_titular_api_v1_titulares__titular_id__contas__conta_id__patch",
+        "parameters": [
+          {
+            "description": "Identificador do titular pertencente ao usuário.",
+            "in": "path",
+            "name": "titular_id",
+            "required": true,
+            "schema": {
+              "title": "Titular Id",
+              "type": "integer"
+            }
+          },
+          {
+            "description": "Identificador da conta estável da casa pertencente ao titular.",
+            "in": "path",
+            "name": "conta_id",
+            "required": true,
+            "schema": {
+              "title": "Conta Id",
+              "type": "integer"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "examples": {
+                "default": {
+                  "summary": "Limitar conta",
+                  "value": {
+                    "estado": "LIMITADA"
+                  }
+                }
+              },
+              "schema": {
+                "$ref": "#/components/schemas/ContaEdicao"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ContaMatrizSaida"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Missing, expired, or invalid bearer token."
+          },
+          "413": {
+            "content": {
+              "text/plain": {
+                "example": "Content Too Large",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            },
+            "description": "The request body exceeds this endpoint's streaming limit."
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorOrValidationResponse"
+                }
+              }
+            },
+            "description": "The request does not satisfy the published contract or a domain rule."
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "The caller exceeded an applicable request limit."
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unexpected internal failure with no sensitive exception details."
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "A required dependency is temporarily unavailable."
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Editar conta da casa"
+      }
+    },
+    "/api/v1/titulares/{titular_id}/contas/{conta_id}/ativar": {
+      "post": {
+        "description": "Abre o primeiro intervalo de uso no instante atual quando a casa está livre.",
+        "operationId": "ativar_conta_titular_api_v1_titulares__titular_id__contas__conta_id__ativar_post",
+        "parameters": [
+          {
+            "description": "Identificador do titular pertencente ao usuário.",
+            "in": "path",
+            "name": "titular_id",
+            "required": true,
+            "schema": {
+              "title": "Titular Id",
+              "type": "integer"
+            }
+          },
+          {
+            "description": "Identificador da conta estável da casa pertencente ao titular.",
+            "in": "path",
+            "name": "conta_id",
+            "required": true,
+            "schema": {
+              "title": "Conta Id",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ContaMatrizSaida"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Missing, expired, or invalid bearer token."
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorOrValidationResponse"
+                }
+              }
+            },
+            "description": "The request does not satisfy the published contract or a domain rule."
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "The caller exceeded an applicable request limit."
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unexpected internal failure with no sensitive exception details."
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "A required dependency is temporarily unavailable."
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Ativar primeira conta da casa"
+      }
+    },
+    "/api/v1/titulares/{titular_id}/matriz": {
+      "get": {
+        "description": "Lista contas estáveis, intervalos de uso e ações disponíveis do titular.",
+        "operationId": "matriz_titular_api_v1_titulares__titular_id__matriz_get",
+        "parameters": [
+          {
+            "description": "Identificador do titular pertencente ao usuário.",
+            "in": "path",
+            "name": "titular_id",
+            "required": true,
+            "schema": {
+              "title": "Titular Id",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MatrizTitularSaida"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Missing, expired, or invalid bearer token."
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorOrValidationResponse"
+                }
+              }
+            },
+            "description": "The request does not satisfy the published contract or a domain rule."
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "The caller exceeded an applicable request limit."
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unexpected internal failure with no sensitive exception details."
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "A required dependency is temporarily unavailable."
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Consultar casas do titular"
       }
     },
     "/api/v1/upload": {

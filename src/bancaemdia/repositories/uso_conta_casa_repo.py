@@ -7,6 +7,24 @@ from bancaemdia import models
 
 
 class UsoContaCasaRepo:
+    async def list_by_accounts(
+        self, session: AsyncSession, usuario_id: int, account_ids: list[int]
+    ) -> list[models.UsoContaCasa]:
+        if not account_ids:
+            return []
+        return list(
+            (
+                await session.execute(
+                    select(models.UsoContaCasa)
+                    .where(
+                        models.UsoContaCasa.usuario_id == usuario_id,
+                        models.UsoContaCasa.conta_casa_id.in_(account_ids),
+                    )
+                    .order_by(models.UsoContaCasa.vigente_de, models.UsoContaCasa.id)
+                )
+            ).scalars()
+        )
+
     async def current_for_update(
         self, session: AsyncSession, usuario_id: int, casa_id: int
     ) -> models.UsoContaCasa | None:

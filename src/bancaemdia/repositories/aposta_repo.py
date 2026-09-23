@@ -85,6 +85,17 @@ class ApostaRepo:
                 stmt = stmt.where(getattr(models.Aposta, campo) == filtros[campo])
         if filtros.get("revisao_grave") is not None:
             stmt = stmt.where(models.Aposta.revisao_grave == filtros["revisao_grave"])
+        if filtros.get("conta_casa_id") is not None:
+            stmt = stmt.where(models.Aposta.conta_casa_id == filtros["conta_casa_id"])
+        if filtros.get("titular_id") is not None:
+            stmt = stmt.where(
+                models.Aposta.conta_casa_id.in_(
+                    select(models.ContaCasa.id).where(
+                        models.ContaCasa.usuario_id == usuario_id,
+                        models.ContaCasa.titular_id == filtros["titular_id"],
+                    )
+                )
+            )
         if filtros.get("casa_id") is not None:
             # A aposta guarda a CONTA da casa, não a casa: quem filtra por casa passa por elas.
             contas = select(models.ContaCasa.id).where(
