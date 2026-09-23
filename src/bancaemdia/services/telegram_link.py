@@ -119,19 +119,24 @@ async def revoke_link(session: AsyncSession, user_id: int) -> bool:
     return True
 
 
-async def _failed(session: AsyncSession, sender_digest: str, outcome: str = "INVALID") -> bool:
+async def _failed(
+    session: AsyncSession, sender_digest: str, outcome: str = "INVALID", *, commit: bool = True
+) -> bool:
     await REPO.record_failure(session, sender_digest, outcome)
-    await session.commit()
+    if commit:
+        await session.commit()
     return False
 
 
-async def redeem_command(session: AsyncSession, command: IncomingCommand) -> bool:
+async def redeem_command(
+    session: AsyncSession, command: IncomingCommand, *, commit: bool = True
+) -> bool:
     """Consume a code and bind a private sender. False always has the same public wording."""
     if command.sender_user_id <= 0:
         return False
     sender_digest = _digest("sender", str(command.sender_user_id))
     if command.chat_type != "private" or command.chat_id <= 0:
-        return await _failed(session, sender_digest)
+        return await _failed(session, sender_digest, commit=commit)
     # Serializes attempts by one sender across workers. No raw sender ID is logged.
     await session.execute(
         text("SELECT pg_advisory_xact_lock(hashtextextended(:digest, 0))"),
@@ -140,23 +145,23 @@ async def redeem_command(session: AsyncSession, command: IncomingCommand) -> boo
     now = _now()
     blocked_until = await REPO.blocked_until(session, sender_digest)
     if blocked_until is not None and blocked_until > now:
-        return await _failed(session, sender_digest, "BLOCKED")
+        return await _failed(session, sender_digest, "BLOCKED", commit=commit)
     match = CODE_RE.fullmatch(command.text.strip().upper().replace("/VINCULAR", "/vincular", 1))
     if match is None:
-        return await _failed(session, sender_digest)
+        return await _failed(session, sender_digest, commit=commit)
     digest = _digest("code", match.group(1))
     owner = await REPO.code_issuer(session, digest)
     if owner is None:
-        return await _failed(session, sender_digest)
+        return await _failed(session, sender_digest, commit=commit)
     await session.execute(
         text("SELECT set_config('app.current_user_id', :uid, true)"), {"uid": str(owner)}
     )
     user = await REPO.lock_user(session, owner)
     if user is None or not user.ativo:
-        return await _failed(session, sender_digest)
+        return await _failed(session, sender_digest, commit=commit)
     code = await REPO.code(session, owner, digest)
     if code is None:
-        return await _failed(session, sender_digest)
+        return await _failed(session, sender_digest, commit=commit)
     if (
         code.consumed_at is not None
         or code.invalidated_at is not None
@@ -164,15 +169,15 @@ async def redeem_command(session: AsyncSession, command: IncomingCommand) -> boo
         or code.failed_attempts >= 5
     ):
         code.failed_attempts = min(5, code.failed_attempts + 1)
-        return await _failed(session, sender_digest)
+        return await _failed(session, sender_digest, commit=commit)
     if await REPO.active_link(session, owner) is not None:
         code.failed_attempts = min(5, code.failed_attempts + 1)
-        return await _failed(session, sender_digest)
+        return await _failed(session, sender_digest, commit=commit)
     # The sender advisory lock also serializes this identity across tenants.
     other_owner = await REPO.active_owner(session, command.sender_user_id, command.chat_id)
     if other_owner is not None:
         code.failed_attempts = min(5, code.failed_attempts + 1)
-        return await _failed(session, sender_digest)
+        return await _failed(session, sender_digest, commit=commit)
     pair = await REPO.pair(session, owner, command.sender_user_id)
     if pair is None:
         session.add(
@@ -188,8 +193,12 @@ async def redeem_command(session: AsyncSession, command: IncomingCommand) -> boo
         pair.linked_at = now
         pair.revoked_at = None
     code.consumed_at = now
+    # The transport checks ownership through a SQL function before committing.
+    # Flush the new link and consumed code so that function sees this transaction.
+    await session.flush()
     await REPO.clear_attempts(session, sender_digest)
-    await session.commit()
+    if commit:
+        await session.commit()
     return True
 
 

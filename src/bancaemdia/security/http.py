@@ -8,6 +8,7 @@ from bancaemdia.core.body_limits import (
     PLANILHA_MAX_BYTES,
     UPLOAD_FORM_MARGIN,
 )
+from bancaemdia.integrations.telegram.webhook import MAX_WEBHOOK_BYTES, WEBHOOK_PATH
 
 SECURITY_HEADERS = (
     (
@@ -59,7 +60,9 @@ class EndpointBodyLimitMiddleware:
             return
 
         path = scope.get("path", "")
-        if path == "/api/v1/upload":
+        if path == WEBHOOK_PATH:
+            limit = MAX_WEBHOOK_BYTES
+        elif path == "/api/v1/upload":
             limit = get_settings().UPLOAD_MAX_BYTES + UPLOAD_FORM_MARGIN
         elif path == "/api/v1/apostas/importar-planilha":
             limit = PLANILHA_MAX_BYTES + UPLOAD_FORM_MARGIN

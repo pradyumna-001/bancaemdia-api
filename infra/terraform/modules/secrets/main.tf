@@ -2,6 +2,7 @@ locals {
   names = toset([
     "database-primary-url", "database-replica-url", "jwt-secret-key",
     "coleta-token-secret", "anthropic-api-key", "upload-webhook-secret",
+    "telegram-bot-token", "telegram-webhook-secret",
   ])
 }
 

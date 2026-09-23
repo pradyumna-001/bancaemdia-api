@@ -274,6 +274,44 @@ event_handler_failures = Counter(
     "event_handler_failed", "In-process event handlers that raised", ["event"]
 )
 
+# Telegram labels are a fixed vocabulary; never attach chat IDs, update IDs, text or tokens.
+telegram_inbox_depth = Gauge(
+    "telegram_inbox_depth",
+    "Telegram updates waiting for processing",
+    multiprocess_mode="mostrecent",
+)
+telegram_inbox_oldest_age_seconds = Gauge(
+    "telegram_inbox_oldest_age_seconds",
+    "Age of the oldest pending Telegram update",
+    multiprocess_mode="mostrecent",
+)
+telegram_outbox_depth = Gauge(
+    "telegram_outbox_depth", "Telegram replies awaiting delivery", multiprocess_mode="mostrecent"
+)
+telegram_outbox_oldest_age_seconds = Gauge(
+    "telegram_outbox_oldest_age_seconds",
+    "Age of the oldest pending Telegram reply",
+    multiprocess_mode="mostrecent",
+)
+telegram_transport_retries_total = Counter(
+    "telegram_transport_retries", "Telegram transport retry attempts", ["stage"]
+)
+telegram_transport_dlq_count = Gauge(
+    "telegram_transport_dlq_count",
+    "Telegram updates and replies in DLQ",
+    ["stage"],
+    multiprocess_mode="mostrecent",
+)
+telegram_webhook_rejections_total = Counter(
+    "telegram_webhook_rejections", "Telegram webhook requests rejected", ["reason"]
+)
+telegram_api_latency_seconds = Histogram(
+    "telegram_api_latency_seconds", "Latency of Telegram Bot API calls", ["method", "outcome"]
+)
+telegram_api_errors_total = Counter(
+    "telegram_api_errors", "Telegram Bot API call failures", ["method", "reason"]
+)
+
 
 def _http_method(method: str) -> str:
     method = method.upper()

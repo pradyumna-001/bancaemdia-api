@@ -20,6 +20,10 @@ MANUAL_BET_HOUSES = sorted(
 
 
 OPERATION_DOCUMENTATION: dict[OperationKey, tuple[str, str]] = {
+    ("post", "/api/v1/integrations/telegram/webhook"): (
+        "Receber atualização do bot Telegram",
+        "Valida o segredo do webhook e persiste o update_id antes de responder; o processamento é assíncrono.",
+    ),
     ("post", "/api/v1/telegram/link-codes"): (
         "Emitir código de vínculo Telegram",
         "Invalida códigos anteriores e retorna um código de oito caracteres válido por 30 minutos uma única vez.",
@@ -461,6 +465,51 @@ def _configure_domain_request_schemas(schemas: JsonObject) -> None:
 
 def _install_manual_request_bodies(document: JsonObject) -> None:
     paths = _object(document["paths"], context="paths")
+    telegram_operation = _object(
+        _object(paths["/api/v1/integrations/telegram/webhook"], context="telegram webhook")["post"],
+        context="POST telegram webhook",
+    )
+    telegram_operation["requestBody"] = {
+        "required": True,
+        "content": {
+            "application/json": {
+                "schema": {
+                    "type": "object",
+                    "required": ["update_id"],
+                    "properties": {
+                        "update_id": {"type": "integer", "minimum": 1},
+                        "message": {
+                            "type": "object",
+                            "additionalProperties": {"$ref": "#/components/schemas/JsonValue"},
+                        },
+                        "edited_message": {
+                            "type": "object",
+                            "additionalProperties": {"$ref": "#/components/schemas/JsonValue"},
+                        },
+                        "callback_query": {
+                            "type": "object",
+                            "additionalProperties": {"$ref": "#/components/schemas/JsonValue"},
+                        },
+                    },
+                    "additionalProperties": {"$ref": "#/components/schemas/JsonValue"},
+                },
+                "examples": {
+                    "default": {
+                        "summary": "Mensagem privada",
+                        "value": {
+                            "update_id": 123456,
+                            "message": {
+                                "message_id": 1,
+                                "from": {"id": 123},
+                                "chat": {"id": 123, "type": "private"},
+                                "text": "/start",
+                            },
+                        },
+                    }
+                },
+            }
+        },
+    }
     collection_schema: JsonObject = {
         "type": "object",
         "required": ["contrato", "casa", "apostas"],
@@ -648,6 +697,12 @@ def _install_collection_security(document: JsonObject) -> None:
         "name": "X-Coleta-Token",
         "description": "Token opaco da extensão; armazenado no servidor somente como HMAC.",
     }
+    schemes["TelegramWebhookSecret"] = {
+        "type": "apiKey",
+        "in": "header",
+        "name": "X-Telegram-Bot-Api-Secret-Token",
+        "description": "Secret configured through Telegram setWebhook; never log it.",
+    }
     paths = _object(document["paths"], context="paths")
     for path in COLLECTION_PATHS:
         operation = _object(
@@ -655,6 +710,11 @@ def _install_collection_security(document: JsonObject) -> None:
             context=f"POST {path}",
         )
         operation["security"] = [{"CollectionToken": []}]
+    telegram_operation = _object(
+        _object(paths["/api/v1/integrations/telegram/webhook"], context="telegram webhook")["post"],
+        context="POST telegram webhook",
+    )
+    telegram_operation["security"] = [{"TelegramWebhookSecret": []}]
 
 
 def _strictify_schema(schema: JsonObject) -> None:
