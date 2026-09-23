@@ -9,18 +9,16 @@ from decimal import Decimal
 from uuid import UUID, uuid4
 
 import httpx
+import jwt
 import pytest
 from cryptography.hazmat.primitives.asymmetric import rsa
 from cryptography.hazmat.primitives.serialization import (
     Encoding,
     NoEncryption,
     PrivateFormat,
-    PublicFormat,
 )
 from fastapi.testclient import TestClient
-from jose import jwk, jwt
 from kombu.exceptions import OperationalError
-from starlette.middleware.body_limit import RequestBodyLimitMiddleware
 
 from bancaemdia import main
 from bancaemdia.api import deps
@@ -34,6 +32,7 @@ from bancaemdia.domain.registros import Upload, Usuario
 from bancaemdia.extracao.precos import USD_POR_BILHETE_REFERENCIA
 from bancaemdia.middleware.rate_limit import upload_limiter
 from bancaemdia.middleware.router import RouterMiddleware
+from bancaemdia.security.http import EndpointBodyLimitMiddleware
 
 USUARIO = 7
 PASTA = "ChatExport_2026-07-24/"
@@ -50,8 +49,10 @@ def _disable_cross_cutting_upload_limit(monkeypatch):
 def chave():
     par = rsa.generate_private_key(public_exponent=65537, key_size=2048)
     privada = par.private_bytes(Encoding.PEM, PrivateFormat.PKCS8, NoEncryption()).decode()
-    publica = par.public_key().public_bytes(Encoding.PEM, PublicFormat.SubjectPublicKeyInfo)
-    return privada, {**jwk.construct(publica, "RS256").to_dict(), "kid": "k1"}
+    return privada, {
+        **json.loads(jwt.algorithms.RSAAlgorithm.to_jwk(par.public_key())),
+        "kid": "k1",
+    }
 
 
 def _token(privada, sub=str(USUARIO)):
@@ -465,7 +466,7 @@ def test_the_body_limit_runs_inside_the_other_middlewares() -> None:
     # Registrado por fora de um BaseHTTPMiddleware, o 413 dele vira 500 (medido).
     classes = [camada.cls for camada in main.app.user_middleware]
 
-    assert classes.index(RequestBodyLimitMiddleware) > classes.index(RouterMiddleware)
+    assert classes.index(EndpointBodyLimitMiddleware) > classes.index(RouterMiddleware)
 
 
 def test_an_export_of_the_same_person_already_being_read_waits(monkeypatch, chave) -> None:
