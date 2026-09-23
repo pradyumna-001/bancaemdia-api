@@ -11,6 +11,11 @@ from sqlalchemy.exc import DBAPIError
 from sqlalchemy.ext.asyncio import AsyncEngine, AsyncSession
 
 from bancaemdia import models
+from bancaemdia.domain.account_attribution import ResolutionStatus
+from bancaemdia.domain.account_attribution_service import (
+    InvalidAccountReferenceError,
+    attribute_account,
+)
 from bancaemdia.domain.titulares import (
     ChaveIdempotenciaEmConflitoError,
     TrocaPedido,
@@ -68,6 +73,50 @@ async def _setup(
         await UsoContaCasaRepo().open(session, usuario_id, casa_id, source.id, start)
         await session.commit()
     return casa_id, source.id, target.id, start
+
+
+async def test_attribution_uses_bet_time_and_validates_explicit_account(
+    engine_admin: AsyncEngine,
+    engine_app: AsyncEngine,
+    novo_usuario: Callable[[], Awaitable[int]],
+) -> None:
+    usuario_id = await novo_usuario()
+    other_user = await novo_usuario()
+    casa, source, target, start = await _setup(engine_admin, engine_app, usuario_id)
+    house_name = None
+    async with engine_admin.connect() as conn:
+        house_name = await conn.scalar(select(models.Casa.nome).where(models.Casa.id == casa))
+    assert house_name is not None
+    effective = start + timedelta(days=5)
+    async with AsyncSession(engine_app) as session:
+        await _tenant(session, usuario_id)
+        await trocar_conta(
+            session,
+            usuario_id,
+            TrocaPedido(casa, source, target, effective, "LIMITADA"),
+            f"switch:{uuid4()}",
+            aplicar=True,
+        )
+        await session.commit()
+    async with AsyncSession(engine_app) as session:
+        await _tenant(session, usuario_id)
+        before = await attribute_account(
+            session, usuario_id, house_name, effective - timedelta(microseconds=1)
+        )
+        after = await attribute_account(session, usuario_id, house_name, effective)
+        assert (before.conta_casa_id, after.conta_casa_id) == (source, target)
+        assert (
+            await attribute_account(session, usuario_id, house_name, start - timedelta(days=1))
+        ).status == ResolutionStatus.NONE
+        assert (
+            await attribute_account(session, usuario_id, house_name, effective, source)
+        ).conta_casa_id == source
+        with pytest.raises(InvalidAccountReferenceError):
+            await attribute_account(session, usuario_id, "Betano", effective, source)
+    async with AsyncSession(engine_app) as session:
+        await _tenant(session, other_user)
+        with pytest.raises(InvalidAccountReferenceError):
+            await attribute_account(session, other_user, house_name, effective, source)
 
 
 async def test_preview_apply_retry_and_event_time_resolution(

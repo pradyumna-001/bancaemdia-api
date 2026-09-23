@@ -155,6 +155,7 @@ def ler(bruto: object) -> Coletada:
         odd=float(odd),
         stake_centavos=stake,
         data_aposta=data_que_conta(comeca, colocada_em),
+        colocada_em=colocada_em,
         escolhas=tuple(escolhas),
         evento=evento,
         mercado_bruto=primeiro_mercado(escolhas),

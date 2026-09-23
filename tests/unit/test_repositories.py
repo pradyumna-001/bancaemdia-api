@@ -396,8 +396,9 @@ async def test_conta_casa_lookup_create_and_close() -> None:
         "contas_casa.usuario_id = %(usuario_id_1)s AND contas_casa.casa_id = %(casa_id_1)s" in sql
     )
     assert "contas_casa.ativa IS true" in sql
-    assert "ORDER BY contas_casa.id" in sql
     assert "LIMIT %(param_1)s" in sql
+    assert _params(session.statements[0])["param_1"] == 2
+    assert await ContaCasaRepo().get_by_usuario_casa(_Session(_conta(), _conta()), 1, 2) is None
 
     await ContaCasaRepo().create(session, {"usuario_id": 1, "casa_id": 2})
     assert "INSERT INTO contas_casa" in _sql(session.statements[1])
