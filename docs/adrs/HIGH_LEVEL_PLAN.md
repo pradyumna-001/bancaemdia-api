@@ -398,6 +398,8 @@ Esse é o momento em que **o produto vira produto**. Antes disso, é "ferramenta
 
 ### Fluxo Real (Escada de Extração)
 
+> **Atualização (22/09/2026):** o fluxo e os custos abaixo são históricos. O código atual usa cache → Haiku → Sonnet, sem OCR local. Veja a [decisão sobre o provedor de IA](../decisions/ai-extraction-provider.md).
+
 ```
 1. Cache hit? → USA CACHE (grátis, 80% dos casos)
 2. Cache miss? → OCR local (grátis, resolve ~70% Betano)
