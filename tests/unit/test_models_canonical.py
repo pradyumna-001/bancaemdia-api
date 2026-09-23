@@ -30,6 +30,12 @@ from bancaemdia.models.midia_arquivo import MidiaArquivo
 from bancaemdia.models.movimento import Movimento
 from bancaemdia.models.movimento_requisicao import MovimentoRequisicao
 from bancaemdia.models.revisao_pendente import RevisaoPendente
+from bancaemdia.models.telegram_link import (
+    TelegramLink,
+    TelegramLinkAttempt,
+    TelegramLinkAttemptEvent,
+    TelegramLinkCode,
+)
 from bancaemdia.models.time import Time
 from bancaemdia.models.tipster import Tipster
 from bancaemdia.models.titular import Titular
@@ -56,6 +62,7 @@ SUPORTE = (
 UPLOAD = (Upload, UploadBilhete, UploadArquivo)
 BILLING = (Assinatura, BillingPrice, BillingPriceAudit, BillingRollout)
 HOLDERS = (Titular, UsoContaCasa, TrocaTitularEvento, TrocaTitularRequisicao)
+TELEGRAM_LINKING = (TelegramLink, TelegramLinkCode, TelegramLinkAttempt, TelegramLinkAttemptEvent)
 POR_USUARIO = (
     ChamadaIA,
     ColetaCasa,
@@ -93,12 +100,19 @@ def _indexes(modelo: type[Base]) -> dict[str, list[str]]:
     return {i.name: [c.name for c in i.columns] for i in modelo.__table__.indexes}
 
 
-def test_all_thirty_six_tables_are_registered() -> None:
+def test_all_forty_tables_are_registered() -> None:
     esperadas = {
         m.__tablename__
-        for m in NUCLEO + CANONICOS + SUPORTE + UPLOAD + BILLING + HOLDERS + (AuditLog,)
+        for m in NUCLEO
+        + CANONICOS
+        + SUPORTE
+        + UPLOAD
+        + BILLING
+        + HOLDERS
+        + TELEGRAM_LINKING
+        + (AuditLog,)
     }
-    assert len(esperadas) == 36
+    assert len(esperadas) == 40
     assert set(Base.metadata.tables) == esperadas
     assert {m.__tablename__ for m in CANONICOS} == {
         "casas",
@@ -279,5 +293,10 @@ def test_revisao_pendente_indexes() -> None:
 
 
 def test_bigserial_except_composite_and_billing_owner_keys() -> None:
-    for nome in set(Base.metadata.tables) - {"extracoes_cache", "assinaturas", "billing_rollout"}:
+    for nome in set(Base.metadata.tables) - {
+        "extracoes_cache",
+        "assinaturas",
+        "billing_rollout",
+        "telegram_link_attempts",
+    }:
         assert "id BIGSERIAL NOT NULL" in _create_table(nome)
