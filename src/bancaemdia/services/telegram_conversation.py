@@ -22,6 +22,8 @@ from bancaemdia.domain.rascunho_aposta import (
 )
 from bancaemdia.integrations.telegram.codec import encrypt_payload
 from bancaemdia.models.rascunho_aposta import RascunhoAposta
+from bancaemdia.repositories.casa_repo import CasaRepo
+from bancaemdia.repositories.conta_casa_repo import ContaCasaRepo
 from bancaemdia.repositories.rascunho_aposta import RascunhoApostaRepo
 
 REPO = RascunhoApostaRepo()
@@ -43,6 +45,23 @@ EXTRACTED_FIELDS = frozenset({
 class DraftReply:
     text: str
     draft: RascunhoAposta | None = None
+
+
+async def _draft_summary(session: AsyncSession, draft: RascunhoAposta) -> str:
+    message = summary(draft.fields_json, draft.missing_fields_json, draft.status)
+    if "conta_casa_id" not in draft.missing_fields_json:
+        return message
+    house = draft.fields_json.get("casa")
+    house_id = await CasaRepo().get_id_by_nome(session, str(house)) if house else None
+    accounts = (
+        await ContaCasaRepo().list_by_house(session, draft.usuario_id, house_id)
+        if house_id is not None
+        else []
+    )
+    if not accounts:
+        return message + "\nNão encontrei uma conta dessa casa; cadastre uma no aplicativo."
+    choices = ", ".join(f"{item.id} ({item.apelido or 'sem apelido'})" for item in accounts)
+    return message + f"\nContas desta casa: {choices}. Responda conta=<número>."
 
 
 def _normalized_fields(fields: dict[str, Any]) -> dict[str, Any]:
@@ -218,7 +237,7 @@ async def new_photo_reply(
             "/cancelar antes de enviar outra foto.",
             draft,
         )
-    return DraftReply(summary(draft.fields_json, draft.missing_fields_json, draft.status), draft)
+    return DraftReply(await _draft_summary(session, draft), draft)
 
 
 async def handle_text(
@@ -236,9 +255,7 @@ async def handle_text(
         return None
     command = text.strip().lower()
     if command == "/continuar":
-        return DraftReply(
-            summary(draft.fields_json, draft.missing_fields_json, draft.status), draft
-        )
+        return DraftReply(await _draft_summary(session, draft), draft)
     if command == "/cancelar":
         await REPO.close(session, draft, "CANCELLED")
         return DraftReply("Rascunho cancelado. Você pode enviar outra foto.", draft)
@@ -253,14 +270,14 @@ async def handle_text(
             meta.pop("conta_casa_id", None)
         changes = {key: value for key, value in patch.items() if fields.get(key) != value}
         if not changes:
-            return DraftReply(summary(fields, draft.missing_fields_json, draft.status), draft)
+            return DraftReply(await _draft_summary(session, draft), draft)
         fields.update(changes)
         for key in changes:
             meta[key] = {"source": "user", "confidence": 1.0}
         fields, meta, missing, status = await _assess(session, user_id, fields, meta)
     except DraftInputError as exc:
         return DraftReply(
-            f"{exc}\n" + summary(draft.fields_json, draft.missing_fields_json, draft.status),
+            f"{exc}\n" + await _draft_summary(session, draft),
             draft,
         )
     saved = await REPO.save(
@@ -274,4 +291,4 @@ async def handle_text(
         changes=changes,
         update_id=update_id,
     )
-    return DraftReply(summary(saved.fields_json, saved.missing_fields_json, saved.status), saved)
+    return DraftReply(await _draft_summary(session, saved), saved)

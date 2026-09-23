@@ -174,6 +174,53 @@ async def test_missing_house_and_stake_resume_without_photo_or_financial_bet(
 
 
 @pytest.mark.asyncio
+async def test_missing_usage_offers_account_choice_without_guessing(
+    engine_admin: AsyncEngine, engine_app: AsyncEngine, como, novo_usuario
+) -> None:
+    user = await novo_usuario()
+    async with engine_admin.begin() as conn:
+        await conn.execute(insert(models.Casa).values(nome="Betano").on_conflict_do_nothing())
+        house = await conn.scalar(select(models.Casa.id).where(models.Casa.nome == "Betano"))
+    assert house is not None
+    async with como(engine_app, user) as session:
+        account = await ContaCasaRepo().create(
+            session, {"usuario_id": user, "casa_id": house, "apelido": "minha conta"}
+        )
+        draft, created = await open_draft(
+            session,
+            user_id=user,
+            chat_id=711_100,
+            message_id=1,
+            update_id=1,
+            extracted={
+                "casa": "Betano",
+                "odd": 1.8,
+                "stake_unidades": 2,
+                "data_aposta": "2026-09-20T21:00:00-03:00",
+            },
+        )
+        assert created and draft.missing_fields_json == ["conta_casa_id"]
+        await session.commit()
+    async with como(engine_app, user) as session:
+        response = await handle_text(
+            session, user_id=user, chat_id=711_100, update_id=2, text="/continuar"
+        )
+        assert response is not None
+        assert f"{account.id} (minha conta)" in response.text
+        corrected = await handle_text(
+            session,
+            user_id=user,
+            chat_id=711_100,
+            update_id=3,
+            text=f"/corrigir conta {account.id}",
+        )
+        assert corrected is not None and corrected.draft is not None
+        assert corrected.draft.status == "AWAITING_CONFIRMATION"
+        assert corrected.draft.fields_json["conta_casa_id"] == account.id
+        await session.commit()
+
+
+@pytest.mark.asyncio
 async def test_extraction_keeps_user_corrections_and_worker_queues_photo_reply(
     engine_app: AsyncEngine, como, novo_usuario
 ) -> None:
