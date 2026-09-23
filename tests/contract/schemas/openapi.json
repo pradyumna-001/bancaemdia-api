@@ -6824,6 +6824,15 @@
                       },
                       "type": "array"
                     },
+                    "assinaturas": {
+                      "items": {
+                        "additionalProperties": {
+                          "$ref": "#/components/schemas/JsonValue"
+                        },
+                        "type": "object"
+                      },
+                      "type": "array"
+                    },
                     "audit_log": {
                       "items": {
                         "additionalProperties": {
@@ -6973,7 +6982,8 @@
                     "upload_arquivos",
                     "coleta_token",
                     "chamadas_ia",
-                    "audit_log"
+                    "audit_log",
+                    "assinaturas"
                   ],
                   "type": "object"
                 }
