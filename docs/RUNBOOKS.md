@@ -13,6 +13,7 @@ Never put database URLs, bearer tokens, or customer data in a ticket or chat.
 | [Incident response](runbooks/incident.md) | Triage alarms, assign severity, mitigate, and close an incident |
 | [Scaling](runbooks/scaling.md) | Add or remove ECS capacity; plan RDS or Redis class changes |
 | [Final validation](runbooks/final-validation.md) | Gather staging evidence and enforce the go-live gate |
+| [Billing provider preflight](runbooks/billing-provider-preflight.md) | Check CPF production eligibility before enabling subscriptions |
 
 Related procedures: [failure injection](chaos-testing.md) and
 [dashboard view refresh](runbooks/painel-refresh.md).
