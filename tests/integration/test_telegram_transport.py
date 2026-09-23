@@ -112,7 +112,7 @@ async def test_ten_replays_create_one_link_and_one_queued_reply(
         # A normal tenant context cannot inspect the global inbox.
         assert await session.scalar(select(func.count()).select_from(TelegramInbox)) == 0
     delivered = _FakeClient()
-    assert await deliver_outbox_once(engine_app, delivered) is True  # type: ignore[arg-type]
+    assert await deliver_outbox_once(engine_app, delivered, outbox_id=outbox[0].id) is True  # type: ignore[arg-type]
     assert delivered.sent == [(990001, "Conta vinculada com sucesso.")]
 
 
@@ -134,8 +134,17 @@ async def test_outage_and_worker_crash_keep_reply_until_one_success(
 ) -> None:
     user, update_id, _ = await _prepare_link(engine_app, como, novo_usuario, sender=990002)
     assert await process_inbox_once(engine_app)
+    async with como(engine_app, user) as session:
+        own_reply = await session.scalar(
+            select(TelegramOutbox).where(
+                TelegramOutbox.usuario_id == user,
+                TelegramOutbox.idempotency_key == f"telegram-link:{update_id}:success",
+            )
+        )
+        assert own_reply is not None
+        outbox_id = own_reply.id
     broken = _FakeClient(fail=True)
-    assert await deliver_outbox_once(engine_app, broken) is True  # type: ignore[arg-type]
+    assert await deliver_outbox_once(engine_app, broken, outbox_id=outbox_id) is True  # type: ignore[arg-type]
     async with como(engine_app, user) as session:
         item = await session.scalar(select(TelegramOutbox).where(TelegramOutbox.usuario_id == user))
         assert item is not None and item.status == "PENDING" and item.attempts == 1
@@ -143,7 +152,7 @@ async def test_outage_and_worker_crash_keep_reply_until_one_success(
         item.next_attempt_at = datetime.now(UTC) - timedelta(seconds=1)
         await session.commit()
     # Claim, then lose the worker before any Telegram call. The lease makes it recoverable.
-    claimed = await _claim_outbox(engine_app)
+    claimed = await _claim_outbox(engine_app, outbox_id=outbox_id)
     assert claimed is not None and claimed.attempts == 2
     async with como(engine_app, user) as session:
         await session.execute(
@@ -153,8 +162,8 @@ async def test_outage_and_worker_crash_keep_reply_until_one_success(
         )
         await session.commit()
     restored = _FakeClient()
-    assert await deliver_outbox_once(engine_app, restored) is True  # type: ignore[arg-type]
-    assert await deliver_outbox_once(engine_app, restored) is False  # type: ignore[arg-type]
+    assert await deliver_outbox_once(engine_app, restored, outbox_id=outbox_id) is True  # type: ignore[arg-type]
+    assert await deliver_outbox_once(engine_app, restored, outbox_id=outbox_id) is False  # type: ignore[arg-type]
     assert restored.sent == [(990002, "Conta vinculada com sucesso.")]
     async with como(engine_app, user) as session:
         item = await session.scalar(select(TelegramOutbox).where(TelegramOutbox.usuario_id == user))

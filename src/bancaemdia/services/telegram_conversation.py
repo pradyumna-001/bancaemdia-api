@@ -1,8 +1,9 @@
 """Resumable Telegram draft conversation; every caller owns the transaction."""
 
 from dataclasses import dataclass
+from datetime import UTC, datetime
 from math import isfinite
-from typing import Any
+from typing import Any, cast
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -143,11 +144,16 @@ async def open_draft(
     message_id: int,
     update_id: int,
     media_file_id: str | None = None,
+    media_reference: dict[str, Any] | None = None,
+    source_metadata: dict[str, Any] | None = None,
     media_hash: str | None = None,
     extracted: dict[str, Any] | None = None,
     confidence: dict[str, float] | None = None,
 ) -> tuple[RascunhoAposta, bool]:
     """Create once for a Telegram photo; a concurrent active draft wins."""
+    by_origin = await REPO.by_origin(session, user_id, chat_id, message_id)
+    if by_origin is not None:
+        return by_origin, False
     existing = await REPO.active(session, user_id, chat_id, lock=True)
     if existing is not None:
         return existing, False
@@ -160,8 +166,9 @@ async def open_draft(
         status = "AWAITING_EXTRACTION"
     else:
         fields, meta, missing, status = await _assess(session, user_id, fields, meta)
-    ciphertext = encrypt_payload({"file_id": media_file_id}) if media_file_id else None
-    return await REPO.create(
+    reference = media_reference or ({"file_id": media_file_id} if media_file_id else None)
+    ciphertext = encrypt_payload(reference) if reference else None
+    draft, created = await REPO.create(
         session,
         user_id=user_id,
         chat_id=chat_id,
@@ -174,6 +181,13 @@ async def open_draft(
         missing=missing,
         status=status,
     )
+    if created and source_metadata:
+        draft.source_metadata_json = source_metadata
+        await session.flush()
+    if created and extracted is not None:
+        draft.extraction_completed_at = datetime.now(UTC)
+        await session.flush()
+    return draft, created
 
 
 async def apply_extraction(
@@ -222,6 +236,8 @@ async def new_photo_reply(
     message_id: int,
     update_id: int,
     media_file_id: str,
+    media_reference: dict[str, Any] | None = None,
+    source_metadata: dict[str, Any] | None = None,
 ) -> DraftReply:
     draft, created = await open_draft(
         session,
@@ -230,6 +246,8 @@ async def new_photo_reply(
         message_id=message_id,
         update_id=update_id,
         media_file_id=media_file_id,
+        media_reference=media_reference,
+        source_metadata=source_metadata,
     )
     if not created:
         return DraftReply(
@@ -238,6 +256,16 @@ async def new_photo_reply(
             draft,
         )
     return DraftReply(await _draft_summary(session, draft), draft)
+
+
+async def draft_summary(session: AsyncSession, draft: RascunhoAposta) -> str:
+    if draft.coupon_candidates_json:
+        return (
+            f"A foto parece conter {len(draft.coupon_candidates_json)} apostas. "
+            "Qual única aposta você quer registrar? Responda cupom=1, cupom=2, etc. "
+            "A foto já está guardada. Use /cancelar para desistir."
+        )
+    return await _draft_summary(session, draft)
 
 
 async def handle_text(
@@ -255,10 +283,35 @@ async def handle_text(
         return None
     command = text.strip().lower()
     if command == "/continuar":
-        return DraftReply(await _draft_summary(session, draft), draft)
+        return DraftReply(await draft_summary(session, draft), draft)
     if command == "/cancelar":
         await REPO.close(session, draft, "CANCELLED")
         return DraftReply("Rascunho cancelado. Você pode enviar outra foto.", draft)
+    if draft.coupon_candidates_json:
+        if command.startswith("cupom="):
+            try:
+                chosen = int(command.removeprefix("cupom=").strip())
+            except ValueError:
+                chosen = 0
+            if 1 <= chosen <= len(draft.coupon_candidates_json):
+                candidate = draft.coupon_candidates_json[chosen - 1]
+                fields = candidate.get("fields")
+                confidence = candidate.get("confidence")
+                if not isinstance(fields, dict) or not isinstance(confidence, dict):
+                    return DraftReply("Não consegui abrir esse cupom. Use /cancelar.", draft)
+                draft.coupon_candidates_json = []
+                saved = await apply_extraction(
+                    session,
+                    draft,
+                    cast(dict[str, Any], fields),
+                    cast(dict[str, float], confidence),
+                )
+                return DraftReply(await draft_summary(session, saved), saved)
+        return DraftReply(
+            "Escolha uma única aposta com cupom=1, cupom=2, etc.\n"
+            + await draft_summary(session, draft),
+            draft,
+        )
     try:
         patch = parse_reply(text)
         fields = dict(draft.fields_json)
