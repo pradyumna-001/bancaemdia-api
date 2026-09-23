@@ -33,6 +33,7 @@ CAMPOS_DA_CRIACAO = (
     "comissao_centavos",
     "mercado_bruto",
     "conta_casa_id",
+    "conta_referencia_explicita",
     "tipster_id",
     "time_casa_id",
     "time_fora_id",

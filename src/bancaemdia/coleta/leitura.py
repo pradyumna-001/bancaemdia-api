@@ -34,6 +34,7 @@ class Coletada:
     stake_centavos: int
     data_aposta: str
     escolhas: tuple[Escolha, ...]
+    colocada_em: str | None = None
     evento: str | None = None
     mercado_bruto: str | None = None
     descricao: str = ""

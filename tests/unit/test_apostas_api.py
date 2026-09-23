@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import asyncio
 import json
 import time
 from datetime import UTC, datetime, timedelta
@@ -22,6 +23,7 @@ from bancaemdia.auth import jwt as auth_jwt
 from bancaemdia.auth import middleware as auth_middleware
 from bancaemdia.config import get_settings
 from bancaemdia.db.session import get_db
+from bancaemdia.domain.account_attribution import AccountResolution, ResolutionStatus
 from bancaemdia.domain.materializar import MOTIVO_APAGADA, projetar
 from bancaemdia.domain.registros import Aposta, ContaCasa, Evento, RevisaoPendente, Usuario
 
@@ -263,6 +265,22 @@ def _cliente(monkeypatch, chave_rsa, banco, usuario_id=USUARIO):
 
     for nome, classe in banco.repos.items():
         monkeypatch.setattr(rota, nome, classe)
+
+    async def attribute_account(session, usuario_id, casa, instant, explicit_id=None):
+        conta = await rota.ContaCasaRepo().get_vigente_by_nome_da_casa(
+            session, usuario_id, casa, instant
+        )
+        return AccountResolution(
+            ResolutionStatus.NONE if conta is None else ResolutionStatus.UNIQUE,
+            None if conta is None else conta.id,
+        )
+
+    async def sync_account_review(*args, **kwargs):
+        await asyncio.sleep(0)
+        return None
+
+    monkeypatch.setattr(rota, "attribute_account", attribute_account)
+    monkeypatch.setattr(rota, "sync_account_review", sync_account_review)
     monkeypatch.setattr(auth_middleware, "get_jwks_cache", lambda: _chaves(publica))
     monkeypatch.setattr(deps, "UsuarioRepo", UsuarioRepo)
     monkeypatch.setitem(main.app.dependency_overrides, get_db, banco.sessao)
@@ -746,8 +764,41 @@ def test_a_bet_created_by_hand_is_born_from_its_own_creation_event(monkeypatch, 
     assert corpo["chave"].startswith("m:")
     assert corpo["stake_centavos"] == 15_000
     assert corpo["conta_casa_id"] == 42
+    assert corpo["conta_atribuicao"] == "ASSIGNED"
     assert resposta.json()["casa_id"] == 1
     assert "aviso" not in resposta.json()
+
+
+def test_manual_account_reference_is_saved_and_cross_house_is_rejected(
+    monkeypatch, chave_rsa
+) -> None:
+    privada, _ = chave_rsa
+    banco = _banco()
+    cliente = _cliente(monkeypatch, chave_rsa, banco)
+    valid = cliente.post(
+        "/api/v1/apostas",
+        json={"casa": "betano", "odd": 2.0, "stake_unidades": 1.0, "conta_casa_id": 42},
+        headers=_cabecalho(privada),
+    )
+    assert valid.status_code == 201
+    assert banco.eventos[-1][2]["conta_referencia_explicita"] is True
+    assert banco.eventos[-1][2]["conta_casa_id"] == 42
+    events_before_rejection = len(banco.eventos)
+
+    from bancaemdia.domain.account_attribution_service import InvalidAccountReferenceError
+
+    async def invalid(*args, **kwargs):
+        await asyncio.sleep(0)
+        raise InvalidAccountReferenceError("conta_casa_id não pertence a você nesta casa")
+
+    monkeypatch.setattr(rota, "attribute_account", invalid)
+    rejected = cliente.post(
+        "/api/v1/apostas",
+        json={"casa": "betano", "odd": 2.0, "stake_unidades": 1.0, "conta_casa_id": 42},
+        headers=_cabecalho(privada),
+    )
+    assert rejected.status_code == 422
+    assert len(banco.eventos) == events_before_rejection
 
 
 def test_a_bet_created_without_a_date_uses_brazil_time(monkeypatch, chave_rsa) -> None:
@@ -1007,4 +1058,5 @@ def test_a_bet_created_without_an_account_says_it_will_not_show_in_the_house_fil
 
     # O filtro por casa passa pelas contas: calado, o `casa_id` da resposta prometia o que não há.
     assert corpo["aposta"]["conta_casa_id"] is None
-    assert "não aparece no filtro por casa" in corpo["aviso"]
+    assert corpo["aposta"]["conta_atribuicao"] == "UNASSIGNED"
+    assert "não identificada" in corpo["aviso"]

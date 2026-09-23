@@ -280,6 +280,17 @@
               }
             ]
           },
+          "conta_casa_id": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Conta Casa Id"
+          },
           "data_aposta": {
             "anyOf": [
               {
@@ -545,6 +556,15 @@
               }
             ],
             "title": "Competicao Id"
+          },
+          "conta_atribuicao": {
+            "default": "UNASSIGNED",
+            "enum": [
+              "ASSIGNED",
+              "UNASSIGNED"
+            ],
+            "title": "Conta Atribuicao",
+            "type": "string"
           },
           "conta_casa_id": {
             "anyOf": [
