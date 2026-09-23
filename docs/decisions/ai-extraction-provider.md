@@ -1,0 +1,18 @@
+# API de extração de bilhetes: decisão do administrador
+
+**Situação em 22/09/2026.** O código envia a imagem e a legenda à Anthropic: cache Redis → Claude Haiku 4.5 → conferências de negócio → Claude Sonnet 5 quando necessário. O OCR local descrito no [plano](../adrs/HIGH_LEVEL_PLAN.md) **ainda não existe** nessa escada. A conta Anthropic já tem chave e créditos, mas este PR não cria chave nem altera cobrança. O proprietário autorizou até US$ 3 em testes, se necessários.
+
+| Caminho | Preço publicado | O que falta verificar |
+| --- | --- | --- |
+| [Anthropic: Haiku 4.5 → Sonnet 5](https://platform.claude.com/docs/en/about-claude/pricing) (atual) | Haiku **US$ 1/5**; Sonnet **US$ 2/10** por 1 milhão de tokens de entrada/saída | Custo e acerto reais da escada atual. |
+| [OpenAI: GPT-6 Luna](https://developers.openai.com/api/docs/models/gpt-6-luna) | **US$ 0,10/0,50** por 1 milhão de tokens de entrada/saída | Imagem e JSON estruturado são suportados; medir leitura de bilhetes e custo por imagem. |
+| [Google: Gemini 3.1 Flash-Lite](https://ai.google.dev/gemini-api/docs/pricing) | **US$ 0,25/1,50** por 1 milhão de tokens de entrada/saída no nível pago | [Imagem e JSON estruturado](https://ai.google.dev/gemini-api/docs/models/gemini-3.1-flash-lite) são suportados; medir leitura. O nível pago não usa dados para melhorar produtos, segundo a tabela de preços. |
+| OCR local ou [Mistral OCR 4](https://docs.mistral.ai/models/ocr-4-0) antes do modelo | OCR local: sem tarifa de API, mas consome infraestrutura; Mistral: **US$ 4/1.000 páginas** | OCR sozinho pode não interpretar aposta, mercado, seleção e contexto; medir necessidade de um modelo complementar. |
+
+**Preço por token ou página não é custo por aposta correta.** Imagens podem consumir quantidades diferentes de tokens; também contam saída, repetição, escalonamento e revisão humana. A [referência histórica](../../src/bancaemdia/extracao/precos.py) de US$ 0,0054 por bilhete veio de 279 bilhetes limpos em junho/2026, com 20,4% de escalonamento; não compara provedores nem prevê a carga futura. O histórico da conta Anthropic registra gasto por modelo, mas não separa custo por aposta correta.
+
+**Histórico informado pelo proprietário:** OCR já foi testado em outra etapa do projeto e descartado porque tornava a resposta lenta demais para o usuário. Esta informação deve entrar na avaliação caso alguém proponha retomá-lo.
+
+Para decidir, propomos comparar os candidatos sobre o **mesmo conjunto autorizado e anonimizado de prints reais**, incluindo casas diferentes, vários cupons, texto pequeno, imagens ruins e legendas. Medir taxa de acerto nos campos críticos, aprovações incorretas, taxa de revisão, latência e **custo total por bilhete corretamente extraído**, com a mesma validação de negócio e eventual fallback. Limitar o piloto ao crédito de US$ 3 autorizado para Anthropic; testes pagos em outros provedores exigem orçamento próprio. A meta informada pelo proprietário para a operação inteira é cerca de **R$ 200/mês nos primeiros 100 usuários** e **US$ 300/mês com 1.000 usuários**, conforme a [decisão de infraestrutura](aws-initial-budget.md); é preciso avaliar IA e hospedagem juntas.
+
+**Pedido ao administrador:** qual provedor e arquitetura de extração devemos adotar? Pode manter Anthropic, trocá-la, combinar provedores, usar OCR ou propor outra solução. Indique o piloto mínimo que considera suficiente, como tratar privacidade dos prints e qual custo estimado por aposta correta permite cumprir o orçamento total. Após essa decisão, podemos configurar as credenciais e implementar a integração escolhida.

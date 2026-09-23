@@ -42,7 +42,7 @@ Backend API for the Bet Spreadsheet SaaS — transforms betting slips (photos, T
 | Week | Milestone | Focus |
 |------|-----------|-------|
 | **1** | [Foundation](https://github.com/pradyumna-001/bancaemdia-api/milestone/1) | PostgreSQL + SQLAlchemy 2.x + RLS + CI/CD (local Docker) |
-| **2** | [Async Pipeline](https://github.com/pradyumna-001/bancaemdia-api/milestone/2) | Celery + Redis dual-pool: extraction (OCR→Haiku→Sonnet) + materialization |
+| **2** | [Async Pipeline](https://github.com/pradyumna-001/bancaemdia-api/milestone/2) | Celery + Redis dual-pool: extraction (cache→Haiku→Sonnet; [OCR/provider under review](docs/decisions/ai-extraction-provider.md)) + materialization |
 | **3** | [API Surface](https://github.com/pradyumna-001/bancaemdia-api/milestone/3) | JWT auth, Primary/Replica router, REST endpoints, OTel observability, rate limiting |
 | **4** | [Hardening & Deploy](https://github.com/pradyumna-001/bancaemdia-api/milestone/4) | Replay CLI, idempotency tests, chaos testing, runbooks, k6, Terraform, CD pipeline |
 
