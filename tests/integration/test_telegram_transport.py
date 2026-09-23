@@ -111,6 +111,9 @@ async def test_ten_replays_create_one_link_and_one_queued_reply(
         )
         # A normal tenant context cannot inspect the global inbox.
         assert await session.scalar(select(func.count()).select_from(TelegramInbox)) == 0
+    delivered = _FakeClient()
+    assert await deliver_outbox_once(engine_app, delivered) is True  # type: ignore[arg-type]
+    assert delivered.sent == [(990001, "Conta vinculada com sucesso.")]
 
 
 class _FakeClient:
