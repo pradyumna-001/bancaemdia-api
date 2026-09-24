@@ -11,7 +11,7 @@ This is the launch path approved in the [AWS decision](../decisions/aws-initial-
 
 ## Install the application
 
-1. Clone the reviewed commit into `/opt/bancaemdia`. Copy the three `deploy/lightsail/*.env.example` files to `compose.env`, `runtime.env` and `maintenance.env`; create `deploy/lightsail/secrets/postgres_admin_password`. All four are ignored by Git and must be readable only by the operator (`chmod 600` files, `chmod 700` the secrets directory). Fill every placeholder from the approved secret store. Use an **application** DB role in `runtime.env`; use the PostgreSQL migration owner only in `maintenance.env`. Point both replica URLs to the local primary. Keep `REPROCESS_ADMIN_DATABASE_URL` out of API and worker environments.
+1. Clone the reviewed commit into `/opt/bancaemdia`. Copy `compose.env.example` to `compose.env` and `runtime.env.example` to `runtime.env`. Copy the completed `runtime.env` to `maintenance.env`, then replace both database URLs there with the PostgreSQL migration-owner credential. Create `deploy/lightsail/secrets/postgres_admin_password`. All four are ignored by Git and must be readable only by the operator (`chmod 600` files, `chmod 700` the secrets directory). Fill every placeholder from the approved secret store. Use an **application** DB role only in `runtime.env`. Point both replica URLs to the local primary. Keep `REPROCESS_ADMIN_DATABASE_URL` out of API and worker environments.
 2. Pin `APP_IMAGE`, `POSTGRES_IMAGE`, `REDIS_IMAGE` and `CADDY_IMAGE` to reviewed digests. The application digest must be the scanned GHCR image for the reviewed SHA. Authenticate Docker to GHCR using a read-only package token kept outside the repository.
 3. Start only PostgreSQL and Redis:
 
