@@ -33,6 +33,12 @@ This is the launch path approved in the [AWS decision](../decisions/aws-initial-
 
    Inspect the `/ready` details and worker logs. `painel_refresh` uses the maintenance role every 15 seconds; measure refresh duration and freshness before claiming the 30-second dashboard target. Never place its credential in API or workers.
 
+Keep one API process in this phase: recent-write routing marks are process-local. Before adding
+API processes or hosts, move those marks to shared storage or provide verified sticky routing.
+Monitor `uploads` in `processing` for jobs older than the expected worker window, inspect their
+Celery task and `upload_arquivos` row, and alert before retained 50 MiB payloads exhaust disk.
+The dashboard known-balance exception is documented in [panel refresh](painel-refresh.md).
+
 ## Backups and recovery
 
 - On the host, schedule `python scripts/lightsail_backup.py --bucket PRIVATE_BUCKET --directory /opt/bancaemdia/deploy/lightsail` daily. It creates a PostgreSQL custom-format dump, validates its archive, uploads the dump and SHA-256 sidecar to the private bucket, checks remote size, and deletes the local copy only on success. Alert on a missed run; a failed upload leaves its local dump for inspection. Test AWS CLI access before enabling the schedule.
