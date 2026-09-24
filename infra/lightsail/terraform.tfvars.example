@@ -1,0 +1,10 @@
+region            = "us-east-1"
+availability_zone = "us-east-1a"
+# Confirm active IDs and prices in the target account/Region before copying this file.
+blueprint_id       = "SELECT_WITH_AWS_CLI"
+bundle_id          = "SELECT_4_GIB_IPV4_BUNDLE"
+key_pair_name      = "SELECT_EXISTING_LIGHTSAIL_KEY"
+operator_cidr      = "198.51.100.4/32"
+bucket_name        = "SELECT_GLOBALLY_UNIQUE_NAME"
+bucket_bundle_id   = "SELECT_WITH_AWS_CLI"
+budget_email       = "operator@example.com"
