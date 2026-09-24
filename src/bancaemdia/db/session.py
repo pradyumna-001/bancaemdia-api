@@ -142,6 +142,12 @@ async def get_db_snapshot() -> AsyncGenerator[AsyncSession, None]:
         yield session
 
 
+async def get_db_primary_snapshot() -> AsyncGenerator[AsyncSession, None]:
+    """Use a coherent, up-to-date primary snapshot for privacy exports."""
+    async with _open(replica=False, snapshot=True) as session:
+        yield session
+
+
 async def get_db_primary() -> AsyncGenerator[AsyncSession, None]:
     async with _open(replica=False) as session:
         yield session

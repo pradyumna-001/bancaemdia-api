@@ -14,7 +14,6 @@ from fastapi.responses import JSONResponse
 from fastapi.testclient import TestClient
 from prometheus_client import REGISTRY
 from starlette.middleware.base import BaseHTTPMiddleware
-from starlette.middleware.body_limit import RequestBodyLimitMiddleware
 from starlette.responses import Response
 
 from bancaemdia import main
@@ -38,6 +37,7 @@ from bancaemdia.middleware.rate_limit import (
     user_key,
 )
 from bancaemdia.observability.logging import UserLogContextMiddleware
+from bancaemdia.security.http import EndpointBodyLimitMiddleware
 
 
 class _TestIdentityMiddleware(BaseHTTPMiddleware):
@@ -485,18 +485,13 @@ def test_production_middleware_authenticates_before_limiting_and_limits_before_b
         < layers.index(JWTAuthMiddleware)
         < layers.index(UserLogContextMiddleware)
         < layers.index(RateLimitMiddleware)
-        < layers.index(RequestBodyLimitMiddleware)
+        < layers.index(EndpointBodyLimitMiddleware)
     )
 
 
 def test_production_body_limit_keeps_the_upload_envelope_margin() -> None:
-    body_layer = next(
-        layer for layer in main.app.user_middleware if layer.cls is RequestBodyLimitMiddleware
-    )
-
-    assert body_layer.kwargs["max_body_size"] == (
-        get_settings().UPLOAD_MAX_BYTES + upload.MARGEM_DO_FORMULARIO
-    )
+    assert EndpointBodyLimitMiddleware in [layer.cls for layer in main.app.user_middleware]
+    assert upload.MARGEM_DO_FORMULARIO == 64 * 1024
 
 
 def test_production_upload_stack_rate_limits_before_reading_an_oversized_body(

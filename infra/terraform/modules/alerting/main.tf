@@ -78,12 +78,21 @@ locals {
     }
     Anthropic_Daily_Cost = {
       query           = <<-PROMQL
-        sum(increase(anthropic_cost_usd_total{service="${var.service_name}",environment="${var.environment}"}[24h])) > ${var.anthropic_daily_cost_limit_usd * 0.8}
+        sum(increase(anthropic_cost_usd_total{service="${var.service_name}",environment="${var.environment}"}[24h])) >= ${var.anthropic_daily_cost_limit_usd * 0.8}
       PROMQL
       pending_period  = 0
       recovery_period = 300
       severity        = "warning"
       alarm_summary   = "Anthropic spend exceeded 80 percent of the configured rolling daily limit."
+    }
+    Anthropic_Daily_Cost_Limit = {
+      query           = <<-PROMQL
+        sum(increase(anthropic_cost_usd_total{service="${var.service_name}",environment="${var.environment}"}[24h])) >= ${var.anthropic_daily_cost_limit_usd}
+      PROMQL
+      pending_period  = 0
+      recovery_period = 300
+      severity        = "critical"
+      alarm_summary   = "Anthropic spend exceeded the configured rolling daily limit."
     }
     Revisao_Pendente_Spike = {
       query           = <<-PROMQL

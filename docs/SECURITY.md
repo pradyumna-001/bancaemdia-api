@@ -1,0 +1,31 @@
+# Segurança e privacidade (issue #43)
+
+## Controles implementados
+
+- Todas as respostas HTTP recebem CSP, HSTS, `X-Frame-Options`, `X-Content-Type-Options` e `Referrer-Policy`.
+- O corpo de uma requisição JSON comum é limitado a 1 MiB. Coleta aceita 5 MiB, planilha aceita 5 MB mais a margem do formulário e o export do Telegram usa `UPLOAD_MAX_BYTES` mais a mesma margem. O limite vale também para envios sem `Content-Length`.
+- As rotas usam SQLAlchemy ou parâmetros vinculados. Os identificadores interpolados em SQL nos comandos internos vêm de listas fixas, nunca do pedido HTTP. A API devolve JSON e desliga `/docs` e `/redoc` em produção; a exportação Excel escapa células que poderiam ser interpretadas como fórmula.
+- A autenticação usa PyJWT com RS256, chave RSA de pelo menos 2048 bits, seleção explícita de `kid` e validação obrigatória de `exp`, `aud`, `iss` e `sub`. A troca remove a dependência transitiva `ecdsa` apontada pela varredura de vulnerabilidades.
+- A migração `011_audit_log` instala triggers nas tabelas com `usuario_id` e em `usuarios`. Cada inserção, alteração ou exclusão grava usuário afetado, ator autenticado quando houver, ação, tabela, id, nomes dos campos alterados e horário. Valores, fotos, tokens e texto das apostas não entram no `diff`. `audit_log` rejeita `UPDATE`, `DELETE` e `TRUNCATE`, e a leitura tem RLS por usuário.
+- `GET /api/v1/usuario/me/export?formato=json|xlsx` lê um snapshot no banco primário e exporta perfil e registros vinculados por `usuario_id`, sem hashes de credenciais nem bytes dos arquivos. A resposta proíbe cache.
+- `DELETE /api/v1/usuario/me` remove registros vinculados, esvazia o conteúdo dos eventos preservados para auditoria, revoga o acesso e substitui email/nome por identificadores sem conteúdo pessoal. Um trigger impede novas gravações nessas tabelas depois da desativação. Se houver mensagens ou fotos importadas, a rota responde `409` **sem alterar a conta**; os dados brutos ainda não têm propriedade por usuário no esquema atual.
+- Terraform define criptografia em repouso para RDS, S3 e Redis; força TLS no RDS, HTTPS/TLS 1.2+ para clientes S3 e TLS no Redis. O ALB aceita TLS 1.2+ no listener HTTPS. O teto de autoscaling do RDS é 500 GB. Fargate Spot dá até 120 s aos trabalhadores para encerrar após `SIGTERM`; tarefas Celery têm confirmação tardia e podem ser reenfileiradas.
+- Os alertas de custo Anthropic notificam em 80% e 100% do limite diário configurado. São alertas, **não** um bloqueio de gasto.
+
+## Antes de operar em produção
+
+1. **Dados brutos de Telegram:** decidir e implementar propriedade por usuário para `mensagens`, `mensagem_versoes`, `midias`, `midia_arquivos` e `extracoes_cache`, incluindo objetos S3. Até lá, a exportação não contém esses arquivos e a exclusão automática de contas com mensagens/fotos importadas é recusada. O administrador deve definir também quais dados de auditoria precisam ser retidos, por quanto tempo e com qual base legal. A [ANPD descreve os direitos de acesso e eliminação e as hipóteses de conservação](https://www.gov.br/anpd/pt-br/assuntos/titular-de-dados-1/direito-dos-titulares). Estes endpoints são preparação técnica; não certificam conformidade com a LGPD.
+2. **Segredos:** o Terraform cria nomes e ARNs em AWS Secrets Manager, sem valores. O ECS injeta os valores no ambiente do processo no início da tarefa; portanto a exigência literal de “nenhum segredo em variáveis de ambiente” ainda não é cumprida. Nenhum valor deve entrar em Git, imagem Docker, `tfvars` ou logs. Se a política exigir que nem o processo receba segredos por variáveis, trocar a injeção por busca em tempo de execução via IAM antes do deploy.
+3. **Rotação trimestral da chave de IA:** criar uma chave nova no provedor, atualizar o segredo em cada ambiente, reiniciar e validar trabalhadores, depois revogar a anterior. O administrador escolheu Anthropic para a v1 na decisão registrada no PR #143; não há agendamento automático de rotação.
+4. **Rotação anual das chaves JWT:** o emissor de identidade deve publicar chave nova e antiga no JWKS, começar a assinar com o novo `kid`, aguardar a expiração dos tokens antigos e então remover a chave anterior. Em caso de comprometimento, revogar imediatamente. A escolha do emissor ainda é necessária; a API só verifica assinaturas.
+5. **Infraestrutura:** o administrador aprovou a implantação inicial em uma instância Lightsail 4 GB e teto de R$ 200/mês na decisão registrada no PR #143. O Terraform para ECS/RDS é alvo de uma fase posterior; validar e testar esses recursos antes de declarar criptografia, alertas e tratamento Spot operacionais. A [AWS documenta o aviso de dois minutos e `stopTimeout` máximo de 120 s para Fargate Spot](https://docs.aws.amazon.com/AmazonECS/latest/developerguide/fargate-capacity-providers.html).
+
+## Custo e contenção da auditoria
+
+`require_active_tenant` usa `FOR SHARE` na linha do usuário. Locks `FOR SHARE` de transações diferentes são compatíveis: escritas simultâneas do mesmo usuário não se serializam por essa verificação. Uma desativação da conta espera as escritas em curso terminarem, impedindo gravações depois de `ativo=false`. Monitorar esperas de lock no PostgreSQL antes de aumentar o número de workers.
+
+Cada escrita com proprietário em `eventos` ou `chamadas_ia` acrescenta uma linha pequena em `audit_log`. Mantemos o trigger também nessas tabelas porque o esquema atual não proíbe `UPDATE`/`DELETE` nelas, e sem o trigger essas alterações perderiam rastreabilidade. Antes de produção, medir a taxa por recurso e o tamanho real da tabela com `SELECT resource_type, count(*) FROM audit_log GROUP BY 1` e `SELECT pg_size_pretty(pg_total_relation_size('audit_log'))`; repetir após uma carga representativa. Se o volume exigir redução, implantar retenção ou remover triggers somente após decisão sobre a política de auditoria.
+
+## Verificação
+
+Executar `ruff check .`, `ruff format --check .`, `mypy src/ --strict --ignore-missing-imports`, `pip-audit --local --skip-editable`, `bandit -r src/bancaemdia -q -lll`, testes unitários e de integração PostgreSQL, geração/checagem de OpenAPI e `terraform fmt -check`/`terraform validate`. A CI executa a varredura de dependências e código a cada PR. A migração de auditoria e os endpoints de exclusão precisam de PostgreSQL real; os testes locais sem Docker não exercitam esse trecho.
