@@ -1,0 +1,155 @@
+name: bancaemdia
+
+services:
+  postgres:
+    image: ${POSTGRES_IMAGE:?set a reviewed PostgreSQL 16 image}
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_DB: bancaemdia
+      POSTGRES_PASSWORD_FILE: /run/secrets/postgres_admin_password
+    secrets:
+      - postgres_admin_password
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    networks:
+      - data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d bancaemdia"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+    restart: unless-stopped
+    mem_limit: 768m
+
+  redis:
+    image: ${REDIS_IMAGE:?set a reviewed Redis 7 image}
+    command: ["redis-server", "--appendonly", "yes", "--maxmemory", "256mb", "--maxmemory-policy", "noeviction"]
+    volumes:
+      - redis_data:/data
+    networks:
+      - data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+    restart: unless-stopped
+    mem_limit: 320m
+
+  api:
+    image: ${APP_IMAGE:?set a scanned image with an immutable SHA tag}
+    env_file:
+      - ./runtime.env
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    networks:
+      - edge
+      - data
+    healthcheck:
+      test: ["CMD", "curl", "--fail", "--silent", "http://127.0.0.1:8000/ready"]
+      interval: 15s
+      timeout: 5s
+      retries: 4
+    restart: unless-stopped
+    mem_limit: 512m
+
+  extraction:
+    image: ${APP_IMAGE:?set a scanned image with an immutable SHA tag}
+    command: ["celery", "-A", "bancaemdia.workers.celery_app:app", "worker", "-Q", "extraction", "--concurrency=1", "--loglevel=INFO"]
+    env_file:
+      - ./runtime.env
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    networks:
+      - edge
+      - data
+    restart: unless-stopped
+    stop_grace_period: 120s
+    mem_limit: 768m
+
+  materialization:
+    image: ${APP_IMAGE:?set a scanned image with an immutable SHA tag}
+    command: ["celery", "-A", "bancaemdia.workers.celery_app:app", "worker", "-Q", "materialization", "--concurrency=1", "--loglevel=INFO"]
+    env_file:
+      - ./runtime.env
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    networks:
+      - edge
+      - data
+    restart: unless-stopped
+    stop_grace_period: 120s
+    mem_limit: 512m
+
+  painel_refresh:
+    image: ${APP_IMAGE:?set a scanned image with an immutable SHA tag}
+    command: ["sh", "-c", "while true; do python -m bancaemdia.cli.refresh_painel; sleep 15; done"]
+    env_file:
+      - ./maintenance.env
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - data
+    restart: unless-stopped
+    mem_limit: 256m
+
+  caddy:
+    image: ${CADDY_IMAGE:?set a reviewed Caddy image}
+    environment:
+      SITE_DOMAIN: ${SITE_DOMAIN:?set the public DNS name}
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+    ports:
+      - "80:80"
+      - "443:443"
+    depends_on:
+      api:
+        condition: service_healthy
+    networks:
+      edge:
+        ipv4_address: 172.30.84.2
+    restart: unless-stopped
+    mem_limit: 128m
+
+  migrate:
+    profiles: ["ops"]
+    image: ${APP_IMAGE:?set a scanned image with an immutable SHA tag}
+    command: ["alembic", "upgrade", "head"]
+    env_file:
+      - ./maintenance.env
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - data
+    restart: "no"
+
+secrets:
+  postgres_admin_password:
+    file: ./secrets/postgres_admin_password
+
+volumes:
+  postgres_data:
+  redis_data:
+  caddy_data:
+  caddy_config:
+
+networks:
+  edge:
+    ipam:
+      config:
+        - subnet: 172.30.84.0/24
+  data:
+    internal: true

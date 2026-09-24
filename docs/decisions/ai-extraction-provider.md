@@ -51,4 +51,4 @@ Antes de qualquer teste pago fora da Anthropic, confirmar por escrito a polític
 
 ### Revisão desta decisão
 
-Revisitar quando: (a) o piloto produzir resultados; (b) o preço de qualquer candidato mudar; ou (c) o gatilho de usuários/bilhetes for atingido sem piloto executado. A decisão de infraestrutura/hospedagem do PR #128 (pendente) pode alterar as premissas de custo total e deve ser lida junto com esta.
+Revisitar quando: (a) o piloto produzir resultados; (b) o preço de qualquer candidato mudar; ou (c) o gatilho de usuários/bilhetes for atingido sem piloto executado. A [decisão de infraestrutura/hospedagem](aws-initial-budget.md) aprovou Lightsail para a Fase 1; custo e capacidade reais ainda precisam ser medidos antes do lançamento.
