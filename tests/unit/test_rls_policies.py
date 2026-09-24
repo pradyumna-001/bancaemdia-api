@@ -134,7 +134,9 @@ def test_usuarios_can_be_read_and_created_but_only_changed_by_their_owner() -> N
 
 def test_latest_policy_hides_other_profiles_and_signup_uses_a_narrow_function() -> None:
     sql = _upgrade_sql("a9d6e3f1c210:b7d2c9e10101")
-    assert f"CREATE POLICY usuarios_leitura ON usuarios FOR SELECT USING (id = {USUARIO_ATUAL})" in sql
+    assert (
+        f"CREATE POLICY usuarios_leitura ON usuarios FOR SELECT USING (id = {USUARIO_ATUAL})" in sql
+    )
     assert "CREATE FUNCTION public.create_user_profile(p_email text, p_nome text)" in sql
     assert "REVOKE ALL ON FUNCTION public.create_user_profile(text,text) FROM PUBLIC" in sql
 
