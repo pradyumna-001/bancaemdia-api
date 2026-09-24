@@ -216,11 +216,20 @@ async def test_full_releitura_counts_every_active_user_page_by_page(monkeypatch)
     monkeypatch.setattr(reprocess, "LOTE", 2)
 
     with capture_logs() as logs:
-        plano = await reprocess.reler_todas(banco.engine, VERSAO_PROMPT)
+        plano = await reprocess.reler_todas(
+            banco.engine, VERSAO_PROMPT, directory_engine=banco.engine
+        )
 
     assert [contada[0] for contada in banco.contadas] == [1, 2, 5]
     assert (plano.usuarios, plano.apostas, plano.bilhetes) == (3, 3, 0)
     assert [log["usuarios"] for log in logs if log["event"] == "reler_todas_progresso"] == [2]
+
+
+async def test_global_releitura_requires_an_admin_directory_connection(monkeypatch) -> None:
+    banco = _banco(usuarios=(1,))
+    _instalar(monkeypatch, banco)
+    with pytest.raises(ValueError, match="REPROCESS_ADMIN_DATABASE_URL"):
+        await reprocess.reler_todas(banco.engine, VERSAO_PROMPT)
 
 
 async def test_one_row_is_only_shown_until_sim_is_given(monkeypatch) -> None:

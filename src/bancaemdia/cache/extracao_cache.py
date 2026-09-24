@@ -2,6 +2,7 @@ import hashlib
 import re
 import unicodedata
 from contextlib import suppress
+from datetime import datetime
 from functools import lru_cache
 
 import redis
@@ -30,11 +31,15 @@ def normalizar_legenda(legenda: str) -> str:
     return re.sub(r"\s+", " ", limpa)
 
 
-def chave_de_imagem(imagem: bytes, legenda: str = "") -> str:
+def chave_de_imagem(imagem: bytes, legenda: str = "", *, postada_em: datetime | None = None) -> str:
     hash_da_imagem = hashlib.sha256(imagem).hexdigest()
-    if not legenda.strip():
+    if not legenda.strip() and postada_em is None:
         return hash_da_imagem
-    return hashlib.sha256(f"{hash_da_imagem}|{normalizar_legenda(legenda)}".encode()).hexdigest()
+    contexto = f"{hash_da_imagem}|{normalizar_legenda(legenda)}"
+    if postada_em is not None:
+        # This is the exact minute rendered into the AI prompt for relative dates.
+        contexto += f"|{postada_em:%d/%m/%Y %H:%M}"
+    return hashlib.sha256(contexto.encode()).hexdigest()
 
 
 def chave_no_redis(chave: str, versao_prompt: str) -> str:

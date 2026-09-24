@@ -3,6 +3,7 @@ from __future__ import annotations
 import hashlib
 import json
 import unicodedata
+from datetime import datetime
 
 import pytest
 import redis
@@ -87,6 +88,17 @@ def test_key_follows_the_original_formula() -> None:
     esperado = hashlib.sha256(f"{hash_da_foto}|1u betano".encode()).hexdigest()
 
     assert extracao_cache.chave_de_imagem(b"foto", " 1u\tBetano ") == esperado
+
+
+def test_reference_minute_enters_the_key_used_to_resolve_relative_dates() -> None:
+    first = datetime(2026, 7, 24, 16)
+    later = datetime(2026, 7, 25, 16)
+    assert extracao_cache.chave_de_imagem(b"foto", "1u", postada_em=first) != (
+        extracao_cache.chave_de_imagem(b"foto", "1u", postada_em=later)
+    )
+    assert extracao_cache.chave_de_imagem(b"foto", "1u", postada_em=first) != (
+        extracao_cache.chave_de_imagem(b"foto", "1u")
+    )
 
 
 def test_redis_key_carries_the_prompt_version() -> None:

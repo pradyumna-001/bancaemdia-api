@@ -1,6 +1,7 @@
 import argparse
 import asyncio
 import base64
+import os
 from collections.abc import Sequence
 from dataclasses import dataclass, field
 from datetime import date, datetime, time, timedelta
@@ -8,7 +9,7 @@ from datetime import date, datetime, time, timedelta
 import structlog
 from kombu.exceptions import OperationalError
 from sqlalchemy import func, select, tuple_
-from sqlalchemy.ext.asyncio import AsyncEngine, AsyncSession
+from sqlalchemy.ext.asyncio import AsyncEngine, AsyncSession, create_async_engine
 
 from bancaemdia import models
 from bancaemdia.coleta.leitores import LEITORES
@@ -140,6 +141,7 @@ def conferir_versao(versao_prompt: str | None) -> None:
 
 async def _conferir_usuario(engine: AsyncEngine, usuario_id: int) -> None:
     async with AsyncSession(engine) as session:
+        await _set_current_user(session, usuario_id)
         usuario = await UsuarioRepo().get_by_id(session, usuario_id)
     if usuario is None:
         raise UsuarioNaoEncontradoError(f"o usuário {usuario_id} não existe")
@@ -198,18 +200,22 @@ async def reler_todas(
     usuario_id: int | None = None,
     desde: datetime | None = None,
     ate: datetime | None = None,
+    directory_engine: AsyncEngine | None = None,
 ) -> Plano:
     conferir_versao(versao_prompt)
     if chunk_size < 1:
         raise ValueError("chunk_size deve ser positivo")
+    if usuario_id is None and directory_engine is None:
+        raise ValueError("reler-todas exige REPROCESS_ADMIN_DATABASE_URL para enumerar usuários")
     plano = Plano()
     depois_de = 0
     limites: list[tuple[int, int]] = []
     while True:
-        # Não há papel que atravesse a RLS: a lista de usuários é aberta, e cada um é contado com a
-        # própria identidade. Página pelo id, porque OFFSET pula linhas quando alguém grava no meio.
+        # Only the operator connection can enumerate IDs. Business reads still use
+        # the tenant-scoped application connection, one user at a time.
         if usuario_id is None:
-            async with AsyncSession(engine) as session:
+            assert directory_engine is not None
+            async with AsyncSession(directory_engine) as session:
                 ids = await UsuarioRepo().list_active_ids(session, depois_de, PAGINA)
         else:
             ids = [usuario_id]
@@ -576,6 +582,7 @@ def analisador() -> argparse.ArgumentParser:
 
 async def _rodar(opcoes: argparse.Namespace) -> int:
     engine = get_engine()
+    directory_engine = None
     escopo = ESCOPO_TUDO if getattr(opcoes, "tudo", False) else ESCOPO_REVISAO
     try:
         if opcoes.comando == "usuario":
@@ -590,12 +597,16 @@ async def _rodar(opcoes: argparse.Namespace) -> int:
             )
             _mostrar_plano("reprocessar_usuario", plano, escopo, usuario_id=opcoes.usuario_id)
         elif opcoes.comando == "reler-todas":
+            admin_url = os.environ.get("REPROCESS_ADMIN_DATABASE_URL")
+            if admin_url:
+                directory_engine = create_async_engine(admin_url)
             plano = await reler_todas(
                 engine,
                 opcoes.versao_prompt,
                 escopo,
                 chunk_size=opcoes.chunk_size,
                 sim=opcoes.sim,
+                directory_engine=directory_engine,
             )
             _mostrar_plano("reler_todas", plano, escopo)
         elif opcoes.coleta_id is not None:
@@ -619,6 +630,8 @@ async def _rodar(opcoes: argparse.Namespace) -> int:
         structlog.get_logger().error("reprocessamento_recusado", recado=str(recusa))
         return 1
     finally:
+        if directory_engine is not None:
+            await directory_engine.dispose()
         await engine.dispose()
     return 0
 
