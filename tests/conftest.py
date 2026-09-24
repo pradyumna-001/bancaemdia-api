@@ -103,6 +103,9 @@ async def _preparar_papel(url_admin: str) -> None:
             await conn.execute(
                 text(f"GRANT USAGE, SELECT ON ALL SEQUENCES IN SCHEMA public TO {PAPEL}")
             )
+            await conn.execute(
+                text(f"GRANT EXECUTE ON FUNCTION create_user_profile(text,text) TO {PAPEL}")
+            )
     finally:
         await engine.dispose()
 

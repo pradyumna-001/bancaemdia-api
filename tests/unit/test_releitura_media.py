@@ -89,7 +89,9 @@ async def test_cost_precedes_publication_and_media_is_read_one_at_a_time(monkeyp
     _instalar(monkeypatch, b"photo", publicados)
 
     with capture_logs() as logs:
-        plano = await reprocess.reler_todas(object(), VERSAO_PROMPT, sim=True)
+        plano = await reprocess.reler_todas(
+            object(), VERSAO_PROMPT, sim=True, directory_engine=object()
+        )
 
     assert (plano.bilhetes, plano.enfileiradas) == (1, 1)
     assert publicados[0]["nome_do_arquivo"] == "abc.png"
@@ -103,7 +105,9 @@ async def test_missing_media_is_reported_without_queueing(monkeypatch) -> None:
     _instalar(monkeypatch, None, publicados)
 
     with capture_logs() as logs:
-        plano = await reprocess.reler_todas(object(), VERSAO_PROMPT, sim=True)
+        plano = await reprocess.reler_todas(
+            object(), VERSAO_PROMPT, sim=True, directory_engine=object()
+        )
 
     assert plano.midias_ausentes == 1
     assert publicados == []

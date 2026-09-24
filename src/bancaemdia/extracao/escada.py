@@ -106,7 +106,7 @@ def extrair(
 ) -> Extraida:
     casas = tuple(casas_do_link)
     odds = tuple(odds_do_texto)
-    chave = chave_de_imagem(imagem, legenda)
+    chave = chave_de_imagem(imagem, legenda, postada_em=postada_em)
 
     guardada = None if cache is None else cache.buscar(chave)
     if guardada is None:

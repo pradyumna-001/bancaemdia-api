@@ -21,7 +21,7 @@ REVISAO_RESOLVIDA = "f2a9c4e7b106"
 PAINEL = "d3f6a8c1e209"
 CAIXA_REVISAO_MERGE = "e5a1c7d9b204"
 PAINEL_CAIXA_MERGE = "f8b2d4a6c901"
-HEAD = "a9d6e3f1c210"
+HEAD = "b7d2c9e10101"
 USUARIO_ATUAL = "NULLIF(current_setting('app.current_user_id', true), '')::bigint"
 JOB_OFERECIDO = "NULLIF(current_setting('app.upload_job_id', true), '')::uuid"
 POR_USUARIO = {
@@ -130,6 +130,15 @@ def test_usuarios_can_be_read_and_created_but_only_changed_by_their_owner() -> N
         in sql
     )
     assert "ON usuarios FOR ALL" not in sql
+
+
+def test_latest_policy_hides_other_profiles_and_signup_uses_a_narrow_function() -> None:
+    sql = _upgrade_sql("a9d6e3f1c210:b7d2c9e10101")
+    assert (
+        f"CREATE POLICY usuarios_leitura ON usuarios FOR SELECT USING (id = {USUARIO_ATUAL})" in sql
+    )
+    assert "CREATE FUNCTION public.create_user_profile(p_email text, p_nome text)" in sql
+    assert "REVOKE ALL ON FUNCTION public.create_user_profile(text,text) FROM PUBLIC" in sql
 
 
 def test_shared_tables_stay_open() -> None:
