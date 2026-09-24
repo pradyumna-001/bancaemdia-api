@@ -42,6 +42,15 @@ function escape(value) {
 }
 
 export function handleSummary(data) {
+  const evidence = {
+    ...data,
+    bancaemdia: {
+      profile: selectedProfile,
+      environment: __ENV.APP_ENV || null,
+      release_sha: __ENV.RELEASE_SHA || null,
+      generated_at: new Date().toISOString(),
+    },
+  };
   const rows = Object.entries(data.metrics || {})
     .filter(([name]) => ['http_req_duration', 'http_req_failed', 'checks_pass_rate',
       'extraction_queue_depth', 'replica_lag', 'telemetry_available'].includes(name))
@@ -51,5 +60,5 @@ export function handleSummary(data) {
 <style>body{font:16px system-ui;margin:2rem;max-width:80rem}table{border-collapse:collapse;width:100%}td,th{border:1px solid #aaa;padding:.5rem;text-align:left}td{word-break:break-word}</style>
 <h1>BancaEmDia — teste de carga</h1><p>Perfil: ${escape(selectedProfile)} · Gerado em ${escape(new Date().toISOString())}</p>
 <table><thead><tr><th>Métrica</th><th>Valores</th><th>Limiares</th></tr></thead><tbody>${rows}</tbody></table></html>`;
-  return { 'load-test-report.html': html, 'load-test-summary.json': JSON.stringify(data, null, 2) };
+  return { 'load-test-report.html': html, 'load-test-summary.json': JSON.stringify(evidence, null, 2) };
 }
