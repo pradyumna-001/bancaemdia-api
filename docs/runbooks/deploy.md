@@ -15,6 +15,9 @@ are configured and rehearsed. The workflow is documented in [cd.md](cd.md).
 3. Confirm staging smoke tests, queue health, replica lag, and
    `python scripts/conferir_numeros.py --todos` pass. Confirm an on-call owner, a previous
    release, and an available rollback path. Freeze unrelated deploys during the change.
+   For the first production release, require the same SHA's
+   [final-validation report](final-validation.md) at `GO CANDIDATE`, with its evidence reviewed
+   and stakeholder sign-off recorded. A CI pass alone does not satisfy the staging gate.
 4. Check `gh workflow view cd.yml` and its `workflow_dispatch` inputs on the default branch.
    Stop if the workflow or either target environment is absent; CI success alone is not a
    production deploy.
