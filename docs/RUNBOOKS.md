@@ -12,7 +12,7 @@ Never put database URLs, bearer tokens, or customer data in a ticket or chat.
 | [Migration](runbooks/migration.md) | Apply and verify an Alembic schema change |
 | [Incident response](runbooks/incident.md) | Triage alarms, assign severity, mitigate, and close an incident |
 | [Scaling](runbooks/scaling.md) | Add or remove ECS capacity; plan RDS or Redis class changes |
-| [Final validation](runbooks/final-validation.md) | Gather staging evidence and enforce the go-live gate |
+| [Final validation](runbooks/final-validation.md) | Gather Phase 1 evidence and enforce the go-live gate |
 
 Related procedures: [failure injection](chaos-testing.md) and
 [dashboard view refresh](runbooks/painel-refresh.md).
