@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 import time
+from contextlib import asynccontextmanager
 from decimal import Decimal
 
 import asyncpg
@@ -74,6 +75,27 @@ def _pedido(metodo="GET", caminho="/api/v1/apostas", consulta=b"", cabecalhos=()
 )
 def test_writes_go_to_the_primary_and_safe_reads_to_the_replica(metodo, esperado) -> None:
     assert router.needs_primary(_pedido(metodo), 7, router.RecentWrites()) is esperado
+
+
+@pytest.mark.asyncio
+async def test_privacy_export_uses_primary_snapshot_even_when_router_chose_replica(
+    monkeypatch,
+) -> None:
+    opened = []
+
+    @asynccontextmanager
+    async def fake_open(replica, *, snapshot=False):
+        opened.append((replica, snapshot))
+        yield object()
+
+    monkeypatch.setattr(db_session, "_open", fake_open)
+    token = use_primary.set(False)
+    try:
+        async for _ in db_session.get_db_primary_snapshot():
+            pass
+    finally:
+        use_primary.reset(token)
+    assert opened == [(False, True)]
 
 
 @pytest.mark.parametrize(

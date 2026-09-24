@@ -12,8 +12,8 @@ from sqlalchemy import delete, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from bancaemdia.api.contracts import AUTHENTICATED_ERROR_RESPONSES, ErrorResponse
-from bancaemdia.api.deps import get_current_user, get_current_user_snapshot
-from bancaemdia.db.session import get_db, get_db_snapshot
+from bancaemdia.api.deps import get_current_user, get_current_user_primary_snapshot
+from bancaemdia.db.session import get_db, get_db_primary_snapshot
 from bancaemdia.domain.registros import Usuario
 from bancaemdia.models import Aposta, Base, Evento, RevisaoPendente, Upload
 from bancaemdia.models.usuario import Usuario as UsuarioModel
@@ -134,8 +134,8 @@ def _excel(data: dict[str, Any]) -> bytes:
     },
 )
 async def exportar_meus_dados(
-    usuario: Annotated[Usuario, Depends(get_current_user_snapshot)],
-    session: Annotated[AsyncSession, Depends(get_db_snapshot)],
+    usuario: Annotated[Usuario, Depends(get_current_user_primary_snapshot)],
+    session: Annotated[AsyncSession, Depends(get_db_primary_snapshot)],
     formato: Annotated[Literal["json", "xlsx"], Query(description="Formato do arquivo")] = "json",
 ) -> Response:
     data = await collect_user_data(session, usuario)

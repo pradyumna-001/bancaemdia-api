@@ -39,3 +39,5 @@ def test_body_limit_is_specific_to_endpoint() -> None:
     assert client.post("/api/v1/apostas", content=body).status_code == 413
     assert client.post("/api/v1/upload", content=body).status_code == 200
     assert client.post("/api/v1/apostas/importar-planilha", content=body).status_code == 200
+    assert client.post("/api/v1/upload/", content=body).status_code == 200
+    assert client.post("/coleta/", content=body).status_code == 200

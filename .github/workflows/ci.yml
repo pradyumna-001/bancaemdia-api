@@ -48,7 +48,7 @@ jobs:
         with:
           python-version: "3.12"
           cache: "pip"
-      - run: pip install -e ".[dev]" pip-audit bandit
+      - run: pip install -e ".[dev]" pip-audit==2.10.1 bandit==1.9.4
       - run: pip-audit --local --skip-editable
       - run: bandit -r src/bancaemdia -q -lll
 

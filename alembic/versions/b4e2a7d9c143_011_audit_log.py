@@ -111,6 +111,8 @@ def upgrade() -> None:
         DECLARE subject_id bigint;
         BEGIN
             subject_id := (to_jsonb(NEW)->>'usuario_id')::bigint;
+            -- SHARE locks on the same user coexist across writers. They block a concurrent
+            -- deactivation until those writes commit, preserving the active-user invariant.
             IF subject_id IS NOT NULL AND NOT EXISTS (
                 SELECT 1 FROM public.usuarios
                  WHERE id = subject_id AND ativo FOR SHARE

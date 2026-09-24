@@ -58,7 +58,7 @@ class EndpointBodyLimitMiddleware:
             await self.app(scope, receive, send)
             return
 
-        path = scope.get("path", "")
+        path = (scope.get("path", "") or "").rstrip("/") or "/"
         if path == "/api/v1/upload":
             limit = get_settings().UPLOAD_MAX_BYTES + UPLOAD_FORM_MARGIN
         elif path == "/api/v1/apostas/importar-planilha":
