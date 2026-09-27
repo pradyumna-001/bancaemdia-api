@@ -144,6 +144,17 @@ def _docker_disponivel() -> bool:
     return True
 
 
+@pytest.fixture
+def isolated_postgres_database() -> Iterator[Banco]:
+    """Private database for tests that start their own threads/workers."""
+    if not _docker_disponivel():
+        pytest.skip("isolated worker tests require disposable Docker services")
+    from testcontainers.community.postgres import PostgresContainer
+
+    with PostgresContainer(IMAGEM, driver="asyncpg") as container:
+        yield _preparar(container.get_connection_url())
+
+
 @pytest.fixture(scope="session")
 def banco() -> Iterator[Banco]:
     url = os.environ.get("TEST_DATABASE_URL")
