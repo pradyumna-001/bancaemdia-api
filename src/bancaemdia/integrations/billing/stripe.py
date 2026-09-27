@@ -16,6 +16,7 @@ import httpx
 from opentelemetry.instrumentation.utils import suppress_instrumentation
 
 from bancaemdia.config import Settings
+from bancaemdia.integrations.billing.base import BillingUnavailableError as BillingUnavailableError
 
 API_VERSION = "2024-06-20"
 
@@ -28,15 +29,17 @@ class _StripeLogFilter(logging.Filter):
 logging.getLogger("httpx").addFilter(_StripeLogFilter())
 
 
-class BillingUnavailableError(Exception):
-    """Safe public error; provider content must never be included."""
-
-
 def hosted_url(value: object, host: str) -> str:
     if not isinstance(value, str):
         raise BillingUnavailableError("billing_invalid_url")
-    parsed = urlsplit(value)
-    if parsed.scheme != "https" or parsed.hostname != host or parsed.username or parsed.port:
+    try:
+        parsed = urlsplit(value)
+        invalid = (
+            parsed.scheme != "https" or parsed.hostname != host or parsed.username or parsed.port
+        )
+    except ValueError:
+        raise BillingUnavailableError("billing_invalid_url") from None
+    if invalid:
         raise BillingUnavailableError("billing_invalid_url")
     return value
 
@@ -104,6 +107,8 @@ class StripeBilling:
             if response.status_code >= 400:
                 raise BillingUnavailableError("billing_provider_unavailable")
             result: dict[str, Any] = response.json()
+            if not isinstance(result, dict):
+                raise BillingUnavailableError("billing_provider_unavailable")
             if result.get("livemode") is True:
                 raise BillingUnavailableError("billing_live_object_rejected")
             return result
@@ -137,11 +142,12 @@ class StripeBilling:
             raise BillingUnavailableError("billing_price_mismatch")
 
     async def checkout(
-        self, customer: str, price: str, operation: str, *, trial: bool
+        self, customer: str, price: str, operation: str, *, trial: bool, currency: str
     ) -> dict[str, Any]:
         data = {
             "mode": "subscription",
             "customer": customer,
+            "currency": currency.lower(),
             "line_items[0][price]": price,
             "line_items[0][quantity]": "1",
             "payment_method_collection": "always",
@@ -178,6 +184,9 @@ class StripeBilling:
             "subscriptions/" + ref,
             {"expand[0]": "latest_invoice.charge", "expand[1]": "default_payment_method"},
         )
+
+    async def checkout_status(self, ref: str) -> dict[str, Any]:
+        return await self.request("GET", "checkout/sessions/" + ref)
 
     async def cancel(self, ref: str) -> None:
         await self.request(

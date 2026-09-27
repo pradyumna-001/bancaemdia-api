@@ -9,9 +9,9 @@ from sqlalchemy import func, select, text
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from bancaemdia.domain.billing_catalog import BillingFrequency
+from bancaemdia.integrations.billing.base import BillingProvider
 from bancaemdia.integrations.billing.stripe import (
     BillingUnavailableError,
-    StripeBilling,
     hosted_url,
 )
 from bancaemdia.models.assinatura import Assinatura
@@ -42,7 +42,7 @@ async def locked_subscription(session: AsyncSession, uid: int) -> Assinatura:
 async def subscribe(
     session: AsyncSession,
     uid: int,
-    provider: StripeBilling,
+    provider: BillingProvider,
     *,
     currency: str,
     frequency: BillingFrequency,
@@ -73,7 +73,7 @@ async def subscribe(
     if operation and operation.state == "complete" and operation.request_hash == request_hash:
         raise BillingUnavailableError("billing_checkout_already_completed")
     if operation and operation.session_ref and operation.state != "complete":
-        previous = await provider.request("GET", "checkout/sessions/" + operation.session_ref)
+        previous = await provider.checkout_status(operation.session_ref)
         if previous.get("status") == "open":
             return hosted_url(previous.get("url"), "checkout.stripe.com")
         if previous.get("status") == "complete":
@@ -139,6 +139,7 @@ async def subscribe(
         price.provider_plan_ref,
         operation.operation,
         trial=operation.trial,
+        currency=price.currency,
     )
     operation.session_ref = result["id"]
     url = hosted_url(result.get("url"), "checkout.stripe.com")

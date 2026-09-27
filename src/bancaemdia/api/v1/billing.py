@@ -82,6 +82,11 @@ async def billing_status(user: User, session: Session, response: Response) -> Bi
             )
         )
     ).all()
+    prices = [
+        p
+        for p in prices
+        if p.currency in get_settings().BILLING_CURRENCIES.split(",") and p.provider_plan_ref
+    ]
     confirmed = bool(row and row.trial_confirmed)
     result = asdict(read)
     if not confirmed:
@@ -99,7 +104,6 @@ async def billing_status(user: User, session: Session, response: Response) -> Bi
                 "frequency": p.frequency,
             }
             for p in prices
-            if p.currency in get_settings().BILLING_CURRENCIES.split(",")
         ],
         checkout_available=get_settings().BILLING_ENABLED and bool(prices),
     )
