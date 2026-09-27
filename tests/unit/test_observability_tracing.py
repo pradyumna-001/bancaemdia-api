@@ -198,6 +198,22 @@ def test_httpx_hook_removes_query_fragment_and_credentials() -> None:
     assert span.attributes["url.query"] == tracing.REDACTED
     assert "secret" not in repr(span.attributes)
 
+    raw_request = tracing.RequestInfo(
+        method=b"GET",
+        url=(b"https", b"example.test", 443, b"/resource?token=secret"),
+        headers=None,
+        stream=None,
+        extensions=None,
+    )
+    raw_span = RecordingSpan()
+    tracing._sanitize_httpx_request(raw_span, raw_request)  # type: ignore[arg-type]
+    assert raw_span.attributes == {
+        "url.full": tracing.REDACTED,
+        "http.url": tracing.REDACTED,
+        "url.query": tracing.REDACTED,
+        "http.target": tracing.REDACTED,
+    }
+
 
 def test_server_hook_redacts_query_values() -> None:
     class RecordingSpan:
