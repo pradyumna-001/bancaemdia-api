@@ -289,7 +289,9 @@ async def test_worker_retries_dead_letters_and_repairs_missed_event(engine_admin
             monkeypatch.setattr(billing, "reconcile", unavailable)
             for attempt in range(1, 9):
                 result = await billing.reconcile_batch(engine_admin, provider)
-                assert result["failed"] == 1
+                # The shared PostgreSQL fixture may contain other mapped users;
+                # assert this delivery's exact attempt count below, not scan size.
+                assert result["failed"] >= 1
                 async with session_factory() as session:
                     event = await session.get(BillingEvent, event_id)
                     assert event.attempts == attempt
@@ -302,7 +304,7 @@ async def test_worker_retries_dead_letters_and_repairs_missed_event(engine_admin
             monkeypatch.setattr(billing, "reconcile", successful_reconcile)
             # Dead/missed notifications do not prevent the independent full scan.
             result = await billing.reconcile_batch(engine_admin, provider)
-            assert result["reconciled"] == 1
+            assert result["reconciled"] >= 1
             async with session_factory() as session:
                 await tenant(session, uid)
                 assert (await AssinaturaRepo().read_status(session, uid)).access == "FULL_WRITE"
