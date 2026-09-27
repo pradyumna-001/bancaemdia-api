@@ -17,7 +17,9 @@ variable "bundle_id" {
 }
 
 variable "key_pair_name" {
-  type = string
+  type        = string
+  description = "Optional custom Lightsail SSH key pair. Omit to use the region's AWS-managed default key."
+  default     = null
 }
 
 variable "operator_cidr" {

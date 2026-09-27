@@ -51,10 +51,11 @@ resource "aws_lightsail_instance_public_ports" "app" {
   instance_name = aws_lightsail_instance.app.name
 
   port_info {
-    protocol  = "tcp"
-    from_port = 22
-    to_port   = 22
-    cidrs     = [var.operator_cidr]
+    protocol          = "tcp"
+    from_port         = 22
+    to_port           = 22
+    cidrs             = [var.operator_cidr]
+    cidr_list_aliases = ["lightsail-connect"]
   }
 
   port_info {
