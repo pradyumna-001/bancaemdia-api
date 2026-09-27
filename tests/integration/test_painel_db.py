@@ -580,7 +580,7 @@ async def test_every_materialized_view_has_a_full_valid_unique_index(
             )
         ).all()
 
-    assert dict(linhas) == dict.fromkeys(MATERIALIZED_VIEWS, True)
+    assert dict(linhas) == dict.fromkeys((*MATERIALIZED_VIEWS, "mv_painel_resumo_legacy"), True)
 
 
 async def _esperar_refresh_bloqueado(engine: AsyncEngine) -> bool:
