@@ -1,0 +1,48 @@
+name: Billing integration evidence
+
+on:
+  pull_request:
+    paths:
+      - '.github/workflows/billing-integration.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  combined-billing:
+    name: Combined billing snapshot (not standalone PR acceptance)
+    runs-on: ubuntu-latest
+    # The six review PRs remain separate and based on main. This job validates
+    # their explicitly pinned combined fixture without merging that branch.
+    env:
+      DATABASE_URL: postgresql+asyncpg://user:pass@localhost:5432/bancaemdia
+      DATABASE_URL_REPLICA: postgresql+asyncpg://user:pass@localhost:5432/bancaemdia
+      REDIS_URL: redis://localhost:6379/0
+      APP_ENV: testing
+      JWT_SECRET_KEY: test-secret
+      JWT_ALGORITHM: RS256
+      JWT_AUDIENCE: bancaemdia-api
+      JWT_ISSUER: bancaemdia-api
+      RATE_LIMIT_STORAGE: memory://
+      OTEL_EXPORTER_OTLP_ENDPOINT: ''
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: e46f03b8a8521cbb0be5769a976d5e82275e38e6
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+          cache: pip
+      - run: pip install -e '.[dev]'
+      - run: ruff check src tests alembic
+      - run: ruff format --check src tests alembic
+      - run: mypy src/ --strict --ignore-missing-imports
+      - run: python scripts/generate_openapi.py --check
+      - name: Full suite including real PostgreSQL billing lifecycle
+        run: pytest -n 8 --dist loadgroup --tb=short -q --cov=src/bancaemdia --cov-fail-under=80 --junitxml=billing-integration.xml
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: billing-integration-e46f03b
+          path: billing-integration.xml

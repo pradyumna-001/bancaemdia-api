@@ -42,6 +42,9 @@ class StripeStub:
     async def subscription(self, ref):
         return self.remote
 
+    async def checkout_status(self, ref):
+        return await self.request("GET", "checkout/sessions/" + ref)
+
     async def validate_price(self, ref, **terms):
         assert ref == self.price
         assert terms == {"amount": 12345, "currency": "BRL", "frequency": "MONTHLY"}
@@ -50,7 +53,8 @@ class StripeStub:
         self.creations.setdefault("customer-" + operation, self.customer_ref)
         return self.customer_ref
 
-    async def checkout(self, customer, price, operation, *, trial):
+    async def checkout(self, customer, price, operation, *, trial, currency):
+        assert currency == "BRL"
         self.calls.append((operation, trial))
         response = self.creations.setdefault(
             operation,
@@ -239,3 +243,99 @@ async def test_inbox_deduplicates_at_database_constraint(engine_admin):
         assert (await conn.execute(stmt)).rowcount == 1
         assert (await conn.execute(stmt)).rowcount == 0
         await conn.execute(text("DELETE FROM billing_events WHERE id=:id"), {"id": event_id})
+
+
+async def test_worker_retries_dead_letters_and_repairs_missed_event(engine_admin, monkeypatch):
+    from bancaemdia.workers import billing
+
+    async with engine_admin.connect() as conn:
+        transaction = await conn.begin()
+        try:
+
+            def session_factory(*args, **kwargs):
+                return AsyncSession(
+                    conn, expire_on_commit=False, join_transaction_mode="create_savepoint"
+                )
+
+            monkeypatch.setattr(billing, "AsyncSession", session_factory)
+            async with session_factory() as session:
+                uid, provider = await setup(session)
+                await subscribe(
+                    session,
+                    uid,
+                    provider,
+                    currency="BRL",
+                    frequency=BillingFrequency.MONTHLY,
+                    request_key="worker-fixture",
+                )
+                await tenant(session, uid)
+                operation = await session.get(BillingCheckout, uid)
+                provider.confirm(operation.operation)
+                event_id = "evt_" + uuid4().hex
+                session.add(
+                    BillingEvent(
+                        id=event_id,
+                        customer_ref=provider.customer_ref,
+                        event_type="invoice.payment_failed",
+                    )
+                )
+                await session.commit()
+
+            successful_reconcile = billing.reconcile
+
+            async def unavailable(*args):  # ruff: ignore[unused-async] - async provider failure
+                raise BillingUnavailableError("safe_fixture")
+
+            monkeypatch.setattr(billing, "reconcile", unavailable)
+            for attempt in range(1, 9):
+                result = await billing.reconcile_batch(engine_admin, provider)
+                assert result["failed"] == 1
+                async with session_factory() as session:
+                    event = await session.get(BillingEvent, event_id)
+                    assert event.attempts == attempt
+                    assert event.last_error == "provider_reconciliation_failed"
+                    now = await session.scalar(text("SELECT clock_timestamp()"))
+                    assert event.next_attempt_at > now
+                    assert event.state == ("dead" if attempt == 8 else "pending")
+                    event.next_attempt_at = now
+                    await session.commit()
+            monkeypatch.setattr(billing, "reconcile", successful_reconcile)
+            # Dead/missed notifications do not prevent the independent full scan.
+            result = await billing.reconcile_batch(engine_admin, provider)
+            assert result["reconciled"] == 1
+            async with session_factory() as session:
+                await tenant(session, uid)
+                assert (await AssinaturaRepo().read_status(session, uid)).access == "FULL_WRITE"
+                assert (await session.get(BillingEvent, event_id)).state == "dead"
+        finally:
+            await transaction.rollback()
+
+
+async def test_all_business_tables_have_database_write_guards(engine_admin):
+    expected = {
+        "bancas",
+        "contas_casa",
+        "unidades",
+        "movimentos",
+        "movimento_requisicoes",
+        "apostas",
+        "eventos",
+        "revisao_pendente",
+        "coletas_casa",
+        "coleta_token",
+        "chamadas_ia",
+        "uploads",
+        "upload_bilhetes",
+        "upload_arquivos",
+    }
+    async with engine_admin.connect() as conn:
+        guarded = set(
+            (
+                await conn.execute(
+                    text(
+                        "SELECT c.relname FROM pg_trigger t JOIN pg_class c ON c.oid=t.tgrelid WHERE t.tgname='billing_write_guard' AND NOT t.tgisinternal"
+                    )
+                )
+            ).scalars()
+        )
+        assert expected <= guarded
