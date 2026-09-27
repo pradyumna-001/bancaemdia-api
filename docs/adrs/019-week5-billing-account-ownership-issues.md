@@ -8,7 +8,7 @@
 
 **Success Criteria**:
 - [ ] Provider eligibility is proven before payment integration is enabled
-- [ ] Every user receives exactly seven days without a card
+- [ ] Every user receives exactly seven days after Stripe confirms a required card
 - [ ] Expired users retain reads/analytics/export but cannot mutate through API or workers
 - [ ] Price remains configurable and unpublished until the owner decides it
 - [ ] Holders and their bookmaker accounts have stable identities and temporal usage history
@@ -20,7 +20,7 @@
 
 ## GitHub Issues (8 issues)
 
-### Issue 1: Billing Provider Preflight — Mercado Pago PF + Asaas Fallback
+### Issue 1: Billing Provider Preflight — Stripe Brazil + Global Launch
 **Labels**: `week-5`, `billing`, `payments`, `decision`
 
 **Size**: M (3-4 hours)
@@ -32,13 +32,13 @@
 **Tasks**:
 - [ ] Describe the product truthfully to each provider: subscription SaaS for betting recordkeeping and analytics; never receives wagers, deposits, prizes, or customer funds
 - [ ] Verify in writing whether a Brazilian individual account (CPF, no CNPJ) may use recurring subscriptions in production
-- [ ] Validate production application/credential eligibility and the `/preapproval` flow with Mercado Pago before integration work starts
-- [ ] Record Mercado Pago fees, settlement, cancellation, refund, chargeback, and prohibited-business constraints as of the decision date
-- [ ] If Mercado Pago rejects or cannot confirm the business, run the same preflight for Asaas and select it through the same provider-neutral contract
+- [ ] Verify Stripe account eligibility; develop in test mode before production approval
+- [ ] Record Stripe fees, settlement, cancellation, refund, chargeback, and prohibited-business constraints as of the decision date
+- [ ] Compare Checkout/Billing with Managed Payments for the Brazilian establishment; record external blockers without changing provider
 - [ ] Store evidence links, support protocol numbers, decision date, and explicit `GO|NO_GO`; sandbox access alone is not approval
 - [ ] Keep price and launch date out of this ADR; both are later configuration
 
-**Acceptance**: Written provider classification plus verified CPF production eligibility yields a documented `GO`; otherwise the ADR records `NO_GO` and the approved fallback before payment code is enabled
+**Acceptance**: Written provider classification plus verified CPF production eligibility yields a documented `GO`; otherwise the ADR records `NO_GO` and external blockers before production payment code is enabled
 
 ---
 
@@ -60,8 +60,8 @@
 
 **Tasks**:
 - [ ] Model internal access independently of the provider: `TRIALING`, `ACTIVE`, `PAST_DUE`, `CANCELED`, `EXPIRED`
-- [ ] Give every user one lifetime seven-day trial without requiring a card
-- [ ] New users start at account creation; existing users receive seven full days from the billing rollout timestamp
+- [ ] Give every user one lifetime seven-day trial requiring a confirmed card
+- [ ] New and existing users receive seven full days from Stripe card confirmation; signup/rollout only reserves their durable identity
 - [ ] Persist trial bounds, current period, provider/customer/subscription references, and last reconciliation time
 - [ ] Use one domain function to return `FULL_WRITE` or `READ_ONLY` from trusted server time
 - [ ] Prevent login recreation, provider-customer recreation, or resubscription from granting a second trial
@@ -71,10 +71,10 @@
 - [ ] Configure amount, currency, frequency, effective dates, and provider plan reference outside source code
 - [ ] Allow the catalog to remain unpublished while price is undecided; unpublished catalog cannot create checkout
 - [ ] Version price changes so existing subscriptions retain agreed terms unless explicitly migrated
-- [ ] Validate positive integer centavos, `BRL`, supported cadence, and exactly one active public price
+- [ ] Validate positive integer minor units, account-supported currencies/cadence, and one active public price per currency/cadence
 - [ ] Expose a provider-neutral read model for a future client without implementing frontend here
 
-**Acceptance**: Clock-controlled tests prove exactly seven cardless days per user, deterministic transition to `READ_ONLY`, no repeat trial, and no dependency on provider-specific values; price can be set or changed without a deploy, no guessed tier exists in code, and checkout stays unavailable until a catalog entry is published
+**Acceptance**: Clock-controlled tests prove exactly seven card-confirmed days per user, deterministic transition to `READ_ONLY`, no repeat trial, and no dependency on provider-specific values; price can be set or changed without a deploy, no guessed tier exists in code, and checkout stays unavailable until a catalog entry is published
 
 ---
 
@@ -90,17 +90,17 @@
 - `tests/integration/test_approved_provider_billing.py`
 
 **Tasks**:
-- [ ] Implement only the provider for which Issue 1 records a production `GO`: Mercado Pago first, or Asaas if Mercado Pago is `NO_GO`
+- [ ] Implement Stripe in test mode; production requires the separate GO from Issue 1
 - [ ] Define a provider interface for customer, subscription, status, cancellation, and hosted payment URL
-- [ ] Map each internal subscription to one provider customer/payer and subscription reference with idempotency keys; use `/preapproval` only when Mercado Pago is the approved provider
+- [ ] Map each internal subscription to one provider customer/payer and subscription reference with idempotency keys; use Stripe Checkout and Billing
 - [ ] `GET /api/v1/billing/status` returns trial/access/subscription state and catalog data
 - [ ] `POST /api/v1/billing/subscribe` returns a hosted provider URL; card data never crosses this API
-- [ ] Guarantee that no charge is taken before the seven free days end; if the approved provider cannot schedule that safely, delay provider checkout/activation rather than shorten or condition the trial
+- [ ] Guarantee that no charge is taken before the seven free days after card confirmation end; if the approved provider cannot schedule that safely, delay provider checkout/activation rather than shorten or condition the trial
 - [ ] Read amount/frequency only from the active catalog
 - [ ] Redact credentials, payer data, and hosted URL secrets from logs
 - [ ] Keep the non-selected provider replaceable without changing domain models or public endpoint contracts
 
-**Acceptance**: For the provider approved in Issue 1, contract tests create exactly one subscription per idempotency key, use configured pricing, expose no card/secrets, and prove the first possible charge occurs only after seven complete cardless days
+**Acceptance**: For the provider approved in Issue 1, contract tests create exactly one subscription per idempotency key, use configured pricing, expose no card/secrets, and prove the first possible charge occurs only after seven complete days after card confirmation
 
 ---
 
