@@ -127,7 +127,8 @@ async def _seed(engine: AsyncEngine, usuario_id: int) -> tuple[str, int, datetim
                 "'origem', 'manual', 'stake_unidades', 1, 'valor_unidade_centavos', 10000, "
                 f"'odd', 2.0, 'data_aposta', {data}, "
                 f"'conta_casa_id', {_choice('conta')}, "
-                "'tipster_id', :tipster, 'mercado_id', :mercado, "
+                "'tipster_id', CAST(:tipster AS bigint), "
+                "'mercado_id', CAST(:mercado AS bigint), "
                 f"'selecionada', {selected}, 'revisao_grave', {severe}), {key} "
                 f"FROM generate_series(1, {TOTAL_BETS}) AS g"
             ),
