@@ -1,5 +1,8 @@
 # Continuous delivery setup and operation
 
+This ECS/RDS canary workflow is reserved for Phase 2+. Keep `CD_ENABLED` unset during
+the administrator-approved [Lightsail Phase 1](lightsail-phase1.md).
+
 The workflow is `.github/workflows/cd.yml`. AWS resources must be applied and bootstrapped
 before setting repository variable `CD_ENABLED=true`. The workflow uses GitHub OIDC, not static
 AWS keys. Its trust policy must limit the repository, branch and `staging` / `production`

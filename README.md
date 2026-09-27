@@ -289,13 +289,13 @@ bancaemdia-api/
 | Area | Decision | Rationale |
 |------|----------|-----------|
 | **Framework** | FastAPI + SQLAlchemy 2.x async | Type-safe, auto-OpenAPI, native async |
-| **Database** | PostgreSQL 16 (RDS) + RLS | ACID, native multi-tenant, managed |
+| **Database** | PostgreSQL 16 + RLS (local/Lightsail; RDS later) | ACID and tenant isolation |
 | **Partitioning** | Native range (monthly) + `pg_partman` | Zero extra cost, partition pruning |
 | **Async** | Celery + Redis Streams | Mature, dual-pool, Flower monitoring |
 | **Cache** | Redis (extraction) | 80%+ hit rate = 100x IA cost reduction |
 | **Observability** | OpenTelemetry + Prometheus + Grafana | Vendor-neutral, auto-instrumentation |
 | **Auth** | JWT RS256 + JWKS | Stateless, industry standard |
-| **Deploy** | ECS Fargate (spot workers) + ALB | Serverless, auto-scale, cost-effective |
+| **Deploy** | Lightsail 4 GiB + Compose + Caddy (ECS/RDS later) | Approved Phase 1 cost path |
 | **Config** | Pydantic Settings (env only) | Zero hardcoded, startup validation |
 | **Testing** | Pytest + Testcontainers | Real DB in CI, parallel (`-n 8`) |
 

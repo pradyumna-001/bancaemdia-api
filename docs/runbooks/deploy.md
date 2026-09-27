@@ -1,5 +1,8 @@
 # Deploy a release
 
+This ECS/RDS procedure is for Phase 2+. Use [the Lightsail Phase 1 runbook](lightsail-phase1.md)
+for the administrator-approved launch architecture.
+
 **Owner:** release operator with the on-call engineer present. **Gate:** this procedure becomes
 executable after the CD workflow and AWS environments described in [the index](../RUNBOOKS.md)
 are configured and rehearsed. The workflow is documented in [cd.md](cd.md).

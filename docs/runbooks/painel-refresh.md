@@ -37,6 +37,8 @@ python -m bancaemdia.cli.configure_painel_cron
 
 For a local database without `pg_cron`, schedule
 `python -m bancaemdia.cli.refresh_painel` every 15 seconds using an external scheduler.
+The approved Lightsail Phase 1 Compose runs this command in its dedicated `painel_refresh`
+service; do not configure `pg_cron` at the same time.
 
 Do not run it with the read-only HTTP role or against the replica. The command needs ownership of
 the materialized views. It takes advisory lock `20260930`, opens one repeatable-read transaction,
@@ -67,6 +69,12 @@ data grows. Measure duration, WAL volume, replica lag, and HTTP P95 with represe
 if the budget fails, switch to incremental aggregation before claiming that target is met.
 
 ## Checks
+
+The current `mv_painel_resumo` derives a known balance from the first recorded cash movement.
+If imported or missed-capture bets predate that movement, those earlier stakes/returns are
+excluded even though the account can appear under `contas_saldo_conhecido`. Before relying on a
+known-balance total, inspect affected accounts against the event ledger and first movement date;
+flag or reconcile them manually. Do not treat that classification as proof of complete history.
 
 As the maintenance owner on the primary:
 
