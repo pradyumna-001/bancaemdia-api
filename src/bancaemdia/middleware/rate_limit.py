@@ -345,6 +345,7 @@ class RateLimitMiddleware(BaseHTTPMiddleware):
         policy = policy_for(request)
         if policy is None or policy is AUTH_POLICY:
             return await call_next(request)
+        policies: tuple[RateLimitPolicy, ...]
         if policy is COLETA_POLICY:
             policies = (COLETA_IP_POLICY, policy)
         elif policy is PANEL_EXPORT_POLICY:
