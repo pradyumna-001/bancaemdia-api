@@ -45,8 +45,10 @@ jobs:
 
   staging:
     if: >-
-      github.event_name != 'pull_request' ||
-      (github.event.pull_request.head.repo.full_name == github.repository && vars.STAGING_BASE_URL != '')
+      github.event_name == 'workflow_dispatch' ||
+      (vars.STAGING_BASE_URL != '' &&
+       (github.event_name != 'pull_request' ||
+        github.event.pull_request.head.repo.full_name == github.repository))
     needs: validate
     runs-on: ubuntu-latest
     timeout-minutes: 90

@@ -40,10 +40,13 @@ from bancaemdia.api.v1 import coleta
 from bancaemdia.auth import jwt as auth_jwt
 from bancaemdia.auth import middleware as auth_middleware
 from bancaemdia.cache.extracao_cache import ExtracaoCache
+from bancaemdia.cli.refresh_painel import refresh_painel
+from bancaemdia.cli.replay import reconstruir_usuario
 from bancaemdia.config import get_settings
 from bancaemdia.db.seed import seed_canonical
 from bancaemdia.db.session import get_db
 from bancaemdia.domain.materializar import casa_canonica
+from bancaemdia.domain.painel import FiltrosPainel
 from bancaemdia.extracao.cliente import LeitorDeBilhetes, calcular_custo
 from bancaemdia.extracao.precos import USD_POR_BILHETE_REFERENCIA
 from bancaemdia.rate_limit.anthropic_limiter import AnthropicLimiter
@@ -52,6 +55,7 @@ from bancaemdia.repositories.casa_repo import CasaRepo
 from bancaemdia.repositories.coleta_casa_repo import ColetaCasaRepo
 from bancaemdia.repositories.coleta_token_repo import ColetaTokenRepo
 from bancaemdia.repositories.evento_repo import EventoRepo
+from bancaemdia.repositories.painel_repo import PainelRepo
 from bancaemdia.repositories.revisao_pendente_repo import RevisaoPendenteRepo
 from bancaemdia.resilience.circuit_breaker import new_anthropic_breaker
 from bancaemdia.workers import celery_app, extraction, materialization
@@ -644,6 +648,15 @@ async def test_a_telegram_export_uploaded_to_the_api_is_read_and_reported_comple
         )
     )
 
+    # The same committed Telegram data must agree with the read model and dry-run replay.
+    engine_admin = create_async_engine(banco.url_admin)
+    try:
+        await refresh_painel(engine_admin)
+    finally:
+        await engine_admin.dispose()
+    async with como(engine_app, usuario) as session:
+        painel = await PainelRepo().consultar(session, usuario, FiltrosPainel.criar("all"))
+    replay = await reconstruir_usuario(usuario, engine=engine_app, dry_run=True)
+    assert painel.resumo.total_apostas == replay.apostas == 10
+    assert replay.alteradas == replay.recriadas == replay.movimentos_restaurados == 0
 
-def test_painel_totals_match_the_conferir_numeros_logic() -> None:
-    pytest.skip("GET /painel arrives with issue #30; conferir_numeros.py has not been ported")
