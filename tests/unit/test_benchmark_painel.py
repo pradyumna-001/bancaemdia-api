@@ -28,7 +28,9 @@ async def test_benchmark_checks_latency_freshness_and_dataset(
         )
 
     def cliente(*, timeout: int, headers: dict[str, str]) -> httpx.AsyncClient:
-        return client_type(transport=httpx.MockTransport(responder), timeout=timeout, headers=headers)
+        return client_type(
+            transport=httpx.MockTransport(responder), timeout=timeout, headers=headers
+        )
 
     monkeypatch.setattr(benchmark_painel.httpx, "AsyncClient", cliente)
     resultado = await benchmark_painel.medir()
