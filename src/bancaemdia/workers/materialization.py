@@ -171,6 +171,9 @@ async def _set_current_user(session: AsyncSession, usuario_id: int) -> None:
     await session.execute(
         text("SELECT set_config('app.current_user_id', :uid, true)"), {"uid": str(usuario_id)}
     )
+    from bancaemdia.domain.access import require_write_access
+
+    await require_write_access(session, usuario_id)
 
 
 async def _historico(

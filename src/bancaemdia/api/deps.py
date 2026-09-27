@@ -2,7 +2,7 @@ from fastapi import Depends, HTTPException, Request, Security, status
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from bancaemdia.db.session import get_db, get_db_snapshot
+from bancaemdia.db.session import get_db, get_db_primary_snapshot, get_db_snapshot
 from bancaemdia.domain.registros import Usuario
 from bancaemdia.repositories.usuario_repo import UsuarioRepo
 
@@ -19,6 +19,12 @@ async def _current_user(request: Request, session: AsyncSession) -> Usuario:
             detail="Invalid token",
             headers={"WWW-Authenticate": 'Bearer error="invalid_token"'},
         )
+    if request.method not in {"GET", "HEAD", "OPTIONS"} and not request.url.path.startswith(
+        "/api/v1/billing/"
+    ):
+        from bancaemdia.domain.access import require_write_access
+
+        await require_write_access(session, usuario.id)
     return usuario
 
 
@@ -36,4 +42,12 @@ async def get_current_user_snapshot(
     session: AsyncSession = Depends(get_db_snapshot),
 ) -> Usuario:
     # A autenticação abre a primeira consulta do snapshot; a rota reutiliza esta mesma dependência.
+    return await _current_user(request, session)
+
+
+async def get_current_user_primary_snapshot(
+    request: Request,
+    _: HTTPAuthorizationCredentials | None = Security(security),
+    session: AsyncSession = Depends(get_db_primary_snapshot),
+) -> Usuario:
     return await _current_user(request, session)

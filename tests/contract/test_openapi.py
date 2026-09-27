@@ -112,6 +112,16 @@ def _collection_backend() -> Iterator[CollectionContractBackend]:
         monkeypatch.setattr(coleta, "_enfileirar", enqueue)
         monkeypatch.setattr(coleta.limiter, "enabled", False)
         monkeypatch.setattr(rate_limit_middleware.coleta_ip_limiter, "enabled", False)
+        from unittest.mock import AsyncMock
+
+        from bancaemdia.domain.billing import AccessMode, BillingReadModel
+
+        monkeypatch.setattr(
+            "bancaemdia.repositories.assinatura_repo.AssinaturaRepo.read_status",
+            AsyncMock(
+                return_value=BillingReadModel(None, AccessMode.FULL_WRITE, None, None, None, None)
+            ),
+        )
         app.dependency_overrides[get_db] = session_provider
         yield backend
     finally:
@@ -199,7 +209,7 @@ def test_openapi_endpoint_matches_checked_in_snapshot(openapi_document: JsonObje
 @pytest.mark.contract
 def test_every_operation_has_human_documentation(openapi_document: JsonObject) -> None:
     operations = list(_operations(openapi_document))
-    assert len(operations) == 28
+    assert len(operations) == 35
     for method, path, operation in operations:
         location = f"{method.upper()} {path}"
         assert str(operation.get("summary", "")).strip(), location
@@ -224,7 +234,7 @@ def test_request_bodies_have_examples(openapi_document: JsonObject) -> None:
             assert media.get("example") is not None or media.get("examples"), (
                 f"{method.upper()} {path}: {media_type} lacks an example"
             )
-    assert bodies == 10
+    assert bodies == 11
 
 
 @pytest.mark.contract
@@ -556,7 +566,7 @@ negative_config.projects.default.generation.update(
 negative_schema = (
     schemathesis.openapi
     .from_asgi("/openapi.json", contract_app, config=negative_config)
-    .include(path_regex=r"^/api/v1/(?!coleta$)")
+    .include(path_regex=r"^/api/v1/(?!coleta$|billing/webhook$)")
     .exclude(
         # `chave` is an intentionally opaque, unconstrained string. There is no serializable
         # negative string value for that path parameter, so Schemathesis correctly has no strategy.
