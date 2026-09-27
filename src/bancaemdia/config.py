@@ -2,7 +2,7 @@ import re
 from functools import lru_cache
 from ipaddress import ip_network
 
-from pydantic import Field, field_validator
+from pydantic import Field, SecretStr, field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 _RATE_LIMIT_PATTERN = re.compile(
@@ -17,6 +17,13 @@ class Settings(BaseSettings):
         env_file_encoding="utf-8",
         extra="ignore",
     )
+
+    STRIPE_SECRET_KEY: SecretStr | None = None
+    STRIPE_WEBHOOK_SECRET: SecretStr | None = None
+    BILLING_ENABLED: bool = False
+    BILLING_CURRENCIES: str = "BRL"
+    BILLING_RETURN_URL: str = "http://localhost:5173/assinatura"
+    STRIPE_PORTAL_CONFIGURATION: str | None = None
 
     DATABASE_URL: str = Field(..., description="Async DSN, e.g. postgresql+asyncpg://")
     DATABASE_URL_REPLICA: str = Field(

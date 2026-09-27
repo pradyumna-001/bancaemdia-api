@@ -55,3 +55,7 @@ __all__ = [
     "UploadBilhete",
     "Usuario",
 ]
+
+from bancaemdia.models.billing_checkout import BillingCheckout
+
+__all__ += ["BillingCheckout"]
