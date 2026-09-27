@@ -7,6 +7,7 @@ from typing import Any, cast
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from bancaemdia.domain.access import require_write_access
 from bancaemdia.domain.account_attribution import ResolutionStatus
 from bancaemdia.domain.account_attribution_service import (
     InvalidAccountReferenceError,
@@ -167,6 +168,7 @@ async def open_draft(
     existing = await REPO.active(session, user_id, chat_id, lock=True)
     if existing is not None:
         return existing, False
+    await require_write_access(session, user_id)
     fields = _normalized_fields(extracted or {})
     meta = {
         key: {"source": "extraction", "confidence": _confidence(confidence, key)} for key in fields
@@ -209,6 +211,7 @@ async def apply_extraction(
     media_hash: str | None = None,
 ) -> RascunhoAposta:
     """Future photo reader fills fields without replacing user corrections."""
+    await require_write_access(session, draft.usuario_id)
     fields = dict(draft.fields_json)
     meta = dict(draft.field_meta_json)
     changes: dict[str, Any] = {}
@@ -303,6 +306,7 @@ async def handle_text(
     if command == "/cancelar":
         await REPO.close(session, draft, "CANCELLED")
         return DraftReply("Rascunho cancelado. Você pode enviar outra foto.", draft)
+    await require_write_access(session, user_id)
     if draft.coupon_candidates_json:
         if command.startswith("cupom="):
             try:

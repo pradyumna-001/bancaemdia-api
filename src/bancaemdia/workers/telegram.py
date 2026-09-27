@@ -8,8 +8,10 @@ from uuid import uuid4
 import structlog
 from sqlalchemy import func, or_, select, text
 from sqlalchemy.dialects.postgresql import insert
+from sqlalchemy.exc import DBAPIError
 from sqlalchemy.ext.asyncio import AsyncEngine, AsyncSession
 
+from bancaemdia.domain.access import AccountReadOnlyError, require_write_access
 from bancaemdia.integrations.telegram.client import TelegramApiError, TelegramClient
 from bancaemdia.integrations.telegram.codec import (
     InvalidTelegramUpdateError,
@@ -30,6 +32,12 @@ from bancaemdia.services.telegram_link import REPO, IncomingCommand, redeem_comm
 from bancaemdia.services.telegram_photo_intake import SUPPORTED_FLOW, intake_photo
 from bancaemdia.workers.celery_app import app
 from bancaemdia.workers.materialization import get_engine
+
+BILLING_DENIAL = (
+    "Sua conta está em modo de leitura. A foto ou alteração não foi registrada. "
+    "Seus dados continuam disponíveis para consulta e exportação no aplicativo. "
+    "Gerencie sua assinatura para voltar a registrar apostas."
+)
 
 MAX_ATTEMPTS = 8
 LEASE_SECONDS = 60
@@ -104,6 +112,9 @@ async def _handle_inbox(session: AsyncSession, item: TelegramInbox) -> None:
         owner = await resolve_sender(session, sender, chat)
         if owner is None:
             return
+        command = message_text.strip().lower() if isinstance(message_text, str) else ""
+        if command not in {"/continuar", "/cancelar"}:
+            await require_write_access(session, owner)
         photos = payload.get("photo")
         if (photos or payload.get("media_group_id")) and item.message_id is not None:
             photo_reply = await intake_photo(
@@ -174,7 +185,28 @@ async def process_inbox_once(engine: AsyncEngine) -> bool:
                 if item is None:
                     return False
                 item_id = item.id
-                await _handle_inbox(session, item)
+                try:
+                    async with session.begin_nested():
+                        await _handle_inbox(session, item)
+                except (AccountReadOnlyError, DBAPIError) as exc:
+                    if (
+                        isinstance(exc, DBAPIError)
+                        and getattr(exc.orig, "sqlstate", None) != "P0402"
+                    ):
+                        raise
+                    # Only the business savepoint rolls back. Acknowledge transport
+                    # and persist one explanatory reply, never retry a denied write.
+                    if item.sender_user_id is None or item.chat_id is None:
+                        raise
+                    owner = await resolve_sender(session, item.sender_user_id, item.chat_id)
+                    if owner is not None and item.chat_id is not None:
+                        await queue_reply(
+                            session,
+                            user_id=owner,
+                            chat_id=item.chat_id,
+                            key=f"telegram-billing:{item.update_id}:denied",
+                            message=BILLING_DENIAL,
+                        )
                 item.status = "DONE"
                 item.processed_at = _now()
                 item.payload_ciphertext = None

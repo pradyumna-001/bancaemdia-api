@@ -1,3 +1,4 @@
+import asyncio
 import base64
 import threading
 from datetime import datetime
@@ -103,6 +104,9 @@ def extrair_bilhete(
 ) -> dict[str, object]:
     if versao_prompt != VERSAO_PROMPT:
         raise ValueError(f"prompt {versao_prompt!r} não está publicado neste worker")
+    from bancaemdia.domain.access import require_worker_write_access
+
+    asyncio.run(require_worker_write_access(usuario_id))
     with observe_stage(EXTRACTION_QUEUE):
         leitura = ler_mensagem(
             LeitorLimitado(

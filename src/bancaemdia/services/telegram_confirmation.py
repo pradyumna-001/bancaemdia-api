@@ -6,6 +6,7 @@ from typing import cast
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from bancaemdia.domain.access import require_write_access
 from bancaemdia.domain.rascunho_aposta import DraftInputError
 from bancaemdia.models.rascunho_aposta import ACTIVE_DRAFT_STATUSES, RascunhoAposta
 from bancaemdia.observability.tracing import custom_span, set_custom_span_attributes
@@ -97,6 +98,7 @@ async def confirm_draft(
         saved = await read_saved_bet(session, user_id=user_id, draft_id=draft.id)
         if saved is not None:
             if draft.status in ACTIVE_DRAFT_STATUSES:
+                await require_write_access(session, user_id)
                 await REPO.close(session, draft, "CONFIRMED")
             reply = await _queue_success(session, draft, saved)
             set_custom_span_attributes(
@@ -107,6 +109,7 @@ async def confirm_draft(
                 outbox_key=f"telegram-confirmation:{draft.id}:success",
             )
             return reply
+        await require_write_access(session, user_id)
         if draft.status == "CONFIRMED":
             raise RuntimeError("confirmed draft has no bet")
         if draft.coupon_candidates_json:
