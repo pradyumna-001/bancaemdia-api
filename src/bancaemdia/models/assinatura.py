@@ -23,7 +23,7 @@ class Assinatura(Base):
             name="ck_assinatura_status",
         ),
         CheckConstraint(
-            "trial_ends_at = trial_started_at + interval '7 days'",
+            "trial_ends_at = trial_started_at + interval '168 hours'",
             name="ck_assinatura_trial_length",
         ),
         CheckConstraint(

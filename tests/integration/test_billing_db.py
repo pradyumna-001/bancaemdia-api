@@ -16,6 +16,37 @@ def _uid() -> int:
     return uuid4().int % (2**60)
 
 
+async def test_card_trial_is_168_hours_across_daylight_saving(engine_admin: AsyncEngine) -> None:
+    uid = _uid()
+    async with engine_admin.connect() as conn:
+        transaction = await conn.begin()
+        try:
+            await _tenant(conn, uid)
+            await conn.execute(text("SET LOCAL TIME ZONE 'America/New_York'"))
+            await conn.execute(
+                text("INSERT INTO usuarios(id,email,nome) VALUES (:id,:email,'DST fixture')"),
+                {"id": uid, "email": f"{uid}@test.invalid"},
+            )
+            await conn.execute(text("SELECT billing_activate_rollout()"))
+            await conn.execute(
+                text(
+                    "UPDATE assinaturas SET trial_confirmed=true, trial_started_at='2026-03-07 12:00:00+00', trial_ends_at='2026-03-14 12:00:00+00' WHERE usuario_id=:id"
+                ),
+                {"id": uid},
+            )
+            assert (
+                await conn.scalar(
+                    text(
+                        "SELECT extract(epoch FROM trial_ends_at-trial_started_at) FROM assinaturas WHERE usuario_id=:id"
+                    ),
+                    {"id": uid},
+                )
+                == 604800
+            )
+        finally:
+            await transaction.rollback()
+
+
 async def _tenant(conn, usuario_id: int) -> None:
     await conn.execute(
         text("SELECT set_config('app.current_user_id', :uid, true)"),
