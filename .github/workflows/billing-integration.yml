@@ -29,7 +29,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with:
-          ref: 4bf08f9e98dc45d46ced4303831646a5d43e3361
+          ref: ffd9984f8665daecedd45fdbe047484240842259
           persist-credentials: false
       - uses: actions/setup-python@v5
         with:
@@ -47,5 +47,5 @@ jobs:
       - uses: actions/upload-artifact@v4
         if: always()
         with:
-          name: billing-integration-4bf08f9
+          name: billing-integration-ffd9984
           path: billing-integration.xml
