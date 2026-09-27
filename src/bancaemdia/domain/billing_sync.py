@@ -102,8 +102,20 @@ async def reconcile(session: AsyncSession, uid: int, provider: BillingProvider) 
             not isinstance(method, dict)
             or method.get("type") != "card"
             or method.get("customer") != row.provider_customer_ref
+            or "pending_setup_intent" not in remote
+            or remote["pending_setup_intent"] is not None
         ):
             raise BillingUnavailableError("billing_card_confirmation_pending")
+        if not operation or not operation.trial or not operation.session_ref:
+            raise BillingUnavailableError("billing_checkout_confirmation_pending")
+        checkout = await provider.checkout_status(operation.session_ref)
+        if (
+            checkout.get("livemode") is not False
+            or checkout.get("status") != "complete"
+            or checkout.get("customer") != row.provider_customer_ref
+            or checkout.get("subscription") != remote["id"]
+        ):
+            raise BillingUnavailableError("billing_checkout_confirmation_pending")
         start, end = remote.get("trial_start"), remote.get("trial_end")
         if not isinstance(start, int) or not isinstance(end, int) or end - start != 7 * 86400:
             raise BillingUnavailableError("billing_invalid_trial")
