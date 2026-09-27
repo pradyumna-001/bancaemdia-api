@@ -48,12 +48,31 @@ def upgrade() -> None:
     op.execute(
         "CREATE POLICY billing_reconcile_owner ON assinaturas FOR SELECT USING (current_user = (SELECT rolname FROM pg_roles WHERE oid=(SELECT relowner FROM pg_class WHERE oid='public.assinaturas'::regclass)))"
     )
+    op.execute("""
+        CREATE FUNCTION billing_reconciliation_health()
+        RETURNS TABLE(pending bigint, dead bigint, pending_age double precision,
+                      scan_age double precision, measured_at double precision)
+        LANGUAGE sql SECURITY DEFINER SET search_path = pg_catalog, public AS $billing$
+            SELECT
+                count(*) FILTER (WHERE e.state='pending'),
+                count(*) FILTER (WHERE e.state='dead'),
+                COALESCE(EXTRACT(EPOCH FROM clock_timestamp() -
+                    min(e.received_at) FILTER (WHERE e.state='pending')), 0)::double precision,
+                COALESCE((SELECT EXTRACT(EPOCH FROM clock_timestamp() -
+                    min(COALESCE(a.last_reconciled_at, a.trial_started_at)))
+                    FROM public.assinaturas a JOIN public.usuarios u ON u.id=a.usuario_id
+                    WHERE u.ativo AND a.provider_customer_ref IS NOT NULL), 0)::double precision,
+                EXTRACT(EPOCH FROM clock_timestamp())::double precision
+            FROM public.billing_events e
+        $billing$
+    """)
 
 
 def downgrade() -> None:
     op.execute(
         "DO $$ BEGIN IF EXISTS (SELECT 1 FROM assinaturas WHERE trial_confirmed OR provider_customer_ref IS NOT NULL) THEN RAISE EXCEPTION 'billing rollback requires data-preserving migration'; END IF; END $$"
     )
+    op.execute("DROP FUNCTION billing_reconciliation_health()")
     op.execute("DROP FUNCTION billing_accounts_to_reconcile()")
     op.execute("DROP POLICY billing_reconcile_owner ON assinaturas")
     op.drop_table("billing_events")

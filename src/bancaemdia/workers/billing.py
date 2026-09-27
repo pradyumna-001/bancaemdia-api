@@ -13,6 +13,7 @@ from bancaemdia.domain.billing_sync import reconcile
 from bancaemdia.integrations.billing.stripe import BillingUnavailableError, StripeBilling
 from bancaemdia.models.assinatura import Assinatura
 from bancaemdia.models.billing_event import BillingEvent
+from bancaemdia.observability import billing as metrics
 from bancaemdia.workers.celery_app import app
 
 MAX_ATTEMPTS = 8
@@ -97,6 +98,16 @@ async def reconcile_batch(engine: AsyncEngine, provider: StripeBilling) -> dict[
             .values(state="dead", last_error="unresolved_delivery")
         )
         await session.commit()
+        health = (
+            await session.execute(text("SELECT * FROM billing_reconciliation_health()"))
+        ).one()
+        metrics.inbox.labels(state="pending").set(health.pending)
+        metrics.inbox.labels(state="dead").set(health.dead)
+        metrics.oldest_pending.set(max(0, health.pending_age))
+        metrics.oldest_scan.set(max(0, health.scan_age))
+        metrics.heartbeat.set(health.measured_at)
+        for outcome in ("reconciled", "failed"):
+            metrics.reconciliations.labels(outcome=outcome).inc(counts[outcome])
     return counts
 
 
