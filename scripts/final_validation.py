@@ -343,6 +343,7 @@ def main() -> int:
     checks = evaluate(manifest, args.evidence.resolve().parent)
     output = render(checks)
     if args.report:
+        args.report.parent.mkdir(parents=True, exist_ok=True)
         args.report.write_text(output, encoding="utf-8")
     else:
         reconfigure = getattr(sys.stdout, "reconfigure", None)
