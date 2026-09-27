@@ -19,6 +19,8 @@ Fontes: https://stripe.com/br/global
 https://docs.stripe.com/payments/managed-payments/eligibility
 https://docs.stripe.com/payments/managed-payments
 
+Verificação real do sandbox brasileiro em 2026-09-27: a API `GET /v1/tax/settings` recusou o acesso porque Stripe Tax não suporta o país da conta. Portanto não é possível pressupor `automatic_tax=true` nesta arquitetura. O adapter exclusivamente de teste permite validar o ciclo com `STRIPE_TEST_AUTOMATIC_TAX=false`; isso não resolve tributos nem autoriza vendas globais em produção. Antes do GO, o titular precisa definir com assessoria fiscal uma solução de cálculo/recolhimento compatível com o estabelecimento brasileiro e os mercados atendidos. Não houve troca de provedor, ativação de produção ou declaração fiscal fictícia. Fonte pública: https://docs.stripe.com/tax/supported-countries
+
 ## Tarifas e operação
 Tabela pública BR consultada nesta data: cartões nacionais 3,99% + R$0,39; adicional de 2% para cartões internacionais; Billing 0,7% do volume; Checkout incluso em Payments. Tarifas de conversão, disputas, reembolso e condições/prazos de repasse devem ser confirmados na conta antes do GO, sem assumir restituição das tarifas originais. Valores são tarifas do provedor, nunca preço do produto.
 Fontes: https://stripe.com/br/pricing
@@ -33,8 +35,10 @@ https://docs.stripe.com/api/country_specs
 
 Decisão posterior do titular nesta sessão: cartão obrigatório e 168 horas contadas a partir da confirmação pela Stripe. Checkout coleta cartão sempre; a primeira assinatura recebe trial_period_days=7. Cadastro/backfill cria apenas uma reserva, sem liberar escrita nem consumir trial. Confirmação remota fixa trial_start/trial_end uma única vez. Assinatura posterior não recebe novo trial; durante o trial original não se cria outro checkout, evitando cobrança antecipada. Eventos assinados no corpo bruto apenas acionam sincronização do estado remoto; redirect nunca libera acesso. Inbox durável, idempotência, reconciliação periódica, cancelamento no fim do período pago e portal hospedado. Escritas protegidas na API e banco, inclusive workers/CLI; leitura/exportação continuam disponíveis.
 
+O sandbox real foi exercitado em 2026-09-27: Checkout com cartão, trial de 604800 segundos, eventos assinados, renovação, falha/retry, reembolsos e cancelamento. A evidência não confirma elegibilidade, repasses ou operação produtiva.
+
 ## GO pendente
-Faltam: classificação escrita, conta/capacidades verificadas, sandbox real com evidência, preços comerciais e moedas aprovados, impostos/termos/política de reembolso, revisão/CI e autorização específica do titular para produção. Sandbox não conclui #89 nem autoriza cobrança real. Stripe permanece o provedor escolhido em caso de bloqueio.
+Faltam: classificação escrita, conta/capacidades verificadas, preços comerciais e moedas aprovados, impostos/termos/política de reembolso, revisão/CI e autorização específica do titular para produção. Sandbox não conclui #89 nem autoriza cobrança real. Stripe permanece o provedor escolhido em caso de bloqueio.
 
 ## Histórico preservado (substituído, sem implementação futura)
 O texto abaixo documenta a investigação anterior e não é uma instrução de implementação ou fallback.
