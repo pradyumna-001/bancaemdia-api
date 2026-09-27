@@ -189,9 +189,9 @@ class StripeBilling:
         return await self.request("GET", "checkout/sessions/" + ref)
 
     async def cancel(self, ref: str) -> None:
-        await self.request(
-            "POST", "subscriptions/" + ref, {"cancel_at_period_end": "true"}, key="cancel-" + ref
-        )
+        # Setting this boolean is idempotent. A permanent Stripe key would replay
+        # a stale response if a customer resumed and canceled again within 24h.
+        await self.request("POST", "subscriptions/" + ref, {"cancel_at_period_end": "true"})
 
     async def portal(self, customer: str) -> str:
         config = self.settings.STRIPE_PORTAL_CONFIGURATION

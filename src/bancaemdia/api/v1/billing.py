@@ -171,6 +171,15 @@ async def billing_cancel(user: User, session: Session) -> dict[str, str]:
             ]
         for reference in references:
             await provider.cancel(reference)
+        if (
+            operation
+            and operation.state == "pending"
+            and not operation.session_ref
+            and not references
+        ):
+            # A timed-out create may have left a hosted session at Stripe. Do not
+            # claim cancellation until it is identified and expired/reconciled.
+            raise BillingUnavailableError("billing_reconciliation_required")
         if operation and operation.session_ref and operation.state == "pending":
             checkout = await provider.request("GET", "checkout/sessions/" + operation.session_ref)
             if checkout.get("status") == "open":
