@@ -12,7 +12,7 @@ from bancaemdia.api.deps import get_current_user
 from bancaemdia.config import get_settings
 from bancaemdia.db.session import get_db_primary
 from bancaemdia.domain.billing_catalog import BillingFrequency
-from bancaemdia.domain.billing_service import locked_subscription, reconcile, subscribe
+from bancaemdia.domain.billing_checkout import locked_subscription, subscribe
 from bancaemdia.domain.registros import Usuario
 from bancaemdia.integrations.billing.stripe import BillingUnavailableError, StripeBilling
 from bancaemdia.models.assinatura import Assinatura
@@ -146,12 +146,10 @@ async def billing_portal(user: User, session: Session, response: Response) -> Ho
 async def billing_cancel(user: User, session: Session) -> dict[str, str]:
     try:
         provider = StripeBilling(get_settings())
-        await reconcile(session, user.id, provider)
         row = await locked_subscription(session, user.id)
         if row.provider_subscription_ref and row.status != "CANCELED":
             await provider.cancel(row.provider_subscription_ref)
-            await reconcile(session, user.id, provider)
-        await session.commit()
+            await session.commit()
         return {"status": "cancellation_scheduled"}
     except BillingUnavailableError as exc:
         raise HTTPException(409, str(exc)) from None

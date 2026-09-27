@@ -15,7 +15,7 @@ async def require_write_access(session: AsyncSession, usuario_id: int) -> None:
 
 
 async def require_worker_write_access(usuario_id: int) -> None:
-    from bancaemdia.domain.billing_service import tenant
+    from bancaemdia.domain.billing_checkout import tenant
     from bancaemdia.workers.materialization import get_engine
 
     async with AsyncSession(get_engine()) as session:

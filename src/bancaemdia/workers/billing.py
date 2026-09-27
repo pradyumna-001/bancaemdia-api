@@ -8,7 +8,8 @@ from sqlalchemy import func, select, text, update
 from sqlalchemy.ext.asyncio import AsyncEngine, AsyncSession
 
 from bancaemdia.config import get_settings
-from bancaemdia.domain.billing_service import reconcile, tenant
+from bancaemdia.domain.billing_checkout import tenant
+from bancaemdia.domain.billing_sync import reconcile
 from bancaemdia.integrations.billing.stripe import BillingUnavailableError, StripeBilling
 from bancaemdia.models.assinatura import Assinatura
 from bancaemdia.models.billing_event import BillingEvent

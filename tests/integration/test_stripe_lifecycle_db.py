@@ -218,7 +218,8 @@ async def test_expired_account_db_guard_export_and_rls(engine_admin):
                     ),
                 )
                 assert len(data["assinaturas"]) == 1
-                assert "provider_customer_ref" not in str(data)
+                assert provider.customer_ref not in str(data)
+                assert "provider_customer_ref" not in data["assinaturas"][0]
                 await tenant(session, uid + 1)
                 assert (await session.scalars(select(Assinatura))).all() == []
         finally:
