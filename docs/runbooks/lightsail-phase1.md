@@ -39,6 +39,14 @@ Monitor `uploads` in `processing` for jobs older than the expected worker window
 Celery task and `upload_arquivos` row, and alert before retained 50 MiB payloads exhaust disk.
 The dashboard known-balance exception is documented in [panel refresh](painel-refresh.md).
 
+Install the included `bancaemdia-upload-watchdog` systemd service/timer after copying the
+`deploy/lightsail/systemd/` units to `/etc/systemd/system/`. Run `systemctl daemon-reload`,
+enable the timer, and run the service once. Every five minutes it queries uploads still
+`processing` more than one hour after creation and records only a count and retained raw byte
+total in the journal. A nonzero exit means at least one is stuck. Route service failures to the
+operator's alert destination and test that route with a controlled overdue upload; a timer with
+no observed alert is not sufficient detection.
+
 ## Backups and recovery
 
 - On the host, schedule `python scripts/lightsail_backup.py --bucket PRIVATE_BUCKET --directory /opt/bancaemdia/deploy/lightsail` daily. It creates a PostgreSQL custom-format dump, validates its archive, uploads the dump and SHA-256 sidecar to the private bucket, checks remote size, and deletes the local copy only on success. Alert on a missed run; a failed upload leaves its local dump for inspection. Test AWS CLI access before enabling the schedule.

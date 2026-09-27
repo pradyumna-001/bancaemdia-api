@@ -5,7 +5,12 @@ from types import SimpleNamespace
 
 import pytest
 
-from scripts import lightsail_backup, lightsail_deploy, lightsail_restore_drill
+from scripts import (
+    lightsail_backup,
+    lightsail_deploy,
+    lightsail_restore_drill,
+    lightsail_upload_watchdog,
+)
 
 OLD = "ghcr.io/pradyumna-001/bancaemdia-api@sha256:" + "a" * 64
 NEW = "ghcr.io/pradyumna-001/bancaemdia-api@sha256:" + "b" * 64
@@ -65,3 +70,14 @@ def test_restore_drill_rejects_corrupt_backup_before_starting_postgres(
         )
 
     assert all(command[0] != "docker" for command in calls)
+
+
+def test_upload_watchdog_reports_overdue_count_without_identifiers(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setattr(
+        lightsail_upload_watchdog.subprocess,
+        "run",
+        lambda *args, **kwargs: SimpleNamespace(stdout="2|104857600\n"),
+    )
+    assert lightsail_upload_watchdog.inspect(tmp_path) == (2, 104857600)

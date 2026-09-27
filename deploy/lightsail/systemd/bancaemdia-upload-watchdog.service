@@ -1,0 +1,7 @@
+[Unit]
+Description=Check BancaEmDia uploads stuck in processing
+
+[Service]
+Type=oneshot
+WorkingDirectory=/opt/bancaemdia/deploy/lightsail
+ExecStart=/usr/bin/python3 /opt/bancaemdia/scripts/lightsail_upload_watchdog.py
