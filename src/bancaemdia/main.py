@@ -3,11 +3,12 @@ from collections.abc import AsyncGenerator
 from contextlib import asynccontextmanager, suppress
 from typing import Any
 
-from fastapi import FastAPI
+from fastapi import FastAPI, Request
 from fastapi.concurrency import run_in_threadpool
 from fastapi.responses import JSONResponse, Response
 from prometheus_client import CONTENT_TYPE_LATEST, generate_latest
 from sqlalchemy import text
+from sqlalchemy.exc import DBAPIError
 from starlette.middleware.body_limit import RequestBodyLimitMiddleware
 
 from bancaemdia.api.contracts import (
@@ -20,6 +21,7 @@ from bancaemdia.api.v1 import apostas, caixa, coleta, painel, revisao, upload
 from bancaemdia.auth.middleware import JWTAuthMiddleware
 from bancaemdia.config import get_settings
 from bancaemdia.db.session import LAG_CHECK_SECONDS, engine, replica_engine, replica_lag_seconds
+from bancaemdia.domain.access import AccountReadOnlyError
 from bancaemdia.middleware.rate_limit import AuthRateLimitMiddleware, RateLimitMiddleware
 from bancaemdia.middleware.rls import RLSMiddleware
 from bancaemdia.middleware.router import RouterMiddleware
@@ -171,3 +173,15 @@ async def metrics() -> Response:
     registry = metrics_registry(get_queue_depth_collector())
     body = await run_in_threadpool(generate_latest, registry)
     return Response(body, media_type=CONTENT_TYPE_LATEST)
+
+
+@app.exception_handler(AccountReadOnlyError)
+def account_read_only_error(request: Request, exc: AccountReadOnlyError) -> JSONResponse:
+    return JSONResponse(status_code=402, content={"detail": "account_read_only"})
+
+
+@app.exception_handler(DBAPIError)
+def billing_database_error(request: Request, exc: DBAPIError) -> JSONResponse:
+    if getattr(exc.orig, "sqlstate", None) == "P0402":
+        return JSONResponse(status_code=402, content={"detail": "account_read_only"})
+    raise exc
