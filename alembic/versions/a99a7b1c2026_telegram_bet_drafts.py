@@ -111,6 +111,14 @@ def upgrade() -> None:
         "FOR EACH STATEMENT EXECUTE FUNCTION audit_log_reject_change()"
     )
 
+    op.execute("""
+        DO $$ BEGIN
+            IF to_regprocedure('public.billing_install_write_guards()') IS NOT NULL THEN
+                PERFORM public.billing_install_write_guards();
+            END IF;
+        END $$
+    """)
+
 
 def downgrade() -> None:
     op.execute("DROP TRIGGER rascunho_correcoes_no_update ON rascunho_correcoes")

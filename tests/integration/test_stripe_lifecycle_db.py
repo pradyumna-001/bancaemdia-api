@@ -393,7 +393,17 @@ async def test_all_business_tables_have_database_write_guards(engine_admin):
         )
         # New holder/bot tables must fail this gate until their migration installs
         # the guard. Only billing control state and append-only audit are exempt.
-        expected |= tenant_tables - {"assinaturas", "billing_checkouts", "audit_log"}
+        expected |= tenant_tables - {
+            "assinaturas",
+            "billing_checkouts",
+            "audit_log",
+            # Transport acknowledgements, denial replies and identity revocation
+            # must remain writable while business content is read-only.
+            "telegram_links",
+            "telegram_link_codes",
+            "telegram_link_attempt_events",
+            "telegram_outbox",
+        }
         guarded = set(
             (
                 await conn.execute(

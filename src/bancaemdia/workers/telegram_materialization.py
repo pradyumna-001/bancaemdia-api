@@ -6,6 +6,7 @@ from uuid import UUID
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from bancaemdia.domain.access import require_write_access
 from bancaemdia.domain.materializar import NovaAposta
 from bancaemdia.domain.projecao import projetar
 from bancaemdia.domain.rascunho_aposta import occurrence
@@ -57,6 +58,7 @@ async def materialize_draft(
     existing = await read_saved_bet(session, user_id=draft.usuario_id, draft_id=draft.id)
     if existing is not None:
         return existing
+    await require_write_access(session, draft.usuario_id)
     instant = occurrence(fields)
     account_id = fields.get("conta_casa_id")
     house = fields.get("casa")

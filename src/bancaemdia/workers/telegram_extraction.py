@@ -10,8 +10,10 @@ from uuid import UUID, uuid4
 
 import structlog
 from sqlalchemy import func, or_, select, text
+from sqlalchemy.exc import DBAPIError
 from sqlalchemy.ext.asyncio import AsyncEngine, AsyncSession
 
+from bancaemdia.domain.access import AccountReadOnlyError, require_write_access
 from bancaemdia.extracao.cliente import VERSAO_PROMPT
 from bancaemdia.integrations.telegram.client import TelegramApiError, TelegramClient
 from bancaemdia.integrations.telegram.codec import InvalidTelegramUpdateError, decrypt_payload
@@ -22,8 +24,7 @@ from bancaemdia.repositories.mensagem_repo import MidiaArquivoRepo, MidiaRepo
 from bancaemdia.services.telegram_conversation import apply_extraction, draft_summary
 from bancaemdia.services.telegram_photo_intake import candidates_from_reading
 from bancaemdia.workers.extraction import RETRY_ON, extrair_bilhete
-from bancaemdia.workers.materialization import _set_current_user
-from bancaemdia.workers.telegram import queue_reply
+from bancaemdia.workers.telegram import BILLING_DENIAL, queue_reply
 
 MAX_ATTEMPTS = 5
 LEASE_SECONDS = 600
@@ -43,6 +44,28 @@ class PhotoClaim:
     reference: bytes | None
     attempts: int
     token: str
+
+
+async def _set_photo_owner(session: AsyncSession, user_id: int) -> None:
+    # Scope RLS before deciding access; denied jobs still need a control reply.
+    await session.execute(
+        text("SELECT set_config('app.current_user_id', :uid, true)"), {"uid": str(user_id)}
+    )
+
+
+async def _pause_for_billing(session: AsyncSession, draft: RascunhoAposta) -> None:
+    # Queue bookkeeping only: preserve the photo, fields and confirmation state.
+    draft.extraction_lease_token = None
+    draft.extraction_lease_until = None
+    draft.extraction_error_code = "account_read_only"
+    draft.extraction_next_attempt_at = _now() + timedelta(seconds=60)
+    await queue_reply(
+        session,
+        user_id=draft.usuario_id,
+        chat_id=draft.telegram_chat_id,
+        key=f"telegram-photo:{draft.id}:billing-denied",
+        message=BILLING_DENIAL,
+    )
 
 
 async def claim_photo(engine: AsyncEngine, *, draft_id: UUID | None = None) -> PhotoClaim | None:
@@ -73,7 +96,7 @@ async def claim_photo(engine: AsyncEngine, *, draft_id: UUID | None = None) -> P
             ).first()
             if due is None:
                 return None
-            await _set_current_user(session, due.usuario_id)
+            await _set_photo_owner(session, due.usuario_id)
             draft = await session.scalar(
                 select(RascunhoAposta)
                 .where(RascunhoAposta.id == due.id)
@@ -89,6 +112,11 @@ async def claim_photo(engine: AsyncEngine, *, draft_id: UUID | None = None) -> P
                     and draft.extraction_lease_until > _now()
                 )
             ):
+                return None
+            try:
+                await require_write_access(session, draft.usuario_id)
+            except AccountReadOnlyError:
+                await _pause_for_billing(session, draft)
                 return None
             token = uuid4().hex
             draft.extraction_attempts += 1
@@ -148,7 +176,7 @@ async def _complete(
 ) -> None:
     async with AsyncSession(engine, expire_on_commit=False) as session:
         async with session.begin():
-            await _set_current_user(session, claim.user_id)
+            await _set_photo_owner(session, claim.user_id)
             draft = await session.scalar(
                 select(RascunhoAposta)
                 .where(
@@ -161,6 +189,14 @@ async def _complete(
                 .with_for_update()
             )
             if draft is None:
+                return
+            if error_code == "account_read_only":
+                await _pause_for_billing(session, draft)
+                return
+            try:
+                await require_write_access(session, claim.user_id)
+            except AccountReadOnlyError:
+                await _pause_for_billing(session, draft)
                 return
             draft.extraction_lease_token = None
             draft.extraction_lease_until = None
@@ -215,9 +251,16 @@ async def process_photo_once(
         return False
     started = perf_counter()
     try:
+        async with AsyncSession(engine) as access_session:
+            await _set_photo_owner(access_session, claim.user_id)
+            await require_write_access(access_session, claim.user_id)
         with observe_stage("telegram_photo"):
             content, mime, reading = await read_photo(claim, client)
         await _complete(engine, claim, content=content, mime=mime, reading=reading)
+    except (AccountReadOnlyError, DBAPIError) as exc:
+        if isinstance(exc, DBAPIError) and getattr(exc.orig, "sqlstate", None) != "P0402":
+            raise
+        await _complete(engine, claim, error_code="account_read_only")
     except (TelegramApiError, InvalidTelegramUpdateError) as exc:
         reason = exc.reason if isinstance(exc, TelegramApiError) else "invalid_reference"
         retryable = isinstance(exc, TelegramApiError) and exc.retryable
