@@ -24,6 +24,7 @@ class Settings(BaseSettings):
     BILLING_CURRENCIES: str = "BRL"
     BILLING_RETURN_URL: str = "http://localhost:5173/assinatura"
     STRIPE_PORTAL_CONFIGURATION: str | None = None
+    STRIPE_TEST_AUTOMATIC_TAX: bool = False
 
     DATABASE_URL: str = Field(..., description="Async DSN, e.g. postgresql+asyncpg://")
     DATABASE_URL_REPLICA: str = Field(

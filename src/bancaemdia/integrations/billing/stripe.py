@@ -157,7 +157,9 @@ class StripeBilling:
             "subscription_data[metadata][billing_operation]": operation,
             "metadata[billing_operation]": operation,
             "allow_promotion_codes": "false",
-            "automatic_tax[enabled]": "true",
+            # BR-established accounts cannot currently use Stripe Tax. This
+            # adapter accepts test keys only; production tax remains a release gate.
+            "automatic_tax[enabled]": str(self.settings.STRIPE_TEST_AUTOMATIC_TAX).lower(),
         }
         if trial:
             data["subscription_data[trial_period_days]"] = "7"
