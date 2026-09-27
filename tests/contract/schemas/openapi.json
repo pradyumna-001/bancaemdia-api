@@ -332,6 +332,47 @@
         "title": "ApostaManual",
         "type": "object"
       },
+      "BankrollRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "bankroll_centavos": {
+            "exclusiveMinimum": 0.0,
+            "maximum": 1000000000000.0,
+            "title": "Bankroll Centavos",
+            "type": "integer"
+          },
+          "percentage": {
+            "anyOf": [
+              {
+                "maxLength": 22,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Percentage"
+          },
+          "stake_centavos": {
+            "anyOf": [
+              {
+                "maximum": 1000000000000.0,
+                "minimum": 0.0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Stake Centavos"
+          }
+        },
+        "required": [
+          "bankroll_centavos"
+        ],
+        "title": "BankrollRequest",
+        "type": "object"
+      },
       "BetChangedResponse": {
         "additionalProperties": false,
         "properties": {
@@ -871,6 +912,54 @@
           "origem_id"
         ],
         "title": "Body_importar_planilha_api_v1_apostas_importar_planilha_post",
+        "type": "object"
+      },
+      "CalculationResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "assumptions": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Assumptions",
+            "type": "array"
+          },
+          "data": {
+            "additionalProperties": {
+              "$ref": "#/components/schemas/JsonValue"
+            },
+            "title": "Data",
+            "type": "object"
+          },
+          "method": {
+            "title": "Method",
+            "type": "string"
+          },
+          "precision": {
+            "title": "Precision",
+            "type": "string"
+          },
+          "rounding": {
+            "title": "Rounding",
+            "type": "string"
+          },
+          "warnings": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Warnings",
+            "type": "array"
+          }
+        },
+        "required": [
+          "data",
+          "method",
+          "precision",
+          "rounding",
+          "assumptions",
+          "warnings"
+        ],
+        "title": "CalculationResponse",
         "type": "object"
       },
       "CollectionRejectedItem": {
@@ -1623,6 +1712,61 @@
         "title": "GrupoSaida",
         "type": "object"
       },
+      "HedgeRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "commission_percentage": {
+            "default": "0",
+            "maxLength": 22,
+            "title": "Commission Percentage",
+            "type": "string"
+          },
+          "market_type": {
+            "const": "two_way",
+            "default": "two_way",
+            "title": "Market Type",
+            "type": "string"
+          },
+          "objective": {
+            "enum": [
+              "equalize_profit",
+              "protect_stake"
+            ],
+            "title": "Objective",
+            "type": "string"
+          },
+          "opposing_odd": {
+            "maxLength": 22,
+            "title": "Opposing Odd",
+            "type": "string"
+          },
+          "original_odd": {
+            "maxLength": 22,
+            "title": "Original Odd",
+            "type": "string"
+          },
+          "original_stake_centavos": {
+            "exclusiveMinimum": 0.0,
+            "maximum": 1000000000000.0,
+            "title": "Original Stake Centavos",
+            "type": "integer"
+          },
+          "stake_type": {
+            "const": "cash",
+            "default": "cash",
+            "title": "Stake Type",
+            "type": "string"
+          }
+        },
+        "required": [
+          "original_stake_centavos",
+          "original_odd",
+          "opposing_odd",
+          "objective"
+        ],
+        "title": "HedgeRequest",
+        "type": "object"
+      },
       "ItemErroValidacaoSaida": {
         "additionalProperties": false,
         "properties": {
@@ -1717,6 +1861,26 @@
           "status"
         ],
         "title": "LivenessResponse",
+        "type": "object"
+      },
+      "MarketRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "outcomes": {
+            "description": "Supply every mutually exclusive outcome. Odds alone cannot prove completeness.",
+            "items": {
+              "$ref": "#/components/schemas/Outcome"
+            },
+            "maxItems": 20,
+            "minItems": 2,
+            "title": "Outcomes",
+            "type": "array"
+          }
+        },
+        "required": [
+          "outcomes"
+        ],
+        "title": "MarketRequest",
         "type": "object"
       },
       "MetricasGraficosSaida": {
@@ -2256,6 +2420,43 @@
           "pagination"
         ],
         "title": "MovimentosPaginaSaida",
+        "type": "object"
+      },
+      "OddRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "odd": {
+            "maxLength": 22,
+            "title": "Odd",
+            "type": "string"
+          }
+        },
+        "required": [
+          "odd"
+        ],
+        "title": "OddRequest",
+        "type": "object"
+      },
+      "Outcome": {
+        "additionalProperties": false,
+        "properties": {
+          "name": {
+            "maxLength": 80,
+            "minLength": 1,
+            "title": "Name",
+            "type": "string"
+          },
+          "odd": {
+            "maxLength": 22,
+            "title": "Odd",
+            "type": "string"
+          }
+        },
+        "required": [
+          "name",
+          "odd"
+        ],
+        "title": "Outcome",
         "type": "object"
       },
       "PaginacaoSaida": {
@@ -3023,6 +3224,129 @@
           "deposito_faltante_centavos"
         ],
         "title": "SaldoContaSaida",
+        "type": "object"
+      },
+      "SplitItem": {
+        "additionalProperties": false,
+        "properties": {
+          "name": {
+            "maxLength": 80,
+            "minLength": 1,
+            "title": "Name",
+            "type": "string"
+          },
+          "odd": {
+            "anyOf": [
+              {
+                "maxLength": 22,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Odd"
+          },
+          "value": {
+            "maxLength": 22,
+            "title": "Value",
+            "type": "string"
+          }
+        },
+        "required": [
+          "name",
+          "value"
+        ],
+        "title": "SplitItem",
+        "type": "object"
+      },
+      "SplitRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "mode": {
+            "enum": [
+              "percentages",
+              "weights"
+            ],
+            "title": "Mode",
+            "type": "string"
+          },
+          "normalize_weights": {
+            "default": false,
+            "title": "Normalize Weights",
+            "type": "boolean"
+          },
+          "selections": {
+            "items": {
+              "$ref": "#/components/schemas/SplitItem"
+            },
+            "maxItems": 20,
+            "minItems": 1,
+            "title": "Selections",
+            "type": "array"
+          },
+          "total_stake_centavos": {
+            "exclusiveMinimum": 0.0,
+            "maximum": 1000000000000.0,
+            "title": "Total Stake Centavos",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "total_stake_centavos",
+          "mode",
+          "selections"
+        ],
+        "title": "SplitRequest",
+        "type": "object"
+      },
+      "StakeMarketRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "outcomes": {
+            "description": "Supply every mutually exclusive outcome. Odds alone cannot prove completeness.",
+            "items": {
+              "$ref": "#/components/schemas/Outcome"
+            },
+            "maxItems": 20,
+            "minItems": 2,
+            "title": "Outcomes",
+            "type": "array"
+          },
+          "total_stake_centavos": {
+            "exclusiveMinimum": 0.0,
+            "maximum": 1000000000000.0,
+            "title": "Total Stake Centavos",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "outcomes",
+          "total_stake_centavos"
+        ],
+        "title": "StakeMarketRequest",
+        "type": "object"
+      },
+      "TargetRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "odd": {
+            "maxLength": 22,
+            "title": "Odd",
+            "type": "string"
+          },
+          "target_profit_centavos": {
+            "exclusiveMinimum": 0.0,
+            "maximum": 1000000000000.0,
+            "title": "Target Profit Centavos",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "odd",
+          "target_profit_centavos"
+        ],
+        "title": "TargetRequest",
         "type": "object"
       },
       "TipoMovimentoConsulta": {
@@ -5257,6 +5581,1014 @@
           }
         ],
         "summary": "Consultar saldos"
+      }
+    },
+    "/api/v1/calculadoras/cobertura-ao-vivo": {
+      "post": {
+        "description": "Mercado binário com stakes em dinheiro. Comissão incide sobre o lucro da aposta vencedora; protect_stake zera a perda se a cobertura vencer. Sem freebet, cashout parcial ou push asiático.",
+        "operationId": "hedge_api_v1_calculadoras_cobertura_ao_vivo_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "examples": {
+                "default": {
+                  "summary": "Cobertura binária",
+                  "value": {
+                    "objective": "equalize_profit",
+                    "opposing_odd": "3.00",
+                    "original_odd": "1.50",
+                    "original_stake_centavos": 10000
+                  }
+                }
+              },
+              "schema": {
+                "$ref": "#/components/schemas/HedgeRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CalculationResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Missing, expired, or invalid bearer token."
+          },
+          "413": {
+            "content": {
+              "text/plain": {
+                "example": "Content Too Large",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            },
+            "description": "The request body exceeds the server-wide streaming limit."
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorOrValidationResponse"
+                }
+              }
+            },
+            "description": "The request does not satisfy the published contract or a domain rule."
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "The caller exceeded an applicable request limit."
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unexpected internal failure with no sensitive exception details."
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "A required dependency is temporarily unavailable."
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Calcular cobertura ao vivo",
+        "tags": [
+          "calculadoras"
+        ]
+      }
+    },
+    "/api/v1/calculadoras/dividir-stake": {
+      "post": {
+        "description": "Divide centavos por percentuais ou pesos; normaliza pesos somente por solicitação explícita.",
+        "operationId": "split_api_v1_calculadoras_dividir_stake_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "examples": {
+                "default": {
+                  "summary": "Percentuais",
+                  "value": {
+                    "mode": "percentages",
+                    "selections": [
+                      {
+                        "name": "A",
+                        "value": "50"
+                      },
+                      {
+                        "name": "B",
+                        "value": "50"
+                      }
+                    ],
+                    "total_stake_centavos": 101
+                  }
+                }
+              },
+              "schema": {
+                "$ref": "#/components/schemas/SplitRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CalculationResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Missing, expired, or invalid bearer token."
+          },
+          "413": {
+            "content": {
+              "text/plain": {
+                "example": "Content Too Large",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            },
+            "description": "The request body exceeds the server-wide streaming limit."
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorOrValidationResponse"
+                }
+              }
+            },
+            "description": "The request does not satisfy the published contract or a domain rule."
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "The caller exceeded an applicable request limit."
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unexpected internal failure with no sensitive exception details."
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "A required dependency is temporarily unavailable."
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Dividir stake",
+        "tags": [
+          "calculadoras"
+        ]
+      }
+    },
+    "/api/v1/calculadoras/dutching": {
+      "post": {
+        "description": "Equaliza retornos brutos aproximados e expõe lucro ou perda efetiva em cada cenário.",
+        "operationId": "dutching_api_v1_calculadoras_dutching_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "examples": {
+                "default": {
+                  "summary": "Duas seleções",
+                  "value": {
+                    "outcomes": [
+                      {
+                        "name": "A",
+                        "odd": "1.90"
+                      },
+                      {
+                        "name": "B",
+                        "odd": "1.90"
+                      }
+                    ],
+                    "total_stake_centavos": 10000
+                  }
+                }
+              },
+              "schema": {
+                "$ref": "#/components/schemas/StakeMarketRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CalculationResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Missing, expired, or invalid bearer token."
+          },
+          "413": {
+            "content": {
+              "text/plain": {
+                "example": "Content Too Large",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            },
+            "description": "The request body exceeds the server-wide streaming limit."
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorOrValidationResponse"
+                }
+              }
+            },
+            "description": "The request does not satisfy the published contract or a domain rule."
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "The caller exceeded an applicable request limit."
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unexpected internal failure with no sensitive exception details."
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "A required dependency is temporarily unavailable."
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Distribuir dutching",
+        "tags": [
+          "calculadoras"
+        ]
+      }
+    },
+    "/api/v1/calculadoras/lucro-alvo": {
+      "post": {
+        "description": "Calcula stake ideal e lucro real após arredondamento; sem freebet, comissão ou múltiplas.",
+        "operationId": "target_api_v1_calculadoras_lucro_alvo_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "examples": {
+                "default": {
+                  "summary": "Lucro desejado",
+                  "value": {
+                    "odd": "2.00",
+                    "target_profit_centavos": 10000
+                  }
+                }
+              },
+              "schema": {
+                "$ref": "#/components/schemas/TargetRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CalculationResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Missing, expired, or invalid bearer token."
+          },
+          "413": {
+            "content": {
+              "text/plain": {
+                "example": "Content Too Large",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            },
+            "description": "The request body exceeds the server-wide streaming limit."
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorOrValidationResponse"
+                }
+              }
+            },
+            "description": "The request does not satisfy the published contract or a domain rule."
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "The caller exceeded an applicable request limit."
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unexpected internal failure with no sensitive exception details."
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "A required dependency is temporarily unavailable."
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Dimensionar lucro alvo",
+        "tags": [
+          "calculadoras"
+        ]
+      }
+    },
+    "/api/v1/calculadoras/mercado-justo": {
+      "post": {
+        "description": "Normaliza proporcionalmente um mercado completo; os resultados devem ser mutuamente exclusivos e completos. Odds não comprovam completude nem probabilidade verdadeira.",
+        "operationId": "fair_api_v1_calculadoras_mercado_justo_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "examples": {
+                "default": {
+                  "summary": "Mercado binário completo",
+                  "value": {
+                    "outcomes": [
+                      {
+                        "name": "A",
+                        "odd": "1.90"
+                      },
+                      {
+                        "name": "B",
+                        "odd": "1.90"
+                      }
+                    ]
+                  }
+                }
+              },
+              "schema": {
+                "$ref": "#/components/schemas/MarketRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CalculationResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Missing, expired, or invalid bearer token."
+          },
+          "413": {
+            "content": {
+              "text/plain": {
+                "example": "Content Too Large",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            },
+            "description": "The request body exceeds the server-wide streaming limit."
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorOrValidationResponse"
+                }
+              }
+            },
+            "description": "The request does not satisfy the published contract or a domain rule."
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "The caller exceeded an applicable request limit."
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unexpected internal failure with no sensitive exception details."
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "A required dependency is temporarily unavailable."
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Normalizar mercado justo",
+        "tags": [
+          "calculadoras"
+        ]
+      }
+    },
+    "/api/v1/calculadoras/percentual-banca": {
+      "post": {
+        "description": "Converte percentual em stake ou stake em percentual, com banca fornecida na requisição.",
+        "operationId": "bankroll_api_v1_calculadoras_percentual_banca_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "examples": {
+                "default": {
+                  "summary": "Modo direto",
+                  "value": {
+                    "bankroll_centavos": 100000,
+                    "percentage": "5"
+                  }
+                }
+              },
+              "schema": {
+                "$ref": "#/components/schemas/BankrollRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CalculationResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Missing, expired, or invalid bearer token."
+          },
+          "413": {
+            "content": {
+              "text/plain": {
+                "example": "Content Too Large",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            },
+            "description": "The request body exceeds the server-wide streaming limit."
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorOrValidationResponse"
+                }
+              }
+            },
+            "description": "The request does not satisfy the published contract or a domain rule."
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "The caller exceeded an applicable request limit."
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unexpected internal failure with no sensitive exception details."
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "A required dependency is temporarily unavailable."
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Calcular percentual da banca",
+        "tags": [
+          "calculadoras"
+        ]
+      }
+    },
+    "/api/v1/calculadoras/probabilidade-implicita": {
+      "post": {
+        "description": "Calcula 1/odd com Decimal; não estima a chance verdadeira.",
+        "operationId": "implied_api_v1_calculadoras_probabilidade_implicita_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "examples": {
+                "default": {
+                  "summary": "Odd decimal",
+                  "value": {
+                    "odd": "2.00"
+                  }
+                }
+              },
+              "schema": {
+                "$ref": "#/components/schemas/OddRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CalculationResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Missing, expired, or invalid bearer token."
+          },
+          "413": {
+            "content": {
+              "text/plain": {
+                "example": "Content Too Large",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            },
+            "description": "The request body exceeds the server-wide streaming limit."
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorOrValidationResponse"
+                }
+              }
+            },
+            "description": "The request does not satisfy the published contract or a domain rule."
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "The caller exceeded an applicable request limit."
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unexpected internal failure with no sensitive exception details."
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "A required dependency is temporarily unavailable."
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Calcular probabilidade implícita",
+        "tags": [
+          "calculadoras"
+        ]
+      }
+    },
+    "/api/v1/calculadoras/rtp": {
+      "post": {
+        "description": "RTP é o inverso da soma das probabilidades implícitas de um mercado completo, que o cliente deve fornecer.",
+        "operationId": "rtp_api_v1_calculadoras_rtp_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "examples": {
+                "default": {
+                  "summary": "Mercado binário completo",
+                  "value": {
+                    "outcomes": [
+                      {
+                        "name": "A",
+                        "odd": "2.00"
+                      },
+                      {
+                        "name": "B",
+                        "odd": "2.00"
+                      }
+                    ]
+                  }
+                }
+              },
+              "schema": {
+                "$ref": "#/components/schemas/MarketRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CalculationResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Missing, expired, or invalid bearer token."
+          },
+          "413": {
+            "content": {
+              "text/plain": {
+                "example": "Content Too Large",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            },
+            "description": "The request body exceeds the server-wide streaming limit."
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorOrValidationResponse"
+                }
+              }
+            },
+            "description": "The request does not satisfy the published contract or a domain rule."
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "The caller exceeded an applicable request limit."
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unexpected internal failure with no sensitive exception details."
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "A required dependency is temporarily unavailable."
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Calcular RTP",
+        "tags": [
+          "calculadoras"
+        ]
+      }
+    },
+    "/api/v1/calculadoras/surebet": {
+      "post": {
+        "description": "Aloca centavos por maiores restos e só confirma lucro quando todos os cenários arredondados são positivos.",
+        "operationId": "surebet_api_v1_calculadoras_surebet_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "examples": {
+                "default": {
+                  "summary": "Arbitragem teórica",
+                  "value": {
+                    "outcomes": [
+                      {
+                        "name": "A",
+                        "odd": "2.10"
+                      },
+                      {
+                        "name": "B",
+                        "odd": "2.10"
+                      }
+                    ],
+                    "total_stake_centavos": 10000
+                  }
+                }
+              },
+              "schema": {
+                "$ref": "#/components/schemas/StakeMarketRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CalculationResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Missing, expired, or invalid bearer token."
+          },
+          "413": {
+            "content": {
+              "text/plain": {
+                "example": "Content Too Large",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            },
+            "description": "The request body exceeds the server-wide streaming limit."
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorOrValidationResponse"
+                }
+              }
+            },
+            "description": "The request does not satisfy the published contract or a domain rule."
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "The caller exceeded an applicable request limit."
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unexpected internal failure with no sensitive exception details."
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "A required dependency is temporarily unavailable."
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Avaliar surebet",
+        "tags": [
+          "calculadoras"
+        ]
       }
     },
     "/api/v1/coleta": {

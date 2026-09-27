@@ -20,6 +20,42 @@ MANUAL_BET_HOUSES = sorted(
 
 
 OPERATION_DOCUMENTATION: dict[OperationKey, tuple[str, str]] = {
+    ("post", "/api/v1/calculadoras/probabilidade-implicita"): (
+        "Calcular probabilidade implícita",
+        "Calcula 1/odd com Decimal; não estima a chance verdadeira.",
+    ),
+    ("post", "/api/v1/calculadoras/mercado-justo"): (
+        "Normalizar mercado justo",
+        "Normaliza proporcionalmente um mercado completo; os resultados devem ser mutuamente exclusivos e completos. Odds não comprovam completude nem probabilidade verdadeira.",
+    ),
+    ("post", "/api/v1/calculadoras/rtp"): (
+        "Calcular RTP",
+        "RTP é o inverso da soma das probabilidades implícitas de um mercado completo, que o cliente deve fornecer.",
+    ),
+    ("post", "/api/v1/calculadoras/surebet"): (
+        "Avaliar surebet",
+        "Aloca centavos por maiores restos e só confirma lucro quando todos os cenários arredondados são positivos.",
+    ),
+    ("post", "/api/v1/calculadoras/dutching"): (
+        "Distribuir dutching",
+        "Equaliza retornos brutos aproximados e expõe lucro ou perda efetiva em cada cenário.",
+    ),
+    ("post", "/api/v1/calculadoras/dividir-stake"): (
+        "Dividir stake",
+        "Divide centavos por percentuais ou pesos; normaliza pesos somente por solicitação explícita.",
+    ),
+    ("post", "/api/v1/calculadoras/cobertura-ao-vivo"): (
+        "Calcular cobertura ao vivo",
+        "Mercado binário com stakes em dinheiro. Comissão incide sobre o lucro da aposta vencedora; protect_stake zera a perda se a cobertura vencer. Sem freebet, cashout parcial ou push asiático.",
+    ),
+    ("post", "/api/v1/calculadoras/lucro-alvo"): (
+        "Dimensionar lucro alvo",
+        "Calcula stake ideal e lucro real após arredondamento; sem freebet, comissão ou múltiplas.",
+    ),
+    ("post", "/api/v1/calculadoras/percentual-banca"): (
+        "Calcular percentual da banca",
+        "Converte percentual em stake ou stake em percentual, com banca fornecida na requisição.",
+    ),
     ("post", "/coleta"): (
         "Receber coleta da extensão",
         "Recebe um lote bruto capturado pela extensão e agenda a materialização idempotente.",
@@ -165,6 +201,54 @@ PARAMETER_DESCRIPTIONS = {
 
 
 REQUEST_EXAMPLES: dict[OperationKey, tuple[str, JsonObject]] = {
+    ("post", "/api/v1/calculadoras/probabilidade-implicita"): ("Odd decimal", {"odd": "2.00"}),
+    ("post", "/api/v1/calculadoras/mercado-justo"): (
+        "Mercado binário completo",
+        {"outcomes": [{"name": "A", "odd": "1.90"}, {"name": "B", "odd": "1.90"}]},
+    ),
+    ("post", "/api/v1/calculadoras/rtp"): (
+        "Mercado binário completo",
+        {"outcomes": [{"name": "A", "odd": "2.00"}, {"name": "B", "odd": "2.00"}]},
+    ),
+    ("post", "/api/v1/calculadoras/surebet"): (
+        "Arbitragem teórica",
+        {
+            "outcomes": [{"name": "A", "odd": "2.10"}, {"name": "B", "odd": "2.10"}],
+            "total_stake_centavos": 10000,
+        },
+    ),
+    ("post", "/api/v1/calculadoras/dutching"): (
+        "Duas seleções",
+        {
+            "outcomes": [{"name": "A", "odd": "1.90"}, {"name": "B", "odd": "1.90"}],
+            "total_stake_centavos": 10000,
+        },
+    ),
+    ("post", "/api/v1/calculadoras/dividir-stake"): (
+        "Percentuais",
+        {
+            "mode": "percentages",
+            "total_stake_centavos": 101,
+            "selections": [{"name": "A", "value": "50"}, {"name": "B", "value": "50"}],
+        },
+    ),
+    ("post", "/api/v1/calculadoras/cobertura-ao-vivo"): (
+        "Cobertura binária",
+        {
+            "original_stake_centavos": 10000,
+            "original_odd": "1.50",
+            "opposing_odd": "3.00",
+            "objective": "equalize_profit",
+        },
+    ),
+    ("post", "/api/v1/calculadoras/lucro-alvo"): (
+        "Lucro desejado",
+        {"odd": "2.00", "target_profit_centavos": 10000},
+    ),
+    ("post", "/api/v1/calculadoras/percentual-banca"): (
+        "Modo direto",
+        {"bankroll_centavos": 100000, "percentage": "5"},
+    ),
     ("patch", "/api/v1/caixa/contas/{conta_casa_id}/banca"): (
         "Vincular conta à banca",
         {"banca_id": 12},

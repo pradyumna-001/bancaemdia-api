@@ -392,6 +392,9 @@ environments, and runtime secrets before enabling the pipeline or dispatching a 
 
 ## Documentation
 
+The [standard calculator API](docs/CALCULATORS.md) documents decimal precision, cent allocation,
+market assumptions and all nine stateless calculator routes.
+
 | Document | Location |
 |----------|----------|
 | **API Reference** | `/docs/API.md` (auto-generated from OpenAPI) |
