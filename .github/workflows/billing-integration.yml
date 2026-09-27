@@ -28,7 +28,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with:
-          ref: 0c4011ef418fa84d734a5d59de93fe3e0da24231
+          ref: 8a75ff275e159912ad12ab83806079f6586ca55c
           persist-credentials: false
       - uses: actions/setup-python@v5
         with:
@@ -39,10 +39,12 @@ jobs:
       - run: ruff format --check src tests alembic
       - run: mypy src/ --strict --ignore-missing-imports
       - run: python scripts/generate_openapi.py --check
+      - name: Validate billing alert rules
+        run: docker run --rm --entrypoint /bin/promtool -v "$PWD/infra/observability/billing.rules.yml:/rules.yml:ro" prom/prometheus:v3.5.0 check rules /rules.yml
       - name: Full suite including real PostgreSQL billing lifecycle
         run: pytest -n 8 --dist loadgroup --tb=short -q --cov=src/bancaemdia --cov-fail-under=80 --junitxml=billing-integration.xml
       - uses: actions/upload-artifact@v4
         if: always()
         with:
-          name: billing-integration-0c4011e
+          name: billing-integration-8a75ff2
           path: billing-integration.xml

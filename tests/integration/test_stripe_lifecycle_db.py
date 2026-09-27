@@ -302,6 +302,21 @@ async def test_worker_retries_dead_letters_and_repairs_missed_event(engine_admin
                     event.next_attempt_at = now
                     await session.commit()
             monkeypatch.setattr(billing, "reconcile", successful_reconcile)
+            # The ordinary worker role can inspect aggregate health without
+            # requiring a tenant or exporting provider/customer identities.
+            async with session_factory() as session:
+                await session.execute(text("SET LOCAL ROLE bancaemdia_app"))
+                await session.execute(text("SELECT set_config('app.current_user_id', '', true)"))
+                health = (
+                    (await session.execute(text("SELECT * FROM billing_reconciliation_health()")))
+                    .mappings()
+                    .one()
+                )
+                assert set(health) == {"pending", "dead", "pending_age", "scan_age", "measured_at"}
+                assert health["dead"] >= 1
+                assert billing.metrics.inbox.labels(state="dead")._value.get() >= 1
+                assert billing.metrics.heartbeat._value.get() > 0
+                await session.rollback()
             # Dead/missed notifications do not prevent the independent full scan.
             result = await billing.reconcile_batch(engine_admin, provider)
             assert result["reconciled"] >= 1
@@ -331,6 +346,21 @@ async def test_all_business_tables_have_database_write_guards(engine_admin):
         "upload_arquivos",
     }
     async with engine_admin.connect() as conn:
+        tenant_tables = set(
+            (
+                await conn.execute(
+                    text(
+                        "SELECT c.table_name FROM information_schema.columns c "
+                        "JOIN information_schema.tables t USING (table_schema, table_name) "
+                        "WHERE c.table_schema='public' AND c.column_name='usuario_id' "
+                        "AND t.table_type='BASE TABLE'"
+                    )
+                )
+            ).scalars()
+        )
+        # New holder/bot tables must fail this gate until their migration installs
+        # the guard. Only billing control state and append-only audit are exempt.
+        expected |= tenant_tables - {"assinaturas", "billing_checkouts", "audit_log"}
         guarded = set(
             (
                 await conn.execute(
