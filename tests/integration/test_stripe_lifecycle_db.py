@@ -87,10 +87,17 @@ class StripeStub:
             "trial_start": start,
             "trial_end": start + 604800,
             "default_payment_method": {"type": "card", "customer": self.customer_ref},
+            "pending_setup_intent": None,
             "items": {"data": [{"quantity": 1, "price": {"id": self.price}}]},
             "latest_invoice": None,
             "cancel_at_period_end": False,
         }
+        self.creations[operation].update(
+            status="complete",
+            livemode=False,
+            customer=self.customer_ref,
+            subscription=self.remote["id"],
+        )
 
 
 async def setup(session):
@@ -151,6 +158,32 @@ async def test_timeout_retry_card_confirmation_and_no_repeat_trial(engine_admin)
                 # URL alone never grants access.
                 assert (await AssinaturaRepo().read_status(session, uid)).access == "READ_ONLY"
                 provider.confirm(op.operation)
+                # A linked card is not proof that bank authentication completed.
+                for pending in (
+                    "seti_pending",
+                    {"status": "requires_action"},
+                    {"status": "requires_payment_method"},
+                ):
+                    provider.remote["pending_setup_intent"] = pending
+                    with pytest.raises(BillingUnavailableError, match="card_confirmation_pending"):
+                        await reconcile(session, uid, provider)
+                    assert (await AssinaturaRepo().read_status(session, uid)).access == "READ_ONLY"
+                provider.remote["pending_setup_intent"] = None
+                checkout = provider.creations[op.operation]
+                for field, invalid in (
+                    ("status", "open"),
+                    ("customer", "cus_other"),
+                    ("subscription", "sub_other"),
+                    ("livemode", True),
+                ):
+                    original_value = checkout[field]
+                    checkout[field] = invalid
+                    with pytest.raises(
+                        BillingUnavailableError, match="checkout_confirmation_pending"
+                    ):
+                        await reconcile(session, uid, provider)
+                    assert (await AssinaturaRepo().read_status(session, uid)).access == "READ_ONLY"
+                    checkout[field] = original_value
                 await reconcile(session, uid, provider)
                 await session.commit()
                 await tenant(session, uid)
