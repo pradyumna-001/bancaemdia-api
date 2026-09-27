@@ -20,6 +20,10 @@ MANUAL_BET_HOUSES = sorted(
 
 
 OPERATION_DOCUMENTATION: dict[OperationKey, tuple[str, str]] = {
+    ("post", "/api/v1/billing/webhook"): (
+        "Receive Stripe events",
+        "Verify the raw body signature and persist a minimal deduplicated test-mode inbox; worker fetches current state.",
+    ),
     ("post", "/coleta"): (
         "Receber coleta da extensão",
         "Recebe um lote bruto capturado pela extensão e agenda a materialização idempotente.",

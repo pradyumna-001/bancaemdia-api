@@ -34,6 +34,7 @@ app = Celery(
         "bancaemdia.workers.extraction",
         "bancaemdia.workers.materialization",
         "bancaemdia.workers.upload",
+        "bancaemdia.workers.billing",
     ],
 )
 app.conf.update(
@@ -46,7 +47,9 @@ app.conf.update(
     enable_utc=True,
     task_acks_late=True,
     task_reject_on_worker_lost=True,
+    beat_schedule={"billing-reconcile": {"task": "billing.reconcile", "schedule": 60.0}},
     task_routes={
+        "billing.*": {"queue": MATERIALIZATION_QUEUE},
         "extraction.*": {"queue": EXTRACTION_QUEUE},
         "materialization.*": {"queue": MATERIALIZATION_QUEUE},
     },
