@@ -13,7 +13,8 @@ jobs:
     name: Combined billing snapshot (not standalone PR acceptance)
     runs-on: ubuntu-latest
     # The six review PRs remain separate and based on main. This job validates
-    # their explicitly pinned combined fixture without merging that branch.
+    # their explicitly pinned combined fixture plus the existing holder/Telegram
+    # contributions, without merging that fixture or claiming other issue acceptance.
     env:
       DATABASE_URL: postgresql+asyncpg://user:pass@localhost:5432/bancaemdia
       DATABASE_URL_REPLICA: postgresql+asyncpg://user:pass@localhost:5432/bancaemdia
@@ -28,7 +29,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with:
-          ref: 25ab2bf94371b1980552f855656ed11b5bc51556
+          ref: 4bf08f9e98dc45d46ced4303831646a5d43e3361
           persist-credentials: false
       - uses: actions/setup-python@v5
         with:
@@ -46,5 +47,5 @@ jobs:
       - uses: actions/upload-artifact@v4
         if: always()
         with:
-          name: billing-integration-25ab2bf
+          name: billing-integration-4bf08f9
           path: billing-integration.xml
