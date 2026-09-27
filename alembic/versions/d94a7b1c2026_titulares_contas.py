@@ -177,6 +177,14 @@ def upgrade() -> None:
         FOR EACH STATEMENT EXECUTE FUNCTION audit_log_reject_change()
     """)
 
+    op.execute("""
+        DO $$ BEGIN
+            IF to_regprocedure('public.billing_install_write_guards()') IS NOT NULL THEN
+                PERFORM public.billing_install_write_guards();
+            END IF;
+        END $$
+    """)
+
 
 def downgrade() -> None:
     op.execute("DROP TRIGGER trocas_titular_eventos_no_change ON trocas_titular_eventos")
