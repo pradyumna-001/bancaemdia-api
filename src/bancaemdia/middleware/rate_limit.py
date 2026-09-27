@@ -90,6 +90,10 @@ def _auth_limit() -> str:
     return get_settings().AUTH_RATE_LIMIT
 
 
+def _panel_export_limit() -> str:
+    return get_settings().PANEL_EXPORT_RATE_LIMIT
+
+
 def _upload_limit() -> str:
     return get_settings().UPLOAD_RATE_LIMIT
 
@@ -185,6 +189,7 @@ def _limiter(
 
 
 api_limiter = _limiter(_api_limit, user_key, "api")
+panel_export_limiter = _limiter(_panel_export_limit, user_key, "panel-export")
 auth_limiter = _limiter(_auth_limit, user_key, "auth")
 upload_limiter = _limiter(_upload_limit, user_key, "upload")
 coleta_limiter = _limiter(_coleta_limit, coleta_token_key, "coleta")
@@ -198,6 +203,10 @@ def _api_scope() -> None:
 
 
 def _auth_scope() -> None:
+    return None
+
+
+def _panel_export_scope() -> None:
     return None
 
 
@@ -220,11 +229,19 @@ class RateLimitPolicy:
 
 
 API_POLICY = RateLimitPolicy(api_limiter, _api_scope)
+PANEL_EXPORT_POLICY = RateLimitPolicy(panel_export_limiter, _panel_export_scope)
 AUTH_POLICY = RateLimitPolicy(auth_limiter, _auth_scope)
 UPLOAD_POLICY = RateLimitPolicy(upload_limiter, _upload_scope)
 COLETA_POLICY = RateLimitPolicy(coleta_limiter, _coleta_scope)
 COLETA_IP_POLICY = RateLimitPolicy(coleta_ip_limiter, _coleta_ip_scope)
-ALL_LIMITERS = (api_limiter, auth_limiter, upload_limiter, coleta_limiter, coleta_ip_limiter)
+ALL_LIMITERS = (
+    api_limiter,
+    panel_export_limiter,
+    auth_limiter,
+    upload_limiter,
+    coleta_limiter,
+    coleta_ip_limiter,
+)
 
 
 def request_path(request: Request) -> str:
@@ -241,6 +258,8 @@ def policy_for(request: Request) -> RateLimitPolicy | None:
         return COLETA_POLICY if request.method == "POST" else None
     if path == "/api/v1/upload" and request.method == "POST":
         return UPLOAD_POLICY
+    if path == "/api/v1/painel/export" and request.method == "GET":
+        return PANEL_EXPORT_POLICY
     if path == "/api/v1" or path.startswith("/api/v1/"):
         return API_POLICY
     if path == "/auth" or path.startswith("/auth/"):
@@ -326,7 +345,12 @@ class RateLimitMiddleware(BaseHTTPMiddleware):
         policy = policy_for(request)
         if policy is None or policy is AUTH_POLICY:
             return await call_next(request)
-        policies = (COLETA_IP_POLICY, policy) if policy is COLETA_POLICY else (policy,)
+        if policy is COLETA_POLICY:
+            policies = (COLETA_IP_POLICY, policy)
+        elif policy is PANEL_EXPORT_POLICY:
+            policies = (API_POLICY, policy)
+        else:
+            policies = (policy,)
         return await _apply_policies(request, call_next, policies)
 
 
