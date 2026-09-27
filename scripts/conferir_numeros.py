@@ -104,6 +104,7 @@ def _gravar_relatorio(
         **asdict(resumo),
         "passed": resumo.passou(staging_gate=staging_gate or phase1_gate),
     }
+    path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(json.dumps(report, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
 
 
