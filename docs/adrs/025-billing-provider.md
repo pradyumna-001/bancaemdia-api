@@ -5,7 +5,7 @@ Estado operacional: NO_GO para produção; desenvolvimento autorizado apenas em 
 Substitui a escolha Mercado Pago/Asaas. OddsNotifier não comprova a elegibilidade desta conta.
 
 ## Produto e classificação
-Banca em Dia vende software de registro e análise de apostas que o usuário faz em casas externas. Não recebe apostas, depósitos, prêmios nem fundos destinados a apostas. O suporte Stripe deve avaliar este escopo verdadeiro; não classificar por conveniência como outro negócio. A lista de negócios restritos inclui jogos de azar e restrições regionais a aconselhamento/previsão. Registro e análise não equivalem automaticamente a uma aprovação: falta resposta escrita específica.
+Banca em Dia vende software de registro e análise de apostas que o usuário faz em casas externas. Não recebe apostas, depósitos, prêmios nem fundos destinados a apostas. O produto deve ser descrito sem omissões e sem classificá-lo por conveniência como outro negócio. Em decisão posterior nesta sessão, o titular determinou prosseguir com Stripe sem abrir consulta de elegibilidade ao suporte. O rascunho foi descartado sem envio. Confirmação escrita preventiva deixa de ser um gate deste projeto; esta é uma decisão do titular, não uma declaração de aprovação emitida pela Stripe. Continuam aplicáveis os requisitos efetivamente apresentados pela conta/provedor.
 Fonte: https://stripe.com/br/legal/restricted-businesses
 
 ## Conta brasileira e lançamento global
@@ -38,7 +38,7 @@ Decisão posterior do titular nesta sessão: cartão obrigatório e 168 horas co
 O sandbox real foi exercitado em 2026-09-27: Checkout com cartão, trial de 604800 segundos, eventos assinados, renovação, falha/retry, reembolsos e cancelamento. A evidência não confirma elegibilidade, repasses ou operação produtiva.
 
 ## GO pendente
-Faltam: classificação escrita, conta/capacidades verificadas, preços comerciais e moedas aprovados, impostos/termos/política de reembolso, revisão/CI e autorização específica do titular para produção. Sandbox não conclui #89 nem autoriza cobrança real. Stripe permanece o provedor escolhido em caso de bloqueio.
+Faltam: conta/capacidades verificadas, preços comerciais e moedas aprovados, impostos/termos/política de reembolso, revisão/CI e autorização específica do titular para produção. Sandbox não conclui #89 nem autoriza cobrança real. Stripe permanece o provedor escolhido em caso de bloqueio.
 
 ## Histórico preservado (substituído, sem implementação futura)
 O texto abaixo documenta a investigação anterior e não é uma instrução de implementação ou fallback.
