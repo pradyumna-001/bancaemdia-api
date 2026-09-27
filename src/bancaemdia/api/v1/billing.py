@@ -16,6 +16,7 @@ from bancaemdia.domain.billing_checkout import locked_subscription, subscribe
 from bancaemdia.domain.registros import Usuario
 from bancaemdia.integrations.billing.stripe import BillingUnavailableError, StripeBilling
 from bancaemdia.models.assinatura import Assinatura
+from bancaemdia.models.billing_checkout import BillingCheckout
 from bancaemdia.models.billing_price import BillingPrice
 from bancaemdia.repositories.assinatura_repo import AssinaturaRepo
 
@@ -147,9 +148,36 @@ async def billing_cancel(user: User, session: Session) -> dict[str, str]:
     try:
         provider = StripeBilling(get_settings())
         row = await locked_subscription(session, user.id)
-        if row.provider_subscription_ref and row.status != "CANCELED":
-            await provider.cancel(row.provider_subscription_ref)
-            await session.commit()
+        operation = await session.get(BillingCheckout, user.id)
+        references = []
+        if row.provider_customer_ref:
+            remotes = await provider.subscriptions(row.provider_customer_ref)
+            references = [
+                remote["id"]
+                for remote in remotes
+                if remote.get("status") not in {"canceled", "incomplete_expired"}
+                and (
+                    remote["id"] == row.provider_subscription_ref
+                    or (
+                        operation
+                        and remote.get("metadata", {}).get("billing_operation")
+                        == operation.operation
+                    )
+                )
+            ]
+        for reference in references:
+            await provider.cancel(reference)
+        if operation and operation.session_ref and operation.state == "pending":
+            checkout = await provider.request("GET", "checkout/sessions/" + operation.session_ref)
+            if checkout.get("status") == "open":
+                await provider.request(
+                    "POST",
+                    "checkout/sessions/" + operation.session_ref + "/expire",
+                    key="expire-" + operation.operation,
+                )
+                operation.state = "expired"
+        row.cancel_at_period_end = bool(references)
+        await session.commit()
         return {"status": "cancellation_scheduled"}
     except BillingUnavailableError as exc:
         raise HTTPException(409, str(exc)) from None
