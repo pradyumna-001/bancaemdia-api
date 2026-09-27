@@ -15,12 +15,11 @@ The extension is a requested capture client, not part of the website frontend. I
 ### Billing
 
 - These decisions supersede the placeholder payment-provider references in ADR 013, `HIGH_LEVEL_PLAN.md`, and `TECHNICAL_REVIEW.md`; those older passages remain historical planning context, not implementation instructions.
-- Every user receives one seven-day free trial without entering a card.
-- New users start the trial at account creation. Users who already exist when billing launches receive seven full days from the rollout timestamp.
+- Updated by the owner on 2026-09-27: every user receives one lifetime trial of exactly 168 hours after Stripe confirms the required card. Signup and rollout reserve identity only; they do not start or grant the trial.
 - When access expires, the account becomes read-only: sign-in, reads, analytics, billing, and export remain available; new mutations and ingestion are blocked.
 - Price is deliberately undecided. No issue may hardcode a price or invent Free/Pro/Team tiers.
-- Mercado Pago is the primary candidate for a Brazilian individual account (CPF). Integration begins only after written business classification and production eligibility are confirmed.
-- Asaas is the provider-neutral fallback if Mercado Pago rejects or cannot confirm the operation.
+- Stripe Checkout + Billing is the chosen architecture for the Brazilian account and global launch; Mercado Pago and Asaas are historical options, not future implementations or fallbacks. See ADR 025.
+- The owner waived a preventive support inquiry about eligibility. No written support response is an additional project gate. Actual account requirements/capabilities, commercial pricing, tax obligations and explicit production authorization still apply; sandbox testing does not enable production.
 - The product is described truthfully as subscription software for recordkeeping and analytics. It never receives wagers, deposits, prizes, or customer funds.
 
 ### Holders and bookmaker accounts

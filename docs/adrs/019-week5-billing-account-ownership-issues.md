@@ -7,7 +7,7 @@
 **Depends on**: authentication/RLS (#24), aposta lifecycle (#27), caixa (#28), revisão (#29), and export/hardening (#43)
 
 **Success Criteria**:
-- [ ] Provider eligibility is proven before payment integration is enabled
+- [ ] Actual Stripe account requirements/capabilities and explicit owner authorization are satisfied before production payment integration is enabled; test development is authorized
 - [ ] Every user receives exactly seven days after Stripe confirms a required card
 - [ ] Expired users retain reads/analytics/export but cannot mutate through API or workers
 - [ ] Price remains configurable and unpublished until the owner decides it
@@ -30,15 +30,15 @@
 - `docs/runbooks/billing-provider-preflight.md`
 
 **Tasks**:
-- [ ] Describe the product truthfully to each provider: subscription SaaS for betting recordkeeping and analytics; never receives wagers, deposits, prizes, or customer funds
-- [ ] Verify in writing whether a Brazilian individual account (CPF, no CNPJ) may use recurring subscriptions in production
-- [ ] Verify Stripe account eligibility; develop in test mode before production approval
+- [ ] Describe the product truthfully to Stripe: subscription SaaS for betting recordkeeping and analytics; never receives wagers, deposits, prizes, or customer funds
+- [ ] Verify the actual Brazilian account type, identity requirements and production capabilities in the account; the owner waived a preventive support inquiry on 2026-09-27
+- [ ] Verify Stripe account requirements; develop in test mode before explicit production authorization
 - [ ] Record Stripe fees, settlement, cancellation, refund, chargeback, and prohibited-business constraints as of the decision date
 - [ ] Compare Checkout/Billing with Managed Payments for the Brazilian establishment; record external blockers without changing provider
-- [ ] Store evidence links, support protocol numbers, decision date, and explicit `GO|NO_GO`; sandbox access alone is not approval
+- [ ] Store sanitized evidence links, decision date and explicit `GO|NO_GO`; sandbox access and the owner's decision to waive a support inquiry are not Stripe-issued approval
 - [ ] Keep price and launch date out of this ADR; both are later configuration
 
-**Acceptance**: Written provider classification plus verified CPF production eligibility yields a documented `GO`; otherwise the ADR records `NO_GO` and external blockers before production payment code is enabled
+**Acceptance**: Actual account requirements/capabilities, a supported tax/commercial configuration and explicit owner production authorization yield a documented `GO`; otherwise the ADR records concrete remaining requirements. Written preventive support classification is no longer required by owner decision.
 
 ---
 
@@ -78,14 +78,14 @@
 
 ---
 
-### Issue 3: Approved Billing Provider Adapter — Recurring Checkout + Customer Mapping
+### Issue 3: Stripe Billing Adapter — Recurring Checkout + Customer Mapping
 **Labels**: `week-5`, `billing`, `payments`, `integration`
 
 **Size**: L (6-8 hours)
 
 **Files**:
 - `src/bancaemdia/integrations/billing/base.py`
-- `src/bancaemdia/integrations/billing/{mercado_pago|asaas}.py`
+- `src/bancaemdia/integrations/billing/stripe.py`
 - `src/bancaemdia/api/v1/billing.py`
 - `tests/integration/test_approved_provider_billing.py`
 
@@ -98,7 +98,7 @@
 - [ ] Guarantee that no charge is taken before the seven free days after card confirmation end; if the approved provider cannot schedule that safely, delay provider checkout/activation rather than shorten or condition the trial
 - [ ] Read amount/frequency only from the active catalog
 - [ ] Redact credentials, payer data, and hosted URL secrets from logs
-- [ ] Keep the non-selected provider replaceable without changing domain models or public endpoint contracts
+- [ ] Keep Stripe-specific values inside its adapter and preserve provider-neutral domain models/public endpoint contracts; no alternative provider implementation is planned
 
 **Acceptance**: For the provider approved in Issue 1, contract tests create exactly one subscription per idempotency key, use configured pricing, expose no card/secrets, and prove the first possible charge occurs only after seven complete days after card confirmation
 
