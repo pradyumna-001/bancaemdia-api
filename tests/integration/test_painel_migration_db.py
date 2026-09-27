@@ -277,17 +277,38 @@ async def _restore_app_grants(url: str) -> None:
 
 
 def test_revision_008_downgrades_and_reupgrades_without_losing_application_access(banco) -> None:
+    # Billing tombstones must never be discarded by a test on the shared database.
+    # Exercise destructive schema rollback in an empty, isolated database instead.
+    from sqlalchemy.engine import make_url
+
+    database = "billing_rollback_" + uuid4().hex
+    url = str(
+        make_url(banco.url_admin).set(database=database).render_as_string(hide_password=False)
+    )
+
+    async def database_ddl(create: bool) -> None:
+        engine = create_async_engine(banco.url_admin, isolation_level="AUTOCOMMIT")
+        try:
+            async with engine.connect() as connection:
+                await connection.execute(
+                    text(f'{"CREATE" if create else "DROP"} DATABASE "{database}"')
+                )
+        finally:
+            await engine.dispose()
+
     previous_database_url = os.environ.get("DATABASE_URL")
-    os.environ["DATABASE_URL"] = banco.url_admin
+    asyncio.run(database_ddl(True))
+    os.environ["DATABASE_URL"] = url
     try:
-        command.downgrade(_migration_config(banco.url_admin), PREVIOUS)
-        assert asyncio.run(_schema_exists(banco.url_admin)) is False
+        command.upgrade(_migration_config(url), "head")
+        command.downgrade(_migration_config(url), PREVIOUS)
+        assert asyncio.run(_schema_exists(url)) is False
+        command.upgrade(_migration_config(url), "head")
+        asyncio.run(_restore_app_grants(url))
+        assert asyncio.run(_schema_exists(url)) is True
     finally:
-        command.upgrade(_migration_config(banco.url_admin), "head")
-        asyncio.run(_restore_app_grants(banco.url_admin))
         if previous_database_url is None:
             del os.environ["DATABASE_URL"]
         else:
             os.environ["DATABASE_URL"] = previous_database_url
-
-    assert asyncio.run(_schema_exists(banco.url_admin)) is True
+        asyncio.run(database_ddl(False))
