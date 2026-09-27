@@ -28,3 +28,6 @@ The current API exposes `/health`, `/ready`, and an authenticated `/api/v1/paine
 not expose `/auth/login`; smoke tests must use the approved synthetic JWT setup and never
 assume a login endpoint exists. `/ready` requires primary PostgreSQL, replica, and Redis;
 Anthropic and queue depth are visible as report-only checks and need separate inspection.
+
+- [Stripe billing](runbooks/billing-stripe.md)
+- [Billing acceptance ledger](runbooks/billing-audit.md)
