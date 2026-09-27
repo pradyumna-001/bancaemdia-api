@@ -1,9 +1,18 @@
 from __future__ import annotations
 
+import importlib.util
+import sys
+from pathlib import Path
+
 import httpx
 import pytest
 
-from scripts import benchmark_painel
+SCRIPT = Path(__file__).resolve().parents[2] / "scripts" / "benchmark_painel.py"
+SPEC = importlib.util.spec_from_file_location("benchmark_painel", SCRIPT)
+assert SPEC is not None and SPEC.loader is not None
+benchmark_painel = importlib.util.module_from_spec(SPEC)
+sys.modules[SPEC.name] = benchmark_painel
+SPEC.loader.exec_module(benchmark_painel)
 
 
 @pytest.mark.asyncio

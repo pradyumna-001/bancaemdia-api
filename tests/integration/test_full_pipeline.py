@@ -657,5 +657,7 @@ async def test_a_telegram_export_uploaded_to_the_api_is_read_and_reported_comple
     async with como(engine_app, usuario) as session:
         painel = await PainelRepo().consultar(session, usuario, FiltrosPainel.criar("all"))
     replay = await reconstruir_usuario(usuario, engine=engine_app, dry_run=True)
-    assert painel.resumo.total_apostas == replay.apostas == 10
+    publicadas = sum(aposta.selecionada and not aposta.revisao_grave for aposta in apostas.values())
+    assert painel.resumo.total_apostas == publicadas
+    assert replay.apostas == len(apostas) == 10
     assert replay.alteradas == replay.recriadas == replay.movimentos_restaurados == 0
