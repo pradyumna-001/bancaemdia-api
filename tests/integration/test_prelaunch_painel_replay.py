@@ -80,7 +80,7 @@ async def _ids(engine: AsyncEngine, usuario_id: int) -> tuple[list[int], list[in
 def _choice(column: str) -> str:
     return (
         "CASE g % 5 "
-        + " ".join(f"WHEN {index} THEN :{column}{index}" for index in range(5))
+        + " ".join(f"WHEN {index} THEN CAST(:{column}{index} AS bigint)" for index in range(5))
         + " END"
     )
 
