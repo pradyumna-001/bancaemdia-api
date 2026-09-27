@@ -99,6 +99,7 @@ async def test_checkout_always_collects_card_and_first_trial_is_seven_days():
     )
     assert seen[0]["payment_method_collection"] == ["always"]
     assert seen[0]["currency"] == ["brl"]
+    assert seen[0]["automatic_tax[enabled]"] == ["false"]
     assert seen[0]["subscription_data[trial_period_days]"] == ["7"]
     assert seen[0]["subscription_data[trial_settings][end_behavior][missing_payment_method]"] == [
         "cancel"
