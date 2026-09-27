@@ -98,3 +98,7 @@ def test_refund_dispute_and_exact_paid_period():
         project_remote(
             remote(), price_ref="price_fixture", trial_ends_at=datetime.fromtimestamp(1000001, UTC)
         )
+    unexpanded = remote()
+    unexpanded["latest_invoice"] = "in_fixture"
+    with pytest.raises(BillingUnavailableError, match="unexpanded_invoice"):
+        project_remote(unexpanded, price_ref="price_fixture", trial_ends_at=cutoff)

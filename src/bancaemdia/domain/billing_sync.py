@@ -7,9 +7,9 @@ from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from bancaemdia.domain.billing_checkout import locked_subscription
-from bancaemdia.integrations.billing.stripe import (
+from bancaemdia.integrations.billing.base import (
+    BillingProvider,
     BillingUnavailableError,
-    StripeBilling,
 )
 from bancaemdia.models.billing_checkout import BillingCheckout
 from bancaemdia.models.billing_price import BillingPrice
@@ -34,8 +34,10 @@ def project_remote(
     ):
         raise BillingUnavailableError("billing_subscription_terms_mismatch")
     invoice = remote.get("latest_invoice") or {}
+    if not isinstance(invoice, dict):
+        raise BillingUnavailableError("billing_unexpanded_invoice")
     charge = invoice.get("charge") or {}
-    if not isinstance(invoice, dict) or not isinstance(charge, dict):
+    if not isinstance(charge, dict):
         raise BillingUnavailableError("billing_unexpanded_invoice")
     # Partial refunds retain access; full refunds or disputes revoke this period.
     if (
@@ -53,7 +55,7 @@ def project_remote(
     return "ACTIVE", start, end
 
 
-async def reconcile(session: AsyncSession, uid: int, provider: StripeBilling) -> None:
+async def reconcile(session: AsyncSession, uid: int, provider: BillingProvider) -> None:
     row = await locked_subscription(session, uid)
     if not row.provider_customer_ref:
         return
