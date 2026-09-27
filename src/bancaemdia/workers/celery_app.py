@@ -35,6 +35,7 @@ app = Celery(
         "bancaemdia.workers.materialization",
         "bancaemdia.workers.upload",
         "bancaemdia.workers.billing",
+        "bancaemdia.workers.telegram",
     ],
 )
 app.conf.update(
@@ -47,11 +48,15 @@ app.conf.update(
     enable_utc=True,
     task_acks_late=True,
     task_reject_on_worker_lost=True,
-    beat_schedule={"billing-reconcile": {"task": "billing.reconcile", "schedule": 60.0}},
     task_routes={
         "billing.*": {"queue": MATERIALIZATION_QUEUE},
         "extraction.*": {"queue": EXTRACTION_QUEUE},
         "materialization.*": {"queue": MATERIALIZATION_QUEUE},
+        "telegram.*": {"queue": MATERIALIZATION_QUEUE},
+    },
+    beat_schedule={
+        "billing-reconcile": {"task": "billing.reconcile", "schedule": 60.0},
+        "telegram-transport-tick": {"task": "telegram.tick", "schedule": 5.0},
     },
     task_queues=(
         Queue(EXTRACTION_QUEUE, routing_key=EXTRACTION_QUEUE),

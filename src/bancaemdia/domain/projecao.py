@@ -33,6 +33,7 @@ CAMPOS_DA_CRIACAO = (
     "comissao_centavos",
     "mercado_bruto",
     "conta_casa_id",
+    "conta_referencia_explicita",
     "tipster_id",
     "time_casa_id",
     "time_fora_id",
@@ -152,7 +153,14 @@ def projetar_validado(
         if tipo == "STAKE_ALTERADA" and payload.get("para") is None:
             raise EventoIrrecuperavelError("alteração de stake sem destino")
     estado, protegidos = projetar(historico)
-    if estado.get("origem") not in {"telegram", "print", "manual", "planilha", "casa"}:
+    if estado.get("origem") not in {
+        "telegram",
+        "telegram_bot",
+        "print",
+        "manual",
+        "planilha",
+        "casa",
+    }:
         raise EventoIrrecuperavelError("origem da aposta desconhecida")
     if estado.get("estado", "PENDENTE") not in set(Estado):
         raise EventoIrrecuperavelError("estado da aposta desconhecido")

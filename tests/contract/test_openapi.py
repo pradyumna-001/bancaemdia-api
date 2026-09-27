@@ -209,7 +209,7 @@ def test_openapi_endpoint_matches_checked_in_snapshot(openapi_document: JsonObje
 @pytest.mark.contract
 def test_every_operation_has_human_documentation(openapi_document: JsonObject) -> None:
     operations = list(_operations(openapi_document))
-    assert len(operations) == 35
+    assert len(operations) == 52
     for method, path, operation in operations:
         location = f"{method.upper()} {path}"
         assert str(operation.get("summary", "")).strip(), location
@@ -234,7 +234,7 @@ def test_request_bodies_have_examples(openapi_document: JsonObject) -> None:
             assert media.get("example") is not None or media.get("examples"), (
                 f"{method.upper()} {path}: {media_type} lacks an example"
             )
-    assert bodies == 11
+    assert bodies == 18
 
 
 @pytest.mark.contract
@@ -574,11 +574,13 @@ negative_schema = (
     )
     # This authenticated stats operation has no request input to invalidate.
     .exclude(path="/api/v1/revisao/stats")
+    .exclude(path="/api/v1/integrations/telegram/webhook")
 )
 
 
 @pytest.mark.contract
 @negative_schema.parametrize()
+@settings(suppress_health_check=[HealthCheck.filter_too_much], deadline=None)
 def test_schemathesis_invalid_protected_requests(case: schemathesis.Case) -> None:
     response = case.call_and_validate()
     assert response.status_code == 401

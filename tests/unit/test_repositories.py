@@ -390,14 +390,15 @@ def _conta() -> models.ContaCasa:
 async def test_conta_casa_lookup_create_and_close() -> None:
     session = _Session(_conta())
     conta = await ContaCasaRepo().get_by_usuario_casa(session, 1, 2)
-    assert conta == registros.ContaCasa(3, 1, 2, "", ONTEM, None, True)
+    assert conta == registros.ContaCasa(3, 1, 2, "", ONTEM, None, True, estado=None)
     sql = _sql(session.statements[0])
     assert (
         "contas_casa.usuario_id = %(usuario_id_1)s AND contas_casa.casa_id = %(casa_id_1)s" in sql
     )
     assert "contas_casa.ativa IS true" in sql
-    assert "ORDER BY contas_casa.id" in sql
     assert "LIMIT %(param_1)s" in sql
+    assert _params(session.statements[0])["param_1"] == 2
+    assert await ContaCasaRepo().get_by_usuario_casa(_Session(_conta(), _conta()), 1, 2) is None
 
     await ContaCasaRepo().create(session, {"usuario_id": 1, "casa_id": 2})
     assert "INSERT INTO contas_casa" in _sql(session.statements[1])
@@ -765,9 +766,14 @@ async def test_revisao_pendente_superseded_reviews_of_a_bet_are_resolved() -> No
     assert "revisao_pendente.extracao_bruta ->>" in sql
     assert "revisao_pendente.resolvido_em IS NULL" in sql
     assert "revisao_pendente.motivo != %(motivo_1)s" in sql
+    assert "tipo_revisao" in _params(session.statements[0]).values()
 
     await RevisaoPendenteRepo().resolve_superseded(session, 1, "t:1:1:0", None)
     assert "motivo !=" not in _sql(session.statements[1])
+    await RevisaoPendenteRepo().resolve_superseded(
+        session, 1, "t:1:1:0", None, include_account=True
+    )
+    assert "tipo_revisao" not in _params(session.statements[2]).values()
 
 
 async def test_aposta_upsert_materializada_only_lets_a_newer_write_in() -> None:
@@ -793,7 +799,7 @@ async def test_conta_casa_is_found_by_the_house_name_and_the_bet_date() -> None:
 
     conta = await ContaCasaRepo().get_vigente_by_nome_da_casa(session, 1, "Betano")
 
-    assert conta == registros.ContaCasa(3, 1, 2, "", ONTEM, None, True)
+    assert conta == registros.ContaCasa(3, 1, 2, "", ONTEM, None, True, estado=None)
     sql = _sql(session.statements[0])
     assert "JOIN casas ON casas.id = contas_casa.casa_id" in sql
     assert "casas.nome = %(nome_1)s" in sql
