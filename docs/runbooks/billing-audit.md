@@ -2,6 +2,10 @@
 
 This ledger is not a completion claim. Only payment scope of mixed issues is included.
 
+Review units (all based on main): #150 → #89; #151 → #90; #152 → #91; #153 → #92; #154 → #93; #155 → billing #118. Consolidated #149 was withdrawn at the owner's request. #132 and #133 were closed as superseded; their branches remain available. The temporary combined branch is only an integration test fixture, never a merge/review replacement for these six PRs. No frontend implementation was added.
+
+CI evidence: integrated commit 6d0cebdfcc1c169286340eb262370b64f9b8e994 passed full pytest/PostgreSQL, coverage threshold, mypy, Ruff, OpenAPI compatibility and Docker in [run 36337037802](https://github.com/pradyumna-001/bancaemdia-api/actions/runs/36337037802). Foundation PR #151 also passed its independent run 36337039564. Later changes require fresh evidence. Other PRs cannot pass independently until their prerequisite code reaches main. Documentation PR #150 inherits the baseline SQLAlchemy/instrumentation failures corrected in #151; it does not modify runtime code.
+
 | Item | Inventory / disposition | Remaining acceptance evidence |
 | --- | --- | --- |
 | #89 / #132 | Mercado Pago preflight preserved verbatim as historical ADR appendix; superseded by Stripe ADR 025. No Mercado Pago or Asaas future adapter. | Account-specific approval/identity, fees/payouts and commercial/legal launch gates. |

@@ -10,6 +10,15 @@ depends_on = None
 
 
 def upgrade() -> None:
+    # PostgreSQL calendar days can be 23/25 hours across DST transitions.
+    op.drop_constraint("ck_assinatura_trial_length", "assinaturas")
+    op.create_check_constraint(
+        "ck_assinatura_trial_length",
+        "assinaturas",
+        "trial_ends_at = trial_started_at + interval '168 hours'",
+    )
+    op.execute("ALTER FUNCTION billing_new_user_trial() SET timezone = 'UTC'")
+    op.execute("ALTER FUNCTION billing_activate_rollout() SET timezone = 'UTC'")
     op.drop_constraint("ex_billing_price_published_overlap", "billing_prices")
     op.drop_constraint("ck_billing_price_currency", "billing_prices")
     op.create_check_constraint(
@@ -54,6 +63,14 @@ def upgrade() -> None:
 
 
 def downgrade() -> None:
+    op.drop_constraint("ck_assinatura_trial_length", "assinaturas")
+    op.create_check_constraint(
+        "ck_assinatura_trial_length",
+        "assinaturas",
+        "trial_ends_at = trial_started_at + interval '7 days'",
+    )
+    op.execute("ALTER FUNCTION billing_new_user_trial() RESET timezone")
+    op.execute("ALTER FUNCTION billing_activate_rollout() RESET timezone")
     op.execute(
         "DO $$ BEGIN IF EXISTS (SELECT 1 FROM assinaturas WHERE trial_confirmed OR provider_customer_ref IS NOT NULL) THEN RAISE EXCEPTION 'billing rollback requires data-preserving migration'; END IF; END $$"
     )

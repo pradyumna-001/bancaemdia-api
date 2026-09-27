@@ -58,7 +58,10 @@ async def stripe_webhook(
         raise HTTPException(400, "billing_invalid_signature") from None
     if event.get("type") not in EVENTS:
         return {"status": "ignored"}
-    resource = event.get("data", {}).get("object", {})
+    data = event.get("data")
+    resource = data.get("object") if isinstance(data, dict) else None
+    if not isinstance(resource, dict):
+        raise HTTPException(400, "billing_invalid_event")
     customer = resource.get("customer")
     # Disputes lack a customer; the periodic full reconciliation still repairs them.
     # Resolve their charge through Stripe rather than storing the raw dispute payload.
@@ -68,7 +71,7 @@ async def stripe_webhook(
         try:
             charge = await StripeBilling(settings).request("GET", "charges/" + resource["charge"])
             customer = charge.get("customer")
-        except (BillingUnavailableError, KeyError):
+        except (BillingUnavailableError, KeyError, TypeError):
             raise HTTPException(503, "billing_provider_unavailable") from None
     if not isinstance(customer, str) or not customer.startswith("cus_"):
         raise HTTPException(400, "billing_customer_missing")

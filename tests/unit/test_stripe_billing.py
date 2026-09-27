@@ -65,6 +65,7 @@ def test_signature_uses_raw_bytes_and_rejects_replay_and_live_events():
         "https://evil.test",
         "https://user@checkout.stripe.com/x",
         "https://checkout.stripe.com:443/x",
+        "https://checkout.stripe.com:invalid/x",
         None,
     ],
 )
@@ -90,9 +91,14 @@ async def test_checkout_always_collects_card_and_first_trial_is_seven_days():
         )
 
     adapter = provider(handle)
-    await adapter.checkout("cus_fixture", "price_fixture", "operation-fixture", trial=True)
-    await adapter.checkout("cus_fixture", "price_fixture", "operation-fixture", trial=False)
+    await adapter.checkout(
+        "cus_fixture", "price_fixture", "operation-fixture", trial=True, currency="BRL"
+    )
+    await adapter.checkout(
+        "cus_fixture", "price_fixture", "operation-fixture", trial=False, currency="BRL"
+    )
     assert seen[0]["payment_method_collection"] == ["always"]
+    assert seen[0]["currency"] == ["brl"]
     assert seen[0]["subscription_data[trial_period_days]"] == ["7"]
     assert seen[0]["subscription_data[trial_settings][end_behavior][missing_payment_method]"] == [
         "cancel"
@@ -185,6 +191,10 @@ def test_refund_dispute_and_exact_paid_period():
         project_remote(
             remote(), price_ref="price_fixture", trial_ends_at=datetime.fromtimestamp(1000001, UTC)
         )
+    unexpanded = remote()
+    unexpanded["latest_invoice"] = "in_fixture"
+    with pytest.raises(BillingUnavailableError, match="unexpanded_invoice"):
+        project_remote(unexpanded, price_ref="price_fixture", trial_ends_at=cutoff)
 
 
 def test_live_keys_are_rejected_before_any_request():
