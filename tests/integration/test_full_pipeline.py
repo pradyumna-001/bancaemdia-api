@@ -659,5 +659,3 @@ async def test_a_telegram_export_uploaded_to_the_api_is_read_and_reported_comple
     replay = await reconstruir_usuario(usuario, engine=engine_app, dry_run=True)
     assert painel.resumo.total_apostas == replay.apostas == 10
     assert replay.alteradas == replay.recriadas == replay.movimentos_restaurados == 0
-
-\n
