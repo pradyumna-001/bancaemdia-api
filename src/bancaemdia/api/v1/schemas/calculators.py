@@ -17,10 +17,6 @@ class Outcome(StrictModel):
     odd: DecimalText = Field(max_length=22)
 
 
-class OddRequest(StrictModel):
-    odd: DecimalText = Field(max_length=22)
-
-
 class MarketRequest(StrictModel):
     outcomes: list[Outcome] = Field(
         min_length=2,
@@ -33,32 +29,13 @@ class StakeMarketRequest(MarketRequest):
     total_stake_centavos: int = Field(gt=0, le=1_000_000_000_000)
 
 
-class SplitItem(StrictModel):
-    name: str = Field(min_length=1, max_length=80)
-    value: DecimalText = Field(max_length=22)
-    odd: DecimalText | None = Field(default=None, max_length=22)
-
-
-class SplitRequest(StrictModel):
-    total_stake_centavos: int = Field(gt=0, le=1_000_000_000_000)
-    mode: Literal["percentages", "weights"]
-    normalize_weights: bool = False
-    selections: list[SplitItem] = Field(min_length=1, max_length=20)
-
-
 class HedgeRequest(StrictModel):
     original_stake_centavos: int = Field(gt=0, le=1_000_000_000_000)
     original_odd: DecimalText = Field(max_length=22)
     opposing_odd: DecimalText = Field(max_length=22)
-    objective: Literal["equalize_profit", "protect_stake"]
     commission_percentage: DecimalText = Field(default="0", max_length=22)
     stake_type: Literal["cash"] = "cash"
     market_type: Literal["two_way"] = "two_way"
-
-
-class TargetRequest(StrictModel):
-    odd: DecimalText = Field(max_length=22)
-    target_profit_centavos: int = Field(gt=0, le=1_000_000_000_000)
 
 
 class BankrollRequest(StrictModel):

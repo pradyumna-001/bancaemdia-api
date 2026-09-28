@@ -1,4 +1,4 @@
-"""Thin authenticated/stateless HTTP adapter for the nine standard calculators."""
+"""Thin authenticated/stateless HTTP adapter for the four selected calculators."""
 
 from fastapi import APIRouter, HTTPException, Security
 
@@ -9,10 +9,7 @@ from bancaemdia.api.v1.schemas.calculators import (
     CalculationResponse,
     HedgeRequest,
     MarketRequest,
-    OddRequest,
-    SplitRequest,
     StakeMarketRequest,
-    TargetRequest,
 )
 from bancaemdia.domain.calculators import allocation as alloc
 from bancaemdia.domain.calculators import planning, probability
@@ -41,14 +38,6 @@ def _invalid(error: CalculatorInputError) -> HTTPException:
     return HTTPException(status_code=422, detail=str(error))
 
 
-@router.post("/probabilidade-implicita", response_model=CalculationResponse)
-def implied(body: OddRequest) -> CalculationResponse:
-    try:
-        return _respond(probability.implied(body.odd))
-    except CalculatorInputError as error:
-        raise _invalid(error) from error
-
-
 @router.post("/mercado-justo", response_model=CalculationResponse)
 def fair(body: MarketRequest) -> CalculationResponse:
     try:
@@ -57,49 +46,13 @@ def fair(body: MarketRequest) -> CalculationResponse:
         raise _invalid(error) from error
 
 
-@router.post("/rtp", response_model=CalculationResponse)
-def rtp(body: MarketRequest) -> CalculationResponse:
-    try:
-        return _respond(probability.rtp([(item.name, item.odd) for item in body.outcomes]))
-    except CalculatorInputError as error:
-        raise _invalid(error) from error
-
-
-@router.post("/surebet", response_model=CalculationResponse)
-def surebet(body: StakeMarketRequest) -> CalculationResponse:
+@router.post("/distribuir-entre-resultados", response_model=CalculationResponse)
+def distribute(body: StakeMarketRequest) -> CalculationResponse:
     try:
         return _respond(
-            alloc.surebet(
+            alloc.distribute(
                 [(item.name, item.odd) for item in body.outcomes],
                 body.total_stake_centavos,
-            )
-        )
-    except CalculatorInputError as error:
-        raise _invalid(error) from error
-
-
-@router.post("/dutching", response_model=CalculationResponse)
-def dutching(body: StakeMarketRequest) -> CalculationResponse:
-    try:
-        return _respond(
-            alloc.dutching(
-                [(item.name, item.odd) for item in body.outcomes],
-                body.total_stake_centavos,
-            )
-        )
-    except CalculatorInputError as error:
-        raise _invalid(error) from error
-
-
-@router.post("/dividir-stake", response_model=CalculationResponse)
-def split(body: SplitRequest) -> CalculationResponse:
-    try:
-        return _respond(
-            alloc.split(
-                body.total_stake_centavos,
-                [(item.name, item.value, item.odd) for item in body.selections],
-                body.mode,
-                body.normalize_weights,
             )
         )
     except CalculatorInputError as error:
@@ -114,18 +67,9 @@ def hedge(body: HedgeRequest) -> CalculationResponse:
                 body.original_stake_centavos,
                 body.original_odd,
                 body.opposing_odd,
-                body.objective,
                 body.commission_percentage,
             )
         )
-    except CalculatorInputError as error:
-        raise _invalid(error) from error
-
-
-@router.post("/lucro-alvo", response_model=CalculationResponse)
-def target(body: TargetRequest) -> CalculationResponse:
-    try:
-        return _respond(planning.target_profit(body.odd, body.target_profit_centavos))
     except CalculatorInputError as error:
         raise _invalid(error) from error
 

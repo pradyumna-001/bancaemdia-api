@@ -31,14 +31,9 @@ python scripts/generate_openapi.py
 | `GET` | `/api/v1/caixa/extrato` | Consultar extrato | `200`, `401`, `422`, `429`, `500`, `503` | — |
 | `GET` | `/api/v1/caixa/saldo` | Consultar saldos | `200`, `401`, `422`, `429`, `500`, `503` | — |
 | `POST` | `/api/v1/calculadoras/cobertura-ao-vivo` | Calcular cobertura ao vivo | `200`, `401`, `413`, `422`, `429`, `500`, `503` | calculadoras |
-| `POST` | `/api/v1/calculadoras/dividir-stake` | Dividir stake | `200`, `401`, `413`, `422`, `429`, `500`, `503` | calculadoras |
-| `POST` | `/api/v1/calculadoras/dutching` | Distribuir dutching | `200`, `401`, `413`, `422`, `429`, `500`, `503` | calculadoras |
-| `POST` | `/api/v1/calculadoras/lucro-alvo` | Dimensionar lucro alvo | `200`, `401`, `413`, `422`, `429`, `500`, `503` | calculadoras |
+| `POST` | `/api/v1/calculadoras/distribuir-entre-resultados` | Distribuir entre resultados | `200`, `401`, `413`, `422`, `429`, `500`, `503` | calculadoras |
 | `POST` | `/api/v1/calculadoras/mercado-justo` | Normalizar mercado justo | `200`, `401`, `413`, `422`, `429`, `500`, `503` | calculadoras |
 | `POST` | `/api/v1/calculadoras/percentual-banca` | Calcular percentual da banca | `200`, `401`, `413`, `422`, `429`, `500`, `503` | calculadoras |
-| `POST` | `/api/v1/calculadoras/probabilidade-implicita` | Calcular probabilidade implícita | `200`, `401`, `413`, `422`, `429`, `500`, `503` | calculadoras |
-| `POST` | `/api/v1/calculadoras/rtp` | Calcular RTP | `200`, `401`, `413`, `422`, `429`, `500`, `503` | calculadoras |
-| `POST` | `/api/v1/calculadoras/surebet` | Avaliar surebet | `200`, `401`, `413`, `422`, `429`, `500`, `503` | calculadoras |
 | `POST` | `/api/v1/coleta` | Receber coleta da extensão | `200`, `400`, `403`, `413`, `429`, `500`, `503` | — |
 | `GET` | `/api/v1/painel` | Consultar painel financeiro | `200`, `401`, `422`, `429`, `500`, `503` | — |
 | `GET` | `/api/v1/painel/export` | Exportar painel em Excel | `200`, `401`, `422`, `429`, `500`, `503` | — |

@@ -12,7 +12,7 @@
 - [ ] A photo creates one resumable bet draft; it never creates a financial bet before explicit user confirmation
 - [ ] When extraction is incomplete, the bot asks only for the missing information and never asks the user to resend the photo
 - [ ] Replayed updates, repeated confirmations, worker restarts, and Telegram outages never duplicate a bet or lose a reply
-- [ ] All nine standard requested calculator APIs use one pure `Decimal` domain core, deterministic cent allocation, and explicit validation
+- [ ] The four selected calculator APIs use one pure `Decimal` domain core, deterministic cent allocation, and explicit validation
 - [ ] The line-calculator work ends in an approved model/data decision; no Poisson assumption and no implementation issue before that gate passes
 - [ ] Advanced analytics adds only capabilities absent from GitHub #30 and keeps deposits/withdrawals separate from betting profit
 - [ ] Authenticated financial responses are never publicly cacheable
@@ -206,9 +206,11 @@
 
 ---
 
-### Issue 7: Standard Calculator APIs — Nine Calculators on One Decimal Core
+### Issue 7: Selected Calculator APIs — Four Operations on One Decimal Core
 **Labels**: `week-6`, `calculators`, `domain`, `probability`, `allocation`, `risk`, `api`, `testing`
-**Size**: L (6-8 hours)
+
+**Product decision (2026-09-28)**: The owner narrowed the original nine operations to four.
+This revision supersedes the original Issue 7 checklist; Issue 8's line-calculator research remains separate.
 
 **Files**:
 - `src/bancaemdia/domain/calculators/core.py`
@@ -217,81 +219,31 @@
 - `src/bancaemdia/domain/calculators/planning.py`
 - `src/bancaemdia/api/v1/schemas/calculators.py`
 - `src/bancaemdia/api/v1/calculators.py`
-- `tests/unit/calculators/test_core.py`
-- `tests/unit/calculators/test_probability.py`
-- `tests/unit/calculators/test_allocation.py`
-- `tests/unit/calculators/test_planning.py`
-- `tests/contract/test_calculator_probability_api.py`
-- `tests/contract/test_calculator_allocation_api.py`
-- `tests/contract/test_calculator_planning_api.py`
+- `tests/unit/calculators/test_calculators.py`
+- `tests/contract/test_calculators_api.py`
 
 **Tasks**:
-- [ ] Implement calculator logic as pure functions with typed input/output; HTTP handlers only validate, call the domain, and serialize
-- [ ] Use `Decimal` constructed from strings for all odds, probabilities, percentages, money, and intermediate operations; prohibit binary `float` in calculator domain code
-- [ ] Define shared precision policy:
-  - Money allocated in integer centavos
-  - Display money rounded with `ROUND_HALF_UP`
-  - Probabilities/percentages retain configurable decimal precision
-  - Intermediate calculations use a documented higher precision context
-- [ ] Implement largest-remainder cent allocation with stable input-order tie-breaking so allocated legs always sum exactly to the requested total
-- [ ] Add canonical validation/errors for odds `> 1`, positive stakes/bankroll/targets, percentages in range, finite values, complete-market requirements, and maximum selection count
-- [ ] Return both machine values and formula metadata (`method`, `precision`, `rounding`, warnings); never return formatted Brazilian currency strings from the domain
-- [ ] Keep calculator calls stateless and separate from user bankroll/bet records; calculation must never create a bet or movement
-- [ ] Add a `/api/v1/calculadoras` router and a consistent response/error envelope for follow-up issues
-- [ ] If exposed without authentication for future acquisition pages, enforce strict per-IP limits and no persistence; frontend pages remain out of scope
-- [ ] Add example-based, boundary, invariant, and property tests for rounding and allocation
-- [ ] Add `POST /api/v1/calculadoras/probabilidade-implicita`:
-  - Input decimal odd
-  - Output `1 / odd` as fraction and percentage
-- [ ] Add `POST /api/v1/calculadoras/mercado-justo`:
-  - Require all mutually exclusive outcomes of one market
-  - Calculate raw implied probabilities and overround
-  - Remove margin with an explicitly named proportional normalization method
-  - Return fair probabilities and corresponding fair decimal odds in original input order
-- [ ] Add `POST /api/v1/calculadoras/rtp`:
-  - Require a complete mutually exclusive market; one isolated odd is insufficient
-  - Calculate theoretical RTP as `1 / sum(implied_probabilities)` and expose bookmaker margin separately
-  - Permit RTP above 100% as a mathematically valid arbitrage signal rather than clamping it
-- [ ] Reject decimal odds `<= 1`, incomplete/one-outcome fair-market requests, non-finite values, and unsupported odds formats
-- [ ] Make clear in schemas that no-vig is margin removal, not a predictive estimate of the event's true probability
-- [ ] Add vectors for two-way, three-way, high-overround, zero-overround, and arbitrage markets
-- [ ] Add invariants: fair probabilities sum to exactly 1 within declared precision and results do not change under equivalent string scale (`2.0` vs `2.00`)
-- [ ] Add `POST /api/v1/calculadoras/surebet` for all mutually exclusive outcomes:
-  - Detect arbitrage through the inverse-odds sum
-  - Allocate a total stake to equalize gross return
-  - Return cent-exact stakes, per-outcome return/profit, guaranteed minimum profit, ROI, and non-arbitrage status
-- [ ] Add `POST /api/v1/calculadoras/dutching`:
-  - Allocate the requested total across selections to equalize gross return
-  - Return the realized rounded return/profit for every outcome, not only an ideal unrounded number
-  - Allow negative/equalized profit with an explicit warning instead of calling it a surebet
-- [ ] Add `POST /api/v1/calculadoras/dividir-stake`:
-  - Split a total stake by user-supplied percentages or positive weights
-  - Normalize weights only when explicitly requested
-  - Return each cent-exact allocation, remainder decision, and projected return when odds are supplied
-- [ ] Reuse the same inverse-odds and deterministic largest-remainder primitives across surebet/dutching; no duplicated formulas in API handlers
-- [ ] Preserve caller selection order and stable tie-breaking under equal remainders
-- [ ] Require at least two distinct outcomes for surebet/dutching and positive total stake; reject weights that cannot satisfy the requested mode
-- [ ] Add examples for two/three outcomes, one-cent remainders, equal odds, no arbitrage, high odds, and reordered inputs
-- [ ] Add invariants: allocations sum to total, guaranteed profit is the minimum rounded scenario profit, and advertised surebet remains positive after cent rounding
-- [ ] Add `POST /api/v1/calculadoras/cobertura-ao-vivo`:
-  - Input original cash stake/odd, current opposing odd, and optional commission
-  - Solve the hedge stake for the reviewed objective (`equalize_profit` or `protect_stake`)
-  - Return both rounded scenarios: original outcome wins and hedge outcome wins
-  - Never hide a residual loss caused by price, commission, or cent rounding
-- [ ] Keep v1 live hedge to a two-outcome, cash-stake contract; reject freebets, partial cashouts, Asian pushes, and multi-way markets with an explicit unsupported response
-- [ ] Add `POST /api/v1/calculadoras/lucro-alvo`:
-  - Input decimal odd and desired net profit
-  - Return required cash stake using `target_profit / (odd - 1)` plus rounded realized profit
-  - Explicitly exclude freebet/commission/multiple semantics from v1
-- [ ] Add `POST /api/v1/calculadoras/percentual-banca`:
-  - Forward mode: bankroll + percentage → cent-exact stake
-  - Reverse mode: bankroll + stake → bankroll percentage
-  - Reject non-positive bankroll and percentages outside the reviewed 0–100 range
-- [ ] Return assumptions and both ideal/rounded values wherever cent rounding changes the objective
-- [ ] Add vectors for hedge gain/loss, commission, impossible protection, minimum cent, high percentage, and target-profit rounding
-- [ ] Add cross-checks showing the reported scenario profits can be recomputed from returned stakes/odds
+- [ ] Keep pure typed Decimal calculations, bounded validation, exact cent allocation and
+      explicit method, precision, rounding, assumptions and warnings.
+- [ ] `POST /api/v1/calculadoras/mercado-justo`: require all mutually exclusive outcomes,
+      report raw implied probabilities, proportional no-vig probabilities and odds, and overround.
+      Explicitly state that these are not true-probability predictions or neighboring-line prices.
+- [ ] `POST /api/v1/calculadoras/distribuir-entre-resultados`: combine dutching and surebet
+      into one inverse-odds allocation; show stake, return and net profit for every outcome,
+      minimum profit and ROI, and flag arbitrage only if every rounded scenario is profitable.
+- [ ] `POST /api/v1/calculadoras/cobertura-ao-vivo`: support two-way cash stakes and the
+      equalized-profit objective, including commission on winning odds profit and both rounded
+      scenarios. Reject unsupported freebet, multi-way and Asian-push contracts.
+- [ ] `POST /api/v1/calculadoras/percentual-banca`: support direct and inverse stake sizing.
+- [ ] Remove standalone implied-probability, RTP, stake-split and target-profit operations,
+      and remove the `protect_stake` hedge objective.
+- [ ] Update OpenAPI, examples, API reference, tests and product documentation.
 
-**Acceptance**: Core tests prove no float use, invalid inputs fail consistently, and randomized allocations always return non-negative cent values whose sum equals the requested stake exactly; known vectors match independently calculated Decimal results, fair probabilities sum to 100% at the declared precision, and RTP refuses an incomplete market instead of inventing missing outcomes; every endpoint returns deterministic cent allocations that reconcile to the input total and a surebet is reported only when every rounded outcome remains profitable; for every returned hedge, the two scenario profits recompute exactly at cent precision, and target-profit/bankroll results declare rounding and unsupported cases instead of overstating certainty
+**Acceptance**: Exactly four authenticated stateless calculator routes are exposed. Fair
+probabilities sum to one at the declared precision. Allocated stakes reconcile to the requested
+total, and a profit guarantee requires positive profit in every rounded outcome. Both hedge
+scenario profits are reproducible from the reported inputs. Unsupported or incomplete requests
+are rejected explicitly.
 
 ---
 
@@ -384,7 +336,7 @@ graph TD
     4 --> 5
     5 --> 6[Telegram Hardening/E2E]
 
-    W5 --> 7[Nine Standard Calculator APIs]
+    W5 --> 7[Four Selected Calculator APIs]
     W5 --> 8[Line Calculator Discovery]
 
     W3[Week 3 Issue 7 / GitHub #30] --> 9[Advanced Analytics]

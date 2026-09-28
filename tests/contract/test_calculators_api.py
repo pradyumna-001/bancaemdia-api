@@ -28,31 +28,18 @@ PREFIX = "/api/v1/calculadoras/"
 
 
 @pytest.mark.contract
-def test_all_nine_routes_authenticate_and_serialize_exact_decimals(client: TestClient) -> None:
+def test_four_routes_authenticate_and_serialize_exact_decimals(client: TestClient) -> None:
     cases = {
-        "probabilidade-implicita": {"odd": "2.00"},
-        "mercado-justo": {"outcomes": [{"name": "A", "odd": "2"}, {"name": "B", "odd": "2"}]},
-        "rtp": {"outcomes": [{"name": "A", "odd": "2"}, {"name": "B", "odd": "2"}]},
-        "surebet": {
+        "mercado-justo": {"outcomes": [{"name": "A", "odd": "2.0"}, {"name": "B", "odd": "2.00"}]},
+        "distribuir-entre-resultados": {
             "outcomes": [{"name": "A", "odd": "2.1"}, {"name": "B", "odd": "2.1"}],
             "total_stake_centavos": 100,
-        },
-        "dutching": {
-            "outcomes": [{"name": "A", "odd": "1.9"}, {"name": "B", "odd": "1.9"}],
-            "total_stake_centavos": 100,
-        },
-        "dividir-stake": {
-            "mode": "percentages",
-            "total_stake_centavos": 101,
-            "selections": [{"name": "A", "value": "50"}, {"name": "B", "value": "50"}],
         },
         "cobertura-ao-vivo": {
             "original_stake_centavos": 10000,
             "original_odd": "1.5",
             "opposing_odd": "3",
-            "objective": "protect_stake",
         },
-        "lucro-alvo": {"odd": "3", "target_profit_centavos": 101},
         "percentual-banca": {"bankroll_centavos": 10000, "percentage": "1.25"},
     }
     for path, body in cases.items():
@@ -69,45 +56,63 @@ def test_all_nine_routes_authenticate_and_serialize_exact_decimals(client: TestC
             "warnings",
         }
         assert isinstance(payload["data"], dict)
-    implied = client.post(PREFIX + "probabilidade-implicita", json={"odd": "2.00"}, headers=HEADERS)
-    assert implied.json()["data"] == {"probability": "0.50000000", "percentage": "50.000000"}
-    scaled = client.post(
-        PREFIX + "mercado-justo",
-        json={"outcomes": [{"name": "A", "odd": "2.0"}, {"name": "B", "odd": "2.00"}]},
+    fair = client.post(PREFIX + "mercado-justo", json=cases["mercado-justo"], headers=HEADERS)
+    assert [leg["odd"] for leg in fair.json()["data"]["outcomes"]] == ["2", "2"]
+    assert fair.json()["data"]["outcomes"][0]["implied_probability"] == "0.50000000"
+    distribution = client.post(
+        PREFIX + "distribuir-entre-resultados",
+        json=cases["distribuir-entre-resultados"],
         headers=HEADERS,
-    )
-    assert [leg["odd"] for leg in scaled.json()["data"]["outcomes"]] == ["2", "2"]
+    ).json()["data"]
+    assert distribution["guaranteed_profit"] is True
     assert not get_recent_writes().recent(103103)
+
+
+@pytest.mark.contract
+def test_removed_routes_are_absent(client: TestClient) -> None:
+    for path in [
+        "probabilidade-implicita",
+        "rtp",
+        "surebet",
+        "dutching",
+        "dividir-stake",
+        "lucro-alvo",
+    ]:
+        assert client.post(PREFIX + path, json={}, headers=HEADERS).status_code == 404
 
 
 @pytest.mark.contract
 def test_invalid_inputs_and_structural_limits(client: TestClient) -> None:
     for bad in ["NaN", "Infinity", "1e999999", "1", "2.000000000"]:
         response = client.post(
-            PREFIX + "probabilidade-implicita", json={"odd": bad}, headers=HEADERS
+            PREFIX + "mercado-justo",
+            json={"outcomes": [{"name": "A", "odd": bad}, {"name": "B", "odd": "2"}]},
+            headers=HEADERS,
         )
         assert response.status_code == 422
         assert bad not in response.text
     assert (
         client.post(
-            PREFIX + "rtp", json={"outcomes": [{"name": "A", "odd": "2"}]}, headers=HEADERS
-        ).status_code
-        == 422
-    )
-    assert (
-        client.post(
-            PREFIX + "cobertura-ao-vivo",
-            json={
-                "original_stake_centavos": 100,
-                "original_odd": "2",
-                "opposing_odd": "2",
-                "objective": "protect_stake",
-                "stake_type": "freebet",
-            },
+            PREFIX + "mercado-justo",
+            json={"outcomes": [{"name": "A", "odd": "2"}]},
             headers=HEADERS,
         ).status_code
         == 422
     )
+    for extra in [{"objective": "protect_stake"}, {"stake_type": "freebet"}]:
+        assert (
+            client.post(
+                PREFIX + "cobertura-ao-vivo",
+                json={
+                    "original_stake_centavos": 100,
+                    "original_odd": "2",
+                    "opposing_odd": "2",
+                    **extra,
+                },
+                headers=HEADERS,
+            ).status_code
+            == 422
+        )
     assert (
         client.post(
             PREFIX + "percentual-banca",
@@ -122,10 +127,17 @@ def test_invalid_inputs_and_structural_limits(client: TestClient) -> None:
 def test_api_rate_policy_applies_and_post_is_not_a_financial_write(client: TestClient) -> None:
     from starlette.requests import Request
 
-    request = Request({"type": "http", "method": "POST", "path": PREFIX + "rtp", "headers": []})
+    request = Request({
+        "type": "http",
+        "method": "POST",
+        "path": PREFIX + "distribuir-entre-resultados",
+        "headers": [],
+    })
     assert policy_for(request).limiter is api_limiter
     response = client.post(
-        PREFIX + "lucro-alvo", json={"odd": "2", "target_profit_centavos": 100}, headers=HEADERS
+        PREFIX + "percentual-banca",
+        json={"bankroll_centavos": 10000, "percentage": "1"},
+        headers=HEADERS,
     )
     assert response.status_code == 200
     assert not get_recent_writes().recent(103103)

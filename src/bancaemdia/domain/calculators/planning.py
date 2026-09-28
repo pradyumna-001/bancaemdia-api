@@ -1,4 +1,4 @@
-"""Stake targets and bankroll sizing; live hedge is added after objective review."""
+"""Bankroll sizing and two-way live hedge calculations."""
 
 from decimal import Decimal, localcontext
 
@@ -15,30 +15,6 @@ from bancaemdia.domain.calculators.core import (
     percentage,
     quantize,
 )
-
-
-def target_profit(price: str, target_cents: int) -> Calculation:
-    cents(target_cents, "lucro_alvo_centavos")
-    with localcontext() as ctx:
-        ctx.prec = 48
-        odd = odds(price)
-        ideal = Decimal(target_cents) / (odd - ONE)
-        rounded = amount_cents(ideal)
-        if rounded > 1_000_000_000_000:
-            raise CalculatorInputError("stake: exceeds supported limit")
-        realized = amount_cents(Decimal(rounded) * (odd - ONE))
-        return Calculation(
-            {
-                "ideal_stake_centavos": quantize(ideal, PERCENT_UNIT),
-                "stake_centavos": rounded,
-                "target_profit_centavos": target_cents,
-                "realized_profit_centavos": realized,
-                "difference_centavos": realized - target_cents,
-            },
-            "target_profit_divided_by_net_odds",
-            ("Cash stake and single decimal odd; freebets, commission and multiples excluded.",),
-            ("Rounded stake falls short of target.",) if realized < target_cents else (),
-        )
 
 
 def bankroll_percent(
@@ -84,13 +60,10 @@ def live_hedge(
     original_stake: int,
     original_price: str,
     opposing_price: str,
-    objective: str,
     commission: str = "0",
 ) -> Calculation:
     """Commission is charged on winning net odds profit, never on returned stake."""
     cents(original_stake, "stake_original_centavos")
-    if objective not in {"equalize_profit", "protect_stake"}:
-        raise CalculatorInputError("objective: unsupported")
     with localcontext() as ctx:
         ctx.prec = 48
         first = odds(original_price)
@@ -100,11 +73,7 @@ def live_hedge(
             raise CalculatorInputError("commission: must be below 100 percent")
         first_effective = ONE + (first - ONE) * (ONE - fee)
         second_effective = ONE + (second - ONE) * (ONE - fee)
-        ideal = (
-            Decimal(original_stake) * first_effective / second_effective
-            if objective == "equalize_profit"
-            else Decimal(original_stake) / (second_effective - ONE)
-        )
+        ideal = Decimal(original_stake) * first_effective / second_effective
         rounded = amount_cents(ideal)
         if rounded > 1_000_000_000_000:
             raise CalculatorInputError("hedge stake: exceeds supported limit")
@@ -116,15 +85,11 @@ def live_hedge(
         warnings = []
         if min(original_profit, hedge_profit) < 0:
             warnings.append("At least one realized scenario has a residual loss.")
-        if objective == "protect_stake" and original_profit < 0:
-            warnings.append(
-                "Protecting the hedge-win scenario cannot protect both outcomes at these odds."
-            )
         if rounded == 0:
             warnings.append("The ideal hedge rounds to zero cents.")
         return Calculation(
             {
-                "objective": objective,
+                "objective": "equalize_profit",
                 "original_odd": first,
                 "opposing_odd": second,
                 "commission_percentage": percentage(commission),
@@ -139,7 +104,7 @@ def live_hedge(
                 "hedge_wins": {"return_centavos": hedge_return, "profit_centavos": hedge_profit},
                 "both_outcomes_protected": min(original_profit, hedge_profit) >= 0,
             },
-            "equal_net_profit" if objective == "equalize_profit" else "zero_net_loss_if_hedge_wins",
+            "equal_net_profit",
             (
                 "Exactly two mutually exclusive cash-stake outcomes; no freebet, partial cashout or Asian push.",
                 "Commission applies only to the winning leg's odds profit, before cent rounding.",
