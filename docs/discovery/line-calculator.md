@@ -30,6 +30,8 @@ The user example “laterals 38.5 @ 1.8 to 40.5 @ 2.0” might describe prices o
 
 ## Source reconnaissance (28 September 2026)
 
+The follow-up [alternative-provider screening](../../research/line-calculator/provider-options-2026-09-28.md) records public API probes, source-specific gaps and the ranked sample-acquisition path. A published market catalogue is not counted as a measured ladder.
+
 | Source | What is documented | Critical gap / decision |
 |---|---|
 | [The Odds API](https://the-odds-api.com/liveapi/guides/v4/) | Historical **event** odds and alternate markets, with 5-minute historical snapshots since May 2023; paid access. [Market list](https://the-odds-api.com/sports-odds-data/betting-markets.html) includes alternate soccer corners/cards and some player props. [Terms](https://the-odds-api.com/terms-and-conditions.html) allow derived analytics and model training, subject to raw-feed redistribution restrictions. | Best documented low-cost **pilot candidate** for multiple sports. Verify that the actual response supplies both sides and multiple lines for each target market. Throw-ins are not listed in the published soccer keys, so coverage is unproven. Check exact commercial terms for planned display. [Published plans](https://the-odds-api.com/) start at USD 30/month; historical event requests consume credits by market/region. |
