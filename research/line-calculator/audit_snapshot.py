@@ -11,9 +11,9 @@ import argparse
 import csv
 import hashlib
 import json
+import sys
 from collections import Counter, defaultdict
 from pathlib import Path
-
 
 REQUIRED = {
     "event_id",
@@ -27,9 +27,7 @@ REQUIRED = {
 
 
 def audit(path: Path) -> dict:
-    groups: dict[tuple[str, ...], dict[str, set[str]]] = defaultdict(
-        lambda: defaultdict(set)
-    )
+    groups: dict[tuple[str, ...], dict[str, set[str]]] = defaultdict(lambda: defaultdict(set))
     rows = 0
     events: set[str] = set()
     books: set[str] = set()
@@ -100,4 +98,4 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("csv_path", type=Path)
     args = parser.parse_args()
-    print(json.dumps(audit(args.csv_path), indent=2, ensure_ascii=False))
+    sys.stdout.write(json.dumps(audit(args.csv_path), indent=2, ensure_ascii=False) + "\n")
