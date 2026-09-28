@@ -8,7 +8,7 @@ Issue: [#104](https://github.com/pradyumna-001/bancaemdia-api/issues/104)
 
 ## Context
 
-The owner wants a data-based calculator that estimates a fair price at a different betting line, with the broadest defensible market coverage, possibly including throw-ins. One quote cannot identify the line curve. A static public sample was audited, but it has only four multi-line groups in soccer and no outcome labels; see the [research audit](../../research/line-calculator/README.md). No owner-provided or commercially licensed 5,000–10,000-event dataset has been supplied. No model or calibration benchmark has run.
+The owner wants a data-based calculator that estimates a fair price at a different betting line, with the broadest defensible market coverage, possibly including throw-ins. One quote cannot identify the line curve. A static public sample was audited, but it has only four multi-line groups in soccer and no outcome labels; see the [research audit](../../research/line-calculator/README.md). A [free-tier live provider probe](../../research/line-calculator/live-coverage-2026-09-28.md) found current goal/corner/total ladders, but no historical odds or settled outcomes. No owner-approved 5,000–10,000-event historical dataset has been supplied. No model or calibration benchmark has run.
 
 ## Decision now
 
@@ -16,12 +16,13 @@ Do not implement or advertise a cross-line fair-odd estimate, including for the 
 
 | Candidate family | Evidence currently available | Go/No-Go |
 |---|---|---|
-| Soccer match/team goals | Public snapshot has no multi-line paired groups | **No-Go** |
-| Soccer match/team corners | Published provider keys exist, public snapshot has no paired ladder | **No-Go** |
+| Soccer match/team goals | Current EU/UK event probes have multi-line paired groups; no historical benchmark | **No-Go** |
+| Soccer match/team corners | Current US event probe has paired match/team/first-half ladders; no historical benchmark | **No-Go** |
 | Soccer match/team cards, shots, fouls, offsides | No sufficient paired, settled sample | **No-Go** |
 | Soccer throw-ins/laterals | Coverage of candidate providers unverified; no public ladder | **No-Go** |
-| Soccer player shots, shots on target, goals, assists, fouls, cards, saves | At most two paired multi-line groups in any audited market; no outcomes | **No-Go** |
-| Other sports and “other” markets | No per-family definitions, multi-line dataset or outcome benchmark | **No-Go** |
+| Soccer player shots, shots on target, goals, assists, fouls, cards, saves | Public sample has at most two paired multi-line groups; sampled current player shots had no complete pairs | **No-Go** |
+| NBA/MLB/NHL match and team totals | Current probe has paired multi-line groups; no historical benchmark or outcome mapping | **No-Go** |
+| Other sports, player props and “other” markets | Main player lines often paired, sampled alternate player lines lacked both sides; no historical benchmark | **No-Go** |
 | Live variants of every above family | No synchronized clock/state/line history | **No-Go** |
 
 The future method remains **undecided**. Compare monotone no-vig interpolation, non-parametric/ordinal survival approaches and appropriate distributional candidates on owner-approved, event-disjoint temporal data; do not select Poisson by assumption. For half lines, require simultaneous complete over/under quotes. For integer and quarter lines, require settlement and push-mass evidence. Approval for one market family does not approve another.

@@ -142,8 +142,14 @@ def run(args: argparse.Namespace, key: str) -> dict:
                 if market.get("key")
             }
             seen_keys.update(available)
-            candidates = [market for market in available if priority(market)[0] < 4]
-            selected = sorted(candidates, key=priority)[: args.markets_per_event]
+            if args.markets:
+                requested = [market.strip() for market in args.markets.split(",")]
+                selected = [market for market in requested if market in available][
+                    : args.markets_per_event
+                ]
+            else:
+                candidates = [market for market in available if priority(market)[0] < 4]
+                selected = sorted(candidates, key=priority)[: args.markets_per_event]
             max_cost = len(selected) * regions_count
             if not selected or spent + max_cost > args.max_credits:
                 continue
@@ -178,6 +184,7 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--sports", default=",".join(DEFAULT_SPORTS))
     parser.add_argument("--regions", default="auto")
+    parser.add_argument("--markets", default="")
     parser.add_argument("--events-per-sport", type=int, default=2)
     parser.add_argument("--markets-per-event", type=int, default=5)
     parser.add_argument("--max-credits", type=int, default=30)
