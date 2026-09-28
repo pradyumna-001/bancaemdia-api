@@ -32,3 +32,13 @@ World Cup paired lines: 56 `player_shots_on_target`, 37 `player_fouls`, 13 `play
 5. Run the [discovery benchmark protocol](../../docs/discovery/line-calculator.md), publish per-family metrics and confidence intervals, then update [ADR 025](../../docs/adrs/025-line-calculator-model-decision.md) for owner/admin approval.
 
 The audit script accepts the public sample's CSV columns. It is intentionally strict about needing `event_id`, `sportsbook`, `market_type`, `selection`, `selection_type`, `line` and `timestamp`; it does not pretend to normalize an arbitrary provider feed. A paid-source adapter needs a separate, reviewed field map and settlement-rule validation.
+
+## Free current-market coverage probe
+
+After creating a free [The Odds API](https://the-odds-api.com/) account, set `THE_ODDS_API_KEY` in the local environment **without adding it to Git or pasting it in chat**, then run:
+
+```powershell
+python research/line-calculator/probe_the_odds_api.py --max-credits 30
+```
+
+The probe reads active sports and upcoming events, checks available market keys, then requests at most five total/player/alternate market keys for up to two events per listed sport. By default it uses the `eu` region for soccer and `us` for other sports, with a hard cap of 30 credits; change `--sports`, `--regions`, `--events-per-sport`, `--markets-per-event` and `--max-credits` explicitly to explore more. It prints only aggregate market keys and paired-line counts, not raw quotes, event names, player names or the key. The [documented live endpoint quota](https://the-odds-api.com/liveapi/guides/v4/) is one credit per event-market-region response and one credit per event market-list call. Available keys are only recently seen keys, not a complete provider catalogue. A missing key in two upcoming events is **not** proof the provider never offers that market. This free probe cannot test historical depth or model calibration; the paid pilot still needs a separate decision.
