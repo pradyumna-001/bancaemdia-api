@@ -45,10 +45,21 @@ ID_BIGINT_MAXIMO = 2**63 - 1
 ODD_MINIMA = 1.01
 ODD_MAXIMA = 1000.0
 FONTE_DA_PESSOA = "manual"
+CAMPOS_OBRIGATORIOS_CRIACAO = ("casa", "odd", "stake_unidades")
 
 
 class ApostaInvalidaError(ValueError):
     pass
+
+
+def campos_ausentes_criacao(valores: dict[str, Any]) -> tuple[str, ...]:
+    """Required input shared by manual creation and Telegram draft review."""
+    return tuple(
+        campo
+        for campo in CAMPOS_OBRIGATORIOS_CRIACAO
+        if valores.get(campo) is None
+        or (isinstance(valores.get(campo), str) and not valores[campo].strip())
+    )
 
 
 def _e_data(valor: object) -> bool:
