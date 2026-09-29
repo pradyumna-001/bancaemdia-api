@@ -48,7 +48,7 @@ index 61fd416..0ae2a4f 100644
 +histórico de usos e exige prévia/aplicação idempotente. O contrato detalhado está
 +em [consolidação de apostas](contracts/consolidacao-apostas.md).
 diff --git a/src/bancaemdia/domain/titulares.py b/src/bancaemdia/domain/titulares.py
-index 464982b..889d0ad 100644
+index 464982b..4b9dd77 100644
 --- a/src/bancaemdia/domain/titulares.py
 +++ b/src/bancaemdia/domain/titulares.py
 @@ -150,13 +150,31 @@ async def trocar_conta(
@@ -78,7 +78,7 @@ index 464982b..889d0ad 100644
 +                .order_by(models.Evento.id)
 +            )
 +        ).all()
-+        state, _ = projetar(history)
++        state, _ = projetar((kind, source, payload) for kind, source, payload in history)
 +        if state.get("conta_casa_ref") is None and state.get("conta_atribuicao") != "explicit":
 +            default_impacted.append(ident)
 +    impacted = default_impacted
