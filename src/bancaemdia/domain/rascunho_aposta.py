@@ -25,6 +25,8 @@ ALIAS = {
     "conta_casa_id": "conta_casa_id",
     "data": "data_aposta",
     "data_aposta": "data_aposta",
+    "data_jogo": "data_jogo",
+    "jogo": "data_jogo",
     "evento": "evento",
     "descricao": "descricao",
     "descrição": "descricao",
@@ -35,6 +37,7 @@ LABEL = {
     "odd": "odd",
     "conta_casa_id": "conta da casa",
     "data_aposta": "data da aposta",
+    "data_jogo": "data do jogo",
     "evento": "evento",
     "descricao": "descrição",
     "mercado_bruto": "mercado",
@@ -51,7 +54,7 @@ EXAMPLE = {
 }
 EDITABLE = frozenset(ALIAS.values()) & CAMPOS_CORRIGIVEIS
 _FIELD = re.compile(
-    r"(?im)(?:^|[,;\n])\s*(casa|stake|valor|odd|conta_casa_id|conta|data_aposta|data|evento|descrição|descricao)\s*(?:=|:|\s)\s*"
+    r"(?im)(?:^|[,;\n])\s*(casa|stake|valor|odd|conta_casa_id|conta|data_aposta|data|data_jogo|jogo|evento|descrição|descricao)\s*(?:=|:|\s)\s*"
 )
 
 
@@ -160,7 +163,7 @@ def parse_reply(text: str) -> dict[str, Any]:
                 value = int(raw)
             except ValueError as exc:
                 raise DraftInputError("Informe o número da conta da casa.") from exc
-        elif field == "data_aposta":
+        elif field in {"data_aposta", "data_jogo"}:
             date = _date(raw)
             if date is None:
                 raise DraftInputError("Use uma data como 23/09/2026 ou 2026-09-23T21:00:00.")
@@ -194,6 +197,7 @@ def summary(fields: dict[str, Any], missing: list[str], status: str) -> str:
         "odd",
         "stake_unidades",
         "data_aposta",
+        "data_jogo",
         "conta_casa_id",
         "freebet",
     ):
@@ -212,5 +216,6 @@ def summary(fields: dict[str, Any], missing: list[str], status: str) -> str:
         lines.append(f"Responda, por exemplo: {examples}. A foto já está guardada.")
     else:
         lines.append("Dados completos. Confira o resumo antes de confirmar.")
-    lines.append("Use /continuar para rever, /corrigir campo valor ou /cancelar.")
+    action = "Use /confirmar para registrar, " if not missing else "Use "
+    lines.append(action + "/continuar para rever, /corrigir campo valor ou /cancelar.")
     return "\n".join(lines)
