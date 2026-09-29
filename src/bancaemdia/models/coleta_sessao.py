@@ -57,6 +57,7 @@ class ColetaEntrega(Base):
             name="fk_coleta_entrega_session",
         ),
         Index("ix_coleta_entregas_pending", "status", "id"),
+        Index("ix_coleta_entregas_owner_day", "usuario_id", "criada_em"),
     )
     id: Mapped[int] = mapped_column(BigInteger, primary_key=True)
     job_id: Mapped[UUID] = mapped_column(unique=True, default=uuid4)

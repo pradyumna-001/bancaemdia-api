@@ -637,6 +637,56 @@ async def test_hash_tamper_is_terminal_and_never_materializes(api):
     assert (await api.status(ack))["reason"] == "stored_hash_mismatch"
 
 
+async def test_http_500_after_commit_retries_without_losing_or_duplicating_capture(
+    api, monkeypatch
+):
+    original = coleta_sessoes.submit
+
+    async def fail_after_commit(*args):
+        await original(*args)
+        raise RuntimeError("SENTINEL_PRIVATE")
+
+    item = capture(api.account)
+    monkeypatch.setattr(coleta_sessoes, "submit", fail_after_commit)
+    response = await api.send([item])
+    assert response.status_code == 500 and "SENTINEL" not in response.text
+    monkeypatch.setattr(coleta_sessoes, "submit", original)
+    ack = (await api.send([item])).json()["items"][0]
+    assert await api.run(ack) == "materialized"
+    assert (await api.send([item])).json()["items"] == [ack]
+    async with api.admin.connect() as conn:
+        for table in (ColetaEntrega, models.ColetaCasa, models.Aposta):
+            assert (
+                await conn.scalar(
+                    select(func.count()).select_from(table).where(table.usuario_id == api.user)
+                )
+                == 1
+            )
+
+
+async def test_authenticated_malformed_and_item_size_rejections_have_no_financial_effect(api):
+    malformed = await api.http.post(PREFIX + "/batches", headers=api.headers, content=b'{"bad":')
+    assert malformed.status_code == 422
+    oversized = capture(api.account)
+    oversized["payload"]["padding"] = "x" * (128 * 1024)
+    oversized["content_hash"] = digest(oversized["payload"])
+    response = await api.send([oversized])
+    assert response.status_code == 200
+    ack = response.json()["items"][0]
+    assert ack["ack"] == "rejected" and ack["reason"] == "item_too_large"
+    assert ack["job_id"] is None
+    assert (await api.send([oversized])).json()["items"] == [ack]
+    async with api.admin.connect() as conn:
+        assert (
+            await conn.scalar(
+                select(func.count())
+                .select_from(models.Aposta)
+                .where(models.Aposta.usuario_id == api.user)
+            )
+            == 0
+        )
+
+
 async def test_timeout_after_server_commit_repeats_the_original_ack(api):
     import httpx
 

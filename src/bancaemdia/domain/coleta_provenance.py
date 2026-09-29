@@ -48,7 +48,8 @@ def safe_payload(value: Any, depth: int = 0) -> bool:
         return False
     if isinstance(value, dict):
         return all(
-            not SECRET_KEY.search(re.sub(r"[^a-z0-9]", "", str(key).lower()))
+            "\x00" not in str(key)
+            and not SECRET_KEY.search(re.sub(r"[^a-z0-9]", "", str(key).lower()))
             and safe_payload(item, depth + 1)
             for key, item in value.items()
         )

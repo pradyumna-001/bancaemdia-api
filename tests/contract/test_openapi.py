@@ -89,6 +89,9 @@ def _collection_backend() -> Iterator[CollectionContractBackend]:
             return CollectionIdentity(7, 17) if token_hash == expected else None
 
     class CollectionRepository:
+        async def lock_daily_admission(self, _session: object, _usuario_id: int) -> None:
+            pass
+
         async def count_received_since(
             self, _session: object, _usuario_id: int, _desde: object
         ) -> int:

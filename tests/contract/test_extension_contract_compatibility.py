@@ -34,6 +34,7 @@ def test_trust_boundary_rejects_credentials_and_does_not_invent_source_time():
         {"nested": {"access_token": "synthetic"}},
         {"unknown": "cti_SENTINEL"},
         {"secret": "synthetic"},
+        {"invalid\x00key": "synthetic"},
     ):
         assert not safe_payload(payload)
     assert source_times("betano", {"capturado_em": "2026-08-02T00:00:00Z"}) == (None, None)

@@ -70,6 +70,7 @@ def upgrade() -> None:
         ),
     )
     op.create_index("ix_coleta_entregas_pending", "coleta_entregas", ["status", "id"])
+    op.create_index("ix_coleta_entregas_owner_day", "coleta_entregas", ["usuario_id", "criada_em"])
     for table in ("coleta_sessoes", "coleta_entregas"):
         op.execute(f"ALTER TABLE {table} ENABLE ROW LEVEL SECURITY")
         op.execute(f"ALTER TABLE {table} FORCE ROW LEVEL SECURITY")
