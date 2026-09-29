@@ -7,7 +7,7 @@ from pathlib import Path
 from uuid import uuid4
 
 import pytest
-from sqlalchemy import func, select, text, update
+from sqlalchemy import delete, func, select, text, update
 from sqlalchemy.exc import DBAPIError
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -406,11 +406,8 @@ async def test_saturation_demotes_hidden_exact_edge_and_cannot_be_bypassed_by_re
     assert not any(p.status == "exact" for p in await pairs(engine_app, user))
 
 
-@pytest.mark.parametrize("confirmed", [False, True])
-async def test_only_confirmed_database_aliases_normalize_and_originals_survive(
-    engine_admin, engine_app, novo_usuario, confirmed
-):
-    user = await novo_usuario()
+@pytest.fixture
+async def matching_vocabulary(engine_admin, confirmed):
     name, alias = f"Market-{uuid4().hex}", f"Alias-{uuid4().hex}"
     async with AsyncSession(engine_admin) as session, session.begin():
         market = models.Mercado(nome=name)
@@ -421,6 +418,25 @@ async def test_only_confirmed_database_aliases_normalize_and_originals_survive(
                 entidade_tipo="mercado", entidade_id=market.id, nome=alias, confirmado=confirmed
             )
         )
+        market_id = market.id
+    try:
+        yield name, alias
+    finally:
+        async with AsyncSession(engine_admin) as session, session.begin():
+            await session.execute(
+                delete(models.Apelido).where(
+                    models.Apelido.entidade_tipo == "mercado", models.Apelido.nome == alias
+                )
+            )
+            await session.execute(delete(models.Mercado).where(models.Mercado.id == market_id))
+
+
+@pytest.mark.parametrize("confirmed", [False, True])
+async def test_only_confirmed_database_aliases_normalize_and_originals_survive(
+    engine_app, novo_usuario, confirmed, matching_vocabulary
+):
+    user = await novo_usuario()
+    name, alias = matching_vocabulary
 
     def market_state(value):
         legs = copy.deepcopy(BASE["selecoes"])

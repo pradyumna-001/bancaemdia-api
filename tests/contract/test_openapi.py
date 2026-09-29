@@ -567,6 +567,19 @@ negative_schema = (
 )
 
 
+@negative_schema.hook
+def before_generate_path_parameters(
+    context: Any, strategy: SearchStrategy[Any]
+) -> SearchStrategy[Any]:
+    if context.operation.path == "/api/v1/upload/{job_id}":
+        # Construct invalid UUID strings directly; generic schema negation can reject
+        # most generated values before any HTTP call. Keep this route and all assertions.
+        return st.text(
+            alphabet="abcdefghijklmnopqrstuvwxyz0123456789-", min_size=1, max_size=30
+        ).map(lambda value: {"job_id": value})
+    return strategy
+
+
 @pytest.mark.contract
 @negative_schema.parametrize()
 def test_schemathesis_invalid_protected_requests(case: schemathesis.Case) -> None:
