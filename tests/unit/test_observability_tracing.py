@@ -199,6 +199,30 @@ def test_httpx_hook_removes_query_fragment_and_credentials() -> None:
     assert "secret" not in repr(span.attributes)
 
 
+def test_httpx_hook_never_serializes_a_legacy_tuple_url() -> None:
+    class RecordingSpan:
+        def __init__(self) -> None:
+            self.attributes: dict[str, object] = {}
+
+        def is_recording(self) -> bool:
+            return True
+
+        def set_attribute(self, key: str, value: object) -> None:
+            self.attributes[key] = value
+
+    request = tracing.RequestInfo(
+        method=b"GET",
+        url=(b"https", b"example.test", 443, b"/resource?token=secret"),
+        headers=None,
+        stream=None,
+        extensions=None,
+    )
+    span = RecordingSpan()
+    tracing._sanitize_httpx_request(span, request)  # type: ignore[arg-type]
+    assert span.attributes["url.full"] == ""
+    assert "secret" not in repr(span.attributes)
+
+
 def test_server_hook_redacts_query_values() -> None:
     class RecordingSpan:
         def __init__(self) -> None:

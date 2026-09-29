@@ -10,6 +10,7 @@ from typing import Literal, cast
 import structlog
 from celery import signals as celery_signals
 from fastapi import FastAPI
+from httpx import URL as HTTPXURL
 from opentelemetry import trace
 from opentelemetry.instrumentation.celery import CeleryInstrumentor
 from opentelemetry.instrumentation.fastapi import FastAPIInstrumentor
@@ -140,7 +141,12 @@ def _provider(
 
 
 def _safe_http_url(request: RequestInfo) -> str:
-    return str(request.url.copy_with(query=None, fragment=None, userinfo=None))
+    url: object = request.url
+    # Newer instrumentation types also permit a low-level tuple. Never serialize
+    # an unrecognized URL shape: it may contain credentials or a query string.
+    if not isinstance(url, HTTPXURL):
+        return ""
+    return str(url.copy_with(query=None, fragment=None, userinfo=None))
 
 
 def _sanitize_httpx_request(span: Span, request: RequestInfo) -> None:
@@ -151,9 +157,11 @@ def _sanitize_httpx_request(span: Span, request: RequestInfo) -> None:
     # tokens or PII, and are not needed to identify the downstream dependency.
     span.set_attribute("url.full", safe_url)
     span.set_attribute("http.url", safe_url)
-    if request.url.query:
-        span.set_attribute("url.query", REDACTED)
-    span.set_attribute("http.target", request.url.path)
+    url: object = request.url
+    if isinstance(url, HTTPXURL):
+        if url.query:
+            span.set_attribute("url.query", REDACTED)
+        span.set_attribute("http.target", url.path)
 
 
 async def _sanitize_async_httpx_request(  # ruff: ignore[unused-async] - API requires a coroutine
