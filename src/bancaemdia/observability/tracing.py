@@ -143,7 +143,8 @@ def _provider(
 def _safe_http_url(request: RequestInfo) -> str:
     url: object = request.url
     if not isinstance(url, HTTPXURL):
-        # Older instrumentation may supply raw URL bytes. Do not expose them in traces.
+        # Older HTTPX instrumentation can pass a raw URL tuple. Never stringify it: the
+        # target can contain credentials or query values.
         return REDACTED
     return str(url.copy_with(query=None, fragment=None, userinfo=None))
 
