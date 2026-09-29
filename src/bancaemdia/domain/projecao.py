@@ -9,6 +9,11 @@ from bancaemdia.domain.financeiro import Aposta, Estado
 MOTIVO_APAGADA = "você apagou esta aposta"
 FONTES_DA_PESSOA = frozenset({"manual", "planilha"})
 CAMPOS_DA_CRIACAO = (
+    "selecoes",
+    "identidade_bilhete",
+    "ocorrido_em",
+    "esporte",
+    "competicao",
     "chat_id",
     "message_id",
     "ordem_na_mensagem",

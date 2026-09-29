@@ -186,6 +186,17 @@ def apostas_da_leitura(
             "descricao": descricao(bilhete) if bilhete else BILHETE_NAO_LIDO,
             "mercado_bruto": mercado_principal(bilhete) if bilhete else None,
             "tipo_aposta": bilhete.tipo.upper() if bilhete else "SIMPLES",
+            "selecoes": [
+                {
+                    "evento": s.evento or bilhete.evento,
+                    "mercado": s.mercado,
+                    "escolha": s.escolha,
+                    "linha": s.linha,
+                }
+                for s in bilhete.selecoes
+            ]
+            if bilhete
+            else [],
             "odd": bilhete.odd_total if bilhete else None,
             "odd_original": bilhete.odd_original if bilhete else None,
             "comeca_em": bilhete.quando if bilhete else None,

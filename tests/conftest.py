@@ -166,6 +166,26 @@ async def engine_admin(banco: Banco) -> AsyncIterator[AsyncEngine]:
 
 
 @pytest.fixture
+def isolated_database(banco: Banco) -> Iterator[str]:
+    """Migrations must never downgrade the shared test database's populated feature tables."""
+    name = "matching_test_" + uuid4().hex
+
+    async def execute(sql: str) -> None:
+        admin = create_async_engine(banco.url_admin, isolation_level="AUTOCOMMIT")
+        try:
+            async with admin.connect() as connection:
+                await connection.execute(text(sql))
+        finally:
+            await admin.dispose()
+
+    asyncio.run(execute(f'CREATE DATABASE "{name}"'))
+    try:
+        yield make_url(banco.url_admin).set(database=name).render_as_string(hide_password=False)
+    finally:
+        asyncio.run(execute(f'DROP DATABASE "{name}" WITH (FORCE)'))
+
+
+@pytest.fixture
 async def engine_app(banco: Banco) -> AsyncIterator[AsyncEngine]:
     engine = create_async_engine(banco.url_app)
     yield engine

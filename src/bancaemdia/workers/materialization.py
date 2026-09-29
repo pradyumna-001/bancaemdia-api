@@ -297,7 +297,7 @@ async def _gravar(
         aposta = await ApostaRepo().upsert_materializada(session, dados)
     if aposta is None:
         raise GravacaoConcorrenteError(f"outra gravação mais nova de {nova.chave} chegou antes")
-    if criada and getattr(aposta, "id", None) is not None:
+    if getattr(aposta, "id", None) is not None:
         await parear_criacao(session, usuario_id, aposta, estado)
 
     revisao = await _revisar(
@@ -566,7 +566,7 @@ async def _gravar_coletada(
         aposta = await ApostaRepo().upsert_materializada(session, dados)
     if aposta is None:
         raise GravacaoConcorrenteError(f"outra gravação mais nova de {chave} chegou antes")
-    if criada and getattr(aposta, "id", None) is not None:
+    if getattr(aposta, "id", None) is not None:
         await parear_criacao(session, usuario_id, aposta, estado)
 
     revisao = await _revisar(

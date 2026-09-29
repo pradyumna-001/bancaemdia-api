@@ -25,8 +25,9 @@ class ApostaInvalidaError(ValueError):
 
 @dataclass
 class Resultado:
-    # É a resposta que a extensão já conhece. O pareamento é confirmado na transação de
-    # materialização, após esta resposta de ingestão; estas contagens refletem apenas o recebimento.
+    # Matching counts reflect persisted candidates from completed materialization.
+    # First asynchronous intake may return zero; subsequent receipts report current candidates.
+    # "iguais" means eligible exact candidates, never already consolidated financial facts.
     novas_contando: int = 0
     iguais_a_existentes: int = 0
     em_duvida: int = 0
@@ -149,6 +150,16 @@ def eventos_da_criacao(coletada: Coletada, valor_unidade_centavos: int) -> list[
         "descricao": coletada.descricao,
         "mercado_bruto": coletada.mercado_bruto,
         "tipo_aposta": coletada.tipo,
+        "identidade_bilhete": coletada.identidade,
+        "selecoes": [
+            {
+                "evento": e.evento or coletada.evento,
+                "mercado": e.mercado,
+                "escolha": e.descricao,
+                "linha": e.linha,
+            }
+            for e in coletada.escolhas
+        ],
         "odd": coletada.odd,
         "comeca_em": coletada.comeca_em,
         "stake_unidades": coletada.stake_centavos / valor_unidade_centavos,

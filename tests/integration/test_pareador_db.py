@@ -63,12 +63,11 @@ async def _criar(
             },
         )
         assert aposta is not None
-        if origem != "casa":
-            return await parear_criacao(session, usuario, aposta, payload)
+        return await parear_criacao(session, usuario, aposta, payload)
     return "nova"
 
 
-async def test_two_matching_tips_are_serialized_and_only_one_owns_the_house_bet(
+async def test_two_matching_tips_create_reviews_without_changing_financial_selection(
     engine_app: AsyncEngine, novo_usuario: Callable[[], Awaitable[int]]
 ) -> None:
     usuario = await novo_usuario()
@@ -89,7 +88,7 @@ async def test_two_matching_tips_are_serialized_and_only_one_owns_the_house_bet(
         ),
         timeout=10,
     )
-    assert sorted(resultados) == ["duvida", "igual"]
+    assert sorted(resultados) == ["duvida", "duvida"]
     async with AsyncSession(engine_app) as session, session.begin():
         await session.execute(
             text("SELECT set_config('app.current_user_id', :uid, true)"), {"uid": str(usuario)}
@@ -103,9 +102,9 @@ async def test_two_matching_tips_are_serialized_and_only_one_owns_the_house_bet(
             ).scalars()
         }
         assert apostas[casa].selecionada is True
-        assert apostas[casa].parceira_chave in dicas
-        assert sum(apostas[chave].duvida_de_par for chave in dicas) == 1
-        assert all(not apostas[chave].selecionada for chave in dicas)
+        assert apostas[casa].parceira_chave is None
+        assert sum(apostas[chave].duvida_de_par for chave in dicas) == 0
+        assert all(apostas[chave].selecionada for chave in dicas)
 
 
 async def test_manual_confirmation_of_an_uncertain_pair_keeps_the_house_bet(
@@ -122,10 +121,7 @@ async def test_manual_confirmation_of_an_uncertain_pair_keeps_the_house_bet(
     }
     casa, dica = f"c:betano:{uuid4().hex}", f"t:{uuid4().hex}"
     await _criar(engine_app, usuario, "casa", casa, payload)
-    assert (
-        await _criar(engine_app, usuario, "telegram", dica, {**payload, "descricao": "3+ gols"})
-        == "duvida"
-    )
+    assert await _criar(engine_app, usuario, "telegram", dica, payload) == "duvida"
     async with AsyncSession(engine_app) as session, session.begin():
         await session.execute(
             text("SELECT set_config('app.current_user_id', :uid, true)"), {"uid": str(usuario)}
