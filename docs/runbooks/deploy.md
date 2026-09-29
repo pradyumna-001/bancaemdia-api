@@ -1,14 +1,14 @@
 # Deploy a release
 
-The API currently exposes `/docs`, `/redoc`, and `/openapi.json` without JWT authentication.
-Confirm that this is acceptable for the target environment or restrict those paths at the
-public proxy before allowing production traffic.
-
 **Owner:** release operator with the on-call engineer present. **Gate:** this procedure becomes
 executable after the CD workflow and AWS environments described in [the index](../RUNBOOKS.md)
 are configured and rehearsed. The workflow is documented in [cd.md](cd.md).
 
 ## Before dispatch
+
+The API currently exposes `/docs`, `/redoc`, and `/openapi.json` without JWT authentication.
+Confirm that this is acceptable for the target environment or restrict those paths at the
+public proxy before allowing production traffic.
 
 1. Pin `SHA` to the reviewed commit and `PREVIOUS_SHA` to the currently healthy release; record
    both and the expected container image digest in the change ticket. Confirm all CI checks for
