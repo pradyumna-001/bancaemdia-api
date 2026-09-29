@@ -1,0 +1,94 @@
+name: Billing integration evidence
+
+on:
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  combined-billing:
+    name: Billing integration (${{ matrix.scope }})
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        scope: [billing-cross-flow, api-review-queue]
+    # Standard CI validates this PR independently. This additional required evidence
+    # exercises its exact HEAD with the explicitly pinned, separately reviewed #141.
+    env:
+      DATABASE_URL: postgresql+asyncpg://user:pass@localhost:5432/bancaemdia
+      DATABASE_URL_REPLICA: postgresql+asyncpg://user:pass@localhost:5432/bancaemdia
+      REDIS_URL: redis://localhost:6379/0
+      APP_ENV: testing
+      BILLING_CROSS_FLOW_REQUIRED: '1'
+      API_REVIEW_QUEUE_REQUIRED: ${{ matrix.scope == 'api-review-queue' && '1' || '0' }}
+      JWT_SECRET_KEY: test-secret
+      JWT_ALGORITHM: RS256
+      JWT_AUDIENCE: bancaemdia-api
+      JWT_ISSUER: bancaemdia-api
+      RATE_LIMIT_STORAGE: memory://
+      OTEL_EXPORTER_OTLP_ENDPOINT: ''
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+          cache: pip
+      - name: Assemble current HEAD with reviewed prerequisite
+        if: matrix.scope == 'billing-cross-flow'
+        run: python scripts/assemble_billing_cross_flow.py --disposable-checkout
+      - name: Rehearse the complete API review queue
+        if: matrix.scope == 'api-review-queue'
+        run: python scripts/assemble_api_review_queue.py --disposable-checkout
+      - run: pip install -e '.[dev]'
+      - run: python scripts/generate_openapi.py
+      - run: ruff check src tests alembic
+      - run: ruff format --check src tests alembic
+      - run: mypy src/ --strict --ignore-missing-imports
+      - name: Scan assembled source and resolved dependencies
+        run: |
+          pip install pip-audit==2.10.1 bandit==1.9.4
+          pip-audit --local --skip-editable
+          bandit -r src/bancaemdia -q -lll
+      - run: python scripts/generate_openapi.py --check
+      - name: Validate billing alert rules
+        run: docker run --rm --entrypoint /bin/promtool -v "$PWD/infra/observability/billing.rules.yml:/rules.yml:ro" prom/prometheus:v3.5.0 check rules /rules.yml
+      - name: Full suite including real PostgreSQL billing lifecycle
+        run: pytest -n 8 --dist loadgroup --tb=short -q --ignore=tests/integration/test_prelaunch_painel_replay.py --cov=src/bancaemdia --cov-fail-under=80 --junitxml=billing-integration.xml
+      - name: Require isolated 16k-bet replay and HTTP performance acceptance
+        if: matrix.scope == 'api-review-queue'
+        run: pytest tests/integration/test_prelaunch_painel_replay.py -n 0 --tb=short -q --junitxml=benchmark-results.xml
+      - name: Require all eight PostgreSQL and Redis cross-flow scenarios
+        run: |
+          python - <<'PY'
+          import os
+          import xml.etree.ElementTree as ET
+          cases = ET.parse('billing-integration.xml').findall('.//testcase')
+          modules = ('test_billing_cross_flow', 'test_billing_migration_order', 'test_billing_worker_runtime')
+          required = [c for c in cases if any(m in c.attrib.get('classname', '') for m in modules)]
+          assert len(required) == 8, [(c.attrib.get('classname'), c.attrib.get('name')) for c in required]
+          assert all(not list(c) or all(x.tag not in ('skipped', 'failure', 'error') for x in c) for c in required)
+          if os.environ['API_REVIEW_QUEUE_REQUIRED'] == '1':
+              goals = [c for c in cases if 'test_billing_analytics_compatibility' in c.attrib.get('classname', '')]
+              benchmark = ET.parse('benchmark-results.xml').findall('.//testcase')
+              assert len(benchmark) == 1
+              assert all(not any(x.tag in ('skipped', 'failure', 'error') for x in c) for c in benchmark)
+              assert len(goals) == 2
+              assert all(not any(x.tag in ('skipped', 'failure', 'error') for x in c) for c in goals)
+          print('All required real PostgreSQL/Redis scenarios passed.')
+          PY
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: billing-integration-${{ matrix.scope }}-${{ github.event.pull_request.head.sha }}
+          path: |
+            billing-integration.xml
+            benchmark-results.xml
+      - name: Build the assembled API image
+        if: matrix.scope == 'api-review-queue'
+        run: docker build --tag bancaemdia-api:review-queue .
