@@ -15,6 +15,19 @@ depends_on: str | Sequence[str] | None = None
 
 
 def upgrade() -> None:
+    # Billing may precede analytics; #154 installs the same guard in the reverse order.
+    op.execute("""
+        DO $$ BEGIN
+            IF to_regprocedure('public.billing_require_write()') IS NOT NULL AND NOT EXISTS (
+                SELECT 1 FROM pg_trigger WHERE tgrelid='public.metas_desempenho'::regclass
+                    AND tgname='billing_write_guard' AND NOT tgisinternal
+            ) THEN
+                CREATE TRIGGER billing_write_guard BEFORE INSERT OR UPDATE OR DELETE
+                    ON public.metas_desempenho FOR EACH ROW
+                    EXECUTE FUNCTION public.billing_require_write();
+            END IF;
+        END $$
+    """)
     op.execute(
         "CREATE TRIGGER audit_metas_desempenho_write "
         "AFTER INSERT OR UPDATE OR DELETE ON metas_desempenho "
@@ -28,5 +41,6 @@ def upgrade() -> None:
 
 
 def downgrade() -> None:
+    op.execute("DROP TRIGGER IF EXISTS billing_write_guard ON metas_desempenho")
     op.execute("DROP TRIGGER active_metas_desempenho_write ON metas_desempenho")
     op.execute("DROP TRIGGER audit_metas_desempenho_write ON metas_desempenho")
