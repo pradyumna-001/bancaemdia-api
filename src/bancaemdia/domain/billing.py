@@ -28,6 +28,7 @@ class BillingSnapshot:
     current_period_started_at: datetime | None = None
     current_period_ends_at: datetime | None = None
     price_id: int | None = None
+    trial_confirmed: bool = False
 
 
 @dataclass(frozen=True)
@@ -64,7 +65,7 @@ def access_mode(
     start, end = _aware(snapshot.trial_started_at), _aware(snapshot.trial_ends_at)
     if end - start != TRIAL_LENGTH:
         raise ValueError("invalid trial bounds")
-    if start <= instant < end:
+    if snapshot.trial_confirmed and start <= instant < end:
         return AccessMode.FULL_WRITE
     if snapshot.status == SubscriptionStatus.ACTIVE:
         if (

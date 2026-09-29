@@ -428,6 +428,74 @@ async def test_balance_combines_cash_movements_and_marks_an_unseeded_account_unk
     assert painel.saldo.escopo.value == "contas_casa_all_time"
 
 
+async def test_pre_movement_bet_makes_only_its_account_balance_unknown(
+    engine_admin: AsyncEngine,
+    engine_app: AsyncEngine,
+    como: Como,
+    novo_usuario: NovoUsuario,
+) -> None:
+    usuario_id = await novo_usuario()
+    historica = await _criar_dimensoes(engine_admin, usuario_id)
+    regular = await _criar_dimensoes(engine_admin, usuario_id)
+    primeiro_caixa = datetime(2026, 9, 20, 12, tzinfo=UTC)
+    await _inserir_movimento(
+        engine_admin,
+        usuario_id,
+        historica.conta_casa_id,
+        tipo="DEPOSITO",
+        valor_centavos=100_000,
+        ocorrido_em=primeiro_caixa,
+    )
+    await _inserir_movimento(
+        engine_admin,
+        usuario_id,
+        regular.conta_casa_id,
+        tipo="DEPOSITO",
+        valor_centavos=50_000,
+        ocorrido_em=primeiro_caixa,
+    )
+    await _inserir_aposta(
+        engine_admin,
+        usuario_id,
+        estado="RED",
+        stake_centavos=10_000,
+        retorno_centavos=0,
+        data_aposta=datetime(2026, 9, 1, 12, tzinfo=UTC),
+        dimensoes=historica,
+    )
+    await _inserir_aposta(
+        engine_admin,
+        usuario_id,
+        estado="RED",
+        stake_centavos=5_000,
+        retorno_centavos=0,
+        data_aposta=datetime(2026, 9, 21, 12, tzinfo=UTC),
+        dimensoes=regular,
+    )
+    await refresh_painel(engine_admin)
+
+    async with como(engine_app, usuario_id) as session:
+        summary = (
+            (
+                await session.execute(
+                    text(
+                        "SELECT saldo_centavos, saldo_conhecido_centavos, "
+                        "contas_saldo_conhecido, contas_saldo_desconhecido "
+                        "FROM public.painel_resumo WHERE usuario_id = :usuario_id"
+                    ),
+                    {"usuario_id": usuario_id},
+                )
+            )
+            .mappings()
+            .one()
+        )
+
+    assert summary["saldo_centavos"] is None
+    assert summary["saldo_conhecido_centavos"] == 45_000
+    assert summary["contas_saldo_conhecido"] == 1
+    assert summary["contas_saldo_desconhecido"] == 1
+
+
 async def test_refresh_timestamp_is_stable_until_a_complete_new_refresh(
     engine_admin: AsyncEngine,
     engine_app: AsyncEngine,
@@ -512,7 +580,7 @@ async def test_every_materialized_view_has_a_full_valid_unique_index(
             )
         ).all()
 
-    assert dict(linhas) == dict.fromkeys(MATERIALIZED_VIEWS, True)
+    assert dict(linhas) == dict.fromkeys((*MATERIALIZED_VIEWS, "mv_painel_resumo_legacy"), True)
 
 
 async def _esperar_refresh_bloqueado(engine: AsyncEngine) -> bool:
