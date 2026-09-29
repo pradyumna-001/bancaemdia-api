@@ -30,6 +30,7 @@ from bancaemdia.models.telegram_link import (
     TelegramLinkAttemptEvent,
     TelegramLinkCode,
 )
+from bancaemdia.models.telegram_message import TelegramInbox, TelegramOutbox
 from bancaemdia.models.time import Time
 from bancaemdia.models.tipster import Tipster
 from bancaemdia.models.titular import Titular
@@ -66,10 +67,12 @@ __all__ = [
     "Movimento",
     "MovimentoRequisicao",
     "RevisaoPendente",
+    "TelegramInbox",
     "TelegramLink",
     "TelegramLinkAttempt",
     "TelegramLinkAttemptEvent",
     "TelegramLinkCode",
+    "TelegramOutbox",
     "Time",
     "Tipster",
     "Titular",

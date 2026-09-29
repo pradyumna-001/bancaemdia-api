@@ -29,6 +29,7 @@ from bancaemdia.api.v1 import (
 from bancaemdia.auth.middleware import JWTAuthMiddleware
 from bancaemdia.config import get_settings
 from bancaemdia.db.session import LAG_CHECK_SECONDS, engine, replica_engine, replica_lag_seconds
+from bancaemdia.integrations.telegram import webhook as telegram_webhook
 from bancaemdia.middleware.rate_limit import AuthRateLimitMiddleware, RateLimitMiddleware
 from bancaemdia.middleware.rls import RLSMiddleware
 from bancaemdia.middleware.router import RouterMiddleware
@@ -103,6 +104,7 @@ app.include_router(painel.router)
 app.include_router(revisao.router)
 app.include_router(titulares.router)
 app.include_router(telegram.router)
+app.include_router(telegram_webhook.router)
 app.include_router(usuario.router)
 
 
