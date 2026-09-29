@@ -12,6 +12,7 @@ import sys
 from concurrent.futures import ThreadPoolExecutor
 from datetime import UTC, datetime
 from pathlib import Path
+from unittest.mock import AsyncMock
 from uuid import uuid4
 
 import anthropic
@@ -108,6 +109,7 @@ def test_anthropic_timeout_is_retried_before_dead_letter(monkeypatch: pytest.Mon
         calls.append(1)
         raise anthropic.APITimeoutError(request=httpx.Request("POST", "https://api.anthropic.com"))
 
+    monkeypatch.setattr("bancaemdia.domain.access.require_worker_write_access", AsyncMock())
     monkeypatch.setattr(extraction, "ler_mensagem", timeout)
     result = extraction.extrair_bilhete_task.apply(
         kwargs={"usuario_id": 7, "imagem_base64": base64.b64encode(b"photo").decode()}
@@ -158,6 +160,7 @@ def test_redis_outage_pauses_paid_extraction_until_recovery(
         def ler(self, *args: object, **kwargs: object) -> None:
             calls.append(1)
 
+    monkeypatch.setattr("bancaemdia.domain.access.require_worker_write_access", AsyncMock())
     monkeypatch.setattr(extraction, "get_limiter", Limiter)
     monkeypatch.setattr(extraction, "get_leitor", Reader)
     monkeypatch.setattr(extraction, "get_cache", lambda: None)

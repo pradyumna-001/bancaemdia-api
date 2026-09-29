@@ -209,6 +209,9 @@ async def receber_coleta(request: Request, session: AsyncSession = Depends(get_d
             "o token não confere — abra a tela de coleta do planilhador e cole o token de novo",
         )
     await _set_current_user(session, usuario_id)
+    from bancaemdia.domain.access import require_write_access
+
+    await require_write_access(session, usuario_id)
 
     # O teto vem antes de ler o corpo: quem já passou dele não custa nem a memória do envio.
     hoje = datetime.now(UTC).replace(hour=0, minute=0, second=0, microsecond=0)
