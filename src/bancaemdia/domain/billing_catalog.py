@@ -25,8 +25,13 @@ class PriceTerms:
     def __post_init__(self) -> None:
         if type(self.amount_cents) is not int or self.amount_cents <= 0:
             raise ValueError("amount_cents must be a positive integer")
-        if self.currency != "BRL":
-            raise ValueError("currency must be BRL")
+        if (
+            len(self.currency) != 3
+            or not self.currency.isascii()
+            or not self.currency.isalpha()
+            or not self.currency.isupper()
+        ):
+            raise ValueError("currency must be an uppercase ISO code")
         if not isinstance(self.frequency, BillingFrequency):
             raise ValueError("unsupported billing frequency")
         if self.valid_from.tzinfo is None or self.valid_from.utcoffset() is None:
@@ -38,7 +43,13 @@ class PriceTerms:
                 raise ValueError("invalid price validity")
 
 
-def public_price(prices: list[PriceTerms], *, now: datetime) -> PriceTerms:
+def public_price(
+    prices: list[PriceTerms],
+    *,
+    now: datetime,
+    currency: str = "BRL",
+    frequency: BillingFrequency = BillingFrequency.MONTHLY,
+) -> PriceTerms:
     if now.tzinfo is None or now.utcoffset() is None:
         raise ValueError("now must include a timezone")
     instant = now.astimezone(UTC)
@@ -46,6 +57,8 @@ def public_price(prices: list[PriceTerms], *, now: datetime) -> PriceTerms:
         price
         for price in prices
         if price.published
+        and price.currency == currency
+        and price.frequency == frequency
         and price.valid_from <= instant
         and (price.valid_until is None or instant < price.valid_until)
     ]
