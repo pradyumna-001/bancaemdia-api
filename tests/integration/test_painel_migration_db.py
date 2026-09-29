@@ -276,18 +276,21 @@ async def _restore_app_grants(url: str) -> None:
         await engine.dispose()
 
 
-def test_revision_008_downgrades_and_reupgrades_without_losing_application_access(banco) -> None:
+def test_revision_008_downgrades_and_reupgrades_without_losing_application_access(
+    isolated_database,
+) -> None:
     previous_database_url = os.environ.get("DATABASE_URL")
-    os.environ["DATABASE_URL"] = banco.url_admin
+    os.environ["DATABASE_URL"] = isolated_database
     try:
-        command.downgrade(_migration_config(banco.url_admin), PREVIOUS)
-        assert asyncio.run(_schema_exists(banco.url_admin)) is False
+        command.upgrade(_migration_config(isolated_database), "head")
+        command.downgrade(_migration_config(isolated_database), PREVIOUS)
+        assert asyncio.run(_schema_exists(isolated_database)) is False
     finally:
-        command.upgrade(_migration_config(banco.url_admin), "head")
-        asyncio.run(_restore_app_grants(banco.url_admin))
+        command.upgrade(_migration_config(isolated_database), "head")
+        asyncio.run(_restore_app_grants(isolated_database))
         if previous_database_url is None:
             del os.environ["DATABASE_URL"]
         else:
             os.environ["DATABASE_URL"] = previous_database_url
 
-    assert asyncio.run(_schema_exists(banco.url_admin)) is True
+    assert asyncio.run(_schema_exists(isolated_database)) is True

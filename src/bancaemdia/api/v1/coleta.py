@@ -169,6 +169,10 @@ async def registrar(
                 coleta_received.labels(casa=casa, status="recusada").inc()
                 continue
 
+        matching = await coletas.matching_counts(session, usuario_id, chave)
+        resultado.iguais_a_existentes += int(matching.get("exact", 0) > 0)
+        resultado.em_duvida += int(matching.get("probable", 0) > 0)
+
         if existente is None:
             resultado.novas_contando += 1
             situacao = "nova"

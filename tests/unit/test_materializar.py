@@ -73,6 +73,14 @@ def test_telegram_reading_becomes_one_bet_with_the_original_payload() -> None:
         "descricao": "Instituto (Handicap)",
         "mercado_bruto": "Handicap",
         "tipo_aposta": "SIMPLES",
+        "selecoes": [
+            {
+                "evento": "Velez x Instituto",
+                "mercado": "Handicap",
+                "escolha": "Instituto",
+                "linha": -0.5,
+            }
+        ],
         "odd": 1.82,
         "odd_original": None,
         "comeca_em": "2026-07-24T19:00",

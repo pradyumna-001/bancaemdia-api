@@ -66,6 +66,9 @@ def _banco(recebidas_hoje=0):
             return 7 if token_hash == coleta.hash_do_token(TOKEN) else None
 
     class ColetaCasaRepo:
+        async def matching_counts(self, session, usuario_id, chave):
+            return {}
+
         async def count_received_since(self, session, usuario_id, desde):
             banco.desde = desde
             return recebidas_hoje

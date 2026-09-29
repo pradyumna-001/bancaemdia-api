@@ -6,9 +6,9 @@ from functools import lru_cache
 from typing import Any
 
 import httpx
+import jwt
 import structlog
-from jose import jwk, jwt
-from jose.exceptions import JOSEError
+from jwt.types import Options
 
 from bancaemdia.config import get_settings
 
@@ -17,14 +17,7 @@ JWKS_TTL_SECONDS = 300
 REFETCH_COOLDOWN_SECONDS = 30
 BIGINT_MAX = 2**63 - 1
 SUBJECT = re.compile(r"[1-9][0-9]{0,18}")
-# Sem os require_*, o python-jose 3.5.0 aceita token sem `aud` ou sem `exp`: a validação só roda
-# quando a claim está presente (medido).
-REQUIRED_CLAIMS = {
-    "require_exp": True,
-    "require_aud": True,
-    "require_iss": True,
-    "require_sub": True,
-}
+REQUIRED_CLAIMS: Options = {"require": ["exp", "aud", "iss", "sub"]}
 
 
 class InvalidTokenError(Exception):
@@ -39,8 +32,7 @@ def rsa_signing_keys(jwks: object, algorithm: str) -> dict[str, dict[str, Any]] 
     entries = jwks.get("keys") if isinstance(jwks, dict) else None
     if not isinstance(entries, list):
         return None
-    # O python-jose não escolhe a chave pelo `kid`: tenta todas, e uma chave de outro tipo antes da
-    # certa derruba um token válido (medido). A escolha é feita aqui, só entre chaves RSA de assinatura.
+    # Seleciona só chaves RSA de assinatura com o algoritmo configurado.
     keys: dict[str, dict[str, Any]] = {}
     for entry in entries:
         if not (
@@ -51,11 +43,12 @@ def rsa_signing_keys(jwks: object, algorithm: str) -> dict[str, dict[str, Any]] 
             and entry.get("alg", algorithm) == algorithm
         ):
             continue
-        # Chave malformada faz o python-jose levantar ValueError ou TypeError, fora do JOSEError
-        # (medido): montada aqui, ela é descartada em vez de virar erro 500 no pedido.
+        # Descarta chaves malformadas antes de guardá-las no cache.
         try:
-            jwk.construct(entry, algorithm)
-        except (JOSEError, ValueError, TypeError):
+            parsed = jwt.PyJWK.from_dict(entry, algorithm=algorithm)
+            if parsed.key.key_size < 2048:
+                raise ValueError("RSA signing key is too short")
+        except (jwt.PyJWTError, ValueError, TypeError):
             structlog.get_logger().warning("jwks_key_skipped", kid=entry["kid"])
             continue
         keys[entry["kid"]] = entry
@@ -123,7 +116,7 @@ async def verify_token(token: str, cache: JWKSCache) -> int:
     settings = get_settings()
     try:
         header = jwt.get_unverified_header(token)
-    except JOSEError as error:
+    except jwt.PyJWTError as error:
         raise InvalidTokenError("the token is malformed") from error
     kid = header.get("kid")
     if header.get("alg") != settings.JWT_ALGORITHM or not isinstance(kid, str):
@@ -132,20 +125,18 @@ async def verify_token(token: str, cache: JWKSCache) -> int:
     try:
         claims: dict[str, Any] = jwt.decode(
             token,
-            key,
+            jwt.PyJWK.from_dict(key, algorithm=settings.JWT_ALGORITHM).key,
             algorithms=[settings.JWT_ALGORITHM],
             audience=settings.JWT_AUDIENCE,
             issuer=settings.JWT_ISSUER,
             options=REQUIRED_CLAIMS,
         )
-    # JOSEError e não só JWTError, porque JWKError não é JWTError; e exp, nbf ou iat de tipo errado
-    # (null, lista, Infinity) saem do python-jose como TypeError ou OverflowError (medido).
-    except (JOSEError, TypeError, OverflowError) as error:
+    except (jwt.PyJWTError, TypeError, ValueError, OverflowError) as error:
         raise InvalidTokenError("the token is not valid") from error
     subject = claims["sub"]
     # O RLS compara `app.current_user_id` com usuario_id bigint: um sub que não cabe viraria erro do
     # banco, não 401.
-    if not SUBJECT.fullmatch(subject) or int(subject) > BIGINT_MAX:
+    if not isinstance(subject, str) or not SUBJECT.fullmatch(subject) or int(subject) > BIGINT_MAX:
         raise InvalidTokenError("the token subject is not a user id")
     return int(subject)
 
