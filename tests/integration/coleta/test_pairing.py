@@ -1,6 +1,7 @@
 """Real HTTP/JWT/restricted PostgreSQL, including concurrency and legacy migration."""
 
 import asyncio
+import json
 import os
 import time
 from datetime import UTC, datetime, timedelta
@@ -9,6 +10,7 @@ from types import SimpleNamespace
 from uuid import uuid4
 
 import httpx
+import jwt
 import pytest
 from cryptography.hazmat.primitives.asymmetric import rsa
 from cryptography.hazmat.primitives.serialization import (
@@ -16,8 +18,8 @@ from cryptography.hazmat.primitives.serialization import (
     NoEncryption,
     PrivateFormat,
     PublicFormat,
+    load_pem_public_key,
 )
-from jose import jwk, jwt
 from sqlalchemy import func, select, text, update
 from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine
@@ -50,7 +52,10 @@ def signing_key():
     key = rsa.generate_private_key(public_exponent=65537, key_size=2048)
     private = key.private_bytes(Encoding.PEM, PrivateFormat.PKCS8, NoEncryption()).decode()
     public = key.public_key().public_bytes(Encoding.PEM, PublicFormat.SubjectPublicKeyInfo)
-    return private, {**jwk.construct(public, "RS256").to_dict(), "kid": "pairing-test"}
+    return private, {
+        **jwt.algorithms.RSAAlgorithm.to_jwk(load_pem_public_key(public), as_dict=True),
+        "kid": "pairing-test",
+    }
 
 
 @pytest.fixture
@@ -404,17 +409,17 @@ async def test_only_hashes_and_minimal_identity_persist(system):
     )
     token = response.json()["token"]
     async with system.admin.connect() as conn:
-        serialized = str(
+        serialized = json.dumps(
             (
-                await conn.execute(
+                await conn.scalars(
                     text("SELECT row_to_json(i) FROM coleta_instalacoes i WHERE usuario_id=:u"),
                     {"u": system.user},
                 )
             ).all()
         )
-        serialized += str(
+        serialized += json.dumps(
             (
-                await conn.execute(
+                await conn.scalars(
                     text("SELECT row_to_json(c) FROM coleta_pairing_codes c WHERE usuario_id=:u"),
                     {"u": system.user},
                 )
@@ -464,10 +469,60 @@ async def test_global_quota_is_shared_by_distinct_clients(system, monkeypatch):
         assert error.value.status_code == 429
 
 
+async def test_lost_exchange_transaction_preserves_code_for_retry(system, monkeypatch):
+    from sqlalchemy.exc import OperationalError
+
+    code = await system.code()
+    original = AsyncSession.commit
+    commits = 0
+
+    async def failed_commit(session):
+        nonlocal commits
+        commits += 1
+        if commits == 2:  # Admission commits first, then the pairing transaction.
+            raise OperationalError("synthetic commit", {}, Exception("cti_SENTINEL"))
+        await original(session)
+
+    body = {"codigo": code, "instalacao_publica_id": str(uuid4())}
+    monkeypatch.setattr(AsyncSession, "commit", failed_commit)
+    response = await system.http.post(PREFIX + "/pairing-exchange", json=body)
+    assert response.status_code in (500, 503) and "SENTINEL" not in response.text
+    monkeypatch.setattr(AsyncSession, "commit", original)
+    async with system.admin.connect() as conn:
+        assert (
+            await conn.scalar(
+                select(func.count())
+                .select_from(ColetaInstalacao)
+                .where(ColetaInstalacao.usuario_id == system.user)
+            )
+            == 0
+        )
+    assert (await system.http.post(PREFIX + "/pairing-exchange", json=body)).status_code == 200
+
+
+async def test_concurrent_reconnect_keeps_one_installation_and_one_current_token(system):
+    codes = [await system.code(), await system.code()]
+    public = str(uuid4())
+    responses = await asyncio.gather(*[
+        system.http.post(
+            PREFIX + "/pairing-exchange", json={"codigo": code, "instalacao_publica_id": public}
+        )
+        for code in codes
+    ])
+    assert all(response.status_code == 200 for response in responses)
+    assert len({response.json()["instalacao_id"] for response in responses}) == 1
+    statuses = [
+        await system.http.get(PREFIX + "/status", headers=token_headers(response.json()))
+        for response in responses
+    ]
+    assert sorted(response.status_code for response in statuses) == [200, 403]
+
+
 async def test_legacy_upgrade_requires_repair_and_roundtrip_never_reactivates(banco):
     from alembic import command
     from alembic.config import Config
     from sqlalchemy.engine import make_url
+    from sqlalchemy.exc import DBAPIError
     from sqlalchemy.pool import NullPool
 
     name = "pairing_migration_" + uuid4().hex
@@ -507,6 +562,18 @@ async def test_legacy_upgrade_requires_repair_and_roundtrip_never_reactivates(ba
         async with engine.connect() as conn:
             assert await conn.scalar(text("SELECT ativo FROM coleta_token")) is False
         await asyncio.to_thread(command.upgrade, config, "head")
+        async with engine.begin() as conn:
+            await conn.execute(
+                text("UPDATE coleta_instalacoes SET pareado_em=now() WHERE usuario_id=:u"),
+                {"u": uid},
+            )
+        with pytest.raises(DBAPIError, match="preserve installation inventory"):
+            await asyncio.to_thread(command.downgrade, config, "a9d6e3f1c210")
+        async with engine.connect() as conn:
+            assert (
+                await conn.scalar(text("SELECT version_num FROM alembic_version")) == "c107pair2026"
+            )
+            assert await conn.scalar(text("SELECT ativo FROM coleta_token")) is False
     finally:
         os.environ["DATABASE_URL"] = previous
         await engine.dispose()

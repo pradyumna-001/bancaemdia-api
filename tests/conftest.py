@@ -164,6 +164,32 @@ def banco() -> Iterator[Banco]:
 
 
 @pytest.fixture
+def banco_migracao(banco: Banco) -> Iterator[Banco]:
+    """Destructive migration roundtrips must not touch other tests' live identities."""
+    name = "migration_" + uuid4().hex
+    url = make_url(banco.url_admin).set(database=name).render_as_string(hide_password=False)
+
+    async def database(*, create: bool) -> None:
+        engine = create_async_engine(banco.url_admin, isolation_level="AUTOCOMMIT")
+        try:
+            async with engine.connect() as conn:
+                statement = (
+                    f'CREATE DATABASE "{name}"'
+                    if create
+                    else f'DROP DATABASE "{name}" WITH (FORCE)'
+                )
+                await conn.execute(text(statement))
+        finally:
+            await engine.dispose()
+
+    _em_outra_thread(lambda: asyncio.run(database(create=True)))
+    try:
+        yield _preparar(url)
+    finally:
+        _em_outra_thread(lambda: asyncio.run(database(create=False)))
+
+
+@pytest.fixture
 async def engine_admin(banco: Banco) -> AsyncIterator[AsyncEngine]:
     engine = create_async_engine(banco.url_admin)
     yield engine

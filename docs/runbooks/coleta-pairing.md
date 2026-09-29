@@ -96,7 +96,10 @@ a necessidade de novo pareamento a cada cliente. Não se pode inferir quantos
 dispositivos compartilhavam uma credencial antiga; preservá-la como ativa
 perpetuaria essa ambiguidade. Os registros legados servem só ao histórico.
 
-Aplicar com usuário de migrations, nunca com a role restrita. Conceder os grants
+Aplicar com usuário de migrations com visibilidade administrativa das tabelas
+RLS, nunca com a role restrita. A função SECURITY DEFINER de quotas mantém esse
+proprietário privilegiado (superuser/BYPASSRLS); não transferir sua propriedade
+para a role da API. Conceder os grants
 normais de tabelas/sequências e, se a role for criada depois da migration:
 
 ```sql
@@ -134,8 +137,14 @@ banco real, suíte completa, cobertura mínima 80%, scanners e Docker build.
 
 Base de produto: `origin/main`. As duas restrições de dependências do #161 foram
 reproduzidas pontualmente para manter SQLAlchemy 2.0 e a instrumentação HTTPX
-compatíveis, sem depender de merge ou copiar outras features. Na convergência
-com os PRs de billing/privacidade, preservar o gate de escrita da coleta depois
+compatíveis, sem depender de merge ou copiar outras features.
+
+O scanner também exigiu remover `python-jose`/`ecdsa` (PYSEC-2026-1325, sem versão
+corrigida de ecdsa). A validação JWT usa PyJWT com as mesmas claims obrigatórias,
+algoritmo RS256 fixo e seleção por `kid`; os testes de JWT/JWKS permanecem exigidos.
+Essa troca converge com a já proposta no #130, sem importar sua cadeia de produto.
+
+Na convergência com os PRs de billing/privacidade, preservar o gate de escrita da coleta depois
 de resolver o usuário e incluir instalações/códigos na exclusão da conta. Não
 restaurar a autenticação pelo token legado ao resolver conflitos. Esta entrega
 não implementa nem declara concluídos billing, exclusão de conta ou contrato v2.

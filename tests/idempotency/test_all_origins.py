@@ -19,7 +19,6 @@ from bancaemdia.api.v1 import coleta
 from bancaemdia.db.session import get_db
 from bancaemdia.repositories.aposta_repo import ApostaRepo
 from bancaemdia.repositories.coleta_casa_repo import ColetaCasaRepo
-from bancaemdia.repositories.coleta_token_repo import ColetaTokenRepo
 from bancaemdia.repositories.evento_repo import EventoRepo
 from bancaemdia.workers import materialization
 
@@ -328,7 +327,15 @@ async def test_ten_concurrent_http_collections_return_200_and_store_one_row(
         )
     token = f"token-{uuid4().hex}"
     async with como(engine_app, usuario) as session:
-        await ColetaTokenRepo().create(session, usuario, coleta.hash_do_token(token))
+        session.add(
+            models.ColetaInstalacao(
+                usuario_id=usuario,
+                instalacao_publica_id=uuid4(),
+                token_hash=coleta.hash_do_token(token),
+                token_prefixo=token[:12],
+                pareado_em=datetime.now(UTC),
+            )
+        )
         await session.commit()
     payload = json.loads(
         (Path(__file__).resolve().parents[1] / "fixtures" / "coleta" / "betano.json").read_text()
@@ -344,7 +351,7 @@ async def test_ten_concurrent_http_collections_return_200_and_store_one_row(
     monkeypatch.setattr(coleta, "_enfileirar", lambda _usuario, _fila: None)
     monkeypatch.setattr(coleta.limiter, "enabled", False)
     async with httpx.AsyncClient(
-        transport=httpx.ASGITransport(app=main.app), base_url="http://test"
+        transport=httpx.ASGITransport(app=main.app), base_url="https://test"
     ) as client:
         respostas = await asyncio.gather(
             *(
