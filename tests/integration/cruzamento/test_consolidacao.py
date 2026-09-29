@@ -832,10 +832,13 @@ async def test_panel_refresh_filters_export_and_cash_use_same_single_fact(
 
     user = await novo_usuario()
     house, ids = await accounts(engine_admin, engine_app, user)
+    context_name = "synthetic-panel-" + uuid4().hex
+    async with engine_admin.begin() as conn:
+        await conn.execute(insert(models.Tipster).values(nome=context_name))
     ticket = uuid4().hex
     await intake_house(engine_app, user, house, house_payload(ticket))
     tg = telegram_payload(ticket)
-    tg["bilhete"]["tipster"] = "synthetic-panel-context"
+    tg["bilhete"]["tipster"] = context_name
     await intake_telegram(engine_app, user, tg)
     await intake_house(engine_app, user, house, house_payload(ticket, state="Win"))
     async with AsyncSession(engine_app) as session, session.begin():
@@ -961,12 +964,12 @@ async def test_unlink_preserves_later_manual_context_and_user_deletion(
     casa = await intake_house(engine_app, user, house, house_payload(ticket))
     tip = await intake_telegram(engine_app, user, telegram_payload(ticket))
     relation = (await financial(engine_app, user))[1][0]
+    async with engine_admin.begin() as conn:
+        context_id = await conn.scalar(
+            insert(models.Tipster).values(nome=uuid4().hex).returning(models.Tipster.id)
+        )
     async with AsyncSession(engine_app) as session, session.begin():
         await owner(session, user)
-        context = models.Tipster(usuario_id=user, nome="synthetic-later-context")
-        session.add(context)
-        await session.flush()
-        context_id = context.id
         sources = {
             b.id: b.chave
             for b in await session.scalars(
@@ -1015,7 +1018,7 @@ async def test_review_media_is_private_and_cross_tenant_ids_cannot_fetch_it(
         review = await session.scalar(
             select(models.RevisaoPendente).where(
                 models.RevisaoPendente.usuario_id == user,
-                models.RevisaoPendente.motivo == "cruzamento_pendente",
+                models.RevisaoPendente.motivo == "cruzamento_probable",
             )
         )
         assert review is not None

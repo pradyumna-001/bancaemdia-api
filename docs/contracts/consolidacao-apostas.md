@@ -83,7 +83,9 @@ Migration c110fact2026 mantém as revisões publicadas. Pares manuais recíproco
 legados são adotados como `legacy/manual`, com flags originais e eventos próprios;
 não recebem evidência automática inventada. Parceiras não recíprocas interrompem
 upgrade para reconciliação explícita. Desvinculação legada retira parceiras e
-restaura a fonte suprimida, com evento correspondente.
+restaura a fonte suprimida, com evento correspondente. Uma exclusão/restauração ou
+correção de tipster posterior à vinculação prevalece sobre essa restauração;
+a desvinculação registra explicitamente os campos restaurados para o replay.
 
 Downgrade com decisões/eventos é recusado para preservar auditoria. Rollback de
 aplicação deve conservar schema/relações e a leitura financeira canônica; voltar
@@ -95,3 +97,23 @@ commits, enquanto o contador mede tentativas do serviço, inclusive rollback.
 
 A #111 poderá chamar o serviço compartilhado dentro de transação e usar as mesmas
 revalidações. Nenhuma CLI histórica/backfill produtivo é implementada aqui.
+
+## Ensaio de convergência executável
+
+`python scripts/prepare_convergence.py DIRETORIO_NOVO` cria uma composição
+isolada dos HEADs fixados de #164/#163 e #135/#134, incluindo suas bases reais.
+Não modifica a branch de produto nem qualquer PR dependente. O arquivo
+`scripts/convergence/resolution.patch` preserva os dois protocolos de coleta,
+ordenação da origem, limitações HTTP, grants e modelos; adapta a referência
+explícita v2 e a prévia de troca de titular à regra pela data do jogo.
+As rotas, projeção, replay e resolver atuais da #110 prevalecem sobre o código
+mais antigo da #95. Revisões Alembic publicadas conservam seus IDs: uma junção
+somente no ensaio antecede a nova c110fact2026, garantindo que suas views sejam
+criadas depois das migrations das dependências.
+
+O job obrigatório de convergência executa tipagem/lint de todo o código composto,
+os cenários PostgreSQL de pairing/coleta v2 e troca de titular, além da aceitação
+financeira de ambas as ordens, troca temporal real, multicontas histórico e
+replay. Isso comprova essa composição e esse escopo; não substitui a CI completa
+dos PRs de billing nem autoriza seus merges. Se algum HEAD mudar, o ensaio e o
+patch devem ser regenerados/revalidados antes da integração final.
