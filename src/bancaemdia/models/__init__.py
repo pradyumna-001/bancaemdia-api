@@ -24,6 +24,12 @@ from bancaemdia.models.midia_arquivo import MidiaArquivo
 from bancaemdia.models.movimento import Movimento
 from bancaemdia.models.movimento_requisicao import MovimentoRequisicao
 from bancaemdia.models.revisao_pendente import RevisaoPendente
+from bancaemdia.models.telegram_link import (
+    TelegramLink,
+    TelegramLinkAttempt,
+    TelegramLinkAttemptEvent,
+    TelegramLinkCode,
+)
 from bancaemdia.models.time import Time
 from bancaemdia.models.tipster import Tipster
 from bancaemdia.models.titular import Titular
@@ -60,6 +66,10 @@ __all__ = [
     "Movimento",
     "MovimentoRequisicao",
     "RevisaoPendente",
+    "TelegramLink",
+    "TelegramLinkAttempt",
+    "TelegramLinkAttemptEvent",
+    "TelegramLinkCode",
     "Time",
     "Tipster",
     "Titular",

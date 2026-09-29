@@ -12,6 +12,13 @@
 - Terraform define criptografia em repouso para RDS, S3 e Redis; força TLS no RDS, HTTPS/TLS 1.2+ para clientes S3 e TLS no Redis. O ALB aceita TLS 1.2+ no listener HTTPS. O teto de autoscaling do RDS é 500 GB. Fargate Spot dá até 120 s aos trabalhadores para encerrar após `SIGTERM`; tarefas Celery têm confirmação tardia e podem ser reenfileiradas.
 - Os alertas de custo Anthropic notificam em 80% e 100% do limite diário configurado. São alertas, **não** um bloqueio de gasto.
 
+## Vínculo de conta Telegram (#97)
+
+- O código tem oito caracteres aleatórios, expira em 30 minutos e é exibido uma única vez. O banco recebe apenas um HMAC com domínio próprio, derivado de `COLETA_TOKEN_SECRET`. Um novo código invalida os anteriores; há no máximo três emissões por conta em 30 minutos.
+- `/vincular` aceita somente conversa privada e usa o `from.id` fornecido pelo transporte autenticado do bot. A origem de mensagem encaminhada nunca identifica a conta. Tentativas por remetente são limitadas no PostgreSQL por HMAC, inclusive quando o código não existe. O histórico anônimo de falhas guarda apenas o resultado e a hora.
+- As tabelas de vínculo e código usam RLS por `usuario_id`. As funções `telegram_link_*` com `SECURITY DEFINER` fazem apenas a consulta exata necessária antes de conhecer o tenant. A função de resolução deve ser chamada pelo futuro transporte da issue #98 **na base primária**; ela revalida a linha ativa sob RLS antes de admitir qualquer mensagem. A revogação remove esse acesso imediatamente após o commit.
+- A função privilegiada depende de um papel de migração separado do papel da aplicação, dono das tabelas. A migração concede `EXECUTE` a `bancaemdia_app` quando ele existe; se a instalação usa outro papel de aplicação, conceder `EXECUTE` somente nas cinco funções `telegram_link_*` após migrar. O papel da aplicação não recebe política de leitura direta nas tabelas globais de tentativas.
+
 ## Antes de operar em produção
 
 1. **Dados brutos de Telegram:** decidir e implementar propriedade por usuário para `mensagens`, `mensagem_versoes`, `midias`, `midia_arquivos` e `extracoes_cache`, incluindo objetos S3. Até lá, a exportação não contém esses arquivos e a exclusão automática de contas com mensagens/fotos importadas é recusada. O administrador deve definir também quais dados de auditoria precisam ser retidos, por quanto tempo e com qual base legal. A [ANPD descreve os direitos de acesso e eliminação e as hipóteses de conservação](https://www.gov.br/anpd/pt-br/assuntos/titular-de-dados-1/direito-dos-titulares). Estes endpoints são preparação técnica; não certificam conformidade com a LGPD.
