@@ -635,6 +635,8 @@ def _guardada(monkeypatch, bruto, nome="Betano"):
                 usuario_id=usuario_id,
                 casa_id=1,
                 bruto_json=guardada.bruto,
+                v2_fonte_em=None,
+                v2_hash=None,
                 recebido_em=datetime(2026, 8, 4, tzinfo=UTC),
             )
 
@@ -773,6 +775,8 @@ def _historico_guardado(monkeypatch, *linhas):
                     usuario_id=7,
                     casa_id=1,
                     bruto_json=bruto,
+                    v2_fonte_em=None,
+                    v2_hash=None,
                     recebido_em=datetime(2026, 8, 4, tzinfo=UTC) + timedelta(hours=horas),
                 )
                 for id_, bruto, horas in linhas

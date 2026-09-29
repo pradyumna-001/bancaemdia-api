@@ -8,6 +8,7 @@ from typing import Any
 
 from bancaemdia.coleta.leitores import LEITORES
 from bancaemdia.coleta.leitura import Coletada, ColetaInvalidaError
+from bancaemdia.domain.coleta_provenance import safe_payload
 from bancaemdia.domain.financeiro import Estado
 from bancaemdia.domain.materializar import EventoNovo, casa_canonica
 
@@ -106,6 +107,9 @@ def conferir_guardavel(bruto: object) -> None:
             "a aposta veio com um caractere ou número que não dá para guardar (caractere nulo,"
             " emoji partido ao meio ou número infinito) — só ela ficou de fora"
         )
+
+    if not safe_payload(bruto):
+        raise ColetaInvalidaError("a captura contém dados de sessão ou credenciais não permitidos")
 
 
 def validar(coletada: Coletada, valor_unidade_centavos: int) -> None:
