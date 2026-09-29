@@ -4,9 +4,9 @@ from datetime import datetime
 from typing import Annotated, Any, Literal
 from uuid import uuid4
 
-from fastapi import APIRouter, Depends, File, Form, Query, UploadFile, status
+from fastapi import APIRouter, Depends, File, Form, Path, Query, UploadFile, status
 from fastapi.responses import JSONResponse
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, field_validator
 from sqlalchemy import select, text
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -86,13 +86,21 @@ class ApostaManual(BaseModel):
     casa: str | None = None
     data_aposta: str | None = None
     data_jogo: str | None = None
-    conta_casa_ref: int | None = None
+    conta_casa_ref: int | None = Field(default=None, ge=1, le=2**63 - 1, strict=True)
     odd: float | None = None
     stake_unidades: float | None = None
     evento: str | None = None
     descricao: str | None = None
     mercado_bruto: str | None = None
     freebet: bool = False
+
+    @field_validator("data_jogo")
+    @classmethod
+    def game_date(cls, value: str | None) -> str | None:
+        if value is not None:
+            datetime.fromisoformat(value)
+        return value
+
     comissao_centavos: int | None = None
 
 
@@ -773,7 +781,7 @@ class ConsolidacaoPedido(BaseModel):
 
 class DesvinculacaoPedido(BaseModel):
     model_config = ConfigDict(extra="forbid")
-    motivo: str
+    motivo: str = Field(min_length=1, max_length=500)
 
 
 class ConsolidacaoResposta(BaseModel):
@@ -831,7 +839,7 @@ async def consolidar_revisada(
 
 @router.post("/api/v1/consolidacoes/{relacao_id}/desvincular", response_model=ConsolidacaoResposta)
 async def desvincular_revisada(
-    relacao_id: int,
+    relacao_id: Annotated[int, Path(ge=1, le=2**63 - 1)],
     pedido: DesvinculacaoPedido,
     usuario: Annotated[Usuario, Depends(get_current_user)],
     session: Annotated[AsyncSession, Depends(get_db)],

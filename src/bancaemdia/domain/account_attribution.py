@@ -43,7 +43,7 @@ def resolve_account(instant: datetime | None, usages: Iterable[AccountUsage]) ->
 
 def review_reason(result: AccountResolution) -> str | None:
     if result.status == ResolutionStatus.NONE:
-        return "conta da aposta não identificada no instante em que foi feita"
+        return "conta da aposta não identificada na data do jogo"
     if result.status == ResolutionStatus.AMBIGUOUS:
-        return "mais de uma conta possível no instante em que a aposta foi feita"
+        return "mais de uma conta possível na data do jogo"
     return None

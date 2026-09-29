@@ -771,9 +771,9 @@ def test_a_bet_created_by_hand_is_born_from_its_own_creation_event(monkeypatch, 
     assert payload["casa"] == "Betano" and payload["origem"] == "manual"
     assert corpo["chave"].startswith("m:")
     assert corpo["stake_centavos"] == 15_000
-    assert corpo["conta_casa_id"] == 42
+    assert corpo["conta_casa_id"] is None
     assert resposta.json()["casa_id"] == 1
-    assert "aviso" not in resposta.json()
+    assert "aviso" in resposta.json()
 
 
 def test_a_bet_created_without_a_date_uses_brazil_time(monkeypatch, chave_rsa) -> None:

@@ -23,7 +23,7 @@ async def parear_criacao(
     from bancaemdia.domain.consolidacao_aposta import consolidate_available
     from bancaemdia.services.cruzamento_candidatos import generate
 
-    with custom_span("cruzamento.pareador", usuario_id=usuario_id):
+    with custom_span("cruzamento.pareador", aposta_nova_id=nova.id):
         verdict = await generate(session, usuario_id, nova, estado)
         await consolidate_available(session, usuario_id, nova.id)
     return verdict

@@ -174,6 +174,14 @@ PARAMETER_DESCRIPTIONS = {
 
 
 REQUEST_EXAMPLES: dict[OperationKey, tuple[str, JsonObject]] = {
+    ("post", "/api/v1/consolidacoes"): (
+        "Confirmar duas fontes",
+        {"casa_aposta_id": 10, "telegram_aposta_id": 11},
+    ),
+    ("post", "/api/v1/consolidacoes/{relacao_id}/desvincular"): (
+        "Corrigir associação",
+        {"motivo": "As fontes representam bilhetes diferentes"},
+    ),
     ("patch", "/api/v1/caixa/contas/{conta_casa_id}/banca"): (
         "Vincular conta à banca",
         {"banca_id": 12},

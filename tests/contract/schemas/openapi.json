@@ -268,6 +268,8 @@
           "conta_casa_ref": {
             "anyOf": [
               {
+                "maximum": 9.223372036854776e+18,
+                "minimum": 1.0,
                 "type": "integer"
               },
               {
@@ -1472,6 +1474,8 @@
         "additionalProperties": false,
         "properties": {
           "motivo": {
+            "maxLength": 500,
+            "minLength": 1,
             "title": "Motivo",
             "type": "string"
           }
@@ -5547,6 +5551,15 @@
         "requestBody": {
           "content": {
             "application/json": {
+              "examples": {
+                "default": {
+                  "summary": "Confirmar duas fontes",
+                  "value": {
+                    "casa_aposta_id": 10,
+                    "telegram_aposta_id": 11
+                  }
+                }
+              },
               "schema": {
                 "$ref": "#/components/schemas/ConsolidacaoPedido"
               }
@@ -5646,6 +5659,8 @@
             "name": "relacao_id",
             "required": true,
             "schema": {
+              "maximum": 9223372036854775807,
+              "minimum": 1,
               "title": "Relacao Id",
               "type": "integer"
             }
@@ -5654,6 +5669,14 @@
         "requestBody": {
           "content": {
             "application/json": {
+              "examples": {
+                "default": {
+                  "summary": "Corrigir associação",
+                  "value": {
+                    "motivo": "As fontes representam bilhetes diferentes"
+                  }
+                }
+              },
               "schema": {
                 "$ref": "#/components/schemas/DesvinculacaoPedido"
               }

@@ -2,7 +2,7 @@
 
 from datetime import datetime
 
-from sqlalchemy import select, text
+from sqlalchemy import func, select, text, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from bancaemdia import models
@@ -46,6 +46,16 @@ async def account_review(
     from bancaemdia.repositories.revisao_pendente_repo import RevisaoPendenteRepo
 
     if result.status == ResolutionStatus.UNIQUE and not invalid:
+        await session.execute(
+            update(models.RevisaoPendente)
+            .where(
+                models.RevisaoPendente.usuario_id == user,
+                models.RevisaoPendente.motivo == "conta_pendente",
+                models.RevisaoPendente.extracao_bruta["aposta_chave"].astext == key,
+                models.RevisaoPendente.resolvido_em.is_(None),
+            )
+            .values(resolvido_em=func.now())
+        )
         return
     reason = (
         "referência explícita inválida" if invalid else "conta ausente ou ambígua na data do jogo"
