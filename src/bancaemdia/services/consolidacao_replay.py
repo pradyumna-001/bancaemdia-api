@@ -2,14 +2,31 @@
 
 from typing import Any
 
+from prometheus_client import Counter
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from bancaemdia import models
 from bancaemdia.domain.cruzamento import instant
 
+replay_outcomes = Counter(
+    "aposta_consolidation_replay_total", "Reconciliation attempts and outcomes", ["result"]
+)
+
 
 async def replay_relations(session: AsyncSession, user: int, *, dry_run: bool = False) -> int:
+    try:
+        restored = await _replay_relations(session, user, dry_run=dry_run)
+    except Exception:
+        replay_outcomes.labels(result="failed").inc()
+        raise
+    replay_outcomes.labels(
+        result="preview" if dry_run else "restored" if restored else "verified"
+    ).inc()
+    return restored
+
+
+async def _replay_relations(session: AsyncSession, user: int, *, dry_run: bool = False) -> int:
     events = await session.scalars(
         select(models.Evento)
         .where(

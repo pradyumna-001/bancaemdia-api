@@ -125,6 +125,42 @@ async def consolidate(
     candidate_id: int | None = None,
     tipster_choice: Literal["casa", "telegram"] | None = None,
 ) -> models.ApostaConsolidacao:
+    try:
+        return await _consolidate(
+            session,
+            user,
+            house_id,
+            telegram_id,
+            decision=decision,
+            actor_id=actor_id,
+            candidate_id=candidate_id,
+            tipster_choice=tipster_choice,
+        )
+    except ConsolidacaoRecusadaError:
+        outcomes.labels(
+            decision=decision if decision in {"automatic", "reviewed"} else "invalid",
+            result="refused",
+        ).inc()
+        raise
+    except Exception:
+        outcomes.labels(
+            decision=decision if decision in {"automatic", "reviewed"} else "invalid",
+            result="failed",
+        ).inc()
+        raise
+
+
+async def _consolidate(
+    session: AsyncSession,
+    user: int,
+    house_id: int,
+    telegram_id: int,
+    *,
+    decision: Literal["automatic", "reviewed"] = "automatic",
+    actor_id: int | None = None,
+    candidate_id: int | None = None,
+    tipster_choice: Literal["casa", "telegram"] | None = None,
+) -> models.ApostaConsolidacao:
     """Revalidate under user → source-key → ordered row locks; never commit here."""
     if decision not in {"automatic", "reviewed"}:
         raise ConsolidacaoRecusadaError("tipo de decisão inválido")
