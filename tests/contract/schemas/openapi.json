@@ -156,6 +156,21 @@
         "title": "AnalisesSaida",
         "type": "object"
       },
+      "AnonymizeResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "status": {
+            "const": "anonymized",
+            "title": "Status",
+            "type": "string"
+          }
+        },
+        "required": [
+          "status"
+        ],
+        "title": "AnonymizeResponse",
+        "type": "object"
+      },
       "ApostaExtratoSaida": {
         "additionalProperties": false,
         "properties": {
@@ -4466,7 +4481,7 @@
                 }
               }
             },
-            "description": "The request body exceeds the server-wide streaming limit."
+            "description": "The request body exceeds this endpoint's streaming limit."
           },
           "422": {
             "content": {
@@ -4586,7 +4601,7 @@
                 }
               }
             },
-            "description": "The request body exceeds the server-wide streaming limit."
+            "description": "The request body exceeds this endpoint's streaming limit."
           },
           "422": {
             "content": {
@@ -4921,7 +4936,7 @@
                 }
               }
             },
-            "description": "The request body exceeds the server-wide streaming limit."
+            "description": "The request body exceeds this endpoint's streaming limit."
           },
           "422": {
             "content": {
@@ -5163,7 +5178,7 @@
                 }
               }
             },
-            "description": "The request body exceeds the server-wide streaming limit."
+            "description": "The request body exceeds this endpoint's streaming limit."
           },
           "422": {
             "content": {
@@ -5486,7 +5501,7 @@
                 }
               }
             },
-            "description": "The request body exceeds the server-wide streaming limit."
+            "description": "The request body exceeds this endpoint's streaming limit."
           },
           "422": {
             "content": {
@@ -5621,7 +5636,7 @@
                 }
               }
             },
-            "description": "The request body exceeds the server-wide streaming limit."
+            "description": "The request body exceeds this endpoint's streaming limit."
           },
           "422": {
             "content": {
@@ -6024,7 +6039,7 @@
                 }
               }
             },
-            "description": "The request body exceeds the server-wide streaming limit."
+            "description": "The request body exceeds this endpoint's streaming limit."
           },
           "429": {
             "content": {
@@ -6643,7 +6658,7 @@
                 }
               }
             },
-            "description": "The request body exceeds the server-wide streaming limit."
+            "description": "The request body exceeds this endpoint's streaming limit."
           },
           "422": {
             "content": {
@@ -6926,7 +6941,7 @@
                 }
               }
             },
-            "description": "The request body exceeds the server-wide streaming limit."
+            "description": "The request body exceeds this endpoint's streaming limit."
           },
           "422": {
             "content": {
@@ -7245,7 +7260,7 @@
                 }
               }
             },
-            "description": "The request body exceeds the server-wide streaming limit."
+            "description": "The request body exceeds this endpoint's streaming limit."
           },
           "422": {
             "content": {
@@ -7835,7 +7850,7 @@
                 }
               }
             },
-            "description": "The request body exceeds the server-wide streaming limit."
+            "description": "The request body exceeds this endpoint's streaming limit."
           },
           "422": {
             "content": {
@@ -7989,7 +8004,7 @@
                 }
               }
             },
-            "description": "The upload exceeds either the declared application limit (JSON) or the server-wide streaming limit (plain text)."
+            "description": "The upload exceeds either the declared application limit (JSON) or the endpoint streaming limit (plain text)."
           },
           "422": {
             "content": {
@@ -8137,6 +8152,360 @@
         "summary": "Consultar processamento do upload"
       }
     },
+    "/api/v1/usuario/me": {
+      "delete": {
+        "description": "Remove registros vinculados e desativa a conta; dados brutos sem dono exclusivo exigem atendimento separado.",
+        "operationId": "anonimizar_minha_conta_api_v1_usuario_me_delete",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AnonymizeResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Missing, expired, or invalid bearer token."
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Há mensagens ou fotos sem dono exclusivo no banco."
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorOrValidationResponse"
+                }
+              }
+            },
+            "description": "The request does not satisfy the published contract or a domain rule."
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "The caller exceeded an applicable request limit."
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unexpected internal failure with no sensitive exception details."
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "A required dependency is temporarily unavailable."
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Desativar e anonimizar minha conta"
+      }
+    },
+    "/api/v1/usuario/me/export": {
+      "get": {
+        "description": "Baixa perfil e registros vinculados à conta em JSON ou Excel, sem arquivos binários.",
+        "operationId": "exportar_meus_dados_api_v1_usuario_me_export_get",
+        "parameters": [
+          {
+            "description": "Formato da exportação dos dados da conta: JSON ou Excel.",
+            "in": "query",
+            "name": "formato",
+            "required": false,
+            "schema": {
+              "default": "json",
+              "description": "Formato do arquivo",
+              "enum": [
+                "json",
+                "xlsx"
+              ],
+              "title": "Formato",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": false,
+                  "properties": {
+                    "apostas": {
+                      "items": {
+                        "additionalProperties": {
+                          "$ref": "#/components/schemas/JsonValue"
+                        },
+                        "type": "object"
+                      },
+                      "type": "array"
+                    },
+                    "audit_log": {
+                      "items": {
+                        "additionalProperties": {
+                          "$ref": "#/components/schemas/JsonValue"
+                        },
+                        "type": "object"
+                      },
+                      "type": "array"
+                    },
+                    "bancas": {
+                      "items": {
+                        "additionalProperties": {
+                          "$ref": "#/components/schemas/JsonValue"
+                        },
+                        "type": "object"
+                      },
+                      "type": "array"
+                    },
+                    "chamadas_ia": {
+                      "items": {
+                        "additionalProperties": {
+                          "$ref": "#/components/schemas/JsonValue"
+                        },
+                        "type": "object"
+                      },
+                      "type": "array"
+                    },
+                    "coleta_token": {
+                      "items": {
+                        "additionalProperties": {
+                          "$ref": "#/components/schemas/JsonValue"
+                        },
+                        "type": "object"
+                      },
+                      "type": "array"
+                    },
+                    "coletas_casa": {
+                      "items": {
+                        "additionalProperties": {
+                          "$ref": "#/components/schemas/JsonValue"
+                        },
+                        "type": "object"
+                      },
+                      "type": "array"
+                    },
+                    "contas_casa": {
+                      "items": {
+                        "additionalProperties": {
+                          "$ref": "#/components/schemas/JsonValue"
+                        },
+                        "type": "object"
+                      },
+                      "type": "array"
+                    },
+                    "eventos": {
+                      "items": {
+                        "additionalProperties": {
+                          "$ref": "#/components/schemas/JsonValue"
+                        },
+                        "type": "object"
+                      },
+                      "type": "array"
+                    },
+                    "metas_desempenho": {
+                      "items": {
+                        "additionalProperties": {
+                          "$ref": "#/components/schemas/JsonValue"
+                        },
+                        "type": "object"
+                      },
+                      "type": "array"
+                    },
+                    "movimento_requisicoes": {
+                      "items": {
+                        "additionalProperties": {
+                          "$ref": "#/components/schemas/JsonValue"
+                        },
+                        "type": "object"
+                      },
+                      "type": "array"
+                    },
+                    "movimentos": {
+                      "items": {
+                        "additionalProperties": {
+                          "$ref": "#/components/schemas/JsonValue"
+                        },
+                        "type": "object"
+                      },
+                      "type": "array"
+                    },
+                    "revisao_pendente": {
+                      "items": {
+                        "additionalProperties": {
+                          "$ref": "#/components/schemas/JsonValue"
+                        },
+                        "type": "object"
+                      },
+                      "type": "array"
+                    },
+                    "unidades": {
+                      "items": {
+                        "additionalProperties": {
+                          "$ref": "#/components/schemas/JsonValue"
+                        },
+                        "type": "object"
+                      },
+                      "type": "array"
+                    },
+                    "upload_arquivos": {
+                      "items": {
+                        "additionalProperties": {
+                          "$ref": "#/components/schemas/JsonValue"
+                        },
+                        "type": "object"
+                      },
+                      "type": "array"
+                    },
+                    "upload_bilhetes": {
+                      "items": {
+                        "additionalProperties": {
+                          "$ref": "#/components/schemas/JsonValue"
+                        },
+                        "type": "object"
+                      },
+                      "type": "array"
+                    },
+                    "uploads": {
+                      "items": {
+                        "additionalProperties": {
+                          "$ref": "#/components/schemas/JsonValue"
+                        },
+                        "type": "object"
+                      },
+                      "type": "array"
+                    },
+                    "usuario": {
+                      "additionalProperties": {
+                        "$ref": "#/components/schemas/JsonValue"
+                      },
+                      "type": "object"
+                    }
+                  },
+                  "required": [
+                    "usuario",
+                    "apostas",
+                    "eventos",
+                    "movimentos",
+                    "movimento_requisicoes",
+                    "bancas",
+                    "contas_casa",
+                    "unidades",
+                    "revisao_pendente",
+                    "coletas_casa",
+                    "uploads",
+                    "upload_bilhetes",
+                    "upload_arquivos",
+                    "coleta_token",
+                    "chamadas_ia",
+                    "audit_log",
+                    "metas_desempenho"
+                  ],
+                  "type": "object"
+                }
+              },
+              "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet": {
+                "schema": {
+                  "format": "binary",
+                  "type": "string"
+                }
+              }
+            },
+            "description": "Exportação dos registros vinculados à conta."
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Missing, expired, or invalid bearer token."
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorOrValidationResponse"
+                }
+              }
+            },
+            "description": "The request does not satisfy the published contract or a domain rule."
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "The caller exceeded an applicable request limit."
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unexpected internal failure with no sensitive exception details."
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "A required dependency is temporarily unavailable."
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Exportar meus registros"
+      }
+    },
     "/coleta": {
       "post": {
         "description": "Recebe um lote bruto capturado pela extensão e agenda a materialização idempotente.",
@@ -8238,7 +8607,7 @@
                 }
               }
             },
-            "description": "The request body exceeds the server-wide streaming limit."
+            "description": "The request body exceeds this endpoint's streaming limit."
           },
           "429": {
             "content": {

@@ -11,7 +11,6 @@ import httpx
 import pytest
 from fastapi.testclient import TestClient
 from prometheus_fastapi_instrumentator.middleware import PrometheusInstrumentatorMiddleware
-from starlette.middleware.body_limit import RequestBodyLimitMiddleware
 
 from bancaemdia import main
 from bancaemdia.api.v1 import apostas, caixa, coleta, upload
@@ -30,6 +29,7 @@ from bancaemdia.observability.logging import (
     UnhandledErrorMiddleware,
     UserLogContextMiddleware,
 )
+from bancaemdia.security.http import EndpointBodyLimitMiddleware, SecurityHeadersMiddleware
 from bancaemdia.workers import extraction, materialization, pairing
 from bancaemdia.workers import upload as upload_worker
 
@@ -73,7 +73,8 @@ def test_main_wires_observability_around_auth_and_domain_middleware() -> None:
     layers = [layer.cls for layer in main.app.user_middleware]
 
     assert (
-        layers.index(RequestIdMiddleware)
+        layers.index(SecurityHeadersMiddleware)
+        < layers.index(RequestIdMiddleware)
         < layers.index(UnhandledErrorMiddleware)
         < layers.index(PrometheusInstrumentatorMiddleware)
         < layers.index(AuthRateLimitMiddleware)
@@ -82,7 +83,7 @@ def test_main_wires_observability_around_auth_and_domain_middleware() -> None:
         < layers.index(RateLimitMiddleware)
         < layers.index(RLSMiddleware)
         < layers.index(RouterMiddleware)
-        < layers.index(RequestBodyLimitMiddleware)
+        < layers.index(EndpointBodyLimitMiddleware)
     )
     assert getattr(main.app, "_is_instrumented_by_opentelemetry", False) is True
 

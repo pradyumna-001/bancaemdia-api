@@ -113,30 +113,9 @@ FROM public.apostas AS a""",
 
 def downgrade() -> None:
     op.execute("DROP VIEW public.painel_analises_apostas")
-    anterior = _painel_original()
-    for publico, _ in reversed(anterior["PUBLIC_VIEWS"]):
-        op.execute(f"DROP VIEW public.{publico}")
-    for nome in reversed(anterior["MATERIALIZED_VIEWS"]):
-        op.execute(f"DROP MATERIALIZED VIEW painel.{nome}")
-    op.execute("DROP VIEW painel.apostas_metricas")
-    op.execute(str(anterior["APOSTAS_METRICAS"]))
-    for nome in (
-        "MV_RESUMO",
-        "MV_POR_CASA",
-        "MV_POR_TIPSTER",
-        "MV_POR_MERCADO",
-        "MV_POR_PERIODO",
-        "MV_EVOLUCAO",
-    ):
-        op.execute(str(anterior[nome]))
-    for indice in anterior["UNIQUE_INDEXES"]:
-        op.execute(str(indice))
-    for publico, privado in anterior["PUBLIC_VIEWS"]:
-        op.execute(
-            f"CREATE VIEW public.{publico} WITH (security_barrier = true) AS "
-            f"SELECT fonte.* FROM painel.{privado} AS fonte WHERE fonte.usuario_id = {USUARIO_ATUAL}"
-        )
-    op.execute("UPDATE painel.estado_refresh SET atualizado_em = clock_timestamp() WHERE id = 1")
+    # Keep the appended private-view columns during rollback. PostgreSQL cannot
+    # remove view columns in place, and rebuilding the dashboard would destroy
+    # independently installed summary fixes and their rollback view (#145).
     op.execute("DROP POLICY metas_desempenho_por_usuario ON metas_desempenho")
     op.drop_table("metas_desempenho")
     op.drop_column("usuarios", "fuso_horario")

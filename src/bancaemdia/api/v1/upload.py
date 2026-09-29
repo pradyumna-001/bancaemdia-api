@@ -22,6 +22,7 @@ from bancaemdia.api.contracts import (
 )
 from bancaemdia.api.deps import get_current_user
 from bancaemdia.config import get_settings
+from bancaemdia.core.body_limits import UPLOAD_FORM_MARGIN
 from bancaemdia.db.session import get_db
 from bancaemdia.domain.registros import Usuario
 from bancaemdia.domain.upload import (
@@ -43,7 +44,7 @@ TAREFA = "materialization.processar_upload"
 TAREFA_DE_FALHA = "materialization.falhar_upload"
 INTERVALO_ENTRE_ENVIOS = timedelta(minutes=5)
 # A margem cobre os cabeçalhos do formulário, que viajam junto com o arquivo no mesmo corpo.
-MARGEM_DO_FORMULARIO = 64 * 1024
+MARGEM_DO_FORMULARIO = UPLOAD_FORM_MARGIN
 CAMPOS_DO_FORMULARIO = 20
 TAMANHO_DE_CAMPO = 64 * 1024
 WEBHOOK_HEADER = "X-Webhook-Token"
