@@ -7,10 +7,10 @@ from dataclasses import dataclass
 from threading import Lock
 from typing import Literal, cast
 
-import httpx
 import structlog
 from celery import signals as celery_signals
 from fastapi import FastAPI
+from httpx import URL as HTTPXURL
 from opentelemetry import trace
 from opentelemetry.instrumentation.celery import CeleryInstrumentor
 from opentelemetry.instrumentation.fastapi import FastAPIInstrumentor
@@ -141,9 +141,12 @@ def _provider(
 
 
 def _safe_http_url(request: RequestInfo) -> str:
-    if not isinstance(request.url, httpx.URL):
+    url: object = request.url
+    if not isinstance(url, HTTPXURL):
+        # Older HTTPX instrumentation can pass a raw URL tuple. Never stringify it: the
+        # target can contain credentials or query values.
         return REDACTED
-    return str(request.url.copy_with(query=None, fragment=None, userinfo=None))
+    return str(url.copy_with(query=None, fragment=None, userinfo=None))
 
 
 def _sanitize_httpx_request(span: Span, request: RequestInfo) -> None:
@@ -154,12 +157,14 @@ def _sanitize_httpx_request(span: Span, request: RequestInfo) -> None:
     # tokens or PII, and are not needed to identify the downstream dependency.
     span.set_attribute("url.full", safe_url)
     span.set_attribute("http.url", safe_url)
-    if not isinstance(request.url, httpx.URL):
+    url: object = request.url
+    if not isinstance(url, HTTPXURL):
+        span.set_attribute("url.query", REDACTED)
         span.set_attribute("http.target", REDACTED)
         return
-    if request.url.query:
+    if url.query:
         span.set_attribute("url.query", REDACTED)
-    span.set_attribute("http.target", request.url.path)
+    span.set_attribute("http.target", url.path)
 
 
 async def _sanitize_async_httpx_request(  # ruff: ignore[unused-async] - API requires a coroutine
