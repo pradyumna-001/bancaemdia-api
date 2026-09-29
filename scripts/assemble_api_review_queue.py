@@ -9,7 +9,7 @@ import logging
 import sys
 from pathlib import Path
 
-from assemble_billing_cross_flow import git
+from assemble_billing_cross_flow import TELEGRAM, git
 from assemble_billing_cross_flow import main as assemble_billing
 
 GENERATED = {"docs/API.md", "tests/contract/schemas/openapi.json"}
@@ -36,9 +36,18 @@ def merge_with_patch(sha: str, patch: str, expected: set[str], new_migration: st
 
 
 def main() -> None:
+    if "--disposable-checkout" not in sys.argv:
+        raise SystemExit("Explicit --disposable-checkout is required.")
+    heads = json.loads(Path("tests/fixtures/api-review-heads.json").read_text(encoding="utf-8"))
+    if all(
+        git("merge-base", "--is-ancestor", sha, "HEAD", check=False).returncode == 0
+        for sha in (TELEGRAM, *heads.values())
+    ):
+        logging.basicConfig(level=logging.INFO, format="%(message)s")
+        logging.info("All prerequisites already belong to HEAD; test the integrated source directly.")
+        return
     assemble_billing()  # Requires explicit --disposable-checkout and a clean checkout.
     save_fixture("billing + Telegram", "alembic/versions/f155cross2026_test_integration_merge.py")
-    heads = json.loads(Path("tests/fixtures/api-review-heads.json").read_text(encoding="utf-8"))
     merge_with_patch(
         heads["158"],
         "tests/fixtures/review-analytics.patch",
