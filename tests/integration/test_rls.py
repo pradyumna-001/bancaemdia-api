@@ -96,13 +96,15 @@ async def test_inserting_on_behalf_of_another_user_is_rejected(
     assert await _chaves_visiveis(como, engine_app, bia) == []
 
 
-async def test_usuarios_can_be_read_and_created_before_login_but_only_edited_by_themselves(
+async def test_usuarios_are_private_but_can_be_created_before_login(
     engine_app: AsyncEngine, como: Como, novo_usuario: Callable[[], Awaitable[int]]
 ) -> None:
     ana, bia = await novo_usuario(), await novo_usuario()
     async with como(engine_app, None) as session:
-        assert await UsuarioRepo().get_by_id(session, bia) is not None
+        assert await UsuarioRepo().get_by_id(session, bia) is None
     async with como(engine_app, ana) as session:
+        assert await UsuarioRepo().get_by_id(session, bia) is None
+        assert await UsuarioRepo().get_by_id(session, ana) is not None
         de_outro = await session.execute(
             update(models.Usuario).where(models.Usuario.id == bia).values(nome="Invasor")
         )

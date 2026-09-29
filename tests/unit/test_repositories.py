@@ -146,8 +146,7 @@ async def test_usuario_create_returns_the_inserted_row() -> None:
     usuario = await UsuarioRepo().create(session, "Ana@Exemplo.com", "Ana")
     assert usuario.id == 1
     sql = _sql(session.statements[0])
-    assert sql.startswith("INSERT INTO usuarios (email, nome) VALUES")
-    assert "RETURNING usuarios.id, usuarios.email, usuarios.nome" in sql
+    assert "SELECT * FROM public.create_user_profile(%(email)s, %(nome)s)" in sql
 
 
 async def test_aposta_get_by_chave_filters_by_user_and_key() -> None:

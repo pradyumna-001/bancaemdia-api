@@ -33,6 +33,7 @@ from bancaemdia.models.usuario import Usuario
 __all__ = [
     "Apelido",
     "Aposta",
+    "AuditLog",
     "Banca",
     "Base",
     "Casa",
