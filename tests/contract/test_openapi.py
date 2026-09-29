@@ -399,9 +399,10 @@ def test_collection_envelope_and_body_limit_match_runtime(openapi_document: Json
 
 
 @pytest.mark.contract
-def test_ci_rejects_breaking_changes_after_the_initial_main_baseline() -> None:
+def test_ci_rejects_breaking_changes_against_the_pull_request_base() -> None:
     workflow = WORKFLOW.read_text(encoding="utf-8")
-    assert "origin/main:tests/contract/schemas/openapi.json" in workflow
+    assert "github.event.pull_request.base.sha" in workflow
+    assert '"$BASE_SHA:tests/contract/schemas/openapi.json"' in workflow
     assert "id: openapi_baseline" in workflow
     assert 'echo "available=true" >> "$GITHUB_OUTPUT"' in workflow
     assert 'echo "available=false" >> "$GITHUB_OUTPUT"' in workflow
