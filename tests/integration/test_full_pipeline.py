@@ -655,5 +655,43 @@ async def test_a_telegram_export_uploaded_to_the_api_is_read_and_reported_comple
     )
 
 
-def test_painel_totals_match_the_conferir_numeros_logic() -> None:
-    pytest.skip("GET /painel arrives with issue #30; conferir_numeros.py has not been ported")
+async def test_painel_totals_match_the_conferir_numeros_logic(
+    engine_app, engine_admin, novo_usuario, monkeypatch
+) -> None:
+    import sys
+    from runpy import run_path
+
+    from bancaemdia.cli import replay
+    from bancaemdia.cli.refresh_painel import RefreshPainelEmAndamentoError, refresh_painel
+    from bancaemdia.domain.painel import FiltrosPainel
+    from bancaemdia.repositories.painel_repo import PainelRepo
+
+    helpers = run_path(str(Path(__file__).parent / "cruzamento/test_consolidacao.py"))
+    user = await novo_usuario()
+    house, _ = await helpers["accounts"](engine_admin, engine_app, user)
+    ticket = uuid4().hex
+    await helpers["intake_telegram"](engine_app, user, helpers["telegram_payload"](ticket))
+    await helpers["intake_house"](engine_app, user, house, helpers["house_payload"](ticket))
+    await helpers["intake_house"](
+        engine_app, user, house, helpers["house_payload"](ticket, state="Win")
+    )
+    for attempt in range(100):
+        try:
+            await refresh_painel(engine_admin)
+            break
+        except RefreshPainelEmAndamentoError:
+            if attempt == 99:
+                raise
+            await asyncio.sleep(0.1)
+    async with AsyncSession(engine_app) as session:
+        await helpers["owner"](session, user)
+        panel = await PainelRepo().consultar(session, user, FiltrosPainel.criar("all"))
+        assert panel.resumo.total_apostas == 1
+        assert panel.resumo.giro_centavos == 10000
+        assert panel.resumo.lucro_centavos == 10000
+        assert panel.resumo.roi_basis_points == 10000
+    # Exercise the existing checker CLI's real read-only replay against those same events.
+    checker = run_path(str(Path(__file__).parents[2] / "scripts/conferir_numeros.py"))
+    monkeypatch.setattr(replay, "get_engine", lambda: engine_app)
+    monkeypatch.setattr(sys, "argv", ["conferir_numeros.py", "--usuario-id", str(user)])
+    assert await asyncio.to_thread(checker["main"]) == 0
