@@ -759,3 +759,68 @@ async def test_real_redis_celery_tick_consumes_durable_inbox(bot, banco, bot_red
     finally:
         worker_app.close()
         await worker_engine.dispose()
+
+
+async def test_migration_roundtrip_preserves_prerequisite_draft(engine_admin):
+    import subprocess
+    import sys
+
+    from sqlalchemy.engine import make_url
+
+    name = "tg102_" + uuid4().hex
+    async with engine_admin.connect() as conn:
+        conn = await conn.execution_options(isolation_level="AUTOCOMMIT")
+        await conn.execute(text(f"CREATE DATABASE {name}"))
+    url = make_url(engine_admin.url).set(database=name).render_as_string(hide_password=False)
+    isolated = create_async_engine(url, poolclass=NullPool)
+    env = {**os.environ, "DATABASE_URL": url, "DATABASE_URL_REPLICA": url}
+
+    async def migrate(*args, success=True):
+        result = await asyncio.to_thread(
+            subprocess.run,
+            [sys.executable, "-m", "alembic", *args],
+            env=env,
+            capture_output=True,
+            text=True,
+        )
+        assert (result.returncode == 0) == success, result.stderr
+
+    try:
+        await migrate("upgrade", "head")
+        identifier = uuid4()
+        async with isolated.begin() as conn:
+            user = await conn.scalar(
+                text(
+                    "INSERT INTO usuarios(email,nome) VALUES ('migration@synthetic.invalid','Synthetic') RETURNING id"
+                )
+            )
+            await conn.execute(
+                text("""INSERT INTO rascunhos_aposta
+                (id,usuario_id,telegram_chat_id,telegram_message_id,telegram_update_id)
+                VALUES (:id,:user,123,456,789)"""),
+                {"id": identifier, "user": user},
+            )
+            await conn.execute(
+                text("""INSERT INTO telegram_media
+                (draft_id,usuario_id,content_ciphertext,content_hash,mime)
+                VALUES (:id,:user,:content,:hash,'image/png')"""),
+                {"id": identifier, "user": user, "content": b"encrypted-fixture", "hash": "a" * 64},
+            )
+        await migrate("downgrade", "f141chain2026", success=False)
+        async with isolated.begin() as conn:
+            await conn.execute(text("DELETE FROM telegram_media"))
+        await migrate("downgrade", "f141chain2026")
+        await migrate("upgrade", "head")
+        async with isolated.connect() as conn:
+            assert (
+                await conn.scalar(
+                    text("SELECT telegram_update_id FROM rascunhos_aposta WHERE id=:id"),
+                    {"id": identifier},
+                )
+                == 789
+            )
+    finally:
+        await isolated.dispose()
+        async with engine_admin.connect() as conn:
+            conn = await conn.execution_options(isolation_level="AUTOCOMMIT")
+            await conn.execute(text(f"DROP DATABASE {name}"))

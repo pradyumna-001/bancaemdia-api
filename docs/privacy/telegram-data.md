@@ -19,6 +19,7 @@ O proprietário deve aprovar os prazos antes do lançamento.
 | Referência de arquivo, legenda e metadados da foto | Rascunho | Mesmo prazo da mídia |
 | Campos, candidatos e histórico de correções | Rascunho e correções, RLS | `TELEGRAM_DRAFT_RETENTION_DAYS` (30 dias) após fechamento |
 | Resultado temporário da extração | Redis `tgext:<HMAC tenant>:<hash>:<versão>`, Fernet | TTL máximo 60 segundos, inclusive após crash/unlink; nunca cache global de exports |
+| Vínculos revogados, códigos expirados e tentativas de vínculo | Tabelas de vínculo | Mesmo prazo bruto de 7 dias após revogação/expiração/última tentativa |
 | Contadores de abuso | `telegram_rate_buckets`, somente HMACs | Expiração de janela; remoção no purge seguinte |
 | Fato financeiro explicitamente confirmado | Eventos/apostas do tenant | Política financeira/exportação/anonimização da conta; não é payload bruto do bot |
 

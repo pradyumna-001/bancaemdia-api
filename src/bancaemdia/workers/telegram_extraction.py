@@ -82,6 +82,9 @@ async def claim_photo(engine: AsyncEngine, *, draft_id: UUID | None = None) -> P
                     select(RascunhoAposta.id, RascunhoAposta.usuario_id)
                     .where(
                         RascunhoAposta.status.in_(ACTIVE_DRAFT_STATUSES),
+                        func.telegram_chat_linked(
+                            RascunhoAposta.usuario_id, RascunhoAposta.telegram_chat_id
+                        ),
                         or_(
                             RascunhoAposta.status == "AWAITING_EXTRACTION",
                             RascunhoAposta.source_metadata_json.has_key("update_id"),

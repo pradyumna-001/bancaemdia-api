@@ -24,6 +24,10 @@ async def purge_telegram(engine: AsyncEngine) -> int:
     count = 0
     async with AsyncSession(engine) as session, session.begin():
         await session.execute(text("SELECT set_config('app.telegram_transport', 'on', true)"))
+        await session.execute(
+            text("SELECT telegram_purge_link_metadata(:cutoff,:batch)"),
+            {"cutoff": raw_cutoff, "batch": limit},
+        )
         for model, statuses in (
             (TelegramInbox, ("DONE", "DLQ")),
             (TelegramOutbox, ("SENT", "DLQ")),
