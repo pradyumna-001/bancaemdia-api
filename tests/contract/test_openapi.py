@@ -567,6 +567,23 @@ negative_schema = (
 )
 
 
+@negative_schema.hook("before_generate_case")
+def invalid_upload_job_cases(
+    context: schemathesis.HookContext,
+    _strategy: SearchStrategy[schemathesis.Case],
+) -> SearchStrategy[schemathesis.Case]:
+    # Negating a UUID schema often changes its JSON type, but path serialization
+    # turns the value back into a string. Generate wire-invalid UUIDs directly
+    # instead of filtering most of the generated examples or skipping the route.
+    assert context.operation is not None
+    operation = context.operation
+    if operation.path != "/api/v1/upload/{job_id}" or operation.method.upper() != "GET":
+        return _strategy
+    return st.text(alphabet="ghijklmnopqrstuvwxyz", min_size=1, max_size=40).map(
+        lambda value: operation.Case(path_parameters={"job_id": value})
+    )
+
+
 @pytest.mark.contract
 @negative_schema.parametrize()
 def test_schemathesis_invalid_protected_requests(case: schemathesis.Case) -> None:
