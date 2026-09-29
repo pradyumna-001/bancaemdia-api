@@ -1,30 +1,11 @@
-# Billing foundation rollout
+# Billing foundation (reused from #133)
 
-The migration installs tables, policies and triggers. It leaves `billing_rollout.activated_at`
-NULL, creates no public price and changes no current access. Apply the migration first, then
-review the data and activate only in an approved release window using the migration/admin role:
+Supersedes the original cardless rollout: the owner changed the decision on 2026-09-27. A card is required and Stripe confirmation starts exactly 168 hours. Signup/backfill creates only a durable reservation. `trial_confirmed=false` gives no trial entitlement after rollout; public status hides the reservation timestamps. A signed event plus a fresh Stripe subscription with a confirmed customer card fixes both bounds once. Cancellation/email changes/resubscription cannot reset them.
 
-```sql
-SELECT billing_activate_rollout();
-```
+The original c90 migration is retained; d90card2026 migrates the unpublished foundation to card-confirmed trials. This migration is not a rollout plan for an already launched cardless product. Rollout remains off; `SELECT billing_activate_rollout()` is an explicit administrative launch action and must not be run in production without owner authorization. Checkout also stays disabled unless BILLING_ENABLED and a validated test credential are provided.
 
-The function persists the database clock once and backfills every existing user with seven full
-days from that instant. It is safe to call again: the timestamp and existing trial grants remain
-unchanged. New `usuarios` inserts after activation receive a trial from their account creation
-timestamp, including legitimate inserts that bypass `UsuarioRepo`. User inserts and activation
-serialize on the singleton rollout row. Never edit `activated_at` manually.
+One product, independently versioned currency/cadence prices, integer minor units (the historical column name `amount_cents` is retained). No price seed. Runtime currency allowlist must reflect actual account support. A zero-decimal currency is not multiplied by 100; no implicit FX conversion or guessed price. Published financial terms are immutable, and only one published interval may overlap per product/currency/cadence. Subscription keeps its agreed Price until explicit migration. Public API uses `amount_minor`.
 
-The application role can read rollout and public prices but cannot activate rollout or write the
-catalog. An administrator can create a draft price with a positive amount in centavos, BRL,
-MONTHLY or YEARLY frequency, and a half-open validity interval. Publication is a separate
-administrative operation. The GiST exclusion constraint prevents overlapping public intervals,
-including concurrent publications. Do not publish until the commercial price is approved.
-Existing subscriptions retain their `price_id` and the referenced price's immutable terms.
+RLS, durable trial identity and append-only field-name audit are inherited from #133 and the minimal audit/export dependency extracted from #130. The original PR branches are retained. `usuarios.ativo` remains administrative. Export excludes provider references; deleting an account cannot orphan an active external subscription.
 
-Trial grants live in `assinaturas` permanently. Account anonymization clears provider references
-and current commercial terms while retaining a minimal trial tombstone keyed by the retained
-account ID. Audit triggers
-record changed field names only. The export includes the user's subscription state and trial
-dates but omits provider customer and subscription references. The access decision becomes
-`READ_ONLY` at the exact trial end unless a valid paid period exists; enforcement at API and
-worker boundaries belongs to issue #93.
+See [Stripe operations](billing-stripe.md) and [ADR 025](../adrs/025-billing-provider.md). Production eligibility and live sandbox evidence remain separate gates.

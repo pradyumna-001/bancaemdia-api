@@ -32,16 +32,6 @@ class AssinaturaRepo:
             )
         ).one()
         assinatura = await self.get(session, usuario_id)
-        if (
-            rollout_at is not None
-            and assinatura is not None
-            and assinatura.status == SubscriptionStatus.TRIALING
-            and now >= assinatura.trial_ends_at
-        ):
-            # The clock changes access exactly at the bound; persist the transition on
-            # the first billing read so the existing audit trigger records it once.
-            assinatura.status = SubscriptionStatus.EXPIRED.value
-            await session.flush()
         snapshot = (
             None
             if assinatura is None
@@ -52,6 +42,7 @@ class AssinaturaRepo:
                 current_period_started_at=assinatura.current_period_started_at,
                 current_period_ends_at=assinatura.current_period_ends_at,
                 price_id=assinatura.price_id,
+                trial_confirmed=assinatura.trial_confirmed,
             )
         )
         return read_model(snapshot, now=now, rollout_at=rollout_at)
