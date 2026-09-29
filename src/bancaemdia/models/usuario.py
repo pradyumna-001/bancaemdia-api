@@ -15,3 +15,6 @@ class Usuario(Base):
     nome: Mapped[str] = mapped_column(String)
     criado_em: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
     ativo: Mapped[bool] = mapped_column(Boolean, server_default=text("true"))
+    fuso_horario: Mapped[str] = mapped_column(
+        String(64), nullable=False, server_default=text("'America/Sao_Paulo'")
+    )

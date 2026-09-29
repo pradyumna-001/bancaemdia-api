@@ -39,6 +39,7 @@ EXPORT_TABLES = (
     "coleta_token",
     "chamadas_ia",
     "audit_log",
+    "metas_desempenho",
 )
 EXCLUDED_COLUMNS = frozenset({"token_hash", "conteudo"})
 EXPORT_RESPONSE_SCHEMA: dict[str, Any] = {

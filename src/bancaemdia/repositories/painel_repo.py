@@ -236,7 +236,10 @@ def _sql_evolucao(
     if inicio is None:
         historico = """
         historico AS (
-            SELECT i.banca_id, 0::numeric AS acumulado_anterior_centavos
+            SELECT i.banca_id,
+                   0::numeric AS acumulado_anterior_centavos,
+                   0::numeric AS depositos_anteriores_centavos,
+                   0::numeric AS saques_anteriores_centavos
             FROM iniciais AS i
         )
         """
@@ -247,13 +250,18 @@ def _sql_evolucao(
         parametros.update(parametros_historico)
         historico = f"""
         historico AS (
-            SELECT banca_id, COALESCE(SUM(valor), 0)::numeric AS acumulado_anterior_centavos
+            SELECT banca_id,
+                   COALESCE(SUM(lucro), 0)::numeric AS acumulado_anterior_centavos,
+                   COALESCE(SUM(depositos), 0)::numeric AS depositos_anteriores_centavos,
+                   COALESCE(SUM(saques), 0)::numeric AS saques_anteriores_centavos
             FROM (
-                SELECT h.banca_id, h.lucro_centavos AS valor
+                SELECT h.banca_id, h.lucro_centavos AS lucro,
+                       0::numeric AS depositos, 0::numeric AS saques
                 FROM public.painel_evolucao_banca AS h
                 WHERE {onde_historico}
                 UNION ALL
-                SELECT x.banca_id, x.valor_centavos AS valor
+                SELECT x.banca_id, 0::numeric AS lucro,
+                       x.depositos_centavos AS depositos, x.saques_centavos AS saques
                 FROM caixa AS x WHERE x.data < :inicio
             ) AS anteriores
             GROUP BY banca_id
@@ -275,13 +283,17 @@ def _sql_evolucao(
             SELECT
                 cc.banca_id,
                 (m.ocorrido_em AT TIME ZONE 'America/Sao_Paulo')::date AS data,
-                m.valor_centavos::numeric AS valor_centavos
+                CASE WHEN m.tipo = 'DEPOSITO' THEN m.valor_centavos ELSE 0 END::numeric
+                    AS depositos_centavos,
+                CASE WHEN m.tipo = 'SAQUE' THEN -m.valor_centavos ELSE 0 END::numeric
+                    AS saques_centavos
             FROM public.movimentos AS m
             JOIN public.contas_casa AS cc
               ON cc.id = m.conta_casa_id AND cc.usuario_id = m.usuario_id
             JOIN public.bancas AS b
               ON b.id = cc.banca_id AND b.usuario_id = m.usuario_id
             WHERE m.usuario_id = :usuario_id
+              AND m.tipo IN ('DEPOSITO', 'SAQUE')
               AND m.ocorrido_em >= b.criado_em
               {caixa_dimensao}
         ),
@@ -290,7 +302,9 @@ def _sql_evolucao(
             SELECT
                 e.banca_id,
                 DATE_TRUNC('{bucket}', e.data::timestamp)::date AS periodo_inicio,
-                COALESCE(SUM(e.lucro_centavos), 0)::numeric AS contribuicao_centavos
+                COALESCE(SUM(e.lucro_centavos), 0)::numeric AS contribuicao_centavos,
+                0::numeric AS depositos_centavos,
+                0::numeric AS saques_centavos
             FROM public.painel_evolucao_banca AS e
             WHERE {onde_periodo}
             GROUP BY e.banca_id, 2
@@ -298,7 +312,9 @@ def _sql_evolucao(
             SELECT
                 x.banca_id,
                 DATE_TRUNC('{bucket}', x.data::timestamp)::date AS periodo_inicio,
-                COALESCE(SUM(x.valor_centavos), 0)::numeric AS contribuicao_centavos
+                0::numeric AS contribuicao_centavos,
+                COALESCE(SUM(x.depositos_centavos), 0)::numeric AS depositos_centavos,
+                COALESCE(SUM(x.saques_centavos), 0)::numeric AS saques_centavos
             FROM caixa AS x
             WHERE x.data < :fim
             {"AND x.data >= :inicio" if inicio is not None else ""}
@@ -306,7 +322,9 @@ def _sql_evolucao(
         ),
         agrupadas AS (
             SELECT banca_id, periodo_inicio,
-                   SUM(contribuicao_centavos)::numeric AS contribuicao_centavos
+                   SUM(contribuicao_centavos)::numeric AS contribuicao_centavos,
+                   SUM(depositos_centavos)::numeric AS depositos_centavos,
+                   SUM(saques_centavos)::numeric AS saques_centavos
             FROM contribuicoes
             GROUP BY banca_id, periodo_inicio
         )
@@ -315,9 +333,15 @@ def _sql_evolucao(
             i.banca_nome,
             c.periodo_inicio,
             c.contribuicao_centavos,
+            c.depositos_centavos,
+            c.saques_centavos,
             i.saldo_inicial_centavos,
             COALESCE(h.acumulado_anterior_centavos, 0)::numeric
-                AS acumulado_anterior_centavos
+                AS acumulado_anterior_centavos,
+            COALESCE(h.depositos_anteriores_centavos, 0)::numeric
+                AS depositos_anteriores_centavos,
+            COALESCE(h.saques_anteriores_centavos, 0)::numeric
+                AS saques_anteriores_centavos
         FROM agrupadas AS c
         JOIN iniciais AS i ON i.banca_id = c.banca_id
         LEFT JOIN historico AS h ON h.banca_id = c.banca_id
@@ -557,6 +581,11 @@ class PainelRepo:
                         "contribuicao_centavos": ponto.contribuicao_centavos,
                         "acumulado_centavos": ponto.acumulado_centavos,
                         "saldo_centavos": ponto.saldo_centavos,
+                        "saldo_inicial_centavos": ponto.saldo_inicial_centavos,
+                        "depositos_periodo_centavos": ponto.depositos_periodo_centavos,
+                        "saques_periodo_centavos": ponto.saques_periodo_centavos,
+                        "depositos_acumulados_centavos": ponto.depositos_acumulados_centavos,
+                        "saques_acumulados_centavos": ponto.saques_acumulados_centavos,
                     },
                 )
         finally:
