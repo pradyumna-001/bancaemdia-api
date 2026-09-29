@@ -142,10 +142,10 @@ def _provider(
 
 def _safe_http_url(request: RequestInfo) -> str:
     url: object = request.url
-    # Newer instrumentation types also permit a low-level tuple. Never serialize
-    # an unrecognized URL shape: it may contain credentials or a query string.
     if not isinstance(url, HTTPXURL):
-        return ""
+        # Older HTTPX instrumentation can pass a raw URL tuple. Never stringify it: the
+        # target can contain credentials or query values.
+        return REDACTED
     return str(url.copy_with(query=None, fragment=None, userinfo=None))
 
 
@@ -158,10 +158,13 @@ def _sanitize_httpx_request(span: Span, request: RequestInfo) -> None:
     span.set_attribute("url.full", safe_url)
     span.set_attribute("http.url", safe_url)
     url: object = request.url
-    if isinstance(url, HTTPXURL):
-        if url.query:
-            span.set_attribute("url.query", REDACTED)
-        span.set_attribute("http.target", url.path)
+    if not isinstance(url, HTTPXURL):
+        span.set_attribute("url.query", REDACTED)
+        span.set_attribute("http.target", REDACTED)
+        return
+    if url.query:
+        span.set_attribute("url.query", REDACTED)
+    span.set_attribute("http.target", url.path)
 
 
 async def _sanitize_async_httpx_request(  # ruff: ignore[unused-async] - API requires a coroutine
