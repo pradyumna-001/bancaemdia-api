@@ -249,18 +249,55 @@ async def test_transaction_failure_rolls_back_candidate_and_review(engine_app, n
     assert await refresh(engine_app, user, tip, raw) == "duvida"
 
 
-async def test_real_collection_response_reports_persisted_candidate_counts(
-    engine_app, novo_usuario
+@pytest.mark.parametrize("exact", [False, True])
+async def test_real_collection_http_response_reports_persisted_candidate_counts(
+    engine_admin, engine_app, novo_usuario, monkeypatch, exact
 ):
-    from bancaemdia.repositories.coleta_casa_repo import ColetaCasaRepo
+    import httpx
+    from fastapi import FastAPI
 
+    from bancaemdia.api.v1 import coleta
+    from bancaemdia.db.seed import seed_canonical
+    from bancaemdia.db.session import get_db
+    from bancaemdia.repositories.coleta_token_repo import ColetaTokenRepo
+
+    async with engine_admin.begin() as conn:
+        await seed_canonical(conn)
     user = await novo_usuario()
-    key = "c:betano:" + uuid4().hex
+    body = json.loads((Path(__file__).parents[1] / "fixtures/coleta/betano.json").read_text())
+    body["apostas"] = body["apostas"][:1]
+    body["apostas"][0]["id"] = uuid4().hex
+    parsed = coleta.LEITORES["betano"](body["apostas"][0])
+    key = coleta.chave_casa("betano", parsed.identidade)
     await create(engine_app, user, "casa", key=key)
-    await create(engine_app, user, "telegram")
-    async with AsyncSession(engine_app) as session:
+    await create(engine_app, user, "telegram", {} if exact else {"identidade_bilhete": None})
+    token = "synthetic-" + uuid4().hex
+    async with AsyncSession(engine_app) as session, session.begin():
         await owner(session, user)
-        assert await ColetaCasaRepo().matching_counts(session, user, key) == {"exact": 1}
+        await ColetaTokenRepo().create(session, user, coleta.hash_do_token(token))
+
+    async def database():
+        async with AsyncSession(engine_app) as session:
+            yield session
+
+    app = FastAPI()
+    app.include_router(coleta.router)
+    app.dependency_overrides[get_db] = database
+    published = []
+    monkeypatch.setattr(
+        coleta.celery, "send_task", lambda *args, **kwargs: published.append(kwargs)
+    )
+    async with httpx.AsyncClient(
+        transport=httpx.ASGITransport(app=app), base_url="http://test"
+    ) as client:
+        for _ in range(2):
+            response = await client.post(
+                "/api/v1/coleta", json=body, headers={coleta.TOKEN_HEADER: token}
+            )
+            assert response.status_code == 200
+            assert response.json()["iguais_a_existentes"] == int(exact)
+            assert response.json()["em_duvida"] == int(not exact)
+    assert published and len(await pairs(engine_app, user)) == 1
 
 
 async def test_search_budget_on_one_hundred_thousand_source_rows(
