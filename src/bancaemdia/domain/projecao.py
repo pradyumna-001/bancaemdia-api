@@ -147,7 +147,12 @@ def projetar(eventos: Iterable[tuple[str, str, dict[str, Any]]]) -> tuple[dict[s
                     estado[campo] = payload[campo]
         elif tipo == "CORRECAO_MANUAL":
             estado.update(payload)
-            if fonte in FONTES_DA_PESSOA and "conta_casa_id" in payload:
+            if (
+                fonte in FONTES_DA_PESSOA
+                and "conta_casa_id" in payload
+                and "conta_atribuicao" not in payload
+                and "conta_casa_ref" not in payload
+            ):
                 estado["conta_casa_ref"] = payload["conta_casa_id"]
                 estado["conta_atribuicao"] = "explicit"
             if payload.get("retorno_centavos") is not None:

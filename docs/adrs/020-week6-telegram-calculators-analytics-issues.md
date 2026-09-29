@@ -108,7 +108,7 @@
 - [ ] Never ask the user to resend the photo; accept one or several missing values in a reply and patch only the fields supplied
 - [ ] Support `/continuar`, `/corrigir <campo> <valor>`, and `/cancelar`; returning later must restore the same active draft
 - [ ] Preserve correction history and optimistic versioning so two replies cannot overwrite each other silently
-- [ ] Resolve `conta_casa_id` from the account active at the bet occurrence time when exactly one exists; ask which account only when resolution is absent or ambiguous
+- [ ] Resolve the default `conta_casa_id` from the account valid at game time (`data_jogo` / `comeca_em`) when exactly one exists; explicit multi-account references preserve the account that placed the bet; ask which account when resolution is absent or ambiguous
 - [ ] Keep the resolver interface cardinality-safe for future simultaneous accounts, while this milestone enforces the current one-account-in-use rule
 - [ ] Keep incomplete drafts outside all balances, profit, turnover, ROI, and dashboard aggregates
 

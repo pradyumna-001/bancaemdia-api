@@ -1034,3 +1034,85 @@ async def test_review_media_is_private_and_cross_tenant_ids_cannot_fetch_it(
             if expected == 200:
                 assert response.content == b"synthetic-image"
                 assert response.headers["cache-control"] == "private, no-store"
+
+
+async def test_excel_import_and_update_use_game_date_with_explicit_multiaccount_exception(
+    engine_app, engine_admin, novo_usuario
+):
+    from io import BytesIO
+
+    import httpx
+    from openpyxl import Workbook
+
+    user = await novo_usuario()
+    _, ids = await accounts(engine_admin, engine_app, user, count=2)
+    boundary = PLACEMENT + timedelta(days=1)
+    async with AsyncSession(engine_app) as session, session.begin():
+        await owner(session, user)
+        await session.execute(
+            update(models.ContaCasa)
+            .where(models.ContaCasa.id == ids[0])
+            .values(ate=boundary, ativa=False)
+        )
+        await session.execute(
+            update(models.ContaCasa).where(models.ContaCasa.id == ids[1]).values(desde=boundary)
+        )
+
+    def content(revised):
+        book = Workbook()
+        book.active.append([
+            "casa",
+            "data_aposta",
+            "data_jogo",
+            "odd",
+            "stake_unidades",
+            "atualizada_em",
+            "conta_casa_ref",
+        ])
+        for explicit in (None, ids[0]):
+            book.active.append([
+                "Betano",
+                PLACEMENT.isoformat(),
+                GAME.isoformat(),
+                2,
+                1,
+                revised.isoformat(),
+                explicit,
+            ])
+        stream = BytesIO()
+        book.save(stream)
+        book.close()
+        return stream.getvalue()
+
+    async with httpx.AsyncClient(
+        transport=httpx.ASGITransport(app=application(engine_app, user)), base_url="http://test"
+    ) as client:
+        for index in (0, 1):
+            response = await client.post(
+                "/api/v1/apostas/importar-planilha",
+                data={"origem_id": "synthetic-game-sheet"},
+                files={
+                    "arquivo": (
+                        "test.xlsx",
+                        content(GAME + timedelta(days=index)),
+                        "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                    )
+                },
+            )
+            assert response.status_code == 200, response.text
+            assert response.json()["criadas" if index == 0 else "atualizadas"] == 2
+    await reconstruir_usuario(user, engine=engine_app)
+    async with AsyncSession(engine_app) as session:
+        await owner(session, user)
+        rows = list(
+            await session.scalars(
+                select(models.Aposta)
+                .where(models.Aposta.usuario_id == user)
+                .order_by(models.Aposta.id)
+            )
+        )
+        assert [r.conta_casa_id for r in rows] == [ids[1], ids[0]]
+        from bancaemdia.domain.consolidacao_aposta import _state
+
+        states = [await _state(session, user, row.chave) for row in rows]
+        assert [state["conta_atribuicao"] for state in states] == ["game", "explicit"]

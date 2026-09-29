@@ -43,6 +43,11 @@ def _dashboard(canonical: bool) -> None:
     )
     sql = previous["APOSTAS_METRICAS"].replace("CREATE VIEW", "CREATE OR REPLACE VIEW", 1)
     summary = previous["MV_RESUMO"]
+    prior_balance = Path(__file__).with_name("b71c6a93e402_012_painel_saldo_pre_movimento.py")
+    if prior_balance.exists():
+        # The converged dependency history has the newer unknown-balance rule and a
+        # retained legacy MV. Preserve that rule and avoid reusing its legacy index name.
+        summary = run_path(str(prior_balance))["_corrected_summary"]()
     if canonical:
         sql = sql.replace("public.apostas AS a", "public.apostas_financeiras AS a")
         sql = sql.replace(
@@ -59,7 +64,9 @@ def _dashboard(canonical: bool) -> None:
     op.execute("DROP VIEW public.painel_resumo")
     op.execute("DROP MATERIALIZED VIEW painel.mv_painel_resumo")
     op.execute(summary)
-    op.execute(previous["UNIQUE_INDEXES"][0])
+    op.execute(
+        "CREATE UNIQUE INDEX uq_mv_resumo_consolidacao ON painel.mv_painel_resumo (usuario_id)"
+    )
     op.execute("""CREATE VIEW public.painel_resumo WITH (security_barrier=true) AS
       SELECT fonte.* FROM painel.mv_painel_resumo fonte WHERE fonte.usuario_id=
       NULLIF(current_setting('app.current_user_id',true),'')::bigint""")

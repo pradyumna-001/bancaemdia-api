@@ -7,6 +7,11 @@ elegibilidade para a consolidação da #110; não significa que ela aconteceu.
 O antigo pareador automático não é mais chamado. A confirmação manual existente
 continua explícita na revisão e invalida os candidatos envolvidos.
 
+Este documento descreve o motor #109. Na entrega #110, a materialização chama
+esse motor e depois o serviço transacional descrito em
+[consolidação de apostas](consolidacao-apostas.md). A decisão financeira durável
+é separada da última avaliação de candidato e exige nova revalidação.
+
 ## Critérios versionados
 
 O arquivo `domain/cruzamento.py` fixa a versão, pesos e limites. Mudança em qualquer
