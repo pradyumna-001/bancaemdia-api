@@ -13,8 +13,7 @@ new merge revisions reconcile independently published branches.
 The holder/Telegram chain #134–141 now incorporates current #151. Its own PostgreSQL
 checks run on every PR. Cross-flow acceptance also needs #141. Standard CI tests
 #155's own HEAD and billing lifecycle; two modules requiring Telegram report that
-missing prerequisite explicitly. The additional **Billing cross-flow (current HEAD
-+ pinned Telegram)** job assembles the exact #155 HEAD with #141 commit
+missing prerequisite explicitly. The additional **Billing integration (billing-cross-flow)** job assembles the exact #155 HEAD with #141 commit
 `71ab6b591325387122a2315133ee7d32b4e4f0d6` in a disposable checkout, applies the
 reviewable `tests/fixtures/billing-cross-flow.patch`, regenerates OpenAPI and runs
 the full suite. A final assertion requires all eight PostgreSQL/migration/Redis
@@ -73,3 +72,22 @@ Open-issue inventory was refreshed after the implementation: only #89–93, #96,
 Repository and `staging` environment variable/secret **names only** were checked: no CD deployment variables or staging secrets are configured. The only recorded staging deployment failed and has no environment URL; no AWS CLI/config/credentials or applied Terraform configuration was found locally. The owner replied that no known staging exists. The administrator's [2026-09-23 budget decision](../decisions/aws-initial-budget.md) explicitly keeps the current phase local, postpones production-like staging, and prohibits applying the current Terraform stack. Public deployment/alert delivery therefore remain launch prerequisites, not a request to build an unapproved staging stack. The documented launch direction is Lightsail/Compose/Caddy after the release decision.
 
 The owner has explicitly left commercial prices undecided and frontend implementation to its own repository. These choices are preserved. Account identity/required capabilities, tax treatment and actual production authorization remain owner-controlled. No issue is closed automatically; PRs, sandbox and CI are not substitutes for its remaining operational criteria.
+
+## Additional API integration rehearsal
+
+`Billing integration (api-review-queue)` assembles the same current audit HEAD,
+then the exact #158/#156 heads and remaining independent API PR heads recorded
+in `tests/fixtures/api-review-heads.json`. Reviewable conflict patches retain
+both sets of routers, worker schedules, export tables and migration identities.
+It runs the full suite and requires two additional PostgreSQL scenarios proving
+that goal INSERT/UPDATE/DELETE are denied after expiry in both migration orders,
+and that analytics rollback/re-upgrade reinstalls the guard.
+
+Reproduce in a fresh disposable checkout with
+`python scripts/assemble_api_review_queue.py --disposable-checkout`, install
+`.[dev]`, regenerate OpenAPI, then run pytest with both
+`BILLING_CROSS_FLOW_REQUIRED=1` and `API_REVIEW_QUEUE_REQUIRED=1`. This command
+creates local test-only merge commits; it never pushes or merges a GitHub PR.
+The fixture resolves predictable integration conflicts before administrative
+merges. Its broad compatibility coverage still does not satisfy all nonbilling
+product acceptance in #118. Each original PR retains its own diff and CI.
