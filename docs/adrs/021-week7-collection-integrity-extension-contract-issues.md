@@ -1,5 +1,8 @@
 # Week 7: Collection Integrity & Extension Contract — Milestones & GitHub Issues
 
+> **Superseded client planning (2026-09-29):** Extension implementation now has its own [tracker](https://github.com/wfcgit-hub/bancaemdia-extension/issues) and [new backlog](https://github.com/wfcgit-hub/bancaemdia-extension/pull/18). Historical client task lists below are context only; live API issues #107–#118 govern backend scope. All user-supplied bookmakers worldwide are real targets; Brazilian regulatory sources are optional metadata, not the technical coverage universe. See [ADR 024](024-extension-client-backlog.md).
+
+
 ## Milestone: **Week 7 — Collection Integrity & Extension Contract (Device Pairing + Casa/Telegram Reconciliation)**
 
 **Target Date**: 7 days from Week 6 completion
