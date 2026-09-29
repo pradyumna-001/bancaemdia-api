@@ -30,7 +30,13 @@ from bancaemdia.observability.metrics import (
 )
 from bancaemdia.services.telegram_abuse import admit
 from bancaemdia.services.telegram_conversation import handle_text
-from bancaemdia.services.telegram_link import REPO, IncomingCommand, redeem_command, resolve_sender
+from bancaemdia.services.telegram_link import (
+    REPO,
+    IncomingCommand,
+    _digest,
+    redeem_command,
+    resolve_sender,
+)
 from bancaemdia.services.telegram_photo_intake import SUPPORTED_FLOW, intake_photo
 from bancaemdia.workers.celery_app import app
 from bancaemdia.workers.materialization import get_engine
@@ -127,11 +133,13 @@ async def _handle_inbox(session: AsyncSession, item: TelegramInbox) -> None:
             else "correction"
         )
         if not await admit(session, action=action, sender=sender, chat=chat, owner=owner):
+            window = int(_now().timestamp()) // get_settings().TELEGRAM_LIMIT_WINDOW_SECONDS
+            limit_key = _digest("limit-reply", f"{chat}:{action}:{window}")
             await queue_reply(
                 session,
                 user_id=owner,
                 chat_id=chat,
-                key=f"telegram-limit:{chat}:{action}:{int(_now().timestamp()) // get_settings().TELEGRAM_LIMIT_WINDOW_SECONDS}",
+                key=f"telegram-limit:{limit_key}",
                 message="Limite de tentativas atingido. Aguarde a janela de limites e tente novamente.",
             )
             return

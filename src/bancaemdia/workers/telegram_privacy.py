@@ -38,7 +38,7 @@ async def purge_telegram(engine: AsyncEngine) -> int:
                     .where(
                         model.status.in_(statuses),
                         model.created_at < raw_cutoff,
-                        model.chat_id.is_not(None)
+                        or_(model.chat_id.is_not(None), model.payload_ciphertext.is_not(None))
                         if model is TelegramInbox
                         else model.chat_id != 0,
                     )

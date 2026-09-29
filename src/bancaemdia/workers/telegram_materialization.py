@@ -73,8 +73,6 @@ async def materialize_draft(
         "telegram_draft_id": str(draft.id),
         "telegram_update_id": draft.telegram_update_id,
         "telegram_confirmation_update_id": confirmation_update_id,
-        "telegram_chat_id": draft.telegram_chat_id,
-        "telegram_message_id": draft.telegram_message_id,
         "casa": house,
         "conta_casa_id": account_id,
         "conta_referencia_explicita": explicit,

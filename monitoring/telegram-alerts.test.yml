@@ -22,3 +22,55 @@ tests:
       - eval_time: 15m
         alertname: TelegramBacklogOld
         exp_alerts: []
+
+  - interval: 1m
+    input_series:
+      - series: 'telegram_transport_dlq_count{stage="inbox"}'
+        values: '0+2x10 20x30'
+      - series: 'telegram_extraction_failures_total{reason="unavailable"}'
+        values: '0+2x10 20x30'
+      - series: 'telegram_api_errors_total{method="sendMessage",reason="network"}'
+        values: '0+2x10 20x30'
+      - series: 'telegram_abuse_total{action="link",outcome="limited"}'
+        values: '0+2x10 20x30'
+    alert_rule_test:
+      - eval_time: 8m
+        alertname: TelegramDLQGrowth
+        exp_alerts:
+          - exp_labels:
+              severity: warning
+            exp_annotations:
+              summary: Telegram dead letter queue is growing
+      - eval_time: 30m
+        alertname: TelegramDLQGrowth
+        exp_alerts: []
+      - eval_time: 8m
+        alertname: TelegramExtractionFailure
+        exp_alerts:
+          - exp_labels:
+              severity: warning
+            exp_annotations:
+              summary: Telegram photo extraction needs investigation
+      - eval_time: 30m
+        alertname: TelegramExtractionFailure
+        exp_alerts: []
+      - eval_time: 8m
+        alertname: TelegramDeliveryFailure
+        exp_alerts:
+          - exp_labels:
+              severity: warning
+            exp_annotations:
+              summary: Telegram reply delivery is failing
+      - eval_time: 30m
+        alertname: TelegramDeliveryFailure
+        exp_alerts: []
+      - eval_time: 8m
+        alertname: TelegramSuspiciousLinkAttempts
+        exp_alerts:
+          - exp_labels:
+              severity: warning
+            exp_annotations:
+              summary: Telegram link attempts exceed admission limits
+      - eval_time: 30m
+        alertname: TelegramSuspiciousLinkAttempts
+        exp_alerts: []

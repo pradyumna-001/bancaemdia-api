@@ -18,4 +18,4 @@ Track `telegram_inbox_depth`, `telegram_outbox_depth`, their oldest age gauges, 
 
 An outbox send is leased for 60 seconds. If a worker dies before calling Telegram, another tick can send after the lease expires. If Telegram accepts a `sendMessage` call and the worker dies before recording `SENT`, the Bot API provides no idempotency key for that call, so a repeated visible reply is possible. The database still produces only one outbox row per logical effect; external delivery is at least once across that narrow failure window.
 
-Processed inbox ciphertext is cleared. Remaining transport metadata and outbox ciphertext are subject to the retention and privacy work in issue #102. Production payments remain under ADR 025 `NO_GO`; this transport does not activate Mercado Pago.
+Processed inbox ciphertext is cleared. The canonical [bot runbook](telegram-bot.md) and [retention policy](../privacy/telegram-data.md) describe scheduled purge, private media, shared limits and operational recovery. Deployment and subscription activation remain separate administrative actions.

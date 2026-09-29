@@ -437,6 +437,83 @@ async def test_shared_limits_atomic_expiry_and_tenant_separation(bot, monkeypatc
     assert await attempt(bot.chat + 1, owner)
 
 
+@pytest.mark.parametrize("scope", ["chat", "user", "global"])
+async def test_each_quota_dimension_is_enforced(bot, monkeypatch, scope):
+    from bancaemdia.services import telegram_abuse
+    from bancaemdia.services.telegram_link import _digest
+
+    limits = {"chat": (1, 1000, 1000), "user": (1000, 1, 1000), "global": (1000, 1000, 1)}[scope]
+    settings = get_settings().model_copy(
+        update={
+            "TELEGRAM_ACTION_LIMITS": dict.fromkeys(
+                ("link", "photo", "correction", "confirmation"), limits
+            )
+        }
+    )
+    monkeypatch.setattr(telegram_abuse, "get_settings", lambda: settings)
+    async with AsyncSession(bot.engine) as session, session.begin():
+        await telegram._transport_scope(session)
+        await session.execute(
+            text("DELETE FROM telegram_rate_buckets WHERE key=:key"),
+            {"key": _digest("quota", "photo:global")},
+        )
+
+    async def attempt(chat, owner):
+        async with AsyncSession(bot.engine) as session, session.begin():
+            await telegram._transport_scope(session)
+            return await admit(session, action="photo", sender=chat, chat=chat, owner=owner)
+
+    assert await attempt(bot.chat, bot.user)
+    assert not await attempt(
+        bot.chat if scope == "chat" else bot.chat + 1,
+        bot.user if scope == "user" else bot.user + 1000000,
+    )
+
+
+async def test_legacy_photo_rls_and_purge(bot, engine_admin, novo_usuario):
+    _, draft = await bot.photo()
+    other = await novo_usuario()
+    async with engine_admin.begin() as conn:
+        await conn.execute(
+            text("INSERT INTO midias(hash,tipo,bytes) VALUES (:hash,'image/png',10)"),
+            {"hash": draft.media_hash},
+        )
+        await conn.execute(
+            text("INSERT INTO midia_arquivos(hash,conteudo) VALUES (:hash,:content)"),
+            {"hash": draft.media_hash, "content": b"SENTINEL-legacy-photo"},
+        )
+    for user in (None, other):
+        async with bot.como(bot.engine, user) as session:
+            for model in (models.Midia, models.MidiaArquivo):
+                assert (
+                    await session.scalar(select(model).where(model.hash == draft.media_hash))
+                    is None
+                )
+    async with bot.como(bot.engine, bot.user) as session:
+        assert (
+            await session.scalar(
+                select(models.MidiaArquivo).where(models.MidiaArquivo.hash == draft.media_hash)
+            )
+            is not None
+        )
+    await bot.send({"text": "/cancelar"})
+    async with bot.como(bot.engine, bot.user) as session:
+        await session.execute(
+            update(models.RascunhoAposta)
+            .where(models.RascunhoAposta.id == draft.id)
+            .values(closed_at=datetime.now(UTC) - timedelta(days=40))
+        )
+        await session.commit()
+    await purge_telegram(bot.engine)
+    async with engine_admin.connect() as conn:
+        assert (
+            await conn.scalar(
+                select(models.MidiaArquivo.id).where(models.MidiaArquivo.hash == draft.media_hash)
+            )
+            is None
+        )
+
+
 async def test_retention_preserves_pending_work_and_replay_tombstones(bot):
     raw, draft = await bot.photo()
     await bot.send({"text": "/confirmar"})
