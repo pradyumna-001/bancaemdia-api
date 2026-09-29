@@ -2,6 +2,8 @@
 
 Este documento é o curriculum para você (proprietário) dominar, de ponta a ponta, tudo o que roda neste repositório — da requisição HTTP entrando na AWS até a linha gravada no PostgreSQL. Está organizado em **camadas**, da mais externa à mais interna. Para cada camada: o que é, por que existe aqui, a ponte com Python (que você já sabe), o arquivo deste repo que a implementa e como praticar.
 
+**Limite operacional:** os exercícios que criam recursos AWS, alteram DNS ou usam dados reais só serão executados após a autorização de lançamento do proprietário. O provisionamento foi adiado; até lá, usar o ambiente local de teste. As referências ao #130 são propostas em revisão, ainda ausentes de `main`.
+
 **Regra de ouro:** você não precisa dominar tudo de uma vez. A Fase 0 (local) exige só as camadas 1, 9 e 10. A Fase 1 (Lightsail) acrescenta 2, 4 e 12. A Fase 2+ (ECS/RDS) traz o resto. Estude na ordem em que o dinheiro for gasto — nunca antes.
 
 ---
@@ -10,13 +12,13 @@ Este documento é o curriculum para você (proprietário) dominar, de ponta a po
 
 **O que é:** DNS, HTTP/TLS, Linux básico (processos, portas, `curl`, logs), Git.
 
-**Por que existe:** toda camada abaixo fala HTTP sobre TLS em algum host:porta. Se você não consegue responder "o que acontece entre digitar `api.bancaemdia.com` e o bytes chegarem no processo Python", o resto é mágico.
+**Por que existe:** toda camada abaixo fala HTTP sobre TLS em algum host:porta. Se você não consegue responder "o que acontece entre digitar `api.bancaemdia.com.br` e o bytes chegarem no processo Python", o resto é mágico.
 
 **Ponte Python:** você já fez isso com `httpx`/`requests` e `uvicorn`. DNS é um dicionário global distribuído (nome → IP); TLS é um canal criptografado; uvicorn é o servidor que escuta a porta.
 
 **Praticar:**
-- `curl -v https://api.bancaemdia.com/health` e ler cada linha (DNS → TCP → TLS → HTTP → resposta).
-- `openssl s_client -connect api.bancaemdia.com:443 -servername api.bancaemdia.com` para ver o certificado.
+- `curl -v https://api.bancaemdia.com.br/health` e ler cada linha (DNS → TCP → TLS → HTTP → resposta).
+- `openssl s_client -connect api.bancaemdia.com.br:443 -servername api.bancaemdia.com.br` para ver o certificado.
 - Rodar a stack com `docker compose up` e derrubar o Postgres de propósito: observar o erro, os logs, o `/ready` degradando.
 
 ---
@@ -117,7 +119,7 @@ Este documento é o curriculum para você (proprietário) dominar, de ponta a po
 **Praticar:**
 1. Gerar par RSA, assinar um token "na mão" com PyJWT, chamar a API com e sem expiração válida.
 2. Forjar um token com `alg: none` e ver o 401.
-3. Entender o fluxo de rotação de `kid` (documentado em [`docs/SECURITY.md`](SECURITY.md), item 4).
+3. Entender o fluxo de rotação de `kid` (documentado em [`docs/SECURITY.md` no PR #130](https://github.com/pradyumna-001/bancaemdia-api/blob/codex/issue-43-hardening/docs/SECURITY.md), item 4).
 
 ---
 
@@ -215,7 +217,7 @@ Este documento é o curriculum para você (proprietário) dominar, de ponta a po
 
 **Por que existe aqui:** `GET/DELETE /api/v1/usuario/me(...)` (PR #130) implementam exportação e anonimização; dados brutos do Telegram ainda **não têm dono** (409 na exclusão assistida) — pendência aberta que exige decisão sua.
 
-**Onde no repo:** [`docs/SECURITY.md`](SECURITY.md) (seção "Antes de operar em produção"), [`src/bancaemdia/api/v1/usuario.py`](../src/bancaemdia/api/v1/usuario.py).
+**Onde no repo:** [`docs/SECURITY.md` no PR #130](https://github.com/pradyumna-001/bancaemdia-api/blob/codex/issue-43-hardening/docs/SECURITY.md) (seção "Antes de operar em produção"), [`src/bancaemdia/api/v1/usuario.py` no PR #130](https://github.com/pradyumna-001/bancaemdia-api/blob/codex/issue-43-hardening/src/bancaemdia/api/v1/usuario.py).
 
 **Praticar:**
 1. Rodar a exportação de um usuário de teste e ler o JSON inteiro — você consegue explicar cada campo ao titular?
