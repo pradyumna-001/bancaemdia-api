@@ -1,11 +1,21 @@
 """Billing-only acceptance across the existing holder and Telegram PRs."""
 
+import importlib
+import os
 from datetime import UTC, datetime
 from unittest.mock import AsyncMock
 from uuid import uuid4
 
 import httpx
 import pytest
+
+if os.environ.get("BILLING_CROSS_FLOW_REQUIRED") == "1":
+    importlib.import_module("bancaemdia.api.v1.telegram")
+else:
+    pytest.importorskip(
+        "bancaemdia.api.v1.telegram",
+        reason="Requires #141; mandatory Billing cross-flow CI assembles and runs these scenarios",
+    )
 from fastapi import FastAPI, Request
 from sqlalchemy import func, select, text
 from sqlalchemy.exc import DBAPIError

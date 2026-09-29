@@ -15,6 +15,7 @@ from bancaemdia.api.contracts import COLETA_ERROR_RESPONSES, CollectionResponse
 from bancaemdia.coleta.leitores import LEITORES
 from bancaemdia.coleta.leitura import ColetaInvalidaError
 from bancaemdia.config import get_settings
+from bancaemdia.core.body_limits import COLETA_MAX_BYTES
 from bancaemdia.db.session import get_db
 from bancaemdia.domain.coleta_casa import (
     ApostaInvalidaError,
@@ -40,7 +41,7 @@ from bancaemdia.workers.celery_app import app as celery
 
 TOKEN_HEADER = "X-Coleta-Token"
 CONTRATO = 1
-TAMANHO_MAXIMO = 5 * 1024 * 1024
+TAMANHO_MAXIMO = COLETA_MAX_BYTES
 APOSTAS_POR_ENVIO = 1000
 TAREFA = "materialization.materializar_coleta"
 
@@ -208,6 +209,9 @@ async def receber_coleta(request: Request, session: AsyncSession = Depends(get_d
             "o token não confere — abra a tela de coleta do planilhador e cole o token de novo",
         )
     await _set_current_user(session, usuario_id)
+    from bancaemdia.domain.access import require_write_access
+
+    await require_write_access(session, usuario_id)
 
     # O teto vem antes de ler o corpo: quem já passou dele não custa nem a memória do envio.
     hoje = datetime.now(UTC).replace(hour=0, minute=0, second=0, microsecond=0)

@@ -53,14 +53,13 @@ SUPORTE = (
     MovimentoRequisicao,
 )
 UPLOAD = (Upload, UploadBilhete, UploadArquivo)
-
 BILLING = (
-    BillingCheckout,
-    BillingEvent,
     Assinatura,
     BillingPrice,
     BillingPriceAudit,
     BillingRollout,
+    BillingCheckout,
+    BillingEvent,
 )
 POR_USUARIO = (
     ChamadaIA,
@@ -99,7 +98,7 @@ def _indexes(modelo: type[Base]) -> dict[str, list[str]]:
     return {i.name: [c.name for c in i.columns] for i in modelo.__table__.indexes}
 
 
-def test_all_thirty_two_tables_are_registered() -> None:
+def test_all_thirty_four_tables_are_registered() -> None:
     esperadas = {
         m.__tablename__ for m in NUCLEO + CANONICOS + SUPORTE + UPLOAD + BILLING + (AuditLog,)
     }

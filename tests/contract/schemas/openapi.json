@@ -3662,6 +3662,12 @@
       "HTTPBearer": {
         "scheme": "bearer",
         "type": "http"
+      },
+      "StripeSignature": {
+        "description": "Stripe HMAC signature of the exact request bytes and timestamp.",
+        "in": "header",
+        "name": "Stripe-Signature",
+        "type": "apiKey"
       }
     }
   },
@@ -5152,7 +5158,7 @@
             "application/json": {
               "examples": {
                 "default": {
-                  "summary": "Select a configured currency and cadence",
+                  "summary": "Configured currency and cadence",
                   "value": {
                     "currency": "BRL",
                     "frequency": "MONTHLY"
@@ -5274,6 +5280,30 @@
       "post": {
         "description": "Verify the raw body signature and persist a minimal deduplicated test-mode inbox; worker fetches current state.",
         "operationId": "stripe_webhook_api_v1_billing_webhook_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "example": {
+                "data": {
+                  "object": {
+                    "customer": "cus_contract"
+                  }
+                },
+                "id": "evt_contract",
+                "livemode": false,
+                "type": "invoice.paid"
+              },
+              "schema": {
+                "additionalProperties": {
+                  "$ref": "#/components/schemas/JsonValue"
+                },
+                "type": "object"
+              }
+            }
+          },
+          "description": "Raw Stripe JSON bytes; signature verification precedes parsing.",
+          "required": true
+        },
         "responses": {
           "200": {
             "content": {
@@ -5305,6 +5335,12 @@
                 "schema": {
                   "$ref": "#/components/schemas/ErrorResponse"
                 }
+              },
+              "text/plain": {
+                "example": "Content Too Large",
+                "schema": {
+                  "type": "string"
+                }
               }
             },
             "description": "Event too large."
@@ -5320,6 +5356,11 @@
             "description": "Webhook temporarily unavailable."
           }
         },
+        "security": [
+          {
+            "StripeSignature": []
+          }
+        ],
         "summary": "Receive Stripe events"
       }
     },

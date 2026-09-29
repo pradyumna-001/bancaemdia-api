@@ -1,10 +1,20 @@
 """Both existing migration branches must install the same write guards."""
 
 import asyncio
+import importlib
+import os
 from pathlib import Path
 from uuid import uuid4
 
 import pytest
+
+if os.environ.get("BILLING_CROSS_FLOW_REQUIRED") == "1":
+    importlib.import_module("bancaemdia.api.v1.telegram")
+else:
+    pytest.importorskip(
+        "bancaemdia.api.v1.telegram",
+        reason="Requires #141; mandatory Billing cross-flow CI assembles and runs these scenarios",
+    )
 from alembic import command
 from alembic.config import Config
 from sqlalchemy import text

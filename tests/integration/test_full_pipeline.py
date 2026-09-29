@@ -19,6 +19,7 @@ from uuid import uuid4
 import anthropic
 import httpx
 import httpx2
+import jwt
 import pytest
 import redis
 from cryptography.hazmat.primitives.asymmetric import rsa
@@ -26,10 +27,8 @@ from cryptography.hazmat.primitives.serialization import (
     Encoding,
     NoEncryption,
     PrivateFormat,
-    PublicFormat,
 )
 from fastapi.testclient import TestClient
-from jose import jwk, jwt
 from prometheus_client import REGISTRY
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncEngine, AsyncSession, create_async_engine
@@ -414,8 +413,10 @@ async def _token(engine: AsyncEngine, como: Como, usuario: int) -> str:
 def chave():
     par = rsa.generate_private_key(public_exponent=65537, key_size=2048)
     privada = par.private_bytes(Encoding.PEM, PrivateFormat.PKCS8, NoEncryption()).decode()
-    publica = par.public_key().public_bytes(Encoding.PEM, PublicFormat.SubjectPublicKeyInfo)
-    return privada, {**jwk.construct(publica, "RS256").to_dict(), "kid": "k1"}
+    return privada, {
+        **json.loads(jwt.algorithms.RSAAlgorithm.to_jwk(par.public_key())),
+        "kid": "k1",
+    }
 
 
 def _sessoes(url: str):

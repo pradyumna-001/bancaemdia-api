@@ -1,24 +1,24 @@
 from __future__ import annotations
 
 import asyncio
+import json
 import os
 import time
 from types import SimpleNamespace
 from uuid import uuid4
 
 import httpx
+import jwt
 import pytest
 from cryptography.hazmat.primitives.asymmetric import rsa
 from cryptography.hazmat.primitives.serialization import (
     Encoding,
     NoEncryption,
     PrivateFormat,
-    PublicFormat,
 )
 from fastapi import Depends, Request
 from fastapi.routing import APIRoute
 from fastapi.testclient import TestClient
-from jose import jwk, jwt
 from sqlalchemy import select, text
 from sqlalchemy.engine import make_url
 from sqlalchemy.exc import DBAPIError
@@ -45,8 +45,10 @@ PAPEL = SENHA = "bancaemdia_app"
 def chave():
     par = rsa.generate_private_key(public_exponent=65537, key_size=2048)
     privada = par.private_bytes(Encoding.PEM, PrivateFormat.PKCS8, NoEncryption()).decode()
-    publica = par.public_key().public_bytes(Encoding.PEM, PublicFormat.SubjectPublicKeyInfo)
-    return privada, {**jwk.construct(publica, "RS256").to_dict(), "kid": "k1"}
+    return privada, {
+        **json.loads(jwt.algorithms.RSAAlgorithm.to_jwk(par.public_key())),
+        "kid": "k1",
+    }
 
 
 @pytest.fixture

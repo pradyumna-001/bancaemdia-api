@@ -52,6 +52,10 @@ COMMON_ERROR_RESPONSES: OpenAPIResponses = {
 }
 
 AUTHENTICATED_ERROR_RESPONSES: OpenAPIResponses = {
+    402: {
+        "model": ErrorResponse,
+        "description": "account_read_only: writes require confirmed trial or paid access.",
+    },
     401: {
         "model": ErrorResponse,
         "description": "Missing, expired, or invalid bearer token.",
@@ -72,6 +76,7 @@ AUTHENTICATED_ERROR_RESPONSES: OpenAPIResponses = {
 }
 
 COLETA_ERROR_RESPONSES: OpenAPIResponses = {
+    402: {"model": ErrorResponse, "description": "account_read_only: retain the extension outbox."},
     400: {"model": ErrorResponse, "description": "Malformed collection payload."},
     403: {"model": ErrorResponse, "description": "Invalid collection token."},
     429: {
