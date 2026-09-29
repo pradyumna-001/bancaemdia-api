@@ -88,7 +88,11 @@ with an old `atualizado_em` is a stale-but-honest response, not evidence that re
 
 ## Performance verification
 
-`scripts/benchmark_painel.py` measures warmed HTTP P50/P95/P99 without printing the bearer token.
+`scripts/benchmark_painel.py` measures warmed HTTP P50/P95/P99 and the largest materialized-view
+age returned by the API without printing the bearer token. Set `PAINEL_BENCH_MIN_BETS` to the
+documented minimum for the measured user's selected period; record the total dataset cardinality
+separately. The command exits unsuccessfully if P95 is at least 500 ms, any measured response
+reports age of at least 30 seconds, the bet count is below the minimum, or freshness is missing.
 Populate a database with representative users, bets and dimension cardinality, record hardware and
-dataset counts, then set `PAINEL_BENCH_TOKEN` and `PAINEL_BENCH_URL`. Do not claim P95 below 500 ms
-from an empty database or from unit-test timings.
+dataset counts, then set `PAINEL_BENCH_TOKEN` and `PAINEL_BENCH_URL`. Do not claim the SLO from an
+empty database or from unit-test timings.
