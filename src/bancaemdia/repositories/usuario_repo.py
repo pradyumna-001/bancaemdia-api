@@ -1,4 +1,4 @@
-from sqlalchemy import func, insert, select
+from sqlalchemy import func, select, text
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from bancaemdia import models
@@ -35,7 +35,10 @@ class UsuarioRepo:
     async def create(self, session: AsyncSession, email: str, nome: str) -> Usuario:
         obj = (
             await session.execute(
-                insert(models.Usuario).values(email=email, nome=nome).returning(models.Usuario)
+                select(models.Usuario).from_statement(
+                    text("SELECT * FROM public.create_user_profile(:email, :nome)")
+                ),
+                {"email": email, "nome": nome},
             )
         ).scalar_one()
         return Usuario(**colunas(obj))

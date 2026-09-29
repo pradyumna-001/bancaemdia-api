@@ -25,6 +25,10 @@ python scripts/generate_openapi.py
 | `DELETE` | `/api/v1/apostas/{chave}` | Excluir aposta da apuração | `200`, `401`, `404`, `409`, `422`, `429`, `500`, `503` | — |
 | `POST` | `/api/v1/apostas/{chave}/restaurar` | Restaurar aposta na apuração | `200`, `401`, `404`, `409`, `422`, `429`, `500`, `503` | — |
 | `POST` | `/api/v1/apostas/{chave}/resultado` | Registrar resultado da aposta | `200`, `401`, `404`, `409`, `413`, `422`, `429`, `500`, `503` | — |
+| `POST` | `/api/v1/billing/cancel` | Cancel renewal | `200`, `401`, `409`, `422`, `429`, `500`, `503` | billing |
+| `POST` | `/api/v1/billing/portal` | Manage subscription | `200`, `401`, `409`, `422`, `429`, `500`, `503` | billing |
+| `GET` | `/api/v1/billing/status` | Subscription status | `200`, `401`, `409`, `422`, `429`, `500`, `503` | billing |
+| `POST` | `/api/v1/billing/subscribe` | Start hosted Checkout | `200`, `401`, `409`, `413`, `422`, `429`, `500`, `503` | billing |
 | `GET` | `/api/v1/caixa` | Listar movimentos de caixa | `200`, `401`, `422`, `429`, `500`, `503` | — |
 | `POST` | `/api/v1/caixa` | Registrar movimento de caixa | `201`, `401`, `404`, `409`, `413`, `422`, `429`, `500`, `503` | — |
 | `PATCH` | `/api/v1/caixa/contas/{conta_casa_id}/banca` | Vincular conta à banca | `200`, `401`, `404`, `413`, `422`, `429`, `500`, `503` | — |
@@ -41,6 +45,8 @@ python scripts/generate_openapi.py
 | `POST` | `/api/v1/revisao/{revisao_id}/resolver` | Resolver revisão | `200`, `401`, `404`, `409`, `413`, `422`, `429`, `500`, `503` | — |
 | `POST` | `/api/v1/upload` | Enviar exportação do Telegram | `202`, `400`, `401`, `413`, `422`, `429`, `500`, `503` | — |
 | `GET` | `/api/v1/upload/{job_id}` | Consultar processamento do upload | `200`, `401`, `404`, `422`, `429`, `500`, `503` | — |
+| `DELETE` | `/api/v1/usuario/me` | Desativar e anonimizar minha conta | `200`, `401`, `409`, `422`, `429`, `500`, `503` | — |
+| `GET` | `/api/v1/usuario/me/export` | Exportar meus registros | `200`, `401`, `422`, `429`, `500`, `503` | — |
 | `POST` | `/coleta` | Receber coleta da extensão | `200`, `400`, `403`, `413`, `429`, `500`, `503` | — |
 | `GET` | `/health` | Consultar liveness | `200`, `500` | — |
 | `GET` | `/metrics` | Exportar métricas Prometheus | `200`, `500` | — |

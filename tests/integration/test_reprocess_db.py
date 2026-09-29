@@ -100,7 +100,7 @@ async def _enviar(
 
 
 async def test_bets_are_counted_per_message_inside_the_days_and_only_for_their_owner(
-    engine_app: AsyncEngine, como: Como, novo_usuario: NovoUsuario
+    engine_admin: AsyncEngine, engine_app: AsyncEngine, como: Como, novo_usuario: NovoUsuario
 ) -> None:
     usuario = await novo_usuario()
     outro = await novo_usuario()
@@ -124,7 +124,7 @@ async def test_bets_are_counted_per_message_inside_the_days_and_only_for_their_o
         }
     plano = await reprocess.reprocessar_usuario(engine_app, usuario, desde, ate)
     tudo = await reprocess.reprocessar_usuario(engine_app, usuario, escopo=reprocess.ESCOPO_TUDO)
-    async with como(engine_app, None) as session:
+    async with AsyncSession(engine_admin) as session:
         ativos = await UsuarioRepo().list_active_ids(session, min(usuario, outro) - 1)
 
     telegram = contagens["telegram"]

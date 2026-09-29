@@ -164,6 +164,7 @@ resource "aws_ecs_task_definition" "service" {
     name         = each.key
     image        = var.image_uri
     essential    = true
+    stopTimeout  = contains(["extraction", "materialization"], each.key) ? 120 : 30
     environment  = concat(local.common_environment, contains(["extraction", "materialization"], each.key) ? [{ name = "PROMETHEUS_MULTIPROC_DIR", value = "/tmp/prometheus" }] : [])
     secrets      = local.common_secrets
     portMappings = each.key == "api" ? [{ containerPort = 8000, hostPort = 8000, protocol = "tcp" }] : []

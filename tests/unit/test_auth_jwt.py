@@ -8,6 +8,7 @@ import json
 import time
 
 import httpx
+import jwt
 import pytest
 from cryptography.hazmat.primitives.asymmetric import ec, rsa
 from cryptography.hazmat.primitives.serialization import (
@@ -16,7 +17,6 @@ from cryptography.hazmat.primitives.serialization import (
     PrivateFormat,
     PublicFormat,
 )
-from jose import jwk, jwt
 
 from bancaemdia.auth import jwt as auth_jwt
 from bancaemdia.config import get_settings
@@ -28,7 +28,14 @@ def _par(kid="k1"):
     chave = rsa.generate_private_key(public_exponent=65537, key_size=2048)
     privada = chave.private_bytes(Encoding.PEM, PrivateFormat.PKCS8, NoEncryption()).decode()
     publica = chave.public_key().public_bytes(Encoding.PEM, PublicFormat.SubjectPublicKeyInfo)
-    return privada, publica.decode(), {**jwk.construct(publica, "RS256").to_dict(), "kid": kid}
+    return (
+        privada,
+        publica.decode(),
+        {
+            **json.loads(jwt.algorithms.RSAAlgorithm.to_jwk(chave.public_key())),
+            "kid": kid,
+        },
+    )
 
 
 @pytest.fixture(scope="module")
@@ -212,9 +219,7 @@ async def test_malformed_published_keys_are_skipped_instead_of_crashing(k1, k2, 
 async def test_only_rsa_signing_keys_for_the_configured_algorithm_are_used(k1) -> None:
     privada, _, chave = k1
     curva = ec.generate_private_key(ec.SECP256R1()).public_key()
-    outra = jwk.construct(
-        curva.public_bytes(Encoding.PEM, PublicFormat.SubjectPublicKeyInfo), "ES256"
-    ).to_dict()
+    outra = json.loads(jwt.algorithms.ECAlgorithm.to_jwk(curva))
     servidor = _servidor(
         {**outra, "kid": "k1"},
         {**chave, "use": "enc", "kid": "k8"},
