@@ -45,7 +45,7 @@ async def test_analytics_rollback_preserves_private_summary_and_reupgrades(
             )
             assert {"active_metas_desempenho_write", "audit_metas_desempenho_write"} <= triggers
         # Remove only the analytics branch; the privacy branch stays installed.
-        await asyncio.to_thread(command.downgrade, config, "b6c8e1a4d205@base")
+        await asyncio.to_thread(command.downgrade, config, "b6c8e1a4d205@a9d6e3f1c210")
         async with target.connect() as conn:
             assert (
                 await conn.scalar(text("SELECT pg_get_viewdef('painel.mv_painel_resumo')"))
