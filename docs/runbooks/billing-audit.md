@@ -2,15 +2,46 @@
 
 This is a criterion-by-criterion audit, not a completion claim. Production remains disabled. Only billing clauses of mixed issues are included.
 
-## Review units and preserved work
+## Review units and current integration strategy — 2026-09-29
 
-All six billing review PRs target main and contain their own issue contribution: [#150 / #89](https://github.com/pradyumna-001/bancaemdia-api/pull/150), [#151 / #90](https://github.com/pradyumna-001/bancaemdia-api/pull/151), [#152 / #91](https://github.com/pradyumna-001/bancaemdia-api/pull/152), [#153 / #92](https://github.com/pradyumna-001/bancaemdia-api/pull/153), [#154 / #93](https://github.com/pradyumna-001/bancaemdia-api/pull/154), [#155 / billing #118](https://github.com/pradyumna-001/bancaemdia-api/pull/155). No new PR stack or aggregate merge candidate was created. #149 was withdrawn at the owner's request.
+The review units remain separate. #151 depends on the privacy/audit fixes in #145;
+#152 uses #151, #153 uses #152, #154 uses #153, and this billing-only audit #155
+uses #154. These are source and migration dependencies, not a claim that another
+issue is delivered by the child PR. Original migration IDs and history remain intact;
+new merge revisions reconcile independently published branches.
 
-- #132 is closed, superseded by #150; its Mercado Pago investigation is retained as historical ADR content, without a future adapter/fallback.
-- #133 is closed, superseded by #151. Its models, catalog, trial identity, RLS and audit work are retained. Only necessary audit/export migration and HTTP tracing compatibility from #130 were extracted, preserving migration identity; other infrastructure/JWT work was not imported.
-- Existing holder/Telegram PRs #134–141 retain their original stack and feature scope. #134 adds the optional billing-trigger installer hook; that hook was propagated through the existing stack. #141 adds the Telegram checks and denial/recovery behavior. These are existing feature PR updates, not billing aggregate PRs. Coordinate their eventual rebase against reviewed billing on main.
-- The branch `codex/stripe-cross-flow-fixture` combines the review units and existing holder/Telegram code solely for integration tests. Its no-op merge migration joins both migration branches for testing. Never merge that fixture as a product PR.
-- [Extension PR #1](https://github.com/wfcgit-hub/bancaemdia-extension/pull/1) is separately based on that repository's main. Website frontend was inspected and left to its own repository/issues as instructed.
+The holder/Telegram chain #134–141 now incorporates current #151. Its own PostgreSQL
+checks run on every PR. Cross-flow acceptance also needs #141. Standard CI tests
+#155's own HEAD and billing lifecycle; two modules requiring Telegram report that
+missing prerequisite explicitly. The additional **Billing cross-flow (current HEAD
++ pinned Telegram)** job assembles the exact #155 HEAD with #141 commit
+`71ab6b591325387122a2315133ee7d32b4e4f0d6` in a disposable checkout, applies the
+reviewable `tests/fixtures/billing-cross-flow.patch`, regenerates OpenAPI and runs
+the full suite. A final assertion requires all eight PostgreSQL/migration/Redis
+scenarios to execute successfully: missing modules, skipped scenarios or an
+unexpected merge conflict fail that job. It no longer checks out the historical
+`ffd9984` snapshot as if that validated this HEAD.
+
+Reproduce in a clean disposable checkout of this PR:
+
+```sh
+python scripts/assemble_billing_cross_flow.py --disposable-checkout
+pip install -e '.[dev]'
+python scripts/generate_openapi.py
+BILLING_CROSS_FLOW_REQUIRED=1 pytest -n 8 --dist loadgroup --cov=src/bancaemdia --cov-fail-under=80 --junitxml=billing-integration.xml
+```
+
+The assembly does not create a merge candidate, commit, or push. The fixture patch
+also records the predictable router, Celery schedule, schema and migration
+resolutions for administrative integration. #155 remains blocked on review/merge
+of its prerequisites; the administrator must not merge the test assembly as an
+aggregate PR. After the prerequisite is an ancestor of HEAD, the assembly script
+uses HEAD directly. The review state of #118 is separate: this PR covers billing
+only and cannot close the broader expansion acceptance.
+
+Historical #132/#133 were superseded by #150/#151; #149 was withdrawn. The old
+cross-flow fixture remains historical evidence only. No frontend or extension
+repository is modified by this audit.
 
 ## Acceptance audit
 
@@ -27,11 +58,11 @@ All six billing review PRs target main and contain their own issue contribution:
 
 Open-issue inventory was refreshed after the implementation: only #89–93, #96, #113 and #118 matched billing/payment/trial/subscription searches. The exclusions above are deliberate.
 
-## Reproducible evidence
+## Historical evidence (not current-HEAD acceptance)
 
 - Combined source `4bf08f9e98dc45d46ced4303831646a5d43e3361`, [CI 36349313261](https://github.com/pradyumna-001/bancaemdia-api/actions/runs/36349313261): 1,877 collected, 1,866 passed, zero failures/errors, 11 skips, 91.84% coverage. Ruff, format, mypy, generated OpenAPI and alert syntax also passed. The five cross-flow PostgreSQL tests and real Redis/Celery runtime test passed, not skipped. Skips: seven Schemathesis cases without negative inputs, three replica-only hot-standby tests, one pre-existing legacy panel comparison.
 - Final fixture `ffd9984f8665daecedd45fdbe047484240842259`, [CI 36350126677](https://github.com/pradyumna-001/bancaemdia-api/actions/runs/36350126677): **1,881 collected, 1,870 passed, zero failures/errors, the same 11 documented skips, 91.83% coverage**. Both disposable-database migration orders, both collection aliases, all five cross-flow cases and real Redis/Celery execution passed. Ruff, format, mypy, OpenAPI and alert syntax passed. No billing scenario was skipped.
-- Foundation #151 head `48a9873`: independent [CI 36347261219](https://github.com/pradyumna-001/bancaemdia-api/actions/runs/36347261219) passed. It is ready for administrator review. Dependent main-based PRs cannot pass their normal standalone checks until prerequisites reach main; combined CI does not waive missing imports, conflicts, review or fresh standalone checks.
+- Foundation #151 head `48a9873`: independent [CI 36347261219](https://github.com/pradyumna-001/bancaemdia-api/actions/runs/36347261219) passed. That result applies only to the historical SHA. Current PR states and exact HEAD checks are recorded in each PR description; combined CI never waives standalone checks.
 - Existing holder/Telegram stack #134–140: latest CI runs 36349374248, 36349378034, 36349379322, 36349382798, 36349384360, 36349386615 and 36349390160 passed. #141 source `2313195`: [CI 36350092731](https://github.com/pradyumna-001/bancaemdia-api/actions/runs/36350092731) passed every job including full pytest, dedicated Telegram PostgreSQL, security, OpenAPI and Docker. Its isolated fault-injection fixtures substitute the new billing DB boundary; actual access checks are covered by the combined real-PostgreSQL suite.
 - Alert semantics at #153 source `6083734`: [CI 36349474485](https://github.com/pradyumna-001/bancaemdia-api/actions/runs/36349474485) passed all five promtool scenario groups. Firing, recovery and missing metrics are covered; no external notification was sent.
 - Extension source `96e60ed`: [CI 36349211519](https://github.com/wfcgit-hub/bancaemdia-extension/actions/runs/36349211519) passed repository validation and all eight Node tests, including three tests executing the real service-worker outbox flow.

@@ -2,24 +2,22 @@ name: Billing integration evidence
 
 on:
   pull_request:
-    paths:
-      - '.github/workflows/billing-integration.yml'
 
 permissions:
   contents: read
 
 jobs:
   combined-billing:
-    name: Combined billing snapshot (not standalone PR acceptance)
+    name: Billing cross-flow (current HEAD + pinned Telegram)
     runs-on: ubuntu-latest
-    # The six review PRs remain separate and based on main. This job validates
-    # their explicitly pinned combined fixture plus the existing holder/Telegram
-    # contributions, without merging that fixture or claiming other issue acceptance.
+    # Standard CI validates this PR independently. This additional required evidence
+    # exercises its exact HEAD with the explicitly pinned, separately reviewed #141.
     env:
       DATABASE_URL: postgresql+asyncpg://user:pass@localhost:5432/bancaemdia
       DATABASE_URL_REPLICA: postgresql+asyncpg://user:pass@localhost:5432/bancaemdia
       REDIS_URL: redis://localhost:6379/0
       APP_ENV: testing
+      BILLING_CROSS_FLOW_REQUIRED: '1'
       JWT_SECRET_KEY: test-secret
       JWT_ALGORITHM: RS256
       JWT_AUDIENCE: bancaemdia-api
@@ -29,13 +27,17 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with:
-          ref: ffd9984f8665daecedd45fdbe047484240842259
+          ref: ${{ github.event.pull_request.head.sha }}
+          fetch-depth: 0
           persist-credentials: false
       - uses: actions/setup-python@v5
         with:
           python-version: '3.12'
           cache: pip
+      - name: Assemble current HEAD with reviewed prerequisite
+        run: python scripts/assemble_billing_cross_flow.py --disposable-checkout
       - run: pip install -e '.[dev]'
+      - run: python scripts/generate_openapi.py
       - run: ruff check src tests alembic
       - run: ruff format --check src tests alembic
       - run: mypy src/ --strict --ignore-missing-imports
@@ -44,8 +46,19 @@ jobs:
         run: docker run --rm --entrypoint /bin/promtool -v "$PWD/infra/observability/billing.rules.yml:/rules.yml:ro" prom/prometheus:v3.5.0 check rules /rules.yml
       - name: Full suite including real PostgreSQL billing lifecycle
         run: pytest -n 8 --dist loadgroup --tb=short -q --cov=src/bancaemdia --cov-fail-under=80 --junitxml=billing-integration.xml
+      - name: Require all eight PostgreSQL and Redis cross-flow scenarios
+        run: |
+          python - <<'PY'
+          import xml.etree.ElementTree as ET
+          cases = ET.parse('billing-integration.xml').findall('.//testcase')
+          modules = ('test_billing_cross_flow', 'test_billing_migration_order', 'test_billing_worker_runtime')
+          required = [c for c in cases if any(m in c.attrib.get('classname', '') for m in modules)]
+          assert len(required) == 8, [(c.attrib.get('classname'), c.attrib.get('name')) for c in required]
+          assert all(not list(c) or all(x.tag not in ('skipped', 'failure', 'error') for x in c) for c in required)
+          print('All eight real PostgreSQL/Redis scenarios passed on this HEAD plus the pinned prerequisite.')
+          PY
       - uses: actions/upload-artifact@v4
         if: always()
         with:
-          name: billing-integration-ffd9984
+          name: billing-integration-${{ github.event.pull_request.head.sha }}
           path: billing-integration.xml
