@@ -104,6 +104,7 @@ class BetResponse(StrictContractModel):
     lucro_centavos: int | None
     freebet: bool
     conta_casa_id: int | None
+    conta_atribuicao: Literal["ASSIGNED", "UNASSIGNED"] = "UNASSIGNED"
     tipster_id: int | None
     time_casa_id: int | None
     time_fora_id: int | None

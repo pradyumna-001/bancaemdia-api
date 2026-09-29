@@ -17,7 +17,11 @@ from bancaemdia.api.deps import get_current_user, get_current_user_snapshot
 from bancaemdia.api.v1 import apostas as apostas_api
 from bancaemdia.config import get_settings
 from bancaemdia.db.session import get_db, get_db_snapshot
-from bancaemdia.domain.materializar import projetar
+from bancaemdia.domain.account_attribution_service import (
+    InvalidAccountReferenceError,
+    attribute_account,
+)
+from bancaemdia.domain.materializar import EventoNovo, projetar
 from bancaemdia.domain.registros import RevisaoPendente, Usuario
 from bancaemdia.domain.revisao_service import (
     ResolucaoInvalidaError,
@@ -393,11 +397,39 @@ async def resolver_revisao(
     if recado is not None:
         await session.rollback()
         return erro(status.HTTP_422_UNPROCESSABLE_ENTITY, recado)
-    novos = [
-        *plano.eventos,
-        evento_da_resolucao(travada.id, plano.acao, travada.motivo, plano.campos_corrigidos),
-    ]
+    novos = list(plano.eventos)
+    if correcoes is not None and "conta_casa_id" in correcoes:
+        novos.append(
+            EventoNovo(
+                "CORRECAO_MANUAL",
+                "manual",
+                {"conta_referencia_explicita": correcoes["conta_casa_id"] is not None},
+            )
+        )
+    novos.append(
+        evento_da_resolucao(travada.id, plano.acao, travada.motivo, plano.campos_corrigidos)
+    )
     depois, _ = projetar([*historico, *((e.tipo, e.fonte, e.payload) for e in novos)])
+    if (
+        plano.acao == "CORRIGIR"
+        and isinstance(travada.extracao_bruta, dict)
+        and travada.extracao_bruta.get("tipo_revisao") == "conta"
+        and depois.get("conta_casa_id") is None
+    ):
+        await session.rollback()
+        return erro(status.HTTP_422_UNPROCESSABLE_ENTITY, "escolha uma conta para esta aposta")
+    if correcoes is not None and correcoes.get("conta_casa_id") is not None:
+        try:
+            await attribute_account(
+                session,
+                usuario.id,
+                depois.get("casa"),
+                apostas_api._data_do_estado(depois.get("data_aposta")),
+                depois["conta_casa_id"],
+            )
+        except InvalidAccountReferenceError as invalid:
+            await session.rollback()
+            return erro(status.HTTP_422_UNPROCESSABLE_ENTITY, str(invalid))
 
     try:
         gravada = await apostas_api._aplicar(session, usuario, chave, novos, depois)
