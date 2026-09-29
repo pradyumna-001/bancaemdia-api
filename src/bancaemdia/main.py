@@ -16,10 +16,11 @@ from bancaemdia.api.contracts import (
     ReadinessResponse,
 )
 from bancaemdia.api.openapi import build_openapi
-from bancaemdia.api.v1 import apostas, caixa, coleta, painel, revisao, upload
+from bancaemdia.api.v1 import apostas, caixa, coleta, coleta_pairing, painel, revisao, upload
 from bancaemdia.auth.middleware import JWTAuthMiddleware
 from bancaemdia.config import get_settings
 from bancaemdia.db.session import LAG_CHECK_SECONDS, engine, replica_engine, replica_lag_seconds
+from bancaemdia.middleware.coleta_credentials import CollectionCredentialMiddleware
 from bancaemdia.middleware.rate_limit import AuthRateLimitMiddleware, RateLimitMiddleware
 from bancaemdia.middleware.rls import RLSMiddleware
 from bancaemdia.middleware.router import RouterMiddleware
@@ -84,6 +85,7 @@ app = BancaemdiaAPI(
     lifespan=lifespan,
 )
 app.include_router(coleta.router)
+app.include_router(coleta_pairing.router)
 app.include_router(upload.router)
 app.include_router(apostas.router)
 app.include_router(caixa.router)
@@ -113,6 +115,7 @@ app.add_middleware(JWTAuthMiddleware)
 # Login/refresh traffic must be throttled before authentication, including failed credentials.
 # The inner limiter above remains after JWT so every API bucket uses only a validated usuario_id.
 app.add_middleware(AuthRateLimitMiddleware)
+app.add_middleware(CollectionCredentialMiddleware)
 
 # Métricas entram depois dos middlewares de domínio, e o request_id por último: entre os middlewares
 # da aplicação, o último registrado é o primeiro a rodar e envolve autenticação e métricas. O OTel

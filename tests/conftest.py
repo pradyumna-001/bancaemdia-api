@@ -97,6 +97,11 @@ async def _preparar_papel(url_admin: str) -> None:
             await conn.execute(text(f"GRANT USAGE ON SCHEMA public TO {PAPEL}"))
             await conn.execute(
                 text(
+                    f"GRANT EXECUTE ON FUNCTION coleta_pairing_limit(text,integer,integer) TO {PAPEL}"
+                )
+            )
+            await conn.execute(
+                text(
                     f"GRANT SELECT, INSERT, UPDATE, DELETE ON ALL TABLES IN SCHEMA public TO {PAPEL}"
                 )
             )
