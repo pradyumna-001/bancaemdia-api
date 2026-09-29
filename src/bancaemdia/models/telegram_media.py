@@ -7,6 +7,7 @@ from sqlalchemy import (
     BigInteger,
     DateTime,
     ForeignKey,
+    ForeignKeyConstraint,
     Integer,
     LargeBinary,
     String,
@@ -20,10 +21,16 @@ from bancaemdia.db.models import Base
 
 class TelegramMedia(Base):
     __tablename__ = "telegram_media"
+    __table_args__ = (
+        ForeignKeyConstraint(
+            ["usuario_id", "draft_id"],
+            ["rascunhos_aposta.usuario_id", "rascunhos_aposta.id"],
+            ondelete="CASCADE",
+        ),
+    )
 
     draft_id: Mapped[UUID] = mapped_column(
         PGUUID(as_uuid=True),
-        ForeignKey("rascunhos_aposta.id", ondelete="CASCADE"),
         primary_key=True,
     )
     usuario_id: Mapped[int] = mapped_column(BigInteger, ForeignKey("usuarios.id"))

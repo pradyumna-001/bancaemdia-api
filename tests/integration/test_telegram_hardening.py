@@ -9,6 +9,7 @@ import json
 import os
 from datetime import UTC, datetime, timedelta
 from io import BytesIO
+from pathlib import Path
 from uuid import uuid4
 
 import httpx
@@ -37,6 +38,29 @@ from bancaemdia.workers import extraction, materialization, telegram, telegram_e
 from bancaemdia.workers.telegram_privacy import purge_telegram
 
 pytestmark = pytest.mark.xdist_group("postgres")
+
+
+@pytest.fixture(autouse=True)
+async def billing_compatibility_probe(engine_admin):
+    path = os.environ.get("TELEGRAM_BILLING_MIGRATION")
+    if path:
+        import importlib.util
+
+        from alembic.migration import MigrationContext
+        from alembic.operations import Operations
+
+        spec = importlib.util.spec_from_file_location("billing_probe", path)
+        module = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(module)
+
+        def install(conn):
+            if not conn.scalar(text("SELECT to_regprocedure('billing_require_write()')")):
+                with Operations.context(MigrationContext.configure(conn)):
+                    module.upgrade()
+            conn.execute(text(Path("scripts/telegram_billing_privacy.sql").read_text()))
+
+        async with engine_admin.begin() as conn:
+            await conn.run_sync(install)
 
 
 @pytest.fixture(scope="module", autouse=True)
@@ -233,7 +257,7 @@ async def bot(engine_admin, engine_app, banco, novo_usuario, como, monkeypatch, 
     monkeypatch.setattr(extraction, "get_leitor", lambda: provider)
     monkeypatch.setattr(extraction, "get_cache", lambda: ExtracaoCache(bot_redis, ttl_segundos=60))
     monkeypatch.setattr(
-        extraction, "get_limiter", lambda: AnthropicLimiter(bot_redis, 1000, 10000, 1)
+        extraction, "get_limiter", lambda: AnthropicLimiter(bot_redis, 100, 10000, 600)
     )
     client = TelegramClient("synthetic-bot-token", transport=httpx.MockTransport(provider.http))
     async with httpx.AsyncClient(
@@ -452,7 +476,10 @@ async def test_retention_preserves_pending_work_and_replay_tombstones(bot):
         )
         await session.commit()
     await purge_telegram(bot.engine)
-    assert (await bot.draft()).media_reference_ciphertext is not None
+    async with bot.como(bot.engine, bot.user) as session:
+        assert (
+            await session.get(models.RascunhoAposta, pending.id)
+        ).media_reference_ciphertext is not None
 
 
 async def test_restricted_rls_blocks_valid_foreign_ids(bot, novo_usuario):
@@ -515,3 +542,220 @@ async def test_trust_boundaries_have_no_financial_or_draft_effect(bot, kind):
         raw["edited_message"] = raw.pop("message")
     await bot.send(raw=raw, repeats=10)
     assert await bot.draft() is None and not await bot.bets()
+
+
+@pytest.mark.parametrize(
+    "content", [b"not an image", b"\x89PNG\r\n\x1a\ninvalid", b"", b"x" * (20 * 1024 * 1024 + 1)]
+)
+async def test_invalid_media_cannot_be_confirmed(bot, content):
+    bot.provider.image = content
+    _, draft = await bot.photo()
+    assert draft.status == "FAILED" and draft.media_reference_ciphertext is None
+    assert bot.provider.reads == 0
+    await bot.send({"text": "/confirmar"})
+    assert not await bot.bets()
+    async with bot.como(bot.engine, bot.user) as session:
+        assert await session.get(models.TelegramMedia, draft.id) is None
+
+
+async def test_http_rejections_do_not_enter_durable_inbox(bot):
+    async with AsyncSession(bot.engine) as session:
+        await telegram._transport_scope(session)
+        before = await session.scalar(select(func.count()).select_from(models.TelegramInbox))
+    headers = {
+        webhook.SECRET_HEADER: "synthetic-webhook-secret",
+        "content-type": "application/json",
+    }
+    for content, offered, status in (
+        (b"{}", {**headers, webhook.SECRET_HEADER: "forged-SENTINEL"}, 403),
+        (b"{}", {**headers, "content-type": "image/jpeg"}, 415),
+        (b"x" * (128 * 1024 + 1), headers, 413),
+        (b"not-json-SENTINEL", headers, 400),
+        (b'{"update_id":true}', headers, 400),
+    ):
+        response = await bot.http.post(webhook.WEBHOOK_PATH, content=content, headers=offered)
+        assert response.status_code == status and "SENTINEL" not in response.text
+    async with AsyncSession(bot.engine) as session:
+        await telegram._transport_scope(session)
+        assert (
+            await session.scalar(select(func.count()).select_from(models.TelegramInbox)) == before
+        )
+
+
+async def test_unlink_cancels_draft_and_stops_claimed_extraction_and_delivery(bot):
+    from bancaemdia.services.telegram_link import revoke_link
+
+    await bot.send({"photo": [{"file_id": "one"}]})
+    draft = await bot.draft()
+    claim = await telegram_extraction.claim_photo(bot.engine, draft_id=draft.id)
+    assert claim
+    async with bot.como(bot.engine, bot.user) as session:
+        assert await revoke_link(session, bot.user)
+        await session.commit()
+    await telegram_extraction._complete(
+        bot.engine, claim, content=b"private", mime="image/jpeg", reading={}
+    )
+    await bot.send({"text": "/confirmar"})
+    await bot.deliver()
+    assert bot.provider.sent == [] and not await bot.bets()
+    assert (await bot.draft()).status == "CANCELLED"
+    async with bot.como(bot.engine, bot.user) as session:
+        assert await session.get(models.TelegramMedia, draft.id) is None
+
+
+async def test_limiter_backend_failure_rolls_back_and_preserves_update(bot, monkeypatch):
+    original = telegram.admit
+
+    async def failed(*args, **kwargs):
+        await asyncio.sleep(0)
+        raise ConnectionError("SENTINEL-limit-backend")
+
+    monkeypatch.setattr(telegram, "admit", failed)
+    raw = await bot.send({"photo": [{"file_id": "one"}]}, process=False)
+    assert await telegram.process_inbox_once(bot.engine)
+    assert await bot.draft() is None
+    async with AsyncSession(bot.engine) as session, session.begin():
+        await telegram._transport_scope(session)
+        item = await session.scalar(
+            select(models.TelegramInbox).where(models.TelegramInbox.update_id == raw["update_id"])
+        )
+        assert (
+            item.status == "PENDING"
+            and item.payload_ciphertext
+            and item.last_error_code == "processing"
+        )
+        item.next_attempt_at = datetime.now(UTC) - timedelta(seconds=1)
+    monkeypatch.setattr(telegram, "admit", original)
+    await bot.send(raw=raw, repeats=10)
+    assert (await bot.draft()).status == "AWAITING_EXTRACTION"
+
+
+async def test_financial_rollback_retries_one_event_and_one_bet(bot, monkeypatch):
+    from bancaemdia.services import telegram_confirmation
+
+    original = telegram_confirmation._queue_success
+
+    async def failed(*args, **kwargs):
+        await asyncio.sleep(0)
+        raise RuntimeError("SENTINEL-after-financial-write")
+
+    await bot.photo()
+    monkeypatch.setattr(telegram_confirmation, "_queue_success", failed)
+    raw = await bot.send({"text": "/confirmar"}, process=False)
+    assert await telegram.process_inbox_once(bot.engine)
+    assert not await bot.bets()
+    async with AsyncSession(bot.engine) as session, session.begin():
+        await telegram._transport_scope(session)
+        await session.execute(
+            update(models.TelegramInbox)
+            .where(models.TelegramInbox.update_id == raw["update_id"])
+            .values(next_attempt_at=datetime.now(UTC) - timedelta(seconds=1))
+        )
+    monkeypatch.setattr(telegram_confirmation, "_queue_success", original)
+    await bot.send(raw=raw)
+    assert len(await bot.bets()) == 1
+
+
+async def test_private_cache_and_transport_diagnostics_do_not_leak(bot, bot_redis, caplog):
+    from prometheus_client import generate_latest
+
+    from bancaemdia.cache.telegram_cache import TelegramExtractionCache
+    from bancaemdia.services.telegram_link import _digest
+
+    bot.provider.coupons[0] = bot.provider.coupons[0].model_copy(
+        update={"evento": "SENTINEL-private-event"}
+    )
+    await bot.photo(caption="SENTINEL-private-caption")
+    bot.provider.failure = "timeout"
+    await bot.deliver()
+    observed = caplog.text + generate_latest().decode()
+    assert "SENTINEL" not in observed and "synthetic-bot-token" not in observed
+    prefix = "tgext:" + _digest("cache", str(bot.user)) + ":"
+    keys = list(bot_redis.scan_iter(match=prefix + "*"))
+    assert keys
+    for key in keys:
+        assert 0 < bot_redis.ttl(key) <= 60
+        assert b"SENTINEL" not in bot_redis.get(key)
+    other_cache = TelegramExtractionCache(ExtracaoCache(bot_redis), bot.user + 1000000)
+    assert other_cache.buscar(keys[0].decode().split(":")[2]) is None
+
+
+async def test_subscription_denial_preserves_cancellation_and_purge(bot, engine_admin):
+    _, draft = await bot.photo()
+    async with engine_admin.begin() as conn:
+        await conn.execute(
+            text("UPDATE billing_rollout SET activated_at=clock_timestamp() WHERE id=1")
+        )
+    try:
+        await bot.send({"text": "/confirmar"})
+        assert not await bot.bets()
+        assert (
+            "modo de leitura"
+            in decrypt_payload((await bot.replies())[-1].payload_ciphertext)["text"]
+        )
+        await bot.send({"text": "/cancelar"})
+        assert (await bot.draft()).status == "CANCELLED"
+        async with engine_admin.begin() as conn:
+            # Administrative time travel, with no weakening of the application role.
+            await conn.execute(text("UPDATE billing_rollout SET activated_at=NULL WHERE id=1"))
+            await conn.execute(
+                update(models.RascunhoAposta)
+                .where(models.RascunhoAposta.id == draft.id)
+                .values(closed_at=datetime.now(UTC) - timedelta(days=40))
+            )
+            await conn.execute(
+                text("UPDATE billing_rollout SET activated_at=clock_timestamp() WHERE id=1")
+            )
+        await purge_telegram(bot.engine)
+        async with bot.como(bot.engine, bot.user) as session:
+            stored = await session.get(models.RascunhoAposta, draft.id)
+            assert stored.fields_json == {} and stored.purged_at
+        if os.environ.get("TELEGRAM_BILLING_MIGRATION"):
+            from sqlalchemy.exc import DBAPIError
+
+            with pytest.raises(DBAPIError) as error:
+                async with bot.como(bot.engine, bot.user) as session:
+                    await session.execute(
+                        update(models.RascunhoAposta)
+                        .where(models.RascunhoAposta.id == draft.id)
+                        .values(fields_json={"stake_unidades": 999})
+                    )
+            assert getattr(error.value.orig, "sqlstate", None) == "P0402"
+    finally:
+        async with engine_admin.begin() as conn:
+            await conn.execute(text("UPDATE billing_rollout SET activated_at=NULL WHERE id=1"))
+
+
+async def test_real_redis_celery_tick_consumes_durable_inbox(bot, banco, bot_redis, monkeypatch):
+    from celery import Celery
+    from celery.contrib.testing.worker import start_worker
+
+    connection = bot_redis.connection_pool.connection_kwargs
+    url = f"redis://{connection['host']}:{connection['port']}/0"
+    worker_engine = create_async_engine(banco.url_app, poolclass=NullPool)
+    monkeypatch.setattr(telegram, "get_engine", lambda: worker_engine)
+    monkeypatch.setattr(
+        telegram,
+        "TelegramClient",
+        lambda: TelegramClient("synthetic-token", transport=httpx.MockTransport(bot.provider.http)),
+    )
+    worker_app = Celery("telegram-hardening", broker=url)
+    worker_app.conf.update(
+        broker_transport_options={"global_keyprefix": uuid4().hex}, task_ignore_result=True
+    )
+    worker_app.task(name="telegram.tick")(telegram.telegram_tick)
+    raw = await bot.send({"photo": [{"file_id": "queued"}]}, process=False)
+    try:
+        with start_worker(worker_app, pool="solo", perform_ping_check=False, loglevel="ERROR"):
+            worker_app.send_task("telegram.tick")
+            for _ in range(100):
+                draft = await bot.draft()
+                if draft and draft.extraction_completed_at:
+                    break
+                await asyncio.sleep(0.1)
+            assert draft and draft.extraction_completed_at
+            assert draft.telegram_update_id == raw["update_id"]
+            assert not await bot.bets()
+    finally:
+        worker_app.close()
+        await worker_engine.dispose()

@@ -217,6 +217,23 @@ async def _complete(
                 )
                 return
             draft.extraction_completed_at = _now()
+            if error_code in {
+                "file_too_large",
+                "unsupported_image",
+                "invalid_image",
+                "empty_image",
+            }:
+                draft.status = "FAILED"
+                draft.closed_at = _now()
+                draft.media_reference_ciphertext = None
+                await queue_reply(
+                    session,
+                    user_id=claim.user_id,
+                    chat_id=claim.chat_id,
+                    key=f"telegram-photo:{claim.id}:rejected",
+                    message="Arquivo inválido ou acima do limite. Use uma foto válida de até 20 MiB.",
+                )
+                return
             media_hash = None
             if content is not None and mime is not None:
                 media_hash = hashlib.sha256(content).hexdigest()

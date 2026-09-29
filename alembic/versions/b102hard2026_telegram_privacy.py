@@ -1,5 +1,7 @@
 """Shared transactional quotas and private bot media."""
 
+from pathlib import Path
+
 import sqlalchemy as sa
 from alembic import op
 
@@ -78,8 +80,23 @@ def upgrade() -> None:
         END IF; END $$;
     """)
 
+    op.execute(
+        (Path(__file__).resolve().parents[2] / "scripts/telegram_billing_privacy.sql").read_text(
+            encoding="utf-8"
+        )
+    )
+
 
 def downgrade() -> None:
+    op.execute("""
+        DO $$ DECLARE definition text; BEGIN
+          IF to_regprocedure('billing_require_write()') IS NOT NULL THEN
+            SELECT pg_get_functiondef('billing_require_write()'::regprocedure) INTO definition;
+            definition := regexp_replace(definition, '-- telegram_retention_erasure:.*?uid :=', 'uid :=', 's');
+            EXECUTE definition;
+          END IF;
+        END $$
+    """)
     # Never silently discard retained private media during rollback.
     op.execute(
         "DO $$ BEGIN IF EXISTS (SELECT 1 FROM telegram_media) THEN "

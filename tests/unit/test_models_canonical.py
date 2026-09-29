@@ -104,7 +104,7 @@ def _indexes(modelo: type[Base]) -> dict[str, list[str]]:
     return {i.name: [c.name for c in i.columns] for i in modelo.__table__.indexes}
 
 
-def test_all_forty_four_tables_are_registered() -> None:
+def test_all_forty_six_tables_are_registered() -> None:
     esperadas = {
         m.__tablename__
         for m in NUCLEO
@@ -118,7 +118,8 @@ def test_all_forty_four_tables_are_registered() -> None:
         + TELEGRAM_DRAFTS
         + (AuditLog,)
     }
-    assert len(esperadas) == 44
+    esperadas |= {"telegram_media", "telegram_rate_buckets"}
+    assert len(esperadas) == 46
     assert set(Base.metadata.tables) == esperadas
     assert {m.__tablename__ for m in CANONICOS} == {
         "casas",
@@ -300,6 +301,8 @@ def test_revisao_pendente_indexes() -> None:
 
 def test_bigserial_except_composite_and_billing_owner_keys() -> None:
     for nome in set(Base.metadata.tables) - {
+        "telegram_media",
+        "telegram_rate_buckets",
         "extracoes_cache",
         "assinaturas",
         "billing_rollout",
