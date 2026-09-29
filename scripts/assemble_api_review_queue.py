@@ -44,7 +44,9 @@ def main() -> None:
         for sha in (TELEGRAM, *heads.values())
     ):
         logging.basicConfig(level=logging.INFO, format="%(message)s")
-        logging.info("All prerequisites already belong to HEAD; test the integrated source directly.")
+        logging.info(
+            "All prerequisites already belong to HEAD; test the integrated source directly."
+        )
         return
     assemble_billing()  # Requires explicit --disposable-checkout and a clean checkout.
     save_fixture("billing + Telegram", "alembic/versions/f155cross2026_test_integration_merge.py")
