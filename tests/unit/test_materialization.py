@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import asyncio
 from datetime import UTC, datetime, timedelta
 from types import SimpleNamespace
 
@@ -13,6 +14,8 @@ from sqlalchemy.pool import NullPool
 
 from bancaemdia.config import get_settings
 from bancaemdia.domain import materializar
+from bancaemdia.domain.account_attribution import AccountResolution, ResolutionStatus
+from bancaemdia.domain.account_attribution_service import game_instant
 from bancaemdia.domain.coleta_casa import ApostaInvalidaError
 from bancaemdia.domain.conferencias import GRAVES, Origem, conferir
 from bancaemdia.domain.event_bus import ApostaCriada
@@ -146,7 +149,6 @@ def _banco(unidade=None, contas=(None,), desatualizada=False):
     banco.repos = {
         "EventoRepo": EventoRepo,
         "ApostaRepo": ApostaRepo,
-        "ContaCasaRepo": ContaCasaRepo,
         "RevisaoPendenteRepo": RevisaoPendenteRepo,
         "UnidadeRepo": UnidadeRepo,
     }
@@ -157,6 +159,16 @@ def _banco(unidade=None, contas=(None,), desatualizada=False):
 
 
 def _instalar(monkeypatch, banco):
+    async def account(session, user, state):
+        await asyncio.sleep(0)
+        banco.contas_buscadas.append((state.get("casa"), game_instant(state)))
+        conta = banco.contas.pop(0) if len(banco.contas) > 1 else banco.contas[0]
+        return AccountResolution(
+            ResolutionStatus.NONE if conta is None else ResolutionStatus.UNIQUE,
+            None if conta is None else conta.id,
+        )
+
+    monkeypatch.setattr(materialization, "account_for_state", account)
     for nome, classe in banco.repos.items():
         monkeypatch.setattr(materialization, nome, classe)
     monkeypatch.setattr(materialization, "AsyncSession", lambda *a, **k: banco.session)
@@ -238,7 +250,7 @@ def test_new_reading_creates_the_bet_its_event_and_publishes_it(monkeypatch) -> 
         "telegram",
         False,
     )
-    assert banco.contas_buscadas == [("Betano", postada)]
+    assert banco.contas_buscadas == [("Betano", None)]
     assert banco.publicados == [ApostaCriada(7, "t:100:200:0", "telegram", False)]
     assert any("set_config('app.current_user_id'" in sql for sql, _ in banco.sql)
     assert (
@@ -269,7 +281,7 @@ def test_resend_keeps_the_account_and_the_image_it_cannot_see(monkeypatch) -> No
 
     primeira, segunda = banco.upserts
     assert (primeira["conta_casa_id"], primeira["midia_hash"]) == (3, "hash-da-foto")
-    assert "conta_casa_id" not in segunda
+    assert segunda["conta_casa_id"] is None
     assert "midia_hash" not in segunda
 
 
@@ -683,7 +695,7 @@ def test_house_bet_becomes_a_bet_with_its_result_and_the_house_as_source(monkeyp
         jogo,
         3,
     )
-    assert banco.contas_buscadas == [("Betano", jogo)]
+    assert banco.contas_buscadas == [("betano", jogo)]
     assert guardada.processadas == [11]
     assert banco.publicados == [ApostaCriada(7, chave, "casa", False)]
     assert _sample("batch_bets_processed_total", stage="materialization") == pytest.approx(
@@ -704,7 +716,7 @@ def test_open_house_bet_that_settles_gets_the_result_the_house_paid(monkeypatch)
     assert [e["tipo"] for e in banco.eventos] == ["APOSTA_CRIADA", "RESULTADO_REGISTRADO"]
     assert banco.eventos[1]["payload_json"]["retorno_centavos"] == 30400
     assert (banco.upserts[-1]["estado"], banco.upserts[-1]["retorno_centavos"]) == ("GREEN", 30400)
-    assert "conta_casa_id" not in banco.upserts[-1]
+    assert banco.upserts[-1]["conta_casa_id"] is None
     assert len(banco.publicados) == 1
 
 

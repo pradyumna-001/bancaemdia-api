@@ -10,6 +10,7 @@ from bancaemdia import models
 from bancaemdia.domain.cruzamento import MAX_NEIGHBORS, VERSION, WINDOW_DAYS
 from bancaemdia.models.cruzamento_candidato import CruzamentoCandidato as Pair
 from bancaemdia.models.cruzamento_candidato import CruzamentoEntrada as Entry
+from bancaemdia.repositories.aposta_consolidacao import available_predicate
 
 
 class CruzamentoCandidatoRepo:
@@ -44,6 +45,7 @@ class CruzamentoCandidatoRepo:
                 models.Aposta.id == Entry.aposta_id,
                 models.Aposta.usuario_id == entry.usuario_id,
                 models.Aposta.selecionada,
+                available_predicate(),
                 models.Aposta.parceira_chave.is_(None),
                 models.Aposta.duplicada_de.is_(None),
             )

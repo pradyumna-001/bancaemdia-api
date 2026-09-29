@@ -156,6 +156,8 @@ class BetDetailResponse(StrictContractModel):
     selecoes: BetSelectionsResponse
     eventos: list[BetEventResponse]
     revisao_pendente: PendingReviewResponse | None
+    consolidacoes: list[dict[str, JsonValue]] = Field(default_factory=list)
+    fonte_contextual: bool = False
 
 
 class BetChangedResponse(StrictContractModel):

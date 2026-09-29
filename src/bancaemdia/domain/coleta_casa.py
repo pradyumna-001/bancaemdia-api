@@ -144,6 +144,7 @@ def eventos_da_criacao(coletada: Coletada, valor_unidade_centavos: int) -> list[
     payload: dict[str, Any] = {
         "origem": "casa",
         "data_aposta": coletada.data_aposta,
+        "ocorrido_em": coletada.ocorrido_em,
         "casa": coletada.casa.strip(),
         "tipster": None,
         "evento": coletada.evento,
@@ -162,6 +163,7 @@ def eventos_da_criacao(coletada: Coletada, valor_unidade_centavos: int) -> list[
         ],
         "odd": coletada.odd,
         "comeca_em": coletada.comeca_em,
+        "data_jogo": coletada.comeca_em,
         "stake_unidades": coletada.stake_centavos / valor_unidade_centavos,
         "valor_unidade_centavos": valor_unidade_centavos,
         "freebet": False,
@@ -186,6 +188,25 @@ def eventos_da_criacao(coletada: Coletada, valor_unidade_centavos: int) -> list[
 
 def eventos_do_resultado(coletada: Coletada, atual: dict[str, Any]) -> list[EventoNovo]:
     eventos: list[EventoNovo] = []
+    if coletada.odd != atual.get("odd"):
+        eventos.append(
+            EventoNovo("ODD_ALTERADA", FONTE, {"de": atual.get("odd"), "para": coletada.odd})
+        )
+    unit = int(atual.get("valor_unidade_centavos") or 10_000)
+    stake = coletada.stake_centavos / unit
+    if stake != atual.get("stake_unidades"):
+        eventos.append(
+            EventoNovo("STAKE_ALTERADA", FONTE, {"de": atual.get("stake_unidades"), "para": stake})
+        )
+    fields = {
+        "data_jogo": coletada.comeca_em,
+        "comeca_em": coletada.comeca_em,
+        "data_aposta": coletada.data_aposta,
+        "ocorrido_em": coletada.ocorrido_em,
+    }
+    changes = {key: value for key, value in fields.items() if value != atual.get(key)}
+    if changes:
+        eventos.append(EventoNovo("CORRECAO_MANUAL", FONTE, changes))
     # O estado final segue a última captura, na ordem que for: a casa corrige resultado já
     # liquidado e reabre aposta, e congelar na primeira liquidação deixava o resultado velho.
     mudou = coletada.estado != atual.get("estado", Estado.PENDENTE) or (

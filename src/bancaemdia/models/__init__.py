@@ -1,6 +1,7 @@
 from bancaemdia.db.models import Base
 from bancaemdia.models.apelido import Apelido
 from bancaemdia.models.aposta import Aposta
+from bancaemdia.models.aposta_consolidacao import ApostaConsolidacao
 from bancaemdia.models.banca import Banca
 from bancaemdia.models.casa import Casa
 from bancaemdia.models.chamada_ia import ChamadaIA
@@ -29,6 +30,7 @@ from bancaemdia.models.usuario import Usuario
 __all__ = [
     "Apelido",
     "Aposta",
+    "ApostaConsolidacao",
     "Banca",
     "Base",
     "Casa",

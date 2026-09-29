@@ -150,7 +150,11 @@ def test_held_bet_is_created_grave_with_its_reason() -> None:
 
 
 def test_resend_without_changes_creates_nothing() -> None:
-    atual = {"estado": "RED", "retorno_centavos": 0}
+    atual = {
+        **coleta_casa.eventos_da_criacao(_coletada(), 1)[0].payload,
+        "estado": "RED",
+        "retorno_centavos": 0,
+    }
 
     assert (
         coleta_casa.eventos_do_resultado(_coletada(estado="RED", retorno_centavos=0), atual) == []
@@ -159,7 +163,8 @@ def test_resend_without_changes_creates_nothing() -> None:
 
 def test_open_bet_that_settles_records_the_result() -> None:
     (evento,) = coleta_casa.eventos_do_resultado(
-        _coletada(estado="GREEN", retorno_centavos=30400), {}
+        _coletada(estado="GREEN", retorno_centavos=30400),
+        coleta_casa.eventos_da_criacao(_coletada(), 1)[0].payload,
     )
 
     assert evento.payload == {"estado": "GREEN", "comissao_centavos": 0, "retorno_centavos": 30400}
@@ -167,10 +172,20 @@ def test_open_bet_that_settles_records_the_result() -> None:
 
 def test_result_follows_the_latest_capture_including_a_reopened_bet() -> None:
     corrigida = coleta_casa.eventos_do_resultado(
-        _coletada(estado="RED", retorno_centavos=0), {"estado": "GREEN", "retorno_centavos": 30400}
+        _coletada(estado="RED", retorno_centavos=0),
+        {
+            **coleta_casa.eventos_da_criacao(_coletada(), 1)[0].payload,
+            "estado": "GREEN",
+            "retorno_centavos": 30400,
+        },
     )
     reaberta = coleta_casa.eventos_do_resultado(
-        _coletada(), {"estado": "RED", "retorno_centavos": 0}
+        _coletada(),
+        {
+            **coleta_casa.eventos_da_criacao(_coletada(), 1)[0].payload,
+            "estado": "RED",
+            "retorno_centavos": 0,
+        },
     )
 
     assert corrigida[0].payload["estado"] == "RED"
@@ -184,7 +199,11 @@ def test_result_follows_the_latest_capture_including_a_reopened_bet() -> None:
 def test_new_paid_value_alone_is_a_change() -> None:
     (evento,) = coleta_casa.eventos_do_resultado(
         _coletada(estado="CASHOUT", retorno_centavos=90),
-        {"estado": "CASHOUT", "retorno_centavos": 95},
+        {
+            **coleta_casa.eventos_da_criacao(_coletada(), 1)[0].payload,
+            "estado": "CASHOUT",
+            "retorno_centavos": 95,
+        },
     )
 
     assert evento.payload == {"retorno_centavos": 90}
@@ -193,9 +212,17 @@ def test_new_paid_value_alone_is_a_change() -> None:
 def test_reason_to_hold_travels_with_the_settlement_but_never_overwrites_one() -> None:
     coletada = _coletada(estado="GREEN", retorno_centavos=None, motivo_retencao="sem valor pago")
 
-    nova = coleta_casa.eventos_do_resultado(coletada, {"estado": "PENDENTE"})
+    nova = coleta_casa.eventos_do_resultado(
+        coletada,
+        {**coleta_casa.eventos_da_criacao(_coletada(), 1)[0].payload, "estado": "PENDENTE"},
+    )
     ja_tinha = coleta_casa.eventos_do_resultado(
-        coletada, {"estado": "GREEN", "revisao_motivo": "x"}
+        coletada,
+        {
+            **coleta_casa.eventos_da_criacao(_coletada(), 1)[0].payload,
+            "estado": "GREEN",
+            "revisao_motivo": "x",
+        },
     )
 
     assert _tipos(nova) == [("RESULTADO_REGISTRADO", "casa"), ("CORRECAO_MANUAL", "casa")]

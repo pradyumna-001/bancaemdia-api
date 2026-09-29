@@ -200,7 +200,11 @@ def apostas_da_leitura(
             "odd": bilhete.odd_total if bilhete else None,
             "odd_original": bilhete.odd_original if bilhete else None,
             "comeca_em": bilhete.quando if bilhete else None,
-            "stake_unidades": 0.0,
+            "data_jogo": bilhete.quando if bilhete else None,
+            "stake_unidades": bilhete.stake_unidades or 0.0 if bilhete else 0.0,
+            "identidade_bilhete": bilhete.identidade_bilhete if bilhete else None,
+            "ocorrido_em": bilhete.ocorrido_em if bilhete else None,
+            "conta_casa_ref": bilhete.conta_casa_ref if bilhete else None,
             "valor_unidade_centavos": valor_unidade_centavos,
             "freebet": False,
             "selecionada": True,
@@ -288,10 +292,15 @@ def eventos_da_releitura(
 
     novos = {
         "casa": nova.casa,
+        "identidade_bilhete": bilhete.identidade_bilhete,
+        "ocorrido_em": bilhete.ocorrido_em,
+        "stake_unidades": bilhete.stake_unidades,
+        "conta_casa_ref": bilhete.conta_casa_ref,
         "evento": bilhete.evento,
         "descricao": descricao(bilhete),
         "tipo_aposta": bilhete.tipo.upper(),
         "comeca_em": bilhete.quando,
+        "data_jogo": bilhete.quando,
         "mercado_bruto": mercado_principal(bilhete),
     }
     mudancas: dict[str, Any] = {

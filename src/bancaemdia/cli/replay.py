@@ -17,6 +17,10 @@ from sqlalchemy.ext.asyncio import AsyncEngine, AsyncSession
 
 from bancaemdia import models
 from bancaemdia.config import get_settings
+from bancaemdia.domain.account_attribution_service import (
+    InvalidAccountReferenceError,
+    account_for_state,
+)
 from bancaemdia.domain.financeiro import Aposta as ApostaFinanceira
 from bancaemdia.domain.projecao import EventoIrrecuperavelError, projetar_validado
 from bancaemdia.domain.temporal import VALOR_UNIDADE_PADRAO_CENTAVOS
@@ -124,10 +128,15 @@ async def _preparar(session: AsyncSession, usuario_id: int, seco: bool) -> None:
     ):
         raise ReplayInseguroError(f"usuário {usuario_id} não existe")
     if not seco:
+        from bancaemdia.repositories.cruzamento_candidato import CruzamentoCandidatoRepo
+
+        await CruzamentoCandidatoRepo().lock(session, usuario_id)
         # Each writer takes ROW EXCLUSIVE on its target table. NOWAIT refuses an in-flight writer;
         # these locks then block new writers until the comparison and updates commit atomically.
         await session.execute(
-            text("LOCK TABLE eventos, apostas, movimentos IN SHARE ROW EXCLUSIVE MODE NOWAIT")
+            text(
+                "LOCK TABLE eventos, apostas, movimentos, aposta_consolidacoes IN SHARE ROW EXCLUSIVE MODE NOWAIT"
+            )
         )
 
 
@@ -145,7 +154,7 @@ async def _pagina_chaves(
 
 
 async def _valores(
-    session: AsyncSession, usuario_id: int, estado: dict[str, Any], atual: Any
+    session: AsyncSession, usuario_id: int, estado: dict[str, Any], atual: Any, *, lock: bool = True
 ) -> dict[str, object]:
     valor_unidade = estado.get("valor_unidade_centavos")
     instante = _data(estado.get("data_aposta")) if "data_aposta" in estado else atual.data_aposta
@@ -185,16 +194,11 @@ async def _valores(
     for campo in (*IDENTIFICADORES, "chat_id", "message_id", "ordem_na_mensagem", "midia_hash"):
         if campo in estado:
             dados[campo] = estado[campo]
-    if "conta_casa_id" not in estado:
-        # Historic events omitted the account snapshot. Keep the original association;
-        # a later account cannot claim a bet merely because its temporal interval overlaps.
-        dados["conta_casa_id"] = atual.conta_casa_id
-    conta_id = dados.get("conta_casa_id")
-    if conta_id is not None and (
-        not isinstance(conta_id, int)
-        or await ContaCasaRepo().get_by_id(session, usuario_id, conta_id) is None
-    ):
-        raise ReplayInseguroError("conta histórica não pertence ao usuário")
+    try:
+        assignment = await account_for_state(session, usuario_id, estado, lock=lock)
+    except InvalidAccountReferenceError as error:
+        raise ReplayInseguroError("referência explícita de conta inválida") from error
+    dados["conta_casa_id"] = assignment.conta_casa_id
     return dados
 
 
@@ -440,7 +444,6 @@ async def reconstruir_usuario(
     chunk_size: int = PAGE_SIZE,
 ) -> ResultadoReplay:
     """Reconcile proven derived columns, retaining row IDs, audit history and ledger.
-
     ``desde`` is inclusive and ``ate`` exclusive in the business time of a bet;
     every selected key is folded from its entire history, regardless of event time.
     """
@@ -563,7 +566,9 @@ async def reconstruir_usuario(
                         stake_centavos=0,
                         valor_aposta_centavos=0,
                     )
-                    dados = await _valores(session, usuario_id, estado, referencia_antiga)
+                    dados = await _valores(
+                        session, usuario_id, estado, referencia_antiga, lock=not dry_run
+                    )
                     resultado.recriadas += 1
                     if not dry_run:
                         await session.execute(
@@ -576,7 +581,7 @@ async def reconstruir_usuario(
                             )
                         )
                     continue
-                dados = await _valores(session, usuario_id, estado, aposta)
+                dados = await _valores(session, usuario_id, estado, aposta, lock=not dry_run)
                 diferencas = {
                     campo: valor
                     for campo, valor in dados.items()
@@ -630,6 +635,9 @@ async def reconstruir_usuario(
         )
         if orfas is not None:
             raise ReplayInseguroError(f"aposta {orfas} sem histórico")
+        from bancaemdia.services.consolidacao_replay import replay_relations
+
+        await replay_relations(session, usuario_id, dry_run=dry_run)
         await _restaurar_ledger(session, usuario_id, resultado, dry_run)
         if not dry_run or resultado.movimentos_restaurados == 0:
             await _conferir_ledger(session, usuario_id, resultado)

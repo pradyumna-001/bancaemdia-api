@@ -165,7 +165,8 @@ async def test_aposta_list_without_filters_orders_newest_first() -> None:
     apostas = await ApostaRepo().list_by_usuario(session, 1)
     assert [a.id for a in apostas] == [2, 1]
     sql = _sql(session.statements[0])
-    assert sql.count("WHERE") == 1
+    assert sql.count("WHERE") == 2
+    assert "NOT (EXISTS" in sql and "aposta_consolidacoes" in sql
     assert "ORDER BY apostas.criada_em DESC, apostas.id DESC" in sql
     assert "LIMIT" not in sql
 
@@ -185,7 +186,7 @@ async def test_aposta_list_applies_every_filter() -> None:
     )
     sql = _sql(session.statements[0])
     for trecho in (
-        "apostas.estado = %(estado_1)s",
+        "apostas.estado = %(estado_2)s",
         "apostas.origem = %(origem_1)s",
         "apostas.banca_id = %(banca_id_1)s",
         "apostas.conta_casa_id = %(conta_casa_id_1)s",
@@ -202,8 +203,9 @@ async def test_aposta_get_by_chave_for_update_locks_the_row() -> None:
 
     aposta = await ApostaRepo().get_by_chave_for_update(session, 1, "t:1:1:0")
 
+    assert "pg_advisory_xact_lock" in _sql(session.statements[0])
     assert aposta is not None and aposta.chave == "t:1:1:0"
-    assert "FOR UPDATE" in _sql(session.statements[0])
+    assert "FOR UPDATE" in _sql(session.statements[-1])
 
 
 async def test_aposta_page_counts_the_filter_in_the_same_query() -> None:
@@ -294,8 +296,9 @@ async def test_aposta_upsert_updates_only_mutable_columns_on_the_key() -> None:
     session = _Session(_aposta(odd=2.1))
     dados = {"usuario_id": 1, "chave": "t:1:1:0", "odd": 2.1, "stake_centavos": 10_000}
     aposta = await ApostaRepo().upsert_idempotent(session, dados)
+    assert "pg_advisory_xact_lock" in _sql(session.statements[0])
     assert aposta.odd == pytest.approx(2.1)
-    sql = _sql(session.statements[0])
+    sql = _sql(session.statements[-1])
     assert "ON CONFLICT (usuario_id, chave) WHERE chave IS NOT NULL DO UPDATE SET" in sql
     assert "odd = excluded.odd" in sql
     assert "stake_centavos = excluded.stake_centavos" in sql
@@ -308,9 +311,10 @@ async def test_aposta_upsert_updates_only_mutable_columns_on_the_key() -> None:
 async def test_aposta_update_estado() -> None:
     session = _Session(_aposta(estado="GREEN", retorno_centavos=19_000))
     aposta = await ApostaRepo().update_estado(session, 1, "t:1:1:0", "GREEN", 19_000)
+    assert "pg_advisory_xact_lock" in _sql(session.statements[0])
     assert aposta is not None
     assert aposta.estado == "GREEN"
-    sql = _sql(session.statements[0])
+    sql = _sql(session.statements[-1])
     assert sql.startswith("UPDATE apostas SET ")
     assert "estado=%(estado)s" in sql
     assert "retorno_centavos=%(retorno_centavos)s" in sql
@@ -396,7 +400,8 @@ async def test_conta_casa_lookup_create_and_close() -> None:
         "contas_casa.usuario_id = %(usuario_id_1)s AND contas_casa.casa_id = %(casa_id_1)s" in sql
     )
     assert "contas_casa.ativa IS true" in sql
-    assert "ORDER BY contas_casa.id" in sql
+    assert "LIMIT %(param_1)s" in sql
+    assert _params(session.statements[0])["param_1"] == 2
     assert "LIMIT %(param_1)s" in sql
 
     await ContaCasaRepo().create(session, {"usuario_id": 1, "casa_id": 2})
@@ -776,9 +781,10 @@ async def test_aposta_upsert_materializada_only_lets_a_newer_write_in() -> None:
 
     aposta = await ApostaRepo().upsert_materializada(session, dados)
 
+    assert "pg_advisory_xact_lock" in _sql(session.statements[0])
     assert aposta is not None
     assert aposta.chave == "t:1:1:0"
-    sql = _sql(session.statements[0])
+    sql = _sql(session.statements[-1])
     assert "clock_timestamp()" in sql
     assert "DO UPDATE SET" in sql
     assert "odd = excluded.odd" in sql
@@ -788,19 +794,19 @@ async def test_aposta_upsert_materializada_only_lets_a_newer_write_in() -> None:
     assert await ApostaRepo().upsert_materializada(_Session(), dados) is None
 
 
-async def test_conta_casa_is_found_by_the_house_name_and_the_bet_date() -> None:
+async def test_conta_casa_is_found_only_with_a_game_date() -> None:
     session = _Session(_conta())
 
-    conta = await ContaCasaRepo().get_vigente_by_nome_da_casa(session, 1, "Betano")
+    conta = await ContaCasaRepo().get_vigente_by_nome_da_casa(session, 1, "Betano", AGORA)
 
     assert conta == registros.ContaCasa(3, 1, 2, "", ONTEM, None, True)
     sql = _sql(session.statements[0])
     assert "JOIN casas ON casas.id = contas_casa.casa_id" in sql
     assert "casas.nome = %(nome_1)s" in sql
-    assert "contas_casa.desde IS NULL" not in sql
+    assert "contas_casa.desde IS NULL" in sql
 
     await ContaCasaRepo().get_vigente_by_nome_da_casa(session, 1, "Betano", AGORA)
     sql = _sql(session.statements[1])
     assert "contas_casa.desde IS NULL OR contas_casa.desde <=" in sql
-    assert "contas_casa.ate IS NULL OR contas_casa.ate >=" in sql
+    assert "contas_casa.ate IS NULL OR contas_casa.ate >" in sql
     assert await ContaCasaRepo().get_vigente_by_nome_da_casa(_Session(), 1, "Betano") is None

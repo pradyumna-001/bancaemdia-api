@@ -106,6 +106,10 @@ class Bilhete:
     quando: str | None = None
     ilegivel: bool = False
     confianca: float = 0.0
+    identidade_bilhete: str | None = None
+    ocorrido_em: str | None = None
+    stake_unidades: float | None = None
+    conta_casa_ref: int | None = None
 
     @property
     def odds_das_selecoes(self) -> list[float]:

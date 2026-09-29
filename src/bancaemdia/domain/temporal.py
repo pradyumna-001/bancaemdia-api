@@ -41,19 +41,18 @@ class ContaCasa:
 
     def valia_em(self, data: date | None) -> bool:
         if data is None:
-            return True
+            return False
         if self.desde is not None and data < self.desde:
             return False
-        return not (self.ate is not None and data > self.ate)
+        return not (self.ate is not None and data >= self.ate)
 
 
 def conta_casa_vigente(
     contas: Iterable[ContaCasa], casa_id: int, data: date | None
 ) -> ContaCasa | None:
-    for conta in contas:
-        if conta.casa_id == casa_id and conta.ativa and conta.valia_em(data):
-            return conta
-    return None
+    """A data recebida é a do jogo; ausência/ambiguidade exige revisão."""
+    matching = [c for c in contas if c.casa_id == casa_id and c.valia_em(data)]
+    return matching[0] if len(matching) == 1 else None
 
 
 class TipoMovimento(StrEnum):

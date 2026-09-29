@@ -19,11 +19,10 @@ class ContaCasaRepo:
                 models.ContaCasa.casa_id == casa_id,
                 models.ContaCasa.ativa.is_(True),
             )
-            .order_by(models.ContaCasa.id)
-            .limit(1)
+            .limit(2)
         )
-        obj = (await session.execute(stmt)).scalar_one_or_none()
-        return None if obj is None else ContaCasa(**colunas(obj))
+        matches = list((await session.execute(stmt)).scalars())
+        return ContaCasa(**colunas(matches[0])) if len(matches) == 1 else None
 
     async def get_by_id(self, session: AsyncSession, usuario_id: int, id_: int) -> ContaCasa | None:
         stmt = select(models.ContaCasa).where(
@@ -60,24 +59,25 @@ class ContaCasaRepo:
     async def get_vigente_by_nome_da_casa(
         self, session: AsyncSession, usuario_id: int, nome: str, data: datetime | None = None
     ) -> ContaCasa | None:
+        """Legacy default lookup: data is the game time, never placement/ingestion."""
+        if data is None:
+            return None
         stmt = (
             select(models.ContaCasa)
             .join(models.Casa, models.Casa.id == models.ContaCasa.casa_id)
             .where(
                 models.ContaCasa.usuario_id == usuario_id,
                 models.Casa.nome == nome,
-                models.ContaCasa.ativa.is_(True),
             )
-            .order_by(models.ContaCasa.id)
-            .limit(1)
+            .limit(2)
         )
         if data is not None:
             stmt = stmt.where(
                 or_(models.ContaCasa.desde.is_(None), models.ContaCasa.desde <= data),
-                or_(models.ContaCasa.ate.is_(None), models.ContaCasa.ate >= data),
+                or_(models.ContaCasa.ate.is_(None), models.ContaCasa.ate > data),
             )
-        obj = (await session.execute(stmt)).scalar_one_or_none()
-        return None if obj is None else ContaCasa(**colunas(obj))
+        matches = list((await session.execute(stmt)).scalars())
+        return ContaCasa(**colunas(matches[0])) if len(matches) == 1 else None
 
     async def create(self, session: AsyncSession, dados: dict[str, object]) -> ContaCasa:
         obj = (

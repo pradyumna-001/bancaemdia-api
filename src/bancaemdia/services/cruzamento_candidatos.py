@@ -9,6 +9,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from bancaemdia import models
 from bancaemdia.domain.conferencias import RE_CONFRONTO
 from bancaemdia.domain.cruzamento import CONFIG, MAX_NEIGHBORS, VERSION, compare, instant, normalize
+from bancaemdia.repositories.aposta_consolidacao import ApostaConsolidacaoRepo
 from bancaemdia.repositories.cruzamento_candidato import CruzamentoCandidatoRepo
 
 outcomes = Counter(
@@ -92,6 +93,8 @@ async def generate(session: AsyncSession, user: int, bet: Any, state: dict[str, 
     if bet is None:
         return "nova"
     await repo.invalidate(session, user, [bet.id])
+    if await ApostaConsolidacaoRepo().active(session, user, [bet.id]):
+        return "nova"
     if not bet.selecionada or bet.parceira_chave or bet.duplicada_de:
         return "nova"
     raw = {key: state.get(key) for key in FIELDS}

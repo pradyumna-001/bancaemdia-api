@@ -118,6 +118,9 @@ async def registrar(
     if leitor is None:
         return await _guardar_sem_leitor(session, usuario_id, casa, casa_id, apostas), []
 
+    from bancaemdia.repositories.cruzamento_candidato import CruzamentoCandidatoRepo
+
+    await CruzamentoCandidatoRepo().lock(session, usuario_id)
     resultado = Resultado()
     fila: list[int] = []
     coletas = ColetaCasaRepo()

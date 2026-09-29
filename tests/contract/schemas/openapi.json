@@ -265,6 +265,17 @@
               }
             ]
           },
+          "conta_casa_ref": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Conta Casa Ref"
+          },
           "data_aposta": {
             "anyOf": [
               {
@@ -275,6 +286,17 @@
                 "type": "null"
               }
             ]
+          },
+          "data_jogo": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Data Jogo"
           },
           "descricao": {
             "anyOf": [
@@ -393,12 +415,27 @@
           "aposta": {
             "$ref": "#/components/schemas/BetResponse"
           },
+          "consolidacoes": {
+            "items": {
+              "additionalProperties": {
+                "$ref": "#/components/schemas/JsonValue"
+              },
+              "type": "object"
+            },
+            "title": "Consolidacoes",
+            "type": "array"
+          },
           "eventos": {
             "items": {
               "$ref": "#/components/schemas/BetEventResponse"
             },
             "title": "Eventos",
             "type": "array"
+          },
+          "fonte_contextual": {
+            "default": false,
+            "title": "Fonte Contextual",
+            "type": "boolean"
           },
           "revisao_pendente": {
             "anyOf": [
@@ -990,6 +1027,94 @@
         "title": "CollectionWithoutReaderItem",
         "type": "object"
       },
+      "ConsolidacaoPedido": {
+        "additionalProperties": false,
+        "properties": {
+          "casa_aposta_id": {
+            "maximum": 9.223372036854776e+18,
+            "minimum": 1.0,
+            "title": "Casa Aposta Id",
+            "type": "integer"
+          },
+          "telegram_aposta_id": {
+            "maximum": 9.223372036854776e+18,
+            "minimum": 1.0,
+            "title": "Telegram Aposta Id",
+            "type": "integer"
+          },
+          "tipster_choice": {
+            "anyOf": [
+              {
+                "enum": [
+                  "casa",
+                  "telegram"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Tipster Choice"
+          }
+        },
+        "required": [
+          "casa_aposta_id",
+          "telegram_aposta_id"
+        ],
+        "title": "ConsolidacaoPedido",
+        "type": "object"
+      },
+      "ConsolidacaoResposta": {
+        "additionalProperties": false,
+        "properties": {
+          "casa_aposta_id": {
+            "title": "Casa Aposta Id",
+            "type": "integer"
+          },
+          "contexto": {
+            "additionalProperties": {
+              "$ref": "#/components/schemas/JsonValue"
+            },
+            "title": "Contexto",
+            "type": "object"
+          },
+          "decisao": {
+            "title": "Decisao",
+            "type": "string"
+          },
+          "estado": {
+            "title": "Estado",
+            "type": "string"
+          },
+          "evidencia": {
+            "additionalProperties": {
+              "$ref": "#/components/schemas/JsonValue"
+            },
+            "title": "Evidencia",
+            "type": "object"
+          },
+          "id": {
+            "title": "Id",
+            "type": "integer"
+          },
+          "telegram_aposta_id": {
+            "title": "Telegram Aposta Id",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "id",
+          "estado",
+          "decisao",
+          "casa_aposta_id",
+          "telegram_aposta_id",
+          "contexto",
+          "evidencia"
+        ],
+        "title": "ConsolidacaoResposta",
+        "type": "object"
+      },
       "Correcao": {
         "additionalProperties": false,
         "description": "Campos de domínio que podem ser corrigidos; campos desconhecidos são recusados.",
@@ -1341,6 +1466,20 @@
           "data"
         ],
         "title": "DatasetSaida",
+        "type": "object"
+      },
+      "DesvinculacaoPedido": {
+        "additionalProperties": false,
+        "properties": {
+          "motivo": {
+            "title": "Motivo",
+            "type": "string"
+          }
+        },
+        "required": [
+          "motivo"
+        ],
+        "title": "DesvinculacaoPedido",
         "type": "object"
       },
       "ErroSaida": {
@@ -5399,6 +5538,208 @@
           }
         ],
         "summary": "Receber coleta da extensão"
+      }
+    },
+    "/api/v1/consolidacoes": {
+      "post": {
+        "description": "Vincula Casa e Telegram em uma transação: Casa fornece as finanças e Telegram preserva o contexto. Revalida usuário, conta e disponibilidade das fontes.",
+        "operationId": "consolidar_revisada_api_v1_consolidacoes_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ConsolidacaoPedido"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ConsolidacaoResposta"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Missing, expired, or invalid bearer token."
+          },
+          "413": {
+            "content": {
+              "text/plain": {
+                "example": "Content Too Large",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            },
+            "description": "The request body exceeds the server-wide streaming limit."
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorOrValidationResponse"
+                }
+              }
+            },
+            "description": "The request does not satisfy the published contract or a domain rule."
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "The caller exceeded an applicable request limit."
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unexpected internal failure with no sensitive exception details."
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "A required dependency is temporarily unavailable."
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Consolidar fontes após revisão"
+      }
+    },
+    "/api/v1/consolidacoes/{relacao_id}/desvincular": {
+      "post": {
+        "description": "Desfaz a relação financeira sem apagar fontes ou decisões anteriores. Exige motivo e impede nova consolidação automática do mesmo par.",
+        "operationId": "desvincular_revisada_api_v1_consolidacoes__relacao_id__desvincular_post",
+        "parameters": [
+          {
+            "description": "Identificador da decisão de consolidação pertencente ao usuário.",
+            "in": "path",
+            "name": "relacao_id",
+            "required": true,
+            "schema": {
+              "title": "Relacao Id",
+              "type": "integer"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DesvinculacaoPedido"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ConsolidacaoResposta"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Missing, expired, or invalid bearer token."
+          },
+          "413": {
+            "content": {
+              "text/plain": {
+                "example": "Content Too Large",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            },
+            "description": "The request body exceeds the server-wide streaming limit."
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorOrValidationResponse"
+                }
+              }
+            },
+            "description": "The request does not satisfy the published contract or a domain rule."
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "The caller exceeded an applicable request limit."
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unexpected internal failure with no sensitive exception details."
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "A required dependency is temporarily unavailable."
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Desvincular fontes após revisão"
       }
     },
     "/api/v1/painel": {

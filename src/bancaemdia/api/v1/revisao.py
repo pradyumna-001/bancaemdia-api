@@ -322,7 +322,9 @@ async def resolver_revisao(
         )
         if (
             pedido.aposta_corrigida is not None
-            or not antes.get("duvida_de_par")
+            or not (
+                antes.get("duvida_de_par") or (revisao.extracao_bruta or {}).get("candidato_id")
+            )
             or not isinstance(candidata, str)
         ):
             await session.rollback()

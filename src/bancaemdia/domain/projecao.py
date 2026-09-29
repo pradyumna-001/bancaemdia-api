@@ -38,6 +38,8 @@ CAMPOS_DA_CRIACAO = (
     "comissao_centavos",
     "mercado_bruto",
     "conta_casa_id",
+    "conta_casa_ref",
+    "conta_atribuicao",
     "tipster_id",
     "time_casa_id",
     "time_fora_id",
@@ -60,6 +62,8 @@ TIPOS_DE_APOSTA = frozenset({
     "CORRECAO_MANUAL",
     "CLV_REGISTRADO",
     "REVISAO_RESOLVIDA",
+    "APOSTAS_CONSOLIDADAS",
+    "CONSOLIDACAO_DESVINCULADA",
 })
 
 
@@ -91,6 +95,19 @@ def projetar(eventos: Iterable[tuple[str, str, dict[str, Any]]]) -> tuple[dict[s
     for tipo, fonte, payload in eventos:
         if tipo == "APOSTA_CRIADA":
             estado.update({c: payload[c] for c in CAMPOS_DA_CRIACAO if payload.get(c) is not None})
+        elif tipo == "APOSTAS_CONSOLIDADAS":
+            estado["consolidacao_id"] = payload["relacao_id"]
+            if estado.get("origem") == "casa":
+                estado["conta_casa_id"] = payload["conta_casa_id"]
+                estado["tipster_id"] = payload["contexto"].get("tipster_id")
+        elif tipo == "CONSOLIDACAO_DESVINCULADA":
+            estado["consolidacao_id"] = None
+            if estado.get("origem") == "casa":
+                estado["tipster_id"] = payload["contexto"].get("tipster_casa_id")
+            if payload.get("decisao") == "legacy":
+                estado["parceira_chave"] = None
+                if estado.get("origem") in {"telegram", "print"}:
+                    estado["selecionada"] = True
         elif tipo == "ODD_ALTERADA":
             estado["odd"] = payload.get("para")
         elif tipo == "STAKE_ALTERADA":
@@ -125,6 +142,9 @@ def projetar(eventos: Iterable[tuple[str, str, dict[str, Any]]]) -> tuple[dict[s
                     estado[campo] = payload[campo]
         elif tipo == "CORRECAO_MANUAL":
             estado.update(payload)
+            if fonte in FONTES_DA_PESSOA and "conta_casa_id" in payload:
+                estado["conta_casa_ref"] = payload["conta_casa_id"]
+                estado["conta_atribuicao"] = "explicit"
             if payload.get("retorno_centavos") is not None:
                 estado["retorno_informado"] = True
             if fonte in FONTES_DA_PESSOA:

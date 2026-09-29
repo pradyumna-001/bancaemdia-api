@@ -21,7 +21,7 @@ REVISAO_RESOLVIDA = "f2a9c4e7b106"
 PAINEL = "d3f6a8c1e209"
 CAIXA_REVISAO_MERGE = "e5a1c7d9b204"
 PAINEL_CAIXA_MERGE = "f8b2d4a6c901"
-HEAD = "c109match2026"
+HEAD = "c110fact2026"
 USUARIO_ATUAL = "NULLIF(current_setting('app.current_user_id', true), '')::bigint"
 JOB_OFERECIDO = "NULLIF(current_setting('app.upload_job_id', true), '')::uuid"
 POR_USUARIO = {
@@ -41,7 +41,12 @@ POR_USUARIO_UPLOAD = {
     "upload_bilhetes",
     "upload_arquivos",
 }
-POR_USUARIO_IDEMPOTENCIA = {"movimento_requisicoes", "cruzamento_entradas", "cruzamento_candidatos"}
+POR_USUARIO_IDEMPOTENCIA = {
+    "aposta_consolidacoes",
+    "movimento_requisicoes",
+    "cruzamento_entradas",
+    "cruzamento_candidatos",
+}
 COMPARTILHADAS = {
     "midia_arquivos",
     "casas",

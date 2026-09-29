@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import asyncio
 import time
 from datetime import UTC, datetime, timedelta
 
@@ -23,6 +24,7 @@ from bancaemdia.auth import jwt as auth_jwt
 from bancaemdia.auth import middleware as auth_middleware
 from bancaemdia.config import get_settings
 from bancaemdia.db.session import get_db
+from bancaemdia.domain.account_attribution import AccountResolution, ResolutionStatus
 from bancaemdia.domain.materializar import MOTIVO_APAGADA, projetar
 from bancaemdia.domain.registros import Aposta, ContaCasa, Evento, RevisaoPendente, Usuario
 
@@ -263,6 +265,28 @@ def _cliente(monkeypatch, chave_rsa, banco, usuario_id=USUARIO):
                 return None
             return Usuario(id=id_, email="p@teste.local", nome="P", criado_em=AGORA, ativo=True)
 
+    async def account(*args, **kwargs):
+        await asyncio.sleep(0)
+        state = args[2] if len(args) > 2 and isinstance(args[2], dict) else {}
+        ident = state.get("conta_casa_ref") or state.get("conta_casa_id")
+        return AccountResolution(
+            ResolutionStatus.NONE if ident is None else ResolutionStatus.UNIQUE, ident
+        )
+
+    async def no_account_review(*args, **kwargs):
+        await asyncio.sleep(0)
+        return None
+
+    async def no_relations(*args, **kwargs):
+        await asyncio.sleep(0)
+        return []
+
+    monkeypatch.setattr(rota, "account_for_state", account)
+    monkeypatch.setattr(rota, "attribute_account", account)
+    monkeypatch.setattr(rota, "account_review", no_account_review)
+    from bancaemdia.repositories.aposta_consolidacao import ApostaConsolidacaoRepo
+
+    monkeypatch.setattr(ApostaConsolidacaoRepo, "history", no_relations)
     for nome, classe in banco.repos.items():
         monkeypatch.setattr(rota, nome, classe)
     monkeypatch.setattr(auth_middleware, "get_jwks_cache", lambda: _chaves(publica))
