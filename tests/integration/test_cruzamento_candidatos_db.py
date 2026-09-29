@@ -96,7 +96,12 @@ async def test_exact_candidate_is_persisted_and_repeated_without_financial_mutat
     first = (await pairs(engine_app, user))[0]
     assert first.status == "exact" and first.score == 100
     assert first.evidencia["telegram"]["original"]["evento"] == "Azul - Verde"
-    assert first.revisao_id is None
+    assert first.revisao_id is not None
+    async with AsyncSession(engine_app) as session:
+        await owner(session, user)
+        assert (
+            await session.get(models.RevisaoPendente, first.revisao_id)
+        ).motivo == "consolidacao_pendente"
     await refresh(engine_app, user, tip, raw)
     assert len(await pairs(engine_app, user)) == 1
     async with AsyncSession(engine_app) as session:
@@ -216,6 +221,20 @@ async def test_financial_manual_confirmation_invalidates_candidates_and_reviews(
     engine_app, novo_usuario
 ):
     user = await novo_usuario()
+    async with AsyncSession(engine_app) as session, session.begin():
+        await session.execute(
+            text("SELECT set_config('app.current_user_id', :uid, true)"), {"uid": str(user)}
+        )
+        house_id = await session.scalar(select(models.Casa.id).where(models.Casa.nome == "Betano"))
+        if house_id is None:
+            house_row = models.Casa(nome="Betano", dominio="betano.bet.br")
+            session.add(house_row)
+            await session.flush()
+            house_id = house_row.id
+        session.add(
+            models.ContaCasa(usuario_id=user, casa_id=house_id, apelido="synthetic-default")
+        )
+
     house, _, _ = await create(engine_app, user, "casa")
     tip, _, _ = await create(engine_app, user, "telegram", {"identidade_bilhete": None})
     assert (await pairs(engine_app, user))[0].status == "probable"

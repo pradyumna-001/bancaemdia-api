@@ -178,9 +178,9 @@ async def financial(engine, user):
         )
         relations = list(
             await session.scalars(
-                select(models.ApostaConsolidacao).where(
-                    models.ApostaConsolidacao.usuario_id == user
-                )
+                select(models.ApostaConsolidacao)
+                .where(models.ApostaConsolidacao.usuario_id == user)
+                .order_by(models.ApostaConsolidacao.id)
             )
         )
         return {
@@ -442,3 +442,399 @@ async def test_cross_tenant_rls_fk_and_explicit_reference_fail_closed(
         async with AsyncSession(engine_app) as session, session.begin():
             await owner(session, foreign)
             await consolidate(session, foreign, casa, tip, decision="reviewed", actor_id=foreign)
+
+
+def application(engine, user):
+    from types import SimpleNamespace
+
+    from fastapi import FastAPI
+
+    from bancaemdia.api.deps import get_current_user, get_current_user_snapshot
+    from bancaemdia.api.v1 import apostas, revisao
+    from bancaemdia.db.session import get_db, get_db_snapshot
+
+    app = FastAPI()
+    app.include_router(apostas.router)
+    app.include_router(revisao.router)
+
+    async def database():
+        async with AsyncSession(engine, expire_on_commit=False) as session:
+            await owner(session, user)
+            yield session
+
+    def identity():
+        return SimpleNamespace(id=user)
+
+    for dep in (get_current_user, get_current_user_snapshot):
+        app.dependency_overrides[dep] = identity
+    for dep in (get_db, get_db_snapshot):
+        app.dependency_overrides[dep] = database
+    return app
+
+
+@pytest.mark.parametrize(
+    ("state", "paid", "expected"),
+    [
+        ("Win", 200, "GREEN"),
+        ("Void", 100, "ANULADA"),
+        ("Cashout", 75, "CASHOUT"),
+        ("Lose", 0, "RED"),
+    ],
+)
+async def test_lifecycle_keeps_one_fact_with_independent_paid_value(
+    engine_app, engine_admin, novo_usuario, state, paid, expected
+):
+    user = await novo_usuario()
+    house, ids = await accounts(engine_admin, engine_app, user)
+    ticket = uuid4().hex
+    await intake_telegram(engine_app, user, telegram_payload(ticket))
+    casa = await intake_house(engine_app, user, house, house_payload(ticket))
+    await intake_house(
+        engine_app, user, house, house_payload(ticket, state=state, return_value=paid)
+    )
+    totals, relations = await financial(engine_app, user)
+    assert totals == {"count": 1, "stake": 10000, "return": paid * 100, "exposure": 0}
+    async with AsyncSession(engine_app) as session:
+        await owner(session, user)
+        assert (await session.get(models.Aposta, casa)).estado == expected
+        from bancaemdia.repositories.movimento_repo import MovimentoRepo
+
+        balances = await MovimentoRepo().aggregate_saldos_by_usuario(session, user)
+        assert balances[ids[0]].apostado_centavos == 10000
+        assert balances[ids[0]].retornado_centavos == paid * 100
+    await reconstruir_usuario(user, engine=engine_app)
+    assert (await financial(engine_app, user))[0] == totals
+    assert len(relations) == 1
+
+
+async def test_source_edit_delete_restore_and_private_detail_do_not_bypass_relation(
+    engine_app, engine_admin, novo_usuario
+):
+    import httpx
+
+    user, foreign = await novo_usuario(), await novo_usuario()
+    house, _ = await accounts(engine_admin, engine_app, user)
+    ticket = uuid4().hex
+    casa = await intake_house(engine_app, user, house, house_payload(ticket))
+    tip = await intake_telegram(engine_app, user, telegram_payload(ticket))
+    async with AsyncSession(engine_app) as session:
+        await owner(session, user)
+        sources = {
+            bet.id: bet.chave
+            for bet in await session.scalars(
+                select(models.Aposta).where(models.Aposta.usuario_id == user)
+            )
+        }
+    async with httpx.AsyncClient(
+        transport=httpx.ASGITransport(app=application(engine_app, user)), base_url="http://test"
+    ) as client:
+        response = await client.get("/api/v1/apostas/" + sources[tip])
+        assert response.status_code == 200
+        assert response.json()["fonte_contextual"] is True
+        assert response.json()["aposta"]["apagada"] is False
+        for ident, expected_count in ((tip, 1), (casa, 0)):
+            url = "/api/v1/apostas/" + sources[ident]
+            assert (await client.delete(url)).status_code == 200
+            assert (await financial(engine_app, user))[0]["count"] == expected_count
+            assert (await client.post(url + "/restaurar")).status_code == 200
+            assert (await financial(engine_app, user))[0]["count"] == 1
+        assert (
+            await client.patch(
+                "/api/v1/apostas/" + sources[tip], json={"odd": 3.5, "stake_unidades": 5}
+            )
+        ).status_code == 200
+        assert (await financial(engine_app, user))[0]["stake"] == 10000
+        assert (
+            await client.patch("/api/v1/apostas/" + sources[casa], json={"stake_unidades": 2})
+        ).status_code == 200
+        assert (await financial(engine_app, user))[0]["stake"] == 20000
+    async with httpx.AsyncClient(
+        transport=httpx.ASGITransport(app=application(engine_app, foreign)), base_url="http://test"
+    ) as client:
+        assert (await client.get("/api/v1/apostas/" + sources[tip])).status_code == 404
+        relation = (await financial(engine_app, user))[1][0]
+        assert (
+            await client.post(
+                f"/api/v1/consolidacoes/{relation.id}/desvincular", json={"motivo": "foreign"}
+            )
+        ).status_code == 409
+    await reconstruir_usuario(user, engine=engine_app)
+    assert (await financial(engine_app, user))[0]["stake"] == 20000
+
+
+@pytest.mark.parametrize("side", ["casa", "telegram"])
+async def test_symmetric_competition_serializes_reviewed_decisions_without_deadlock(
+    engine_app, engine_admin, novo_usuario, side
+):
+    user = await novo_usuario()
+    house, _ = await accounts(engine_admin, engine_app, user)
+    first, second = uuid4().hex, uuid4().hex
+    houses = [await intake_house(engine_app, user, house, house_payload(first))]
+    tips = [await intake_telegram(engine_app, user, telegram_payload(first, identity=False))]
+    if side == "casa":
+        houses.append(await intake_house(engine_app, user, house, house_payload(second)))
+        pairs = [(c, tips[0]) for c in houses]
+    else:
+        tips.append(
+            await intake_telegram(engine_app, user, telegram_payload(first, identity=False))
+        )
+        pairs = [(houses[0], t) for t in tips]
+    assert (await financial(engine_app, user))[1] == []
+
+    async def apply(c, t):
+        try:
+            async with AsyncSession(engine_app) as session, session.begin():
+                await owner(session, user)
+                result = await consolidate(session, user, c, t, decision="reviewed", actor_id=user)
+                return result.id
+        except ConsolidacaoRecusadaError:
+            return None
+
+    results = await asyncio.wait_for(asyncio.gather(*(apply(c, t) for c, t in pairs)), timeout=20)
+    assert sum(result is not None for result in results) == 1
+    totals, relations = await financial(engine_app, user)
+    assert totals["count"] == 2 and totals["stake"] == 20000
+    assert len(relations) == 1
+
+
+async def test_context_conflict_requires_choice_and_preserves_both_original_values(
+    engine_app, engine_admin, novo_usuario
+):
+    user = await novo_usuario()
+    house, _ = await accounts(engine_admin, engine_app, user)
+    ticket = uuid4().hex
+    casa = await intake_house(engine_app, user, house, house_payload(ticket))
+    async with AsyncSession(engine_app) as session, session.begin():
+        await owner(session, user)
+        session.add(
+            models.Evento(
+                usuario_id=user,
+                aposta_chave=f"c:betano:{ticket}",
+                tipo="CORRECAO_MANUAL",
+                fonte="manual",
+                payload_json={"tipster": "source-house"},
+            )
+        )
+    tg = telegram_payload(ticket)
+    tg["bilhete"]["tipster"] = "source-telegram"
+    tip = await intake_telegram(engine_app, user, tg)
+    assert (await financial(engine_app, user))[1] == []
+    async with AsyncSession(engine_app) as session, session.begin():
+        await owner(session, user)
+        result = await consolidate(
+            session, user, casa, tip, decision="reviewed", actor_id=user, tipster_choice="telegram"
+        )
+        assert result.contexto["tipster_casa"] == "source-house"
+        assert result.contexto["tipster_telegram"] == "source-telegram"
+        assert result.contexto["escolha"] == "telegram"
+    assert (await financial(engine_app, user))[0]["stake"] == 10000
+
+
+async def test_manual_account_game_date_and_explicit_reference_survive_api_and_replay(
+    engine_app, engine_admin, novo_usuario
+):
+    import httpx
+
+    user = await novo_usuario()
+    _, ids = await accounts(engine_admin, engine_app, user, count=2)
+    boundary = PLACEMENT + timedelta(days=1)
+    async with AsyncSession(engine_app) as session, session.begin():
+        await owner(session, user)
+        await session.execute(
+            update(models.ContaCasa)
+            .where(models.ContaCasa.id == ids[0])
+            .values(ate=boundary, ativa=False)
+        )
+        await session.execute(
+            update(models.ContaCasa).where(models.ContaCasa.id == ids[1]).values(desde=boundary)
+        )
+    async with httpx.AsyncClient(
+        transport=httpx.ASGITransport(app=application(engine_app, user)), base_url="http://test"
+    ) as client:
+        body = {
+            "casa": "Betano",
+            "odd": 2,
+            "stake_unidades": 1,
+            "data_aposta": PLACEMENT.isoformat(),
+            "data_jogo": GAME.isoformat(),
+        }
+        for reference, expected in ((None, ids[1]), (ids[0], ids[0])):
+            request = {**body, **({"conta_casa_ref": reference} if reference else {})}
+            response = await client.post("/api/v1/apostas", json=request)
+            assert response.status_code == 201, response.text
+            assert response.json()["aposta"]["conta_casa_id"] == expected
+        response = await client.post("/api/v1/apostas", json={**body, "data_jogo": None})
+        assert response.status_code == 201 and response.json()["aposta"]["conta_casa_id"] is None
+        assert (
+            await client.post("/api/v1/apostas", json={**body, "conta_casa_ref": 2**63 - 1})
+        ).status_code == 422
+    await reconstruir_usuario(user, engine=engine_app, dry_run=True)
+    await reconstruir_usuario(user, engine=engine_app)
+    async with AsyncSession(engine_app) as session:
+        await owner(session, user)
+        rows = list(
+            await session.scalars(
+                select(models.Aposta)
+                .where(models.Aposta.usuario_id == user)
+                .order_by(models.Aposta.id)
+            )
+        )
+        assert [r.conta_casa_id for r in rows] == [ids[1], ids[0], None]
+
+
+@pytest.mark.parametrize("complete", [True, False])
+async def test_multiple_ticket_requires_every_leg_for_automatic_consolidation(
+    engine_app, engine_admin, novo_usuario, complete
+):
+    user = await novo_usuario()
+    house, _ = await accounts(engine_admin, engine_app, user)
+    ticket = uuid4().hex
+    raw, tg = house_payload(ticket), telegram_payload(ticket)
+    second = copy.deepcopy(raw["legs"][0]["legItems"][0])
+    second.update(eventId="synthetic-43", eventName="Laranja - Branco")
+    raw["legs"].append({"legItems": [second]})
+    tg["bilhete"]["tipo"] = "multipla"
+    tg["bilhete"]["selecoes"][0]["odd"] = None
+    if complete:
+        tg["bilhete"]["selecoes"].append({
+            **tg["bilhete"]["selecoes"][0],
+            "evento": "Laranja - Branco",
+        })
+    await intake_house(engine_app, user, house, raw)
+    await intake_telegram(engine_app, user, tg)
+    totals, relations = await financial(engine_app, user)
+    assert totals["count"] == (1 if complete else 2)
+    assert len(relations) == (1 if complete else 0)
+
+
+@pytest.mark.parametrize("change", ["correction", "deleted", "saturated"])
+async def test_revalidation_refuses_previous_exact_after_source_or_search_changes(
+    engine_app, engine_admin, novo_usuario, change
+):
+    user = await novo_usuario()
+    house, _ = await accounts(engine_admin, engine_app, user, count=0)
+    ticket = uuid4().hex
+    casa = await intake_house(engine_app, user, house, house_payload(ticket))
+    tip = await intake_telegram(engine_app, user, telegram_payload(ticket))
+    async with AsyncSession(engine_app) as session:
+        await owner(session, user)
+        candidate = await session.scalar(
+            select(models.CruzamentoCandidato).where(models.CruzamentoCandidato.usuario_id == user)
+        )
+        assert candidate.status == "exact"
+        ident = candidate.id
+    if change == "saturated":
+        # Each filler crosses the real intake/matching path, including hidden saturation markers.
+        for _ in range(201):
+            await intake_telegram(engine_app, user, telegram_payload(uuid4().hex))
+    else:
+        async with AsyncSession(engine_app) as session, session.begin():
+            await owner(session, user)
+            values = {"odd": 3} if change == "correction" else {"selecionada": False}
+            await session.execute(
+                update(models.Aposta).where(models.Aposta.id == tip).values(**values)
+            )
+    await accounts(engine_admin, engine_app, user)
+    with pytest.raises(ConsolidacaoRecusadaError):
+        async with AsyncSession(engine_app) as session, session.begin():
+            await owner(session, user)
+            await consolidate(session, user, casa, tip, candidate_id=ident)
+    assert (await financial(engine_app, user))[1] == []
+
+
+async def test_panel_refresh_filters_export_and_cash_use_same_single_fact(
+    engine_app, engine_admin, novo_usuario, tmp_path
+):
+    from openpyxl import load_workbook
+
+    from bancaemdia.cli.refresh_painel import refresh_painel
+    from bancaemdia.domain.painel import FiltrosPainel, SecaoExportacao
+    from bancaemdia.exportacao.painel_xlsx import AbaXlsxAssincrona, gerar_painel_xlsx_assincrono
+    from bancaemdia.repositories.movimento_repo import MovimentoRepo
+    from bancaemdia.repositories.painel_repo import PainelRepo
+
+    user = await novo_usuario()
+    house, ids = await accounts(engine_admin, engine_app, user)
+    ticket = uuid4().hex
+    await intake_house(engine_app, user, house, house_payload(ticket))
+    await intake_telegram(engine_app, user, telegram_payload(ticket))
+    await intake_house(engine_app, user, house, house_payload(ticket, state="Win"))
+    async with AsyncSession(engine_app) as session, session.begin():
+        await owner(session, user)
+        session.add(
+            models.Movimento(
+                usuario_id=user,
+                conta_casa_id=ids[0],
+                tipo="DEPOSITO",
+                valor_centavos=50000,
+                ocorrido_em=PLACEMENT - timedelta(days=1),
+            )
+        )
+    refreshed = await refresh_painel(engine_admin)
+    async with AsyncSession(engine_app) as session:
+        await owner(session, user)
+        balances = await MovimentoRepo().aggregate_saldos_by_usuario(session, user)
+        assert balances[ids[0]].saldo_centavos == 60000
+        for filter_house in (None, house):
+            filters = FiltrosPainel.criar(
+                "all", casa_id=filter_house, agora=GAME + timedelta(days=1)
+            )
+            panel = await PainelRepo().consultar(session, user, filters)
+            assert panel.resumo.total_apostas == 1
+            assert panel.resumo.giro_centavos == 10000
+            assert panel.resumo.lucro_centavos == 10000
+            assert panel.resumo.roi_basis_points == 10000
+            assert panel.frescor.atualizado_em == refreshed
+            rows = [
+                r
+                async for r in PainelRepo().iterar_exportacao(
+                    session, user, filters, secoes=(SecaoExportacao.RESUMO,)
+                )
+            ]
+            assert len(rows) == 1 and rows[0].valores["giro_centavos"] == 10000
+
+            async def excel_rows():
+                for row in rows:
+                    await asyncio.sleep(0)
+                    yield [row.valores["giro_centavos"], row.valores["lucro_centavos"]]
+
+            file = await gerar_painel_xlsx_assincrono(
+                [AbaXlsxAssincrona("Resumo", ("Stake", "Lucro"), excel_rows())],
+                diretorio_temporario=tmp_path,
+            )
+            workbook = load_workbook(file.caminho, read_only=True, data_only=True)
+            assert list(workbook.active.values) == [("Stake", "Lucro"), (10000, 10000)]
+            workbook.close()
+
+
+async def test_replay_reconstructs_missing_relation_from_audit_without_live_candidates(
+    engine_app, engine_admin, novo_usuario
+):
+    from bancaemdia.services.consolidacao_replay import replay_relations
+
+    user = await novo_usuario()
+    house, _ = await accounts(engine_admin, engine_app, user)
+    ticket = uuid4().hex
+    await intake_house(engine_app, user, house, house_payload(ticket))
+    await intake_telegram(engine_app, user, telegram_payload(ticket))
+    totals, original = await financial(engine_app, user)
+    async with engine_admin.begin() as conn:
+        # Fault injection only on synthetic projections; never a product deletion capability.
+        await conn.execute(
+            text("ALTER TABLE aposta_consolidacoes DISABLE TRIGGER consolidation_immutable")
+        )
+        await conn.execute(
+            text("DELETE FROM aposta_consolidacoes WHERE usuario_id=:u"), {"u": user}
+        )
+        await conn.execute(
+            text("ALTER TABLE aposta_consolidacoes ENABLE TRIGGER consolidation_immutable")
+        )
+    async with AsyncSession(engine_app) as session, session.begin():
+        await owner(session, user)
+        assert await replay_relations(session, user) == 1
+    restored = (await financial(engine_app, user))[1]
+    assert restored[0].id == original[0].id
+    assert restored[0].evidencia == original[0].evidencia
+    assert restored[0].contexto == original[0].contexto
+    await reconstruir_usuario(user, engine=engine_app)
+    assert (await financial(engine_app, user))[0] == totals

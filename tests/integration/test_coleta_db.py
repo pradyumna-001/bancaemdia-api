@@ -265,7 +265,9 @@ async def test_held_house_bet_opens_a_review_linked_to_its_raw_row(
     await materialization.gravar_coleta(engine_app, usuario, coleta_id)
 
     async with como(engine_app, usuario) as session:
-        (revisao,) = await RevisaoPendenteRepo().list_by_usuario(session, usuario)
+        reviews = await RevisaoPendenteRepo().list_by_usuario(session, usuario)
+        assert len([r for r in reviews if r.motivo == "conta_pendente"]) == 1
+        (revisao,) = [r for r in reviews if r.motivo != "conta_pendente"]
     assert "bonusType=3" in revisao.motivo
     assert revisao.extracao_bruta is not None
     assert revisao.extracao_bruta["coleta_id"] == coleta_id

@@ -55,7 +55,7 @@ Depósitos, saques, bônus, transferências, freebet e UNASSIGNED mantêm suas f
 Liquidação e correções Casa atualizam o mesmo fato; releitura Telegram não altera
 seus valores. Exclusão/restauração de qualquer fonte não desfaz a relação.
 
-O painel usa materialized views e o refresh/invalidação Redis já existentes.
+O painel usa materialized views com refresh explícito e respostas HTTP `private, no-store`. Não há cache financeiro Redis neste caminho.
 Commit não promete refresh instantâneo: o painel informa seu frescor; caixa,
 extrato e listagens leem a projeção transacional atual. A migration recompõe as
 views e preserva os grants do resumo. Não há movimento compensatório artificial.

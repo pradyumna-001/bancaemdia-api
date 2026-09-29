@@ -111,6 +111,20 @@ async def test_manual_confirmation_of_an_uncertain_pair_keeps_the_house_bet(
     engine_app: AsyncEngine, novo_usuario: Callable[[], Awaitable[int]]
 ) -> None:
     usuario = await novo_usuario()
+    async with AsyncSession(engine_app) as session, session.begin():
+        await session.execute(
+            text("SELECT set_config('app.current_user_id', :uid, true)"), {"uid": str(usuario)}
+        )
+        house_id = await session.scalar(select(models.Casa.id).where(models.Casa.nome == "Betano"))
+        if house_id is None:
+            house_row = models.Casa(nome="Betano", dominio="betano.bet.br")
+            session.add(house_row)
+            await session.flush()
+            house_id = house_row.id
+        session.add(
+            models.ContaCasa(usuario_id=usuario, casa_id=house_id, apelido="synthetic-default")
+        )
+
     payload = {
         "casa": "Betano",
         "evento": "Internacional - Corinthians",
@@ -137,5 +151,15 @@ async def test_manual_confirmation_of_an_uncertain_pair_keeps_the_house_bet(
         aposta_casa = await ApostaRepo().get_by_chave(session, usuario, casa)
         aposta_dica = await ApostaRepo().get_by_chave(session, usuario, dica)
         assert aposta_casa is not None and aposta_dica is not None
-        assert aposta_casa.selecionada is True and aposta_casa.parceira_chave == dica
-        assert aposta_dica.selecionada is False and aposta_dica.duvida_de_par is False
+        assert aposta_casa.selecionada is True and aposta_casa.parceira_chave is None
+        assert aposta_dica.selecionada is True and aposta_dica.duvida_de_par is False
+        relations = list(
+            await session.scalars(
+                select(models.ApostaConsolidacao).where(
+                    models.ApostaConsolidacao.usuario_id == usuario
+                )
+            )
+        )
+        assert len(relations) == 1 and relations[0].estado == "active"
+        listed, count = await ApostaRepo().list_page(session, usuario, {})
+        assert count == 1 and listed[0].chave == casa

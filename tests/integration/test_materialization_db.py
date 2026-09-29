@@ -110,6 +110,8 @@ async def test_grave_reading_opens_one_review_even_when_resent(
 
     async with como(engine_app, usuario) as session:
         revisoes = await RevisaoPendenteRepo().list_by_usuario(session, usuario)
+    assert len([r for r in revisoes if r.motivo == "conta_pendente"]) == 1
+    revisoes = [r for r in revisoes if r.motivo != "conta_pendente"]
     assert [(r.motivo, r.midia_hash) for r in revisoes] == [
         ("coerência das odds: diverge", "hash-da-foto")
     ]
@@ -168,15 +170,17 @@ async def test_reviews_follow_the_latest_reading(
         abertas_depois = await RevisaoPendenteRepo().list_by_usuario(session, usuario)
         todas = await RevisaoPendenteRepo().list_by_usuario(session, usuario, apenas_abertas=False)
 
-    assert [r.motivo for r in abertas] == ["motivo B"]
-    assert abertas_depois == []
-    assert sorted(r.motivo for r in todas) == ["motivo A", "motivo B"]
+    assert [r.motivo for r in abertas] == ["conta_pendente", "motivo B"]
+    assert [r.motivo for r in abertas_depois] == ["conta_pendente"]
+    assert sorted(r.motivo for r in todas) == ["conta_pendente", "motivo A", "motivo B"]
 
 
 async def test_bet_goes_to_the_users_account_at_the_house_it_was_read_from(
     engine_admin: AsyncEngine, engine_app: AsyncEngine, como: Como, novo_usuario: NovoUsuario
 ) -> None:
     usuario = await novo_usuario()
+    dated = _extracao()
+    dated["bilhete"]["quando"] = "2026-07-26T18:00:00-03:00"
     async with engine_admin.begin() as conn:
         await conn.execute(
             insert(models.Casa)
@@ -188,13 +192,21 @@ async def test_bet_goes_to_the_users_account_at_the_house_it_was_read_from(
         conta = await ContaCasaRepo().create(session, {"usuario_id": usuario, "casa_id": casa_id})
         await session.commit()
 
-    await _materializar(engine_app, usuario, _extracao())
+    await _materializar(
+        engine_app,
+        usuario,
+        dated,
+    )
     aposta = await _aposta(engine_app, como, usuario)
     async with engine_admin.begin() as conn:
         await conn.execute(
             update(models.ContaCasa).where(models.ContaCasa.id == conta.id).values(ativa=False)
         )
-    await _materializar(engine_app, usuario, _extracao())
+    await _materializar(
+        engine_app,
+        usuario,
+        dated,
+    )
     reenviada = await _aposta(engine_app, como, usuario)
 
     assert aposta is not None and aposta.conta_casa_id == conta.id

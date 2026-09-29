@@ -6,6 +6,7 @@ from typing import Any, Literal
 
 from prometheus_client import Counter
 from sqlalchemy import or_, select, text
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from bancaemdia import models
@@ -274,8 +275,18 @@ async def consolidate(
         contexto=context,
         ator=f"usuario:{user}" if decision == "reviewed" else "worker",
     )
-    session.add(relation)
-    await session.flush()
+    try:
+        async with session.begin_nested():
+            session.add(relation)
+            await session.flush()
+    except IntegrityError as error:
+        original = error.orig
+        cause = getattr(original, "__cause__", None)
+        constraint = getattr(cause, "constraint_name", None)
+        if constraint in {"uq_consolidacao_casa_ativa", "uq_consolidacao_telegram_ativa"}:
+            outcomes.labels(decision=decision, result="conflict").inc()
+            raise ConsolidacaoRecusadaError("uma das fontes já pertence a outro fato") from error
+        raise
     # A valid assignment is part of the canonical fact; original source fields remain in events.
     house.conta_casa_id = account.conta_casa_id
     house.tipster_id = chosen
