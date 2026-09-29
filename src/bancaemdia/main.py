@@ -16,7 +16,7 @@ from bancaemdia.api.contracts import (
     ReadinessResponse,
 )
 from bancaemdia.api.openapi import build_openapi
-from bancaemdia.api.v1 import apostas, caixa, coleta, painel, revisao, upload
+from bancaemdia.api.v1 import apostas, caixa, calculators, coleta, painel, revisao, upload
 from bancaemdia.auth.middleware import JWTAuthMiddleware
 from bancaemdia.config import get_settings
 from bancaemdia.db.session import LAG_CHECK_SECONDS, engine, replica_engine, replica_lag_seconds
@@ -89,6 +89,7 @@ app.include_router(apostas.router)
 app.include_router(caixa.router)
 app.include_router(painel.router)
 app.include_router(revisao.router)
+app.include_router(calculators.router)
 
 
 # O teto de tamanho é registrado primeiro para rodar por DENTRO dos outros: por fora de um

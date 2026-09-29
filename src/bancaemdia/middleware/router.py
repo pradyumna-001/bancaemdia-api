@@ -13,6 +13,7 @@ SAFE_METHODS = frozenset({"GET", "HEAD", "OPTIONS"})
 WRITE_WINDOW_SECONDS = 5.0
 READ_REPLICA_HEADER = "X-Read-Replica"
 PAINEL_PATH = "/api/v1/painel"
+CALCULATOR_PREFIX = "/api/v1/calculadoras/"
 # Os valores que o FastAPI lê como verdadeiro num `fresh: bool` (medido): comparar só "true" mandaria
 # `fresh=1` à cópia enquanto a rota acha que leu o dado fresco.
 TRUE_VALUES = frozenset({"1", "true", "t", "yes", "y", "on"})
@@ -49,6 +50,8 @@ def get_recent_writes() -> RecentWrites:
 
 
 def needs_primary(request: Request, usuario_id: int | None, writes: RecentWrites) -> bool:
+    if route_path(request).startswith(CALCULATOR_PREFIX):
+        return False
     if request.method not in SAFE_METHODS:
         return True
     if (request.headers.get(READ_REPLICA_HEADER) or "").strip().lower() == "false":
@@ -72,5 +75,9 @@ class RouterMiddleware(BaseHTTPMiddleware):
             return await call_next(request)
         finally:
             use_primary.reset(token)
-            if request.method not in SAFE_METHODS and usuario_id is not None:
+            if (
+                request.method not in SAFE_METHODS
+                and usuario_id is not None
+                and not route_path(request).startswith(CALCULATOR_PREFIX)
+            ):
                 writes.mark(usuario_id)

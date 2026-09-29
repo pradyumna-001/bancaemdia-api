@@ -20,6 +20,22 @@ MANUAL_BET_HOUSES = sorted(
 
 
 OPERATION_DOCUMENTATION: dict[OperationKey, tuple[str, str]] = {
+    ("post", "/api/v1/calculadoras/mercado-justo"): (
+        "Normalizar mercado justo",
+        "Normaliza proporcionalmente um mercado completo; os resultados devem ser mutuamente exclusivos e completos. Odds não comprovam completude nem probabilidade verdadeira.",
+    ),
+    ("post", "/api/v1/calculadoras/distribuir-entre-resultados"): (
+        "Distribuir entre resultados",
+        "Equaliza retornos, expõe lucro ou perda após arredondamento em cada resultado e identifica arbitragem quando todos são lucrativos.",
+    ),
+    ("post", "/api/v1/calculadoras/cobertura-ao-vivo"): (
+        "Calcular cobertura ao vivo",
+        "Mercado binário com stakes em dinheiro. Calcula a cobertura que equaliza o lucro dos dois desfechos; a comissão incide sobre o lucro da aposta vencedora. Sem freebet, cashout parcial ou push asiático.",
+    ),
+    ("post", "/api/v1/calculadoras/percentual-banca"): (
+        "Calcular percentual da banca",
+        "Converte percentual em stake ou stake em percentual, com banca fornecida na requisição.",
+    ),
     ("post", "/coleta"): (
         "Receber coleta da extensão",
         "Recebe um lote bruto capturado pela extensão e agenda a materialização idempotente.",
@@ -165,6 +181,29 @@ PARAMETER_DESCRIPTIONS = {
 
 
 REQUEST_EXAMPLES: dict[OperationKey, tuple[str, JsonObject]] = {
+    ("post", "/api/v1/calculadoras/mercado-justo"): (
+        "Mercado binário completo",
+        {"outcomes": [{"name": "A", "odd": "1.90"}, {"name": "B", "odd": "1.90"}]},
+    ),
+    ("post", "/api/v1/calculadoras/distribuir-entre-resultados"): (
+        "Resultados mutuamente exclusivos",
+        {
+            "outcomes": [{"name": "A", "odd": "2.10"}, {"name": "B", "odd": "2.10"}],
+            "total_stake_centavos": 10000,
+        },
+    ),
+    ("post", "/api/v1/calculadoras/cobertura-ao-vivo"): (
+        "Cobertura binária",
+        {
+            "original_stake_centavos": 10000,
+            "original_odd": "1.50",
+            "opposing_odd": "3.00",
+        },
+    ),
+    ("post", "/api/v1/calculadoras/percentual-banca"): (
+        "Modo direto",
+        {"bankroll_centavos": 100000, "percentage": "5"},
+    ),
     ("patch", "/api/v1/caixa/contas/{conta_casa_id}/banca"): (
         "Vincular conta à banca",
         {"banca_id": 12},
