@@ -110,6 +110,9 @@ async def _preparar_papel(url_admin: str) -> None:
                     f"telegram_link_record_failure(text,text), telegram_link_clear_attempts(text) TO {PAPEL}"
                 )
             )
+            await conn.execute(
+                text(f"GRANT EXECUTE ON FUNCTION create_user_profile(text,text) TO {PAPEL}")
+            )
     finally:
         await engine.dispose()
 

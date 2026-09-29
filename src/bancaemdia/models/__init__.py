@@ -82,3 +82,18 @@ __all__ = [
     "UsoContaCasa",
     "Usuario",
 ]
+
+
+__all__ += ["Assinatura"]
+
+
+__all__ += ["AuditLog"]
+
+
+__all__ += ["BillingPrice"]
+
+
+__all__ += ["BillingPriceAudit"]
+
+
+__all__ += ["BillingRollout"]
