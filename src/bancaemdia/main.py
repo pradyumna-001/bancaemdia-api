@@ -8,7 +8,6 @@ from fastapi.concurrency import run_in_threadpool
 from fastapi.responses import JSONResponse, Response
 from prometheus_client import CONTENT_TYPE_LATEST, generate_latest
 from sqlalchemy import text
-from starlette.middleware.body_limit import RequestBodyLimitMiddleware
 
 from bancaemdia.api.contracts import (
     COMMON_ERROR_RESPONSES,
@@ -16,7 +15,7 @@ from bancaemdia.api.contracts import (
     ReadinessResponse,
 )
 from bancaemdia.api.openapi import build_openapi
-from bancaemdia.api.v1 import apostas, caixa, coleta, painel, revisao, upload
+from bancaemdia.api.v1 import apostas, caixa, coleta, painel, revisao, upload, usuario
 from bancaemdia.auth.middleware import JWTAuthMiddleware
 from bancaemdia.config import get_settings
 from bancaemdia.db.session import LAG_CHECK_SECONDS, engine, replica_engine, replica_lag_seconds
@@ -34,6 +33,7 @@ from bancaemdia.observability.logging import (
 from bancaemdia.observability.metrics import instrument_http_metrics, metrics_registry
 from bancaemdia.observability.tracing import configure_tracing
 from bancaemdia.resilience.circuit_breaker import breaker_states
+from bancaemdia.security.http import EndpointBodyLimitMiddleware, SecurityHeadersMiddleware
 from bancaemdia.workers.celery_app import get_queue_depth_collector
 
 settings = get_settings()
@@ -82,6 +82,8 @@ app = BancaemdiaAPI(
         "dashboard workflows. The checked-in OpenAPI document is the compatibility contract."
     ),
     lifespan=lifespan,
+    docs_url=None if settings.APP_ENV == "production" else "/docs",
+    redoc_url=None if settings.APP_ENV == "production" else "/redoc",
 )
 app.include_router(coleta.router)
 app.include_router(upload.router)
@@ -89,14 +91,12 @@ app.include_router(apostas.router)
 app.include_router(caixa.router)
 app.include_router(painel.router)
 app.include_router(revisao.router)
+app.include_router(usuario.router)
 
 
 # O teto de tamanho é registrado primeiro para rodar por DENTRO dos outros: por fora de um
 # BaseHTTPMiddleware o 413 dele vira 500 (medido).
-app.add_middleware(
-    RequestBodyLimitMiddleware,
-    max_body_size=get_settings().UPLOAD_MAX_BYTES + upload.MARGEM_DO_FORMULARIO,
-)
+app.add_middleware(EndpointBodyLimitMiddleware)
 # O roteador precisa do usuário que a autenticação põe no pedido: registrado primeiro, ele roda por
 # último, depois da autenticação e do RLS.
 app.add_middleware(RouterMiddleware)
@@ -126,6 +126,7 @@ configure_tracing(
     environment=settings.APP_ENV,
     otlp_endpoint=settings.OTEL_EXPORTER_OTLP_ENDPOINT,
 )
+app.add_middleware(SecurityHeadersMiddleware)
 
 
 @app.get(

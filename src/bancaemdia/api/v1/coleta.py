@@ -15,6 +15,7 @@ from bancaemdia.api.contracts import COLETA_ERROR_RESPONSES, CollectionResponse
 from bancaemdia.coleta.leitores import LEITORES
 from bancaemdia.coleta.leitura import ColetaInvalidaError
 from bancaemdia.config import get_settings
+from bancaemdia.core.body_limits import COLETA_MAX_BYTES
 from bancaemdia.db.session import get_db
 from bancaemdia.domain.coleta_casa import (
     ApostaInvalidaError,
@@ -40,7 +41,7 @@ from bancaemdia.workers.celery_app import app as celery
 
 TOKEN_HEADER = "X-Coleta-Token"
 CONTRATO = 1
-TAMANHO_MAXIMO = 5 * 1024 * 1024
+TAMANHO_MAXIMO = COLETA_MAX_BYTES
 APOSTAS_POR_ENVIO = 1000
 TAREFA = "materialization.materializar_coleta"
 
