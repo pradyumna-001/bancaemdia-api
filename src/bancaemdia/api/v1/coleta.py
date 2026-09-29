@@ -218,6 +218,7 @@ async def receber_coleta(request: Request, session: AsyncSession = Depends(get_d
 
     # O teto vem antes de ler o corpo: quem já passou dele não custa nem a memória do envio.
     hoje = datetime.now(UTC).replace(hour=0, minute=0, second=0, microsecond=0)
+    await ColetaCasaRepo().lock_daily_admission(session, usuario_id)
     quantas = await ColetaCasaRepo().count_received_since(session, usuario_id, hoje)
     recado = recado_de_teto(quantas, get_settings().COLETA_DAILY_LIMIT)
     if recado is not None:

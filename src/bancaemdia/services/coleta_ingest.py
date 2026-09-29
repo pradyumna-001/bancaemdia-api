@@ -1,6 +1,6 @@
 """Atomic submission ACKs and a durable, restartable collection inbox."""
 
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 from uuid import UUID
 
 import structlog
@@ -9,6 +9,7 @@ from prometheus_client import Counter
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from bancaemdia.config import get_settings
 from bancaemdia.domain.coleta_provenance import (
     HOSTS,
     MAX_ITEM_BYTES,
@@ -17,6 +18,7 @@ from bancaemdia.domain.coleta_provenance import (
     safe_payload,
 )
 from bancaemdia.models.coleta_sessao import ColetaEntrega, ColetaSessao
+from bancaemdia.repositories.coleta_casa_repo import ColetaCasaRepo
 from bancaemdia.repositories.coleta_instalacao import CollectionIdentity
 from bancaemdia.schemas.coleta_v2 import BatchAck, CollectionBatch, SubmissionAck
 from bancaemdia.services.coleta_tokens import digest
@@ -58,6 +60,12 @@ async def submit(
     session: AsyncSession, identity: CollectionIdentity, batch: CollectionBatch
 ) -> BatchAck:
     boundary = await session_for(session, identity, batch.sessao_id)
+    repository = ColetaCasaRepo()
+    await repository.lock_daily_admission(session, identity.usuario_id)
+    now = datetime.now(UTC)
+    today = now.replace(hour=0, minute=0, second=0, microsecond=0)
+    used = await repository.count_received_since(session, identity.usuario_id, today)
+    limit = get_settings().COLETA_DAILY_LIMIT
     acks = []
     for item in batch.items:
         envelope = item.model_dump(mode="json")
@@ -98,6 +106,17 @@ async def submit(
             reason = "content_hash_mismatch"
         prior = None
         if reason is None:
+            if limit and used >= limit:
+                raise HTTPException(
+                    429,
+                    "Daily collection limit reached",
+                    headers={
+                        "Retry-After": str(
+                            max(1, int((today + timedelta(days=1) - now).total_seconds()))
+                        )
+                    },
+                )
+            used += 1
             prior = await session.scalar(
                 select(ColetaEntrega.id)
                 .where(

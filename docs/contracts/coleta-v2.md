@@ -90,6 +90,13 @@ Um envelope estruturalmente inválido recebe 422 sem ACK; 401 indica credencial
 inválida, 429 inclui Retry-After, 413 indica excesso de corpo e 5xx permite repetir
 IDs idênticos. Limites por credencial reutilizam COLETA_RATE_LIMIT e o backend de
 rate limit existente. Itens semanticamente recusados não derrubam seus vizinhos.
+COLETA_DAILY_LIMIT também limita a admissão por usuário/dia UTC, compartilhada
+entre instalações e protocolos: conta as capturas v2 aceitas (inclusive novo ID
+com conteúdo repetido) e os registros legados ainda sem versão v2. Materializar
+uma captura não a conta novamente. Zero desabilita esse teto. Um lock transacional
+no PostgreSQL serializa a admissão; um lote v2 que ultrapassaria o teto recebe
+429 com Retry-After até o próximo dia, sem commit parcial. Repetir IDs já aceitos
+devolve o ACK original mesmo no teto; dividir o lote permite recuperar esses ACKs.
 retryable=false no ACK significa que o recebimento está decidido; pending é
 responsabilidade do servidor, não pedido para reenviar conteúdo novo.
 

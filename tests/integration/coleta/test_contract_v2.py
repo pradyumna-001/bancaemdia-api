@@ -70,6 +70,10 @@ def capture(account=None, **changes):
 
 @pytest.fixture
 async def api(system, monkeypatch):
+    from bancaemdia.config import get_settings
+
+    monkeypatch.setenv("COLETA_RATE_LIMIT", "1000/minute")
+    get_settings.cache_clear()
     monkeypatch.setattr(coleta_sessoes, "notify_worker", lambda: None)
     paired = await system.pair()
     headers = {"X-Coleta-Token": paired["token"]}
@@ -106,7 +110,7 @@ async def api(system, monkeypatch):
     async def run(ack):
         return await coleta_v2.process_job(system.engine, system.user, UUID(ack["job_id"]))
 
-    return SimpleNamespace(**{
+    yield SimpleNamespace(**{
         **vars(system),
         "headers": headers,
         "paired": paired,
@@ -117,6 +121,7 @@ async def api(system, monkeypatch):
         "run": run,
         "status": status,
     })
+    get_settings.cache_clear()
 
 
 async def test_mixed_batch_stable_ack_and_lossless_raw_replay(api):
@@ -547,6 +552,77 @@ async def test_401_429_unknown_version_and_no_admission_on_failures(api, monkeyp
         assert "Retry-After" in second.headers
     finally:
         get_settings.cache_clear()
+
+
+async def test_daily_limit_rolls_back_batch_and_preserves_original_ack(api, monkeypatch):
+    from bancaemdia.config import get_settings
+
+    monkeypatch.setattr(get_settings(), "COLETA_DAILY_LIMIT", 1)
+    first, second = capture(api.account), capture(api.account)
+    refused = await api.send([first, second])
+    assert refused.status_code == 429 and int(refused.headers["Retry-After"]) > 0
+    async with api.admin.connect() as conn:
+        assert (
+            await conn.scalar(
+                select(func.count())
+                .select_from(ColetaEntrega)
+                .where(ColetaEntrega.usuario_id == api.user)
+            )
+            == 0
+        )
+    ack = (await api.send([first])).json()["items"][0]
+    assert await api.run(ack) == "materialized"
+    assert (await api.send([first])).json()["items"] == [ack]
+    assert (await api.send([second])).status_code == 429
+    legacy = await api.http.post(
+        PREFIX,
+        headers=api.headers,
+        json={
+            "contrato": 1,
+            "casa": "betano",
+            "apostas": [second["payload"]],
+        },
+    )
+    assert legacy.status_code == 429
+
+
+async def test_daily_limit_is_shared_across_concurrent_installations(api, monkeypatch):
+    from bancaemdia.config import get_settings
+
+    monkeypatch.setattr(get_settings(), "COLETA_DAILY_LIMIT", 1)
+    other = await api.pair()
+    headers = {"X-Coleta-Token": other["token"]}
+    response = await api.http.post(
+        PREFIX + "/sessions",
+        headers=headers,
+        json={
+            "coletar_desde": api.boundary,
+        },
+    )
+    assert response.status_code == 200
+    responses = await asyncio.gather(
+        api.send([capture(api.account)]),
+        api.http.post(
+            PREFIX + "/batches",
+            headers=headers,
+            json={
+                "contrato": 2,
+                "batch_id": str(uuid4()),
+                "sessao_id": response.json()["sessao_id"],
+                "items": [capture(api.account)],
+            },
+        ),
+    )
+    assert sorted(r.status_code for r in responses) == [200, 429]
+    async with api.admin.connect() as conn:
+        assert (
+            await conn.scalar(
+                select(func.count())
+                .select_from(ColetaEntrega)
+                .where(ColetaEntrega.usuario_id == api.user)
+            )
+            == 1
+        )
 
 
 async def test_hash_tamper_is_terminal_and_never_materializes(api):
