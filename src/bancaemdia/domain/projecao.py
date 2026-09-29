@@ -64,6 +64,7 @@ TIPOS_DE_APOSTA = frozenset({
     "REVISAO_RESOLVIDA",
     "APOSTAS_CONSOLIDADAS",
     "CONSOLIDACAO_DESVINCULADA",
+    "CONSOLIDACAO_REJEITADA",
 })
 
 
@@ -100,6 +101,7 @@ def projetar(eventos: Iterable[tuple[str, str, dict[str, Any]]]) -> tuple[dict[s
             if estado.get("origem") == "casa":
                 estado["conta_casa_id"] = payload["conta_casa_id"]
                 estado["tipster_id"] = payload["contexto"].get("tipster_id")
+                estado["tipster"] = payload["contexto"].get("tipster")
         elif tipo == "CONSOLIDACAO_DESVINCULADA":
             estado["consolidacao_id"] = None
             if estado.get("origem") == "casa":

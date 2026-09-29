@@ -582,6 +582,9 @@ async def criar_aposta(
     # A chave manual não vem de mensagem nenhuma; os prefixos `t:` e `c:` já dizem de onde as
     # outras vieram.
     chave = f"m:{uuid4().hex}"
+    from bancaemdia.repositories.cruzamento_candidato import CruzamentoCandidatoRepo
+
+    await CruzamentoCandidatoRepo().lock(session, usuario.id)
     data_aposta = _data_do_estado(manual.data_aposta) or datetime.now(FUSO_DO_BRASIL)
     unidade = await UnidadeRepo().get_vigente(session, usuario.id, data_aposta)
     valor_unidade = VALOR_UNIDADE_PADRAO_CENTAVOS if unidade is None else unidade.valor_centavos
@@ -764,6 +767,9 @@ async def importar_planilha(
             if gravada is None:
                 raise RuntimeError(f"a linha {linha.numero} foi alterada durante a importação")
         await session.commit()
+    except InvalidAccountReferenceError as error:
+        await session.rollback()
+        return erro(status.HTTP_422_UNPROCESSABLE_ENTITY, str(error))
     except Exception:
         await session.rollback()
         raise

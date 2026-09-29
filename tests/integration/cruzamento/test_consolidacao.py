@@ -504,6 +504,76 @@ async def test_lifecycle_keeps_one_fact_with_independent_paid_value(
         assert balances[ids[0]].retornado_centavos == paid * 100
     await reconstruir_usuario(user, engine=engine_app)
     assert (await financial(engine_app, user))[0] == totals
+
+
+@pytest.mark.parametrize("action", ["MESMA", "CORRIGIR"])
+async def test_actual_review_api_confirms_or_durably_rejects_the_candidate(
+    engine_app, engine_admin, novo_usuario, action
+):
+    import httpx
+
+    user = await novo_usuario()
+    house, _ = await accounts(engine_admin, engine_app, user)
+    ticket = uuid4().hex
+    await intake_house(engine_app, user, house, house_payload(ticket))
+    await intake_telegram(engine_app, user, telegram_payload(ticket, identity=False))
+    async with AsyncSession(engine_app) as session:
+        await owner(session, user)
+        pair = await session.scalar(
+            select(models.CruzamentoCandidato).where(models.CruzamentoCandidato.usuario_id == user)
+        )
+        assert pair.status == "probable" and pair.revisao_id
+        review_id = pair.revisao_id
+    async with httpx.AsyncClient(
+        transport=httpx.ASGITransport(app=application(engine_app, user)), base_url="http://test"
+    ) as client:
+        request = {"acao": action}
+        if action == "CORRIGIR":
+            request["aposta_corrigida"] = {"odd": 2.1}
+        response = await client.post(f"/api/v1/revisao/{review_id}/resolver", json=request)
+        assert response.status_code == 200, response.text
+    totals, relations = await financial(engine_app, user)
+    assert totals["count"] == (1 if action == "MESMA" else 2)
+    assert len(relations) == 1 and relations[0].estado == (
+        "active" if action == "MESMA" else "rejected"
+    )
+    await reconstruir_usuario(user, engine=engine_app)
+    assert (await financial(engine_app, user))[0] == totals
+
+
+async def test_consolidation_diagnostics_keep_sensitive_sentinels_out_of_labels_and_spans(
+    engine_app, engine_admin, novo_usuario, monkeypatch, caplog
+):
+    from opentelemetry.sdk.trace import TracerProvider
+    from opentelemetry.sdk.trace.export import SimpleSpanProcessor
+    from opentelemetry.sdk.trace.export.in_memory_span_exporter import InMemorySpanExporter
+
+    from bancaemdia.domain.consolidacao_aposta import outcomes
+    from bancaemdia.observability import tracing
+
+    sentinel = "synthetic-secret-signed-url-token@example.invalid"
+    exporter = InMemorySpanExporter()
+    provider = TracerProvider()
+    provider.add_span_processor(SimpleSpanProcessor(exporter))
+    monkeypatch.setattr(tracing, "_tracer", lambda: provider.get_tracer("synthetic-consolidation"))
+    user = await novo_usuario()
+    house, _ = await accounts(engine_admin, engine_app, user)
+    tg = telegram_payload(sentinel)
+    tg["bilhete"]["tipster"] = sentinel
+    try:
+        await intake_house(engine_app, user, house, house_payload(sentinel))
+        await intake_telegram(engine_app, user, tg)
+        assert (await financial(engine_app, user))[0]["count"] == 1
+        labels = [sample.labels for family in outcomes.collect() for sample in family.samples]
+        assert all(set(item) <= {"decision", "result"} for item in labels)
+        assert sentinel not in repr(labels)
+        assert sentinel not in caplog.text
+        assert sentinel not in repr([
+            (span.attributes, span.events, span.status.description)
+            for span in exporter.get_finished_spans()
+        ])
+    finally:
+        provider.shutdown()
     assert len(relations) == 1
 
 
@@ -793,8 +863,8 @@ async def test_panel_refresh_filters_export_and_cash_use_same_single_fact(
             ]
             assert len(rows) == 1 and rows[0].valores["giro_centavos"] == 10000
 
-            async def excel_rows():
-                for row in rows:
+            async def excel_rows(source_rows=rows):
+                for row in source_rows:
                     await asyncio.sleep(0)
                     yield [row.valores["giro_centavos"], row.valores["lucro_centavos"]]
 

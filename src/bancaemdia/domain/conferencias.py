@@ -98,6 +98,7 @@ class Selecao:
 @dataclass(frozen=True)
 class Bilhete:
     casa: str | None = None
+    tipster: str | None = None
     tipo: TipoBilhete = TipoBilhete.SIMPLES
     evento: str | None = None
     selecoes: tuple[Selecao, ...] = ()

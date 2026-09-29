@@ -14,7 +14,11 @@ async def replay_relations(session: AsyncSession, user: int, *, dry_run: bool = 
         select(models.Evento)
         .where(
             models.Evento.usuario_id == user,
-            models.Evento.tipo.in_(["APOSTAS_CONSOLIDADAS", "CONSOLIDACAO_DESVINCULADA"]),
+            models.Evento.tipo.in_([
+                "APOSTAS_CONSOLIDADAS",
+                "CONSOLIDACAO_DESVINCULADA",
+                "CONSOLIDACAO_REJEITADA",
+            ]),
         )
         .order_by(models.Evento.id)
     )
@@ -24,10 +28,11 @@ async def replay_relations(session: AsyncSession, user: int, *, dry_run: bool = 
         if payload.get("usuario_id") != user or payload.get("contrato") != 1:
             raise ValueError("invalid consolidation replay contract")
         ident = payload["relacao_id"]
-        if event.tipo == "APOSTAS_CONSOLIDADAS":
+        if event.tipo in {"APOSTAS_CONSOLIDADAS", "CONSOLIDACAO_REJEITADA"}:
             if ident in decisions and decisions[ident]["evidencia"] != payload["evidencia"]:
                 raise ValueError("divergent consolidation evidence")
-            decisions.setdefault(ident, {**payload, "estado": "active"})
+            rejected = event.tipo == "CONSOLIDACAO_REJEITADA"
+            decisions.setdefault(ident, {**payload, "estado": "rejected" if rejected else "active"})
         else:
             if ident not in decisions:
                 raise ValueError("unlink without consolidation decision")

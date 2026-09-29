@@ -126,6 +126,8 @@ async def consolidate(
     tipster_choice: Literal["casa", "telegram"] | None = None,
 ) -> models.ApostaConsolidacao:
     """Revalidate under user → source-key → ordered row locks; never commit here."""
+    if decision not in {"automatic", "reviewed"}:
+        raise ConsolidacaoRecusadaError("tipo de decisão inválido")
     outcomes.labels(decision=decision, result="attempt").inc()
     if decision == "reviewed" and actor_id != user:
         raise ConsolidacaoRecusadaError("a decisão revisada exige o próprio usuário autenticado")
@@ -163,7 +165,7 @@ async def consolidate(
             models.ApostaConsolidacao.usuario_id == user,
             models.ApostaConsolidacao.casa_aposta_id == house_id,
             models.ApostaConsolidacao.telegram_aposta_id == telegram_id,
-            models.ApostaConsolidacao.estado == "unlinked",
+            models.ApostaConsolidacao.estado.in_(["unlinked", "rejected"]),
         )
         .limit(1)
     )
@@ -230,6 +232,9 @@ async def consolidate(
     chosen = tip.tipster_id if tipster_choice == "telegram" else house.tipster_id or tip.tipster_id
     context = {
         "tipster_id": chosen,
+        "tipster": tstate.get("tipster")
+        if tipster_choice == "telegram"
+        else hstate.get("tipster") or tstate.get("tipster"),
         "tipster_casa_id": house.tipster_id,
         "tipster_telegram_id": tip.tipster_id,
         "escolha": tipster_choice,
@@ -405,4 +410,73 @@ async def unlink(
     )
     await CruzamentoCandidatoRepo().invalidate(session, user, [b.id for b in bets])
     outcomes.labels(decision="reviewed", result="unlinked").inc()
+    return relation
+
+
+async def reject_pair(
+    session: AsyncSession, user: int, house_id: int, tip_id: int, *, actor_id: int, reason: str
+) -> models.ApostaConsolidacao:
+    """Record a rejected association without creating a financial allocation, even UNASSIGNED."""
+    if actor_id != user or not reason.strip() or len(reason) > 500:
+        raise ConsolidacaoRecusadaError("rejeição exige usuário e motivo válido")
+    bets = await _sources(session, user, [house_id, tip_id])
+    by_id = {b.id: b for b in bets}
+    house, tip = by_id.get(house_id), by_id.get(tip_id)
+    if (
+        house is None
+        or tip is None
+        or house.origem != "casa"
+        or tip.origem not in {"telegram", "print"}
+    ):
+        raise ConsolidacaoRecusadaError("fontes indisponíveis para rejeição")
+    if await ApostaConsolidacaoRepo().active(session, user, [house_id, tip_id]):
+        raise ConsolidacaoRecusadaError("uma fonte ativa exige desvinculação revisada")
+    previous = await session.scalar(
+        select(models.ApostaConsolidacao)
+        .where(
+            models.ApostaConsolidacao.usuario_id == user,
+            models.ApostaConsolidacao.casa_aposta_id == house_id,
+            models.ApostaConsolidacao.telegram_aposta_id == tip_id,
+            models.ApostaConsolidacao.estado == "rejected",
+        )
+        .order_by(models.ApostaConsolidacao.id.desc())
+        .limit(1)
+    )
+    if previous is not None:
+        return previous
+    closed_at = datetime.now(UTC)
+    relation = models.ApostaConsolidacao(
+        usuario_id=user,
+        casa_aposta_id=house_id,
+        telegram_aposta_id=tip_id,
+        conta_casa_id=None,
+        estado="rejected",
+        decisao="reviewed",
+        versao=VERSION,
+        ator=f"usuario:{user}",
+        evidencia={
+            "fontes": {
+                "casa": await _state(session, user, house.chave),
+                "telegram": await _state(session, user, tip.chave),
+            }
+        },
+        contexto={
+            "chat_id": tip.chat_id,
+            "message_id": tip.message_id,
+            "midia_hash": tip.midia_hash,
+        },
+        desvinculada_em=closed_at,
+        motivo_desvinculacao=reason,
+    )
+    session.add(relation)
+    await session.flush()
+    await _audit(
+        session,
+        relation,
+        "CONSOLIDACAO_REJEITADA",
+        [str(house.chave), str(tip.chave)],
+        {"desvinculada_em": closed_at.isoformat(), "motivo": reason},
+    )
+    await CruzamentoCandidatoRepo().invalidate(session, user, [house_id, tip_id])
+    outcomes.labels(decision="reviewed", result="rejected").inc()
     return relation

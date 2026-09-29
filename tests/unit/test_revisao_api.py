@@ -138,6 +138,9 @@ def _banco(
             return banco.revisao
 
     class ApostaRepo:
+        async def get_by_chave(self, session, usuario_id, chave):
+            return await self.get_by_chave_for_update(session, usuario_id, chave)
+
         async def get_by_chave_for_update(self, session, usuario_id, chave):
             return banco.aposta if banco.tem_aposta and chave == CHAVE else None
 

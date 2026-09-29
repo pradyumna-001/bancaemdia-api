@@ -181,7 +181,7 @@ def apostas_da_leitura(
             "message_id": message_id,
             "ordem_na_mensagem": ordem,
             "casa": casa,
-            "tipster": None,
+            "tipster": bilhete.tipster if bilhete else None,
             "evento": bilhete.evento if bilhete else None,
             "descricao": descricao(bilhete) if bilhete else BILHETE_NAO_LIDO,
             "mercado_bruto": mercado_principal(bilhete) if bilhete else None,

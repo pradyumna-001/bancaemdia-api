@@ -32,13 +32,15 @@ class ApostaConsolidacao(Base):
             ["conta_casa_id", "usuario_id"], ["contas_casa.id", "contas_casa.usuario_id"]
         ),
         CheckConstraint("casa_aposta_id <> telegram_aposta_id", name="ck_consolidacao_pontas"),
-        CheckConstraint("estado IN ('active','unlinked')", name="ck_consolidacao_estado"),
+        CheckConstraint(
+            "estado IN ('active','unlinked','rejected')", name="ck_consolidacao_estado"
+        ),
         CheckConstraint(
             "decisao IN ('automatic','reviewed','legacy')", name="ck_consolidacao_decisao"
         ),
         CheckConstraint(
             "(estado = 'active' AND desvinculada_em IS NULL) OR "
-            "(estado = 'unlinked' AND desvinculada_em IS NOT NULL)",
+            "(estado IN ('unlinked','rejected') AND desvinculada_em IS NOT NULL)",
             name="ck_consolidacao_desvinculacao",
         ),
         Index(

@@ -27,6 +27,7 @@ EVENT_TYPES = (
     "REVISAO_RESOLVIDA",
     "APOSTAS_CONSOLIDADAS",
     "CONSOLIDACAO_DESVINCULADA",
+    "CONSOLIDACAO_REJEITADA",
 )
 
 CANONICAL = """CREATE VIEW public.apostas_financeiras WITH (security_invoker=true) AS
@@ -102,12 +103,14 @@ def upgrade() -> None:
             ["conta_casa_id", "usuario_id"], ["contas_casa.id", "contas_casa.usuario_id"]
         ),
         sa.CheckConstraint("casa_aposta_id<>telegram_aposta_id", name="ck_consolidacao_pontas"),
-        sa.CheckConstraint("estado IN ('active','unlinked')", name="ck_consolidacao_estado"),
+        sa.CheckConstraint(
+            "estado IN ('active','unlinked','rejected')", name="ck_consolidacao_estado"
+        ),
         sa.CheckConstraint(
             "decisao IN ('automatic','reviewed','legacy')", name="ck_consolidacao_decisao"
         ),
         sa.CheckConstraint(
-            "(estado='active' AND desvinculada_em IS NULL) OR (estado='unlinked' AND desvinculada_em IS NOT NULL)",
+            "(estado='active' AND desvinculada_em IS NULL) OR (estado IN ('unlinked','rejected') AND desvinculada_em IS NOT NULL)",
             name="ck_consolidacao_desvinculacao",
         ),
     )
@@ -195,7 +198,7 @@ def upgrade() -> None:
 def downgrade() -> None:
     op.execute("SET LOCAL row_security=off")
     op.execute("""DO $$ BEGIN IF EXISTS(SELECT 1 FROM aposta_consolidacoes) OR EXISTS(
-      SELECT 1 FROM eventos WHERE tipo IN ('APOSTAS_CONSOLIDADAS','CONSOLIDACAO_DESVINCULADA'))
+      SELECT 1 FROM eventos WHERE tipo IN ('APOSTAS_CONSOLIDADAS','CONSOLIDACAO_DESVINCULADA','CONSOLIDACAO_REJEITADA'))
       THEN RAISE EXCEPTION 'preserve consolidation evidence before downgrade'; END IF; END $$""")
     _dashboard(False)
     op.execute("DROP VIEW public.apostas_financeiras")
@@ -205,5 +208,5 @@ def downgrade() -> None:
     op.drop_constraint("uq_contas_consolidacao_owner", "contas_casa", type_="unique")
     op.drop_constraint("ck_eventos_tipo", "eventos", type_="check")
     op.create_check_constraint(
-        "ck_eventos_tipo", "eventos", f"tipo IN ({','.join(repr(t) for t in EVENT_TYPES[:-2])})"
+        "ck_eventos_tipo", "eventos", f"tipo IN ({','.join(repr(t) for t in EVENT_TYPES[:-3])})"
     )

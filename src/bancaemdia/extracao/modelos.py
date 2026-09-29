@@ -15,6 +15,7 @@ class Selecao(BaseModel):
 
 class ExtracaoBilhete(BaseModel):
     casa: str | None = None
+    tipster: str | None = Field(default=None, max_length=200)
     tipo: Literal["simples", "multipla", "criar_aposta", "sistema"] = "simples"
     evento: str | None = None
     selecoes: list[Selecao] = Field(default_factory=list)
@@ -31,6 +32,7 @@ class ExtracaoBilhete(BaseModel):
     def para_bilhete(self) -> conferencias.Bilhete:
         return conferencias.Bilhete(
             casa=self.casa,
+            tipster=self.tipster,
             tipo=conferencias.TipoBilhete(self.tipo),
             evento=self.evento,
             selecoes=tuple(
