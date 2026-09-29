@@ -230,11 +230,32 @@ async def consolidate(
     ):
         raise ConsolidacaoRecusadaError("tipsters conflitantes; escolha explícita necessária")
     chosen = tip.tipster_id if tipster_choice == "telegram" else house.tipster_id or tip.tipster_id
+    chosen_name = (
+        tstate.get("tipster")
+        if tipster_choice == "telegram"
+        else hstate.get("tipster") or tstate.get("tipster")
+    )
+    if chosen is None and isinstance(chosen_name, str) and chosen_name:
+        approved_aliases = select(models.Apelido.entidade_id).where(
+            models.Apelido.entidade_tipo == "tipster",
+            models.Apelido.nome == chosen_name,
+            models.Apelido.confirmado,
+        )
+        identities = list(
+            await session.scalars(
+                select(models.Tipster.id)
+                .where(
+                    or_(models.Tipster.nome == chosen_name, models.Tipster.id.in_(approved_aliases))
+                )
+                .limit(2)
+            )
+        )
+        if len(identities) > 1:
+            raise ConsolidacaoRecusadaError("identidade de tipster ambígua; revisão necessária")
+        chosen = identities[0] if identities else None
     context = {
         "tipster_id": chosen,
-        "tipster": tstate.get("tipster")
-        if tipster_choice == "telegram"
-        else hstate.get("tipster") or tstate.get("tipster"),
+        "tipster": chosen_name,
         "tipster_casa_id": house.tipster_id,
         "tipster_telegram_id": tip.tipster_id,
         "escolha": tipster_choice,

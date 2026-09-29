@@ -1018,7 +1018,7 @@ async def test_review_media_is_private_and_cross_tenant_ids_cannot_fetch_it(
         review = await session.scalar(
             select(models.RevisaoPendente).where(
                 models.RevisaoPendente.usuario_id == user,
-                models.RevisaoPendente.motivo == "cruzamento_probable",
+                models.RevisaoPendente.motivo == "cruzamento_candidato",
             )
         )
         assert review is not None

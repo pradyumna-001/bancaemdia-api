@@ -137,7 +137,7 @@ class RevisaoPendenteRepo:
             models.RevisaoPendente.motivo.not_in([
                 "conta_pendente",
                 "consolidacao_pendente",
-                "cruzamento_probable",
+                "cruzamento_candidato",
             ]),
         )
         if motivo is not None:
