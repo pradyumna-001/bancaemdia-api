@@ -220,6 +220,9 @@ async def anonimizar_minha_conta(
                 status_code=409,
                 detail="Há mensagens ou fotos importadas que exigem exclusão assistida.",
             )
+    from bancaemdia.services.telegram_privacy import forget_pending_content
+
+    await forget_pending_content(session, usuario.id)
     sender_ids = (
         await session.scalars(
             select(TelegramLink.telegram_user_id).where(TelegramLink.usuario_id == usuario.id)

@@ -26,6 +26,7 @@ from bancaemdia.models.rascunho_aposta import ACTIVE_DRAFT_STATUSES, RascunhoApo
 from bancaemdia.models.telegram_media import TelegramMedia
 from bancaemdia.observability.metrics import observe_stage, telegram_extraction_failures_total
 from bancaemdia.services.telegram_conversation import apply_extraction, draft_summary
+from bancaemdia.services.telegram_link import get_link
 from bancaemdia.services.telegram_photo_intake import candidates_from_reading
 from bancaemdia.workers.extraction import RETRY_ON, extrair_bilhete
 from bancaemdia.workers.telegram import BILLING_DENIAL, queue_reply
@@ -101,6 +102,8 @@ async def claim_photo(engine: AsyncEngine, *, draft_id: UUID | None = None) -> P
             if due is None:
                 return None
             await _set_photo_owner(session, due.usuario_id)
+            if await get_link(session, due.usuario_id) is None:
+                return None
             draft = await session.scalar(
                 select(RascunhoAposta)
                 .where(RascunhoAposta.id == due.id)
@@ -164,6 +167,7 @@ async def read_photo(
         chat_id=claim.chat_id,
         message_id=claim.message_id,
         versao_prompt=VERSAO_PROMPT,
+        private=True,
     )
     return content, mime, reading
 
@@ -181,6 +185,8 @@ async def _complete(
     async with AsyncSession(engine, expire_on_commit=False) as session:
         async with session.begin():
             await _set_photo_owner(session, claim.user_id)
+            if await get_link(session, claim.user_id) is None:
+                return
             draft = await session.scalar(
                 select(RascunhoAposta)
                 .where(

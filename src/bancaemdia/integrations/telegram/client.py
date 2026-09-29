@@ -66,6 +66,7 @@ class TelegramClient:
             outcome = "success"
             return body.get("result")
         except (httpx.TimeoutException, httpx.NetworkError):
+            telegram_api_errors_total.labels(method=method, reason="network").inc()
             raise TelegramApiError("network", retryable=True) from None
         except TelegramApiError as exc:
             telegram_api_errors_total.labels(method=method, reason=exc.reason).inc()
@@ -128,6 +129,7 @@ class TelegramClient:
             outcome = "success"
             return bytes(parts)
         except (httpx.TimeoutException, httpx.NetworkError):
+            telegram_api_errors_total.labels(method="downloadFile", reason="network").inc()
             raise TelegramApiError("network", retryable=True) from None
         except TelegramApiError as exc:
             telegram_api_errors_total.labels(method="downloadFile", reason=exc.reason).inc()

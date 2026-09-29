@@ -1,0 +1,24 @@
+rule_files:
+  - telegram-alerts.yml
+evaluation_interval: 1m
+tests:
+  - interval: 1m
+    input_series:
+      - series: telegram_inbox_oldest_age_seconds
+        values: '0 180x10 0x10'
+      - series: telegram_outbox_oldest_age_seconds
+        values: '0x21'
+    alert_rule_test:
+      - eval_time: 4m
+        alertname: TelegramBacklogOld
+        exp_alerts: []
+      - eval_time: 7m
+        alertname: TelegramBacklogOld
+        exp_alerts:
+          - exp_labels:
+              severity: warning
+            exp_annotations:
+              summary: Telegram durable backlog exceeds its age budget
+      - eval_time: 15m
+        alertname: TelegramBacklogOld
+        exp_alerts: []

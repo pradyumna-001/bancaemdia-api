@@ -314,7 +314,9 @@ async def test_ambiguity_correction_cancel_and_resume(bot, kind):
     )
     await asyncio.gather(*(telegram.process_inbox_once(bot.engine) for _ in range(2)))
     draft = await bot.draft()
-    assert draft.fields_json["odd"] == pytest.approx(1.95) and draft.fields_json["stake_unidades"] == 3
+    assert (
+        draft.fields_json["odd"] == pytest.approx(1.95) and draft.fields_json["stake_unidades"] == 3
+    )
     await bot.send({"text": "/continuar"})
     await bot.send({"text": "/cancelar"})
     await bot.send({"text": "/confirmar"})

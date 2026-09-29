@@ -49,13 +49,19 @@ POR_USUARIO_TITULARES = {
     "trocas_titular_eventos",
 }
 POR_USUARIO_TELEGRAM = {
+    "telegram_media",
     "telegram_links",
     "telegram_link_codes",
     "telegram_outbox",
     "rascunhos_aposta",
     "rascunho_correcoes",
 }
-GLOBAIS_TELEGRAM = {"telegram_link_attempts", "telegram_link_attempt_events", "telegram_inbox"}
+GLOBAIS_TELEGRAM = {
+    "telegram_rate_buckets",
+    "telegram_link_attempts",
+    "telegram_link_attempt_events",
+    "telegram_inbox",
+}
 COMPARTILHADAS = {
     "midia_arquivos",
     "casas",

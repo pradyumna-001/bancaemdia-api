@@ -69,8 +69,10 @@ def upgrade() -> None:
             DELETE FROM midias WHERE hash = target AND NOT EXISTS
                 (SELECT 1 FROM midia_arquivos WHERE hash = target);
           END IF;
-        END $$;
-        REVOKE ALL ON FUNCTION telegram_purge_legacy_media(text,timestamptz) FROM PUBLIC;
+        END $$
+    """)
+    op.execute("REVOKE ALL ON FUNCTION telegram_purge_legacy_media(text,timestamptz) FROM PUBLIC")
+    op.execute("""
         DO $$ BEGIN IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname='bancaemdia_app') THEN
           GRANT EXECUTE ON FUNCTION telegram_purge_legacy_media(text,timestamptz) TO bancaemdia_app;
         END IF; END $$;

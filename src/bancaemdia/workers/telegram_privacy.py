@@ -3,7 +3,7 @@
 import asyncio
 from datetime import UTC, datetime, timedelta
 
-from sqlalchemy import delete, select, text
+from sqlalchemy import delete, or_, select, text
 from sqlalchemy.ext.asyncio import AsyncEngine, AsyncSession
 
 from bancaemdia.config import get_settings
@@ -67,6 +67,11 @@ async def purge_telegram(engine: AsyncEngine) -> int:
                     RascunhoAposta.closed_at.is_not(None),
                     RascunhoAposta.closed_at < max(media_cutoff, draft_cutoff),
                     RascunhoAposta.purged_at.is_(None),
+                    or_(
+                        RascunhoAposta.media_reference_ciphertext.is_not(None),
+                        RascunhoAposta.media_hash.is_not(None),
+                        RascunhoAposta.closed_at < min(media_cutoff, draft_cutoff),
+                    ),
                 )
                 .order_by(RascunhoAposta.closed_at)
                 .limit(limit)
