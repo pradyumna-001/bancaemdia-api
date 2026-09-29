@@ -30,6 +30,8 @@ from sqlalchemy.ext.asyncio import AsyncEngine
 from starlette.datastructures import URL
 from starlette.types import Scope
 
+from bancaemdia.observability.credentials import redact_collection_secrets
+
 type CustomSpanName = Literal[
     "upload.parse",
     "extraction.chamar_anthropic",
@@ -140,7 +142,9 @@ def _provider(
 
 
 def _safe_http_url(request: RequestInfo) -> str:
-    return str(request.url.copy_with(query=None, fragment=None, userinfo=None))
+    return redact_collection_secrets(
+        str(request.url.copy_with(query=None, fragment=None, userinfo=None))
+    )
 
 
 def _sanitize_httpx_request(span: Span, request: RequestInfo) -> None:
@@ -153,7 +157,7 @@ def _sanitize_httpx_request(span: Span, request: RequestInfo) -> None:
     span.set_attribute("http.url", safe_url)
     if request.url.query:
         span.set_attribute("url.query", REDACTED)
-    span.set_attribute("http.target", request.url.path)
+    span.set_attribute("http.target", redact_collection_secrets(request.url.path))
 
 
 async def _sanitize_async_httpx_request(  # ruff: ignore[unused-async] - API requires a coroutine
@@ -163,13 +167,14 @@ async def _sanitize_async_httpx_request(  # ruff: ignore[unused-async] - API req
 
 
 def _sanitize_server_request(span: Span, scope: Scope) -> None:
-    if not span.is_recording() or not scope.get("query_string"):
+    if not span.is_recording():
         return
-    safe_url = str(URL(scope=scope).replace(query=""))
+    safe_url = redact_collection_secrets(str(URL(scope=scope).replace(query="")))
     span.set_attribute("http.url", safe_url)
     span.set_attribute("url.full", safe_url)
-    span.set_attribute("url.query", REDACTED)
-    span.set_attribute("http.target", str(scope.get("path", "")))
+    if scope.get("query_string"):
+        span.set_attribute("url.query", REDACTED)
+    span.set_attribute("http.target", redact_collection_secrets(str(scope.get("path", ""))))
 
 
 def _instrument_app(app: FastAPI, provider: TracerProvider) -> None:

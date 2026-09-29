@@ -26,6 +26,8 @@ from structlog.contextvars import (
 )
 from structlog.typing import EventDict, Processor, WrappedLogger
 
+from bancaemdia.observability.credentials import redact_collection_secrets
+
 REQUEST_ID_HEADER = "X-Request-ID"
 _UVICORN_ACCESS_QUERY = re.compile(
     r'(?P<prefix>"[^\s"]+ [^?\s"]+)\?[^"\s]*(?P<suffix> HTTP/\d(?:\.\d+)?")'
@@ -110,9 +112,43 @@ def _shared_processors() -> list[Processor]:
         structlog.stdlib.add_logger_name,
         structlog.stdlib.add_log_level,
         _sanitize_access_log,
+        _sanitize_collection_credentials,
         _correlation_context,
         _timestamp,
     ]
+
+
+def _sanitize_collection_credentials(
+    _logger: WrappedLogger, _method_name: str, event_dict: EventDict
+) -> EventDict:
+    def clean(value: Any) -> Any:
+        if isinstance(value, str):
+            return redact_collection_secrets(value)
+        if isinstance(value, dict):
+            return {
+                key: "[REDACTED]"
+                if str(key).lower()
+                in {
+                    "codigo",
+                    "code",
+                    "token",
+                    "token_hash",
+                    "code_hash",
+                    "token_prefixo",
+                    "x-coleta-token",
+                    "authorization",
+                }
+                else clean(item)
+                for key, item in value.items()
+            }
+        if isinstance(value, (list, tuple)):
+            return [clean(item) for item in value]
+        return value
+
+    for key in tuple(event_dict):
+        if not key.startswith("_"):
+            event_dict[key] = clean({key: event_dict[key]})[key]
+    return event_dict
 
 
 def _json_dumps(value: Any, **kwargs: Any) -> str:
@@ -138,6 +174,7 @@ def configure_logging(level: str = "INFO", *, stream: TextIO | None = None) -> N
             structlog.stdlib.ProcessorFormatter.remove_processors_meta,
             structlog.processors.StackInfoRenderer(),
             structlog.processors.format_exc_info,
+            _sanitize_collection_credentials,
             structlog.processors.EventRenamer("message"),
             structlog.processors.JSONRenderer(serializer=_json_dumps),
         ],
@@ -181,6 +218,7 @@ def configure_logging(level: str = "INFO", *, stream: TextIO | None = None) -> N
             structlog.stdlib.PositionalArgumentsFormatter(),
             structlog.processors.StackInfoRenderer(),
             structlog.processors.format_exc_info,
+            _sanitize_collection_credentials,
             structlog.stdlib.ProcessorFormatter.wrap_for_formatter,
         ],
         context_class=dict,

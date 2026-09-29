@@ -322,7 +322,14 @@ def test_route_stores_the_send_through_the_row_policies(banco, monkeypatch) -> N
                     text("SELECT set_config('app.current_user_id', :uid, true)"),
                     {"uid": str(usuario)},
                 )
-                await ColetaTokenRepo().create(session, usuario, coleta.hash_do_token(token))
+                session.add(
+                    models.ColetaInstalacao(
+                        usuario_id=usuario,
+                        instalacao_publica_id=uuid4(),
+                        token_hash=coleta.hash_do_token(token),
+                        pareado_em=datetime.now(UTC),
+                    )
+                )
                 await session.commit()
             return usuario, token, casa_id
         finally:
@@ -346,7 +353,7 @@ def test_route_stores_the_send_through_the_row_policies(banco, monkeypatch) -> N
     monkeypatch.setattr(coleta.limiter, "enabled", False)
     corpo = {"contrato": 1, "casa": "betano", "capturado_em": "x", "apostas": [_bilhete()]}
 
-    resposta = TestClient(main.app).post(
+    resposta = TestClient(main.app, base_url="https://testserver").post(
         "/coleta", json=corpo, headers={coleta.TOKEN_HEADER: token}
     )
 

@@ -276,7 +276,10 @@ async def _restore_app_grants(url: str) -> None:
         await engine.dispose()
 
 
-def test_revision_008_downgrades_and_reupgrades_without_losing_application_access(banco) -> None:
+def test_revision_008_downgrades_and_reupgrades_without_losing_application_access(
+    banco_migracao,
+) -> None:
+    banco = banco_migracao
     previous_database_url = os.environ.get("DATABASE_URL")
     os.environ["DATABASE_URL"] = banco.url_admin
     try:

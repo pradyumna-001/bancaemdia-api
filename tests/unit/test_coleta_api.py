@@ -61,9 +61,13 @@ def _banco(recebidas_hoje=0):
 
     banco = Banco()
 
-    class ColetaTokenRepo:
-        async def get_usuario_id_by_hash(self, session, token_hash):
-            return 7 if token_hash == coleta.hash_do_token(TOKEN) else None
+    class ColetaInstalacaoRepo:
+        async def authenticate(self, session, token_hash):
+            return (
+                SimpleNamespace(usuario_id=7, instalacao_id=17)
+                if token_hash == coleta.hash_do_token(TOKEN)
+                else None
+            )
 
     class ColetaCasaRepo:
         async def count_received_since(self, session, usuario_id, desde):
@@ -106,7 +110,7 @@ def _banco(recebidas_hoje=0):
             yield Session()
 
     banco.repos = {
-        "ColetaTokenRepo": ColetaTokenRepo,
+        "ColetaInstalacaoRepo": ColetaInstalacaoRepo,
         "ColetaCasaRepo": ColetaCasaRepo,
         "CasaRepo": CasaRepo,
         "ApostaRepo": ApostaRepo,
@@ -125,7 +129,7 @@ def _cliente(monkeypatch, banco):
         lambda usuario_id, fila: banco.enfileiradas.append((usuario_id, fila)),
     )
     monkeypatch.setattr(coleta.limiter, "enabled", False)
-    return TestClient(main.app)
+    return TestClient(main.app, base_url="https://testserver")
 
 
 def _enviar(cliente, bilhetes, *, casa="betano", token=TOKEN, caminho="/api/v1/coleta", **envio):

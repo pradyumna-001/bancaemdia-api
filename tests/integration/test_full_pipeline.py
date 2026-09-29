@@ -11,7 +11,7 @@ import zipfile
 from collections import Counter
 from collections.abc import Awaitable, Callable, Iterable, Iterator
 from contextlib import AbstractAsyncContextManager
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta, timezone
 from pathlib import Path
 from types import SimpleNamespace
 from uuid import uuid4
@@ -19,6 +19,7 @@ from uuid import uuid4
 import anthropic
 import httpx
 import httpx2
+import jwt
 import pytest
 import redis
 from cryptography.hazmat.primitives.asymmetric import rsa
@@ -27,9 +28,9 @@ from cryptography.hazmat.primitives.serialization import (
     NoEncryption,
     PrivateFormat,
     PublicFormat,
+    load_pem_public_key,
 )
 from fastapi.testclient import TestClient
-from jose import jwk, jwt
 from prometheus_client import REGISTRY
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncEngine, AsyncSession, create_async_engine
@@ -50,7 +51,6 @@ from bancaemdia.rate_limit.anthropic_limiter import AnthropicLimiter
 from bancaemdia.repositories.aposta_repo import ApostaRepo
 from bancaemdia.repositories.casa_repo import CasaRepo
 from bancaemdia.repositories.coleta_casa_repo import ColetaCasaRepo
-from bancaemdia.repositories.coleta_token_repo import ColetaTokenRepo
 from bancaemdia.repositories.evento_repo import EventoRepo
 from bancaemdia.repositories.revisao_pendente_repo import RevisaoPendenteRepo
 from bancaemdia.resilience.circuit_breaker import new_anthropic_breaker
@@ -405,7 +405,15 @@ def _envio(casa: str) -> dict[str, object]:
 async def _token(engine: AsyncEngine, como: Como, usuario: int) -> str:
     token = f"tok-{uuid4().hex}"
     async with como(engine, usuario) as session:
-        await ColetaTokenRepo().create(session, usuario, coleta.hash_do_token(token))
+        session.add(
+            models.ColetaInstalacao(
+                usuario_id=usuario,
+                instalacao_publica_id=uuid4(),
+                token_hash=coleta.hash_do_token(token),
+                token_prefixo=token[:12],
+                pareado_em=datetime.now(UTC),
+            )
+        )
         await session.commit()
     return token
 
@@ -415,7 +423,10 @@ def chave():
     par = rsa.generate_private_key(public_exponent=65537, key_size=2048)
     privada = par.private_bytes(Encoding.PEM, PrivateFormat.PKCS8, NoEncryption()).decode()
     publica = par.public_key().public_bytes(Encoding.PEM, PublicFormat.SubjectPublicKeyInfo)
-    return privada, {**jwk.construct(publica, "RS256").to_dict(), "kid": "k1"}
+    return privada, {
+        **jwt.algorithms.RSAAlgorithm.to_jwk(load_pem_public_key(publica), as_dict=True),
+        "kid": "k1",
+    }
 
 
 def _sessoes(url: str):
@@ -463,7 +474,7 @@ async def test_house_sends_reach_the_materialization_queue_and_become_bets(
     monkeypatch.setattr(coleta.celery, "send_task", fila.send_task)
     monkeypatch.setattr(coleta.limiter, "enabled", False)
     monkeypatch.setitem(main.app.dependency_overrides, get_db, _sessoes(banco.url_app))
-    cliente = TestClient(main.app)
+    cliente = TestClient(main.app, base_url="https://testserver")
 
     respostas = {}
     for casa in CASAS:
@@ -544,7 +555,7 @@ def api_do_upload(banco, chave, monkeypatch):
     cache = auth_jwt.JWKSCache("https://issuer.test/jwks", "RS256", httpx.MockTransport(responder))
     monkeypatch.setattr(auth_middleware, "get_jwks_cache", lambda: cache)
     monkeypatch.setitem(main.app.dependency_overrides, get_db, _sessoes(banco.url_app))
-    cliente = TestClient(main.app)
+    cliente = TestClient(main.app, base_url="https://testserver")
     # O trabalhador avisa o fim pela mesma API, com o segredo combinado.
     monkeypatch.setattr(upload_worker, "get_webhook_client", lambda: cliente)
     return cliente
