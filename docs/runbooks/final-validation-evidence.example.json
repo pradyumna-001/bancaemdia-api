@@ -1,0 +1,46 @@
+{
+  "phase": "lightsail-phase1",
+  "environment": "production",
+  "release_sha": "",
+  "artifacts": {
+    "integrity": "integrity.json",
+    "contracts": "contracts.xml",
+    "load": "load-test-summary.json"
+  },
+  "contracts": {
+    "release_sha": "",
+    "run_url": ""
+  },
+  "checks": {
+    "trace_chain": {"passed": false, "evidence": ""},
+    "custom_metrics": {"passed": false, "evidence": ""},
+    "json_logs": {"passed": false, "evidence": ""},
+    "budget_alert": {"passed": false, "evidence": ""},
+    "daily_backup": {"passed": false, "evidence": ""},
+    "restore_drill": {"passed": false, "evidence": ""},
+    "weekly_snapshot": {"passed": false, "evidence": ""},
+    "private_storage_access": {"passed": false, "evidence": ""},
+    "circuit_breaker": {"passed": false, "evidence": ""},
+    "runbooks_reviewed": {"passed": false, "evidence": ""},
+    "oncall_confirmed": {"passed": false, "evidence": ""},
+    "stakeholder_signoff": {"passed": false, "evidence": ""},
+    "deploy": {"healthy_seconds": null, "evidence": ""},
+    "rollback": {"healthy_seconds": null, "evidence": ""},
+    "rls": {"cross_tenant_rows": null, "evidence": ""},
+    "open_sev1_sev2": {"count": null, "evidence": ""},
+    "rate_limit": {"status": null, "headers": {}, "evidence": ""},
+    "auth_expired": {"status": null, "evidence": ""},
+    "auth_invalid": {"status": null, "evidence": ""},
+    "security_headers": {"headers": {}, "evidence": ""}
+  },
+  "cost": {
+    "observed_hours": null,
+    "infrastructure_usd": null,
+    "ai_usd": null,
+    "bets_processed": null,
+    "usd_to_brl": null,
+    "fx_evidence": "",
+    "evidence": "",
+    "approval_evidence": ""
+  }
+}
