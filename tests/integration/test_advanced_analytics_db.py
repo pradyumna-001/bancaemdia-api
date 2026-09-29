@@ -159,7 +159,7 @@ async def test_existing_evolution_separates_bets_deposits_and_withdrawals(
                     "conta_id": conta_id,
                     "tipo": tipo,
                     "valor": valor,
-                    "quando": datetime(2026, 9, 28, 10, tzinfo=UTC),
+                    "quando": datetime(2026, 9, 28, 2, 30, tzinfo=UTC),
                 },
             )
     await _aposta(
