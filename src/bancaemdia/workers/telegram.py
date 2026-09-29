@@ -11,6 +11,7 @@ from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.exc import DBAPIError
 from sqlalchemy.ext.asyncio import AsyncEngine, AsyncSession
 
+from bancaemdia.config import get_settings
 from bancaemdia.domain.access import AccountReadOnlyError, require_write_access
 from bancaemdia.integrations.telegram.client import TelegramApiError, TelegramClient
 from bancaemdia.integrations.telegram.codec import (
@@ -27,8 +28,15 @@ from bancaemdia.observability.metrics import (
     telegram_transport_dlq_count,
     telegram_transport_retries_total,
 )
+from bancaemdia.services.telegram_abuse import admit
 from bancaemdia.services.telegram_conversation import handle_text
-from bancaemdia.services.telegram_link import REPO, IncomingCommand, redeem_command, resolve_sender
+from bancaemdia.services.telegram_link import (
+    REPO,
+    IncomingCommand,
+    _digest,
+    redeem_command,
+    resolve_sender,
+)
 from bancaemdia.services.telegram_photo_intake import SUPPORTED_FLOW, intake_photo
 from bancaemdia.workers.celery_app import app
 from bancaemdia.workers.materialization import get_engine
@@ -87,6 +95,10 @@ async def _handle_inbox(session: AsyncSession, item: TelegramInbox) -> None:
     chat_type = payload.get("chat_type")
     message_text = payload.get("text")
     if isinstance(message_text, str) and message_text.strip().lower().startswith("/vincular"):
+        if chat_type != "private" or not await admit(
+            session, action="link", sender=sender, chat=chat, owner=None
+        ):
+            return
         linked = await redeem_command(
             session,
             IncomingCommand(
@@ -113,6 +125,24 @@ async def _handle_inbox(session: AsyncSession, item: TelegramInbox) -> None:
         if owner is None:
             return
         command = message_text.strip().lower() if isinstance(message_text, str) else ""
+        action = (
+            "photo"
+            if payload.get("photo") or payload.get("media_group_id")
+            else "confirmation"
+            if command in {"/confirmar", "confirmar"}
+            else "correction"
+        )
+        if not await admit(session, action=action, sender=sender, chat=chat, owner=owner):
+            window = int(_now().timestamp()) // get_settings().TELEGRAM_LIMIT_WINDOW_SECONDS
+            limit_key = _digest("limit-reply", f"{chat}:{action}:{window}")
+            await queue_reply(
+                session,
+                user_id=owner,
+                chat_id=chat,
+                key=f"telegram-limit:{limit_key}",
+                message="Limite de tentativas atingido. Aguarde a janela de limites e tente novamente.",
+            )
+            return
         if command not in {"/continuar", "/cancelar"}:
             await require_write_access(session, owner)
         photos = payload.get("photo")

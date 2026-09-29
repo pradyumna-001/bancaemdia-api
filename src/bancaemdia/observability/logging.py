@@ -50,6 +50,13 @@ def _sanitize_access_log(
             try:
                 url = URL(match.group("url"))
                 safe_url = str(url.replace(username=None, password=None, query="", fragment=""))
+                if re.match(r"^/(?:file/)?bot[^/]+/", url.path):
+                    safe_path = re.sub(r"^(/(?:file/)?bot)[^/]+/", r"\1[REDACTED]/", url.path)
+                    safe_url = str(
+                        url.replace(
+                            username=None, password=None, query="", fragment="", path=safe_path
+                        )
+                    )
                 if url.query:
                     safe_url += "?[REDACTED]"
             except (TypeError, ValueError):

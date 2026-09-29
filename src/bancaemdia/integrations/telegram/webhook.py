@@ -86,9 +86,11 @@ async def telegram_webhook(request: Request) -> JSONResponse:
         != "application/json"
     ):
         return _reject(415, "content_type")
-    body = await request.body()
-    if len(body) > MAX_WEBHOOK_BYTES:
-        return _reject(413, "size")
+    body = bytearray()
+    async for chunk in request.stream():
+        if len(body) + len(chunk) > MAX_WEBHOOK_BYTES:
+            return _reject(413, "size")
+        body.extend(chunk)
     try:
         raw: Any = json.loads(body)
     except (UnicodeDecodeError, json.JSONDecodeError):

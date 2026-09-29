@@ -1,7 +1,10 @@
 """Photo variant, bounded download and extraction mapping contracts."""
 
+from io import BytesIO
+
 import httpx
 import pytest
+from PIL import Image
 
 from bancaemdia.integrations.telegram.client import TelegramApiError, TelegramClient
 from bancaemdia.integrations.telegram.media import download_photo, largest_variant
@@ -27,6 +30,8 @@ def test_variant_uses_largest_bytes_then_dimensions() -> None:
 @pytest.mark.asyncio
 async def test_download_uses_getfile_and_rejects_non_image_or_oversize() -> None:
     calls: list[str] = []
+    buffer = BytesIO()
+    Image.new("RGB", (2, 2)).save(buffer, format="JPEG")
 
     def respond(request: httpx.Request) -> httpx.Response:
         calls.append(request.url.path)
@@ -34,7 +39,7 @@ async def test_download_uses_getfile_and_rejects_non_image_or_oversize() -> None
             return httpx.Response(
                 200, json={"ok": True, "result": {"file_path": "photos/slip.jpg"}}
             )
-        return httpx.Response(200, content=b"\xff\xd8\xff\xe0bet")
+        return httpx.Response(200, content=buffer.getvalue())
 
     client = TelegramClient("test-token", transport=httpx.MockTransport(respond))
     try:

@@ -22,6 +22,7 @@ def fields_from_coupon(
     for field, value in (
         ("casa", coupon.casa),
         ("odd", coupon.odd_total),
+        ("stake_unidades", coupon.stake_unidades),
         ("data_aposta", coupon.quando),
         ("evento", coupon.evento),
     ):

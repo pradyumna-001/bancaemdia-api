@@ -111,7 +111,9 @@ async def _preparar_papel(url_admin: str) -> None:
                 )
             )
             await conn.execute(
-                text(f"GRANT EXECUTE ON FUNCTION create_user_profile(text,text) TO {PAPEL}")
+                text(
+                    f"GRANT EXECUTE ON FUNCTION create_user_profile(text,text), telegram_purge_legacy_media(text,timestamptz), telegram_legacy_media_visible(text), telegram_purge_link_metadata(timestamptz,integer), telegram_chat_linked(bigint,bigint) TO {PAPEL}"
+                )
             )
     finally:
         await engine.dispose()

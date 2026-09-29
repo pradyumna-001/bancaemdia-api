@@ -35,6 +35,7 @@ app = Celery(
         "bancaemdia.workers.materialization",
         "bancaemdia.workers.upload",
         "bancaemdia.workers.telegram",
+        "bancaemdia.workers.telegram_privacy",
     ],
 )
 app.conf.update(
@@ -60,6 +61,12 @@ app.conf.update(
         Queue(MATERIALIZATION_QUEUE, routing_key=MATERIALIZATION_QUEUE),
     ),
 )
+
+# Add schedules without replacing billing or other registered Beat entries.
+app.conf.beat_schedule.update({
+    "telegram-privacy-purge": {"task": "telegram.purge", "schedule": 3600.0},
+})
+
 
 dead_letter_queue = Queue(DEAD_LETTER_QUEUE, routing_key=DEAD_LETTER_QUEUE)
 
@@ -95,7 +102,9 @@ def send_to_dead_letter(
         headers={
             "original_task_id": task_id,
             "original_queue": delivery_info.get("routing_key"),
-            "exception": repr(exception),
+            "exception": "telegram_task_failed"
+            if sender.name.startswith("telegram.")
+            else repr(exception),
         },
     )
 
