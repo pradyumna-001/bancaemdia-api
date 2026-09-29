@@ -186,6 +186,51 @@ index 63503f4..d0797f5 100644
      return Gravada(
          chave,
          "casa",
+diff --git a/tests/integration/coleta/test_contract_v2.py b/tests/integration/coleta/test_contract_v2.py
+index 990abbd..be5c341 100644
+--- a/tests/integration/coleta/test_contract_v2.py
++++ b/tests/integration/coleta/test_contract_v2.py
+@@ -475,7 +475,8 @@ async def test_account_reference_is_never_a_first_active_fallback(api, kind):
+         elif kind == "unknown":
+             reference = 2**62
+     ack = (await api.send([capture(reference)])).json()["items"][0]
+-    assert await api.run(ack) == "needs_review"
++    valid_explicit = kind in {"before", "ended"}
++    assert await api.run(ack) == ("materialized" if valid_explicit else "needs_review")
+     async with api.admin.connect() as conn:
+         assert (
+             await conn.scalar(
+@@ -483,7 +484,7 @@ async def test_account_reference_is_never_a_first_active_fallback(api, kind):
+                 .select_from(models.Aposta)
+                 .where(models.Aposta.usuario_id == api.user)
+             )
+-            == 0
++            == (1 if valid_explicit else 0)
+         )
+ 
+ 
+@@ -860,7 +861,7 @@ async def test_v2_migration_roundtrip_and_populated_downgrade_guard(banco_migrac
+             await asyncio.to_thread(command.downgrade, config, "c107pair2026")
+         async with engine.connect() as conn:
+             assert (
+-                await conn.scalar(text("SELECT version_num FROM alembic_version")) == "c108v22026"
++                await conn.scalar(text("SELECT version_num FROM alembic_version")) == "c110fact2026"
+             )
+             assert await conn.scalar(select(func.count()).select_from(ColetaSessao)) == 1
+     finally:
+diff --git a/tests/integration/coleta/test_pairing.py b/tests/integration/coleta/test_pairing.py
+index b949a7c..2c9f7b8 100644
+--- a/tests/integration/coleta/test_pairing.py
++++ b/tests/integration/coleta/test_pairing.py
+@@ -571,7 +571,7 @@ async def test_legacy_upgrade_requires_repair_and_roundtrip_never_reactivates(ba
+             await asyncio.to_thread(command.downgrade, config, "a9d6e3f1c210")
+         async with engine.connect() as conn:
+             assert (
+-                await conn.scalar(text("SELECT version_num FROM alembic_version")) == "c108v22026"
++                await conn.scalar(text("SELECT version_num FROM alembic_version")) == "c110fact2026"
+             )
+             assert await conn.scalar(text("SELECT ativo FROM coleta_token")) is False
+     finally:
 diff --git a/tests/integration/test_troca_titular.py b/tests/integration/test_troca_titular.py
 index 84bb34d..42b12dc 100644
 --- a/tests/integration/test_troca_titular.py
