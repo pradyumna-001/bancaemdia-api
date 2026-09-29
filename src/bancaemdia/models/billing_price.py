@@ -12,7 +12,7 @@ class BillingPrice(Base):
     __table_args__ = (
         CheckConstraint("product = 'bancaemdia'", name="ck_billing_price_product"),
         CheckConstraint("amount_cents > 0", name="ck_billing_price_amount"),
-        CheckConstraint("currency = 'BRL'", name="ck_billing_price_currency"),
+        CheckConstraint("currency ~ '^[A-Z]{3}$'", name="ck_billing_price_currency"),
         CheckConstraint("frequency IN ('MONTHLY', 'YEARLY')", name="ck_billing_price_frequency"),
         CheckConstraint(
             "valid_until IS NULL OR valid_until > valid_from", name="ck_billing_price_dates"
@@ -22,6 +22,8 @@ class BillingPrice(Base):
         ),
         ExcludeConstraint(
             ("product", "="),
+            ("currency", "="),
+            ("frequency", "="),
             (text("tstzrange(valid_from, valid_until, '[)')"), "&&"),
             name="ex_billing_price_published_overlap",
             where=text("published"),

@@ -17,7 +17,9 @@ END = START + timedelta(days=7)
 
 
 def trial(status: SubscriptionStatus = SubscriptionStatus.TRIALING) -> BillingSnapshot:
-    return BillingSnapshot(status=status, trial_started_at=START, trial_ends_at=END)
+    return BillingSnapshot(
+        status=status, trial_started_at=START, trial_ends_at=END, trial_confirmed=True
+    )
 
 
 def test_trial_is_seven_complete_days_with_half_open_end() -> None:
@@ -76,8 +78,23 @@ def test_invalid_centavos_are_refused(amount: object) -> None:
 
 def test_invalid_currency_frequency_and_validity_are_refused() -> None:
     with pytest.raises(ValueError):
-        PriceTerms(100, "USD", BillingFrequency.MONTHLY, START)
+        PriceTerms(100, "usd", BillingFrequency.MONTHLY, START)
     with pytest.raises(ValueError):
         PriceTerms(100, "BRL", "WEEKLY", START)  # type: ignore[arg-type]
     with pytest.raises(ValueError):
         PriceTerms(100, "BRL", BillingFrequency.MONTHLY, START, START)
+
+
+def test_unconfirmed_card_cannot_start_trial():
+    pending = BillingSnapshot(SubscriptionStatus.TRIALING, START, END)
+    assert access_mode(pending, now=START, rollout_at=START) == AccessMode.READ_ONLY
+
+
+def test_catalog_selects_currency_and_cadence_without_conversion():
+    br = PriceTerms(123, "BRL", BillingFrequency.MONTHLY, START, published=True)
+    jp = PriceTerms(456, "JPY", BillingFrequency.YEARLY, START, published=True)
+    assert (
+        public_price([br, jp], now=START, currency="JPY", frequency=BillingFrequency.YEARLY) == jp
+    )
+    with pytest.raises(ValueError):
+        public_price([br, jp], now=START, currency="EUR")
