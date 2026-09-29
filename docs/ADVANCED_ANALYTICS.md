@@ -47,3 +47,19 @@ revisadas (`lucro_centavos`, `giro_centavos`, `roi`, `win_rate` e
 ao consultar a meta. `DELETE` arquiva a meta sem apagar histórico. Todas as
 rotas autenticadas usam `Cache-Control: private, no-store` e
 `Vary: Authorization, Cookie`.
+
+## Papel HTTP separado do papel de migração
+
+Se a implantação usa papéis PostgreSQL distintos, conceda ao papel HTTP acesso
+à nova superfície pública e à tabela de metas depois da migração, substituindo
+`bancaemdia_app` pelo papel real:
+
+```sql
+GRANT SELECT ON public.painel_analises_apostas TO bancaemdia_app;
+GRANT SELECT, INSERT, UPDATE, DELETE ON public.metas_desempenho TO bancaemdia_app;
+GRANT USAGE, SELECT ON SEQUENCE public.metas_desempenho_id_seq TO bancaemdia_app;
+GRANT UPDATE (fuso_horario) ON public.usuarios TO bancaemdia_app;
+```
+
+O papel HTTP continua sem `USAGE` no schema privado `painel`. A política RLS
+de `metas_desempenho` também exige `app.current_user_id` na sessão.
