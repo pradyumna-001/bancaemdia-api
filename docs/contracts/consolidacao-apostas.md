@@ -68,11 +68,16 @@ da aposta expõe histórico de relações e `fonte_contextual`, separado de `apa
 
 ## Auditoria, replay e migração
 
-`APOSTAS_CONSOLIDADAS` e `CONSOLIDACAO_DESVINCULADA` são append-only nas duas
+`APOSTAS_CONSOLIDADAS`, `CONSOLIDACAO_DESVINCULADA` e `CONSOLIDACAO_REJEITADA` são append-only nas duas
 chaves. Payload contrato 1 guarda ID, usuário, pontas, conta, decisão, versão,
 evidência, contexto, ator e timestamps. Replay recompõe relações a partir desses
 eventos, sem candidatos atuais ou memória de worker, e detecta divergência da
 evidência imutável. Dry-run é somente leitura.
+
+Resolver um candidato com CORRIGIR/DESCARTAR persiste uma decisão `rejected`,
+sem alocação financeira e sem exigir conta para rejeitar um par. Essa decisão
+impede consolidação automática posterior do mesmo par; uma nova decisão revisada
+pode vincular as fontes após resolver conta/contexto. Rejeição não apaga histórico.
 
 Migration c110fact2026 mantém as revisões publicadas. Pares manuais recíprocos
 legados são adotados como `legacy/manual`, com flags originais e eventos próprios;

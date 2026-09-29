@@ -53,6 +53,9 @@ class RecordingSession:
         self.commits = 0
         self.rollbacks = 0
 
+    async def execute(self, *args: object, **kwargs: object) -> None:
+        await asyncio.sleep(0)
+
     async def commit(self) -> None:
         # A counter increment before this point would report data that can still be rolled back.
         assert self.counter.events == []

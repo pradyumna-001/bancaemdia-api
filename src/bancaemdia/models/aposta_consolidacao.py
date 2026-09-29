@@ -39,6 +39,14 @@ class ApostaConsolidacao(Base):
             "decisao IN ('automatic','reviewed','legacy')", name="ck_consolidacao_decisao"
         ),
         CheckConstraint(
+            "decisao='legacy' OR estado='rejected' OR conta_casa_id IS NOT NULL",
+            name="ck_consolidacao_conta",
+        ),
+        CheckConstraint(
+            "jsonb_typeof(evidencia)='object' AND jsonb_typeof(contexto)='object'",
+            name="ck_consolidacao_snapshot",
+        ),
+        CheckConstraint(
             "(estado = 'active' AND desvinculada_em IS NULL) OR "
             "(estado IN ('unlinked','rejected') AND desvinculada_em IS NOT NULL)",
             name="ck_consolidacao_desvinculacao",
