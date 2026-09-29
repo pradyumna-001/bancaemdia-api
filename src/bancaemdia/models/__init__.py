@@ -55,3 +55,7 @@ __all__ = [
     "UploadBilhete",
     "Usuario",
 ]
+
+from bancaemdia.models.billing_event import BillingEvent
+
+__all__ += ["BillingEvent"]
