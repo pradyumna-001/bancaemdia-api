@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import asyncio
+import base64
 import json
 import os
 import socket
@@ -21,15 +22,13 @@ from cryptography.hazmat.primitives.serialization import (
     Encoding,
     NoEncryption,
     PrivateFormat,
-    PublicFormat,
 )
-from jose import jwk, jwt
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncEngine, AsyncSession
 
 from bancaemdia import main
 from bancaemdia.auth import middleware as auth_middleware
-from bancaemdia.auth.jwt import JWKSCache
+from bancaemdia.auth.jwt import JWKSCache, jwt
 from bancaemdia.cli.refresh_painel import refresh_painel
 from bancaemdia.cli.replay import reconstruir_usuario
 from bancaemdia.config import get_settings
@@ -225,9 +224,27 @@ async def test_synthetic_painel_and_replay_at_16k_bets(
     await refresh_painel(engine_admin)
     signing = rsa.generate_private_key(public_exponent=65537, key_size=2048)
     private = signing.private_bytes(Encoding.PEM, PrivateFormat.PKCS8, NoEncryption()).decode()
-    public = signing.public_key().public_bytes(Encoding.PEM, PublicFormat.SubjectPublicKeyInfo)
+    numbers = signing.public_key().public_numbers()
+
+    def jwk_integer(value: int) -> str:
+        return (
+            base64
+            .urlsafe_b64encode(value.to_bytes((value.bit_length() + 7) // 8, "big"))
+            .rstrip(b"=")
+            .decode()
+        )
+
     cache = JWKSCache(None, "RS256")
-    cache.keys = {"local-test": {**jwk.construct(public, "RS256").to_dict(), "kid": "local-test"}}
+    cache.keys = {
+        "local-test": {
+            "kty": "RSA",
+            "n": jwk_integer(numbers.n),
+            "e": jwk_integer(numbers.e),
+            "alg": "RS256",
+            "use": "sig",
+            "kid": "local-test",
+        }
+    }
     cache.fetched_at = time.monotonic()
     monkeypatch.setattr(auth_middleware, "get_jwks_cache", lambda: cache)
     # A single synthetic user makes 221 requests in seconds; this benchmark isolates the
