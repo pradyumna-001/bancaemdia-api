@@ -36,7 +36,30 @@ EVENTS = frozenset({
 })
 
 
-@router.post("/api/v1/billing/webhook")
+@router.post(
+    "/api/v1/billing/webhook",
+    openapi_extra={
+        "requestBody": {
+            "required": True,
+            "description": "Raw Stripe JSON bytes; signature verification precedes parsing.",
+            "content": {
+                "application/json": {
+                    "schema": {
+                        "type": "object",
+                        "additionalProperties": {"$ref": "#/components/schemas/JsonValue"},
+                    },
+                    "example": {
+                        "id": "evt_contract",
+                        "type": "invoice.paid",
+                        "livemode": False,
+                        "data": {"object": {"customer": "cus_contract"}},
+                    },
+                }
+            },
+        },
+        "security": [{"StripeSignature": []}],
+    },
+)
 async def stripe_webhook(
     request: Request, session: AsyncSession = Depends(get_db_primary)
 ) -> dict[str, str]:
