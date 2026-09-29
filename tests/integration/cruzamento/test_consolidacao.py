@@ -494,6 +494,7 @@ async def test_lifecycle_keeps_one_fact_with_independent_paid_value(
     )
     totals, relations = await financial(engine_app, user)
     assert totals == {"count": 1, "stake": 10000, "return": paid * 100, "exposure": 0}
+    assert len(relations) == 1
     async with AsyncSession(engine_app) as session:
         await owner(session, user)
         assert (await session.get(models.Aposta, casa)).estado == expected
@@ -574,7 +575,6 @@ async def test_consolidation_diagnostics_keep_sensitive_sentinels_out_of_labels_
         ])
     finally:
         provider.shutdown()
-    assert len(relations) == 1
 
 
 async def test_source_edit_delete_restore_and_private_detail_do_not_bypass_relation(

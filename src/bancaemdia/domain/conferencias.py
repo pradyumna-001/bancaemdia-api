@@ -98,7 +98,6 @@ class Selecao:
 @dataclass(frozen=True)
 class Bilhete:
     casa: str | None = None
-    tipster: str | None = None
     tipo: TipoBilhete = TipoBilhete.SIMPLES
     evento: str | None = None
     selecoes: tuple[Selecao, ...] = ()
@@ -111,6 +110,7 @@ class Bilhete:
     ocorrido_em: str | None = None
     stake_unidades: float | None = None
     conta_casa_ref: int | None = None
+    tipster: str | None = None
 
     @property
     def odds_das_selecoes(self) -> list[float]:
