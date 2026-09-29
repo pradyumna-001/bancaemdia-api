@@ -93,6 +93,8 @@ def source_times(casa: str, raw: dict[str, Any]) -> tuple[datetime | None, datet
     # Only a measured source revision field is accepted. Other adapters may create
     # an initial snapshot, but conflicting revisions with no clock require review.
     revised = instant(raw.get("settledAt")) if casa == "betano" else None
+    if casa == "betano" and raw.get("settledAt") is not None and revised is None:
+        return occurred, None
     if revised and occurred and revised < occurred:
         return occurred, None
     return occurred, revised or occurred

@@ -57,7 +57,7 @@ def test_published_artifact_and_metadata_match_runtime_byte_for_byte():
     assert metadata["artifact_sha256"] == hashlib.sha256(serialized(document)).hexdigest()
     assert metadata["supported_contracts"] == [1, 2] and metadata["deprecation_date"] is None
     client = TestClient(app, base_url="https://api.test")
-    assert client.get("/api/v1/coleta/contract/schema").json() == document
+    assert client.get("/api/v1/coleta/contract/schema").content == serialized(document)
     assert client.get("/api/v1/coleta/contract").json() == metadata
     assert "/api/v1/coleta" in document["paths"] and "/api/v1/coleta/batches" in document["paths"]
 

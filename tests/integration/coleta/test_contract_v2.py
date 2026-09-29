@@ -16,6 +16,8 @@ import pytest
 from sqlalchemy import func, select, text, update
 from sqlalchemy.exc import DBAPIError, OperationalError
 from sqlalchemy.ext.asyncio import AsyncSession
+from test_pairing import real_database_required as real_database_required
+from test_pairing import signing_key as signing_key
 from test_pairing import system as system
 
 from bancaemdia import models
@@ -104,17 +106,17 @@ async def api(system, monkeypatch):
     async def run(ack):
         return await coleta_v2.process_job(system.engine, system.user, UUID(ack["job_id"]))
 
-    return SimpleNamespace(
+    return SimpleNamespace(**{
         **vars(system),
-        headers=headers,
-        paired=paired,
-        account=account,
-        session_id=session_id,
-        boundary=boundary,
-        send=send,
-        run=run,
-        status=status,
-    )
+        "headers": headers,
+        "paired": paired,
+        "account": account,
+        "session_id": session_id,
+        "boundary": boundary,
+        "send": send,
+        "run": run,
+        "status": status,
+    })
 
 
 async def test_mixed_batch_stable_ack_and_lossless_raw_replay(api):
@@ -209,6 +211,67 @@ async def test_concurrent_timeout_retries_have_one_delivery_and_one_financial_fa
     rejection = (await api.send([changed])).json()["items"][0]
     assert rejection["ack"] == "rejected" and rejection["reason"] == "event_id_conflict"
     assert (await api.send([item])).json()["items"][0] == acks[0]
+
+
+async def test_two_installations_converge_to_one_financial_fact(api):
+    other = await api.pair()
+    headers = {"X-Coleta-Token": other["token"]}
+    response = await api.http.post(
+        PREFIX + "/sessions", headers=headers, json={"coletar_desde": api.boundary}
+    )
+    assert response.status_code == 200
+    item = capture(api.account)
+    responses = await asyncio.gather(
+        api.send([item]),
+        api.http.post(
+            PREFIX + "/batches",
+            headers=headers,
+            json={
+                "contrato": 2,
+                "batch_id": str(uuid4()),
+                "sessao_id": response.json()["sessao_id"],
+                "items": [item],
+            },
+        ),
+    )
+    assert all(r.status_code == 200 for r in responses)
+    results = await asyncio.gather(*(api.run(r.json()["items"][0]) for r in responses))
+    assert sorted(results) == ["duplicate", "materialized"]
+    async with api.admin.connect() as conn:
+        for table, count in ((ColetaEntrega, 2), (models.ColetaCasa, 1), (models.Aposta, 1)):
+            assert (
+                await conn.scalar(
+                    select(func.count()).select_from(table).where(table.usuario_id == api.user)
+                )
+                == count
+            )
+        assert (
+            await conn.scalar(
+                select(func.count())
+                .select_from(models.Evento)
+                .where(models.Evento.usuario_id == api.user, models.Evento.tipo == "APOSTA_CRIADA")
+            )
+            == 1
+        )
+
+
+@pytest.mark.parametrize("bad_revision", ["invalid", "2026-08-02", 99999999999999999999])
+async def test_invalid_source_revision_is_not_replaced_by_placement(api, bad_revision):
+    item = capture(api.account)
+    item["payload"]["settledAt"] = bad_revision
+    item["content_hash"] = digest(item["payload"])
+    ack = (await api.send([item])).json()["items"][0]
+    assert await api.run(ack) == "needs_review"
+    assert (await api.status(ack))["reason"] == "source_time_untrusted"
+    async with api.admin.connect() as conn:
+        assert (
+            await conn.scalar(
+                select(func.count())
+                .select_from(models.Aposta)
+                .where(models.Aposta.usuario_id == api.user)
+            )
+            == 0
+        )
 
 
 async def test_duplicate_content_new_event_and_lifecycle_out_of_order(api):

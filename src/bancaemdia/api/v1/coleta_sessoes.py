@@ -8,7 +8,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from starlette.concurrency import run_in_threadpool
 from starlette.responses import Response
 
-from bancaemdia.api.collection_contract import CollectionRelease, artifact, release
+from bancaemdia.api.collection_contract import CollectionRelease, artifact, release, serialized
 from bancaemdia.api.contracts import (
     AUTHENTICATED_ERROR_RESPONSES,
     COLETA_ERROR_RESPONSES,
@@ -163,6 +163,6 @@ def published_release() -> CollectionRelease:
     return release()
 
 
-@router.get("/contract/schema")
-def published_schema() -> dict[str, Any]:
-    return artifact()
+@router.get("/contract/schema", response_model=dict[str, Any])
+def published_schema() -> Response:
+    return Response(serialized(artifact()), media_type="application/json")
