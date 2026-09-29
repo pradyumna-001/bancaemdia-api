@@ -292,7 +292,10 @@ async def resolver_revisao(
 
     # A trava é a mesma do trabalhador e vem antes das duas linhas: uma releitura nunca passa por
     # cima da decisão humana, e duas resoluções não esperam o timeout de cinco segundos do primário.
-    if pedido.acao == "MESMA":
+    pair_action = pedido.acao == "MESMA" or isinstance(
+        (revisao.extracao_bruta or {}).get("candidato_id"), int
+    )
+    if pair_action:
         from bancaemdia.repositories.cruzamento_candidato import CruzamentoCandidatoRepo
 
         await CruzamentoCandidatoRepo().lock(session, usuario.id)
@@ -307,9 +310,7 @@ async def resolver_revisao(
         await session.rollback()
         return erro(status.HTTP_409_CONFLICT, JA_RESOLVIDA)
     aposta_atual = await (
-        ApostaRepo().get_by_chave
-        if pedido.acao == "MESMA"
-        else ApostaRepo().get_by_chave_for_update
+        ApostaRepo().get_by_chave if pair_action else ApostaRepo().get_by_chave_for_update
     )(session, usuario.id, chave)
     if aposta_atual is None:
         await session.rollback()
@@ -446,6 +447,9 @@ async def resolver_revisao(
             await session.rollback()
             return erro(status.HTTP_409_CONFLICT, JA_RESOLVIDA)
         await session.commit()
+    except ValueError as recusa:
+        await session.rollback()
+        return erro(status.HTTP_422_UNPROCESSABLE_ENTITY, str(recusa))
     except Exception:
         await session.rollback()
         raise

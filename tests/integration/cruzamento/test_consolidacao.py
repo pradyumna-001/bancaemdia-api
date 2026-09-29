@@ -538,6 +538,13 @@ async def test_actual_review_api_confirms_or_durably_rejects_the_candidate(
     assert len(relations) == 1 and relations[0].estado == (
         "active" if action == "MESMA" else "rejected"
     )
+    if action == "CORRIGIR":
+        async with AsyncSession(engine_app) as session, session.begin():
+            await owner(session, user)
+            with pytest.raises(ConsolidacaoRecusadaError, match="nova decisão revisada"):
+                await consolidate(
+                    session, user, relations[0].casa_aposta_id, relations[0].telegram_aposta_id
+                )
     await reconstruir_usuario(user, engine=engine_app)
     assert (await financial(engine_app, user))[0] == totals
 
@@ -908,3 +915,65 @@ async def test_replay_reconstructs_missing_relation_from_audit_without_live_cand
     assert restored[0].contexto == original[0].contexto
     await reconstruir_usuario(user, engine=engine_app)
     assert (await financial(engine_app, user))[0] == totals
+
+
+async def test_concurrent_actual_intakes_converge_without_deadlock(
+    engine_app, engine_admin, novo_usuario
+):
+    user = await novo_usuario()
+    house, _ = await accounts(engine_admin, engine_app, user)
+    ticket = uuid4().hex
+    await asyncio.wait_for(
+        asyncio.gather(
+            intake_house(engine_app, user, house, house_payload(ticket)),
+            intake_telegram(engine_app, user, telegram_payload(ticket)),
+        ),
+        timeout=20,
+    )
+    totals, relations = await financial(engine_app, user)
+    assert totals == {"count": 1, "stake": 10000, "return": 0, "exposure": 10000}
+    assert len(relations) == 1
+
+
+async def test_unlink_preserves_later_manual_context_and_user_deletion(
+    engine_app, engine_admin, novo_usuario
+):
+    import httpx
+
+    user = await novo_usuario()
+    house, _ = await accounts(engine_admin, engine_app, user)
+    ticket = uuid4().hex
+    casa = await intake_house(engine_app, user, house, house_payload(ticket))
+    tip = await intake_telegram(engine_app, user, telegram_payload(ticket))
+    relation = (await financial(engine_app, user))[1][0]
+    async with AsyncSession(engine_app) as session, session.begin():
+        await owner(session, user)
+        context = models.Tipster(usuario_id=user, nome="synthetic-later-context")
+        session.add(context)
+        await session.flush()
+        context_id = context.id
+        sources = {
+            b.id: b.chave
+            for b in await session.scalars(
+                select(models.Aposta).where(models.Aposta.usuario_id == user)
+            )
+        }
+    async with httpx.AsyncClient(
+        transport=httpx.ASGITransport(app=application(engine_app, user)), base_url="http://test"
+    ) as client:
+        assert (
+            await client.patch("/api/v1/apostas/" + sources[casa], json={"tipster_id": context_id})
+        ).status_code == 200
+        assert (await client.delete("/api/v1/apostas/" + sources[tip])).status_code == 200
+        result = await client.post(
+            f"/api/v1/consolidacoes/{relation.id}/desvincular",
+            json={"motivo": "synthetic independent sources"},
+        )
+        assert result.status_code == 200, result.text
+    await reconstruir_usuario(user, engine=engine_app)
+    async with AsyncSession(engine_app) as session:
+        await owner(session, user)
+        actual = await session.get(models.Aposta, casa)
+        deleted = await session.get(models.Aposta, tip)
+        assert actual.tipster_id == context_id and not deleted.selecionada
+    assert (await financial(engine_app, user))[0]["count"] == 1

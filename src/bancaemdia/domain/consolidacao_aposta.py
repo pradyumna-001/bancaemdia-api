@@ -382,21 +382,52 @@ async def unlink(
         raise ConsolidacaoRecusadaError("relação indisponível")
     if relation.estado == "unlinked":
         return relation
+    if relation.estado != "active":
+        raise ConsolidacaoRecusadaError("relação rejeitada não pode ser desvinculada")
     bets = await _sources(session, user, [relation.casa_aposta_id, relation.telegram_aposta_id])
     if len(bets) != 2:
         raise ConsolidacaoRecusadaError("fontes indisponíveis")
     relation.estado = "unlinked"
     relation.desvinculada_em = datetime.now(UTC)
     relation.motivo_desvinculacao = reason
+    restoration: dict[str, dict[str, Any]] = {}
     for bet in bets:
-        if bet.id == relation.casa_aposta_id:
-            bet.tipster_id = relation.contexto.get("tipster_casa_id")
-    # Only legacy selection was used for suppression. Restore it explicitly and audit it.
-    if relation.decisao == "legacy":
-        for bet in bets:
+        history = (
+            await session.execute(
+                select(models.Evento.tipo, models.Evento.payload_json)
+                .where(models.Evento.usuario_id == user, models.Evento.aposta_chave == bet.chave)
+                .order_by(models.Evento.id)
+            )
+        ).all()
+        after_link = False
+        edited_tipster = edited_selection = False
+        for kind, payload in history:
+            if kind == "APOSTAS_CONSOLIDADAS" and payload.get("relacao_id") == relation.id:
+                after_link = True
+            elif after_link:
+                edited_tipster |= kind == "CORRECAO_MANUAL" and bool(
+                    {"tipster", "tipster_id"} & payload.keys()
+                )
+                edited_selection |= (
+                    kind == "SELECAO_ALTERADA"
+                    or (
+                        kind == "APOSTA_CANCELADA"
+                        and payload.get("motivo") in (None, "", "você apagou esta aposta")
+                    )
+                    or (kind == "CORRECAO_MANUAL" and "selecionada" in payload)
+                )
+        if bet.id == relation.casa_aposta_id and not edited_tipster:
+            values = {
+                "tipster_id": relation.contexto.get("tipster_casa_id"),
+                "tipster": relation.contexto.get("tipster_casa"),
+            }
+            bet.tipster_id = values["tipster_id"]
+            restoration["casa"] = values
+        if relation.decisao == "legacy":
             bet.parceira_chave = None
-            if bet.id == relation.telegram_aposta_id:
+            if bet.id == relation.telegram_aposta_id and not edited_selection:
                 bet.selecionada = True
+                restoration["telegram"] = {"selecionada": True}
     await _audit(
         session,
         relation,
@@ -406,6 +437,7 @@ async def unlink(
             "desvinculada_em": relation.desvinculada_em.isoformat(),
             "motivo": reason,
             "ator": f"usuario:{user}",
+            "restauracao": restoration,
         },
     )
     await CruzamentoCandidatoRepo().invalidate(session, user, [b.id for b in bets])

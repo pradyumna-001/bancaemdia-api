@@ -104,11 +104,14 @@ def projetar(eventos: Iterable[tuple[str, str, dict[str, Any]]]) -> tuple[dict[s
                 estado["tipster"] = payload["contexto"].get("tipster")
         elif tipo == "CONSOLIDACAO_DESVINCULADA":
             estado["consolidacao_id"] = None
-            if estado.get("origem") == "casa":
+            origin = "casa" if estado.get("origem") == "casa" else "telegram"
+            if "restauracao" in payload:
+                estado.update(payload["restauracao"].get(origin, {}))
+            elif origin == "casa":
                 estado["tipster_id"] = payload["contexto"].get("tipster_casa_id")
             if payload.get("decisao") == "legacy":
                 estado["parceira_chave"] = None
-                if estado.get("origem") in {"telegram", "print"}:
+                if "restauracao" not in payload and origin == "telegram":
                     estado["selecionada"] = True
         elif tipo == "ODD_ALTERADA":
             estado["odd"] = payload.get("para")

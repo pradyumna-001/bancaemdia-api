@@ -142,7 +142,7 @@ def upgrade() -> None:
       SELECT c.usuario_id,c.id,t.id,c.conta_casa_id,'active','legacy','legacy/manual',
         jsonb_build_object('legacy',true,'casa_chave',c.chave,'telegram_chave',t.chave,
           'casa_selecionada',c.selecionada,'telegram_selecionada',t.selecionada),
-        jsonb_build_object('tipster_id',c.tipster_id,'chat_id',t.chat_id,'message_id',t.message_id,'midia_hash',t.midia_hash),'migration'
+        jsonb_build_object('tipster_id',c.tipster_id,'tipster_casa_id',c.tipster_id,'chat_id',t.chat_id,'message_id',t.message_id,'midia_hash',t.midia_hash),'migration'
       FROM apostas c JOIN apostas t ON t.usuario_id=c.usuario_id AND t.chave=c.parceira_chave
       WHERE c.origem='casa' AND t.origem IN ('telegram','print') AND t.parceira_chave=c.chave""")
     op.execute("""DO $$ BEGIN IF EXISTS (SELECT 1 FROM apostas a WHERE a.parceira_chave IS NOT NULL
