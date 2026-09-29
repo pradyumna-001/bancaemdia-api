@@ -233,7 +233,11 @@ async def receber_coleta(request: Request, session: AsyncSession = Depends(get_d
         envio = json.loads(corpo.decode("utf-8", "replace"))
     except ValueError:
         return erro(status.HTTP_400_BAD_REQUEST, "não entendi o que a extensão mandou")
-    if not isinstance(envio, dict) or envio.get("contrato") != CONTRATO:
+    if (
+        not isinstance(envio, dict)
+        or isinstance(envio.get("contrato"), bool)
+        or envio.get("contrato") != CONTRATO
+    ):
         return erro(
             status.HTTP_400_BAD_REQUEST,
             "esta versão do planilhador não conhece o formato que a extensão mandou — atualize"
