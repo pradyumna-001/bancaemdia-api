@@ -16,6 +16,37 @@ def _uid() -> int:
     return uuid4().int % (2**60)
 
 
+async def test_card_trial_is_168_hours_across_daylight_saving(engine_admin: AsyncEngine) -> None:
+    uid = _uid()
+    async with engine_admin.connect() as conn:
+        transaction = await conn.begin()
+        try:
+            await _tenant(conn, uid)
+            await conn.execute(text("SET LOCAL TIME ZONE 'America/New_York'"))
+            await conn.execute(
+                text("INSERT INTO usuarios(id,email,nome) VALUES (:id,:email,'DST fixture')"),
+                {"id": uid, "email": f"{uid}@test.invalid"},
+            )
+            await conn.execute(text("SELECT billing_activate_rollout()"))
+            await conn.execute(
+                text(
+                    "UPDATE assinaturas SET trial_confirmed=true, trial_started_at='2026-03-07 12:00:00+00', trial_ends_at='2026-03-14 12:00:00+00' WHERE usuario_id=:id"
+                ),
+                {"id": uid},
+            )
+            assert (
+                await conn.scalar(
+                    text(
+                        "SELECT extract(epoch FROM trial_ends_at-trial_started_at) FROM assinaturas WHERE usuario_id=:id"
+                    ),
+                    {"id": uid},
+                )
+                == 604800
+            )
+        finally:
+            await transaction.rollback()
+
+
 async def _tenant(conn, usuario_id: int) -> None:
     await conn.execute(
         text("SELECT set_config('app.current_user_id', :uid, true)"),
@@ -114,7 +145,10 @@ async def test_subscription_rls_and_trial_guard(
             )
         ).rowcount == 0
         await conn.execute(
-            text("UPDATE assinaturas SET status='CANCELED' WHERE usuario_id=:id"), {"id": ana}
+            text(
+                "UPDATE assinaturas SET status='CANCELED', trial_confirmed=true WHERE usuario_id=:id"
+            ),
+            {"id": ana},
         )
         await conn.execute(
             text("UPDATE usuarios SET email=:email WHERE id=:id"),
@@ -189,7 +223,7 @@ async def test_catalog_exclusion_and_published_terms_are_immutable(
             for amount, currency, frequency, until in (
                 (0, "BRL", "MONTHLY", end),
                 (-1, "BRL", "MONTHLY", end),
-                (100, "USD", "MONTHLY", end),
+                (100, "usd", "MONTHLY", end),
                 (100, "BRL", "WEEKLY", end),
                 (100, "BRL", "MONTHLY", start),
             ):

@@ -187,6 +187,13 @@ async def anonimizar_minha_conta(
     await session.execute(
         select(UsuarioModel.id).where(UsuarioModel.id == usuario.id).with_for_update()
     )
+    from bancaemdia.models.assinatura import Assinatura
+
+    billing = await session.get(Assinatura, usuario.id)
+    if billing and billing.provider_subscription_ref and billing.status != "CANCELED":
+        raise HTTPException(
+            409, "Cancele a assinatura e aguarde a confirmação antes de excluir a conta."
+        )
     raw_sources = (
         select(Upload.id).where(Upload.usuario_id == usuario.id, Upload.chat_id.is_not(None)),
         select(Aposta.id).where(
