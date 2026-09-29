@@ -24,7 +24,13 @@ class BillingCatalogRepo:
         await session.flush()
         return price
 
-    async def current_public_price(self, session: AsyncSession) -> BillingPrice:
+    async def current_public_price(
+        self,
+        session: AsyncSession,
+        *,
+        currency: str = "BRL",
+        frequency: BillingFrequency = BillingFrequency.MONTHLY,
+    ) -> BillingPrice:
         now = await session.scalar(select(func.clock_timestamp()))
         if now is None:
             raise RuntimeError("database clock unavailable")
@@ -43,7 +49,7 @@ class BillingCatalogRepo:
             )
             for row in rows
         ]
-        chosen = public_price(terms, now=now)
+        chosen = public_price(terms, now=now, currency=currency, frequency=frequency)
         return rows[terms.index(chosen)]
 
     async def publish(self, session: AsyncSession, price_id: int) -> BillingPrice:

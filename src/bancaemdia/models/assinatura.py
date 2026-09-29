@@ -1,6 +1,15 @@
 from datetime import datetime
 
-from sqlalchemy import BigInteger, CheckConstraint, DateTime, ForeignKey, Index, String
+from sqlalchemy import (
+    BigInteger,
+    Boolean,
+    CheckConstraint,
+    DateTime,
+    ForeignKey,
+    Index,
+    String,
+    text,
+)
 from sqlalchemy.orm import Mapped, mapped_column
 
 from bancaemdia.db.models import Base
@@ -14,7 +23,7 @@ class Assinatura(Base):
             name="ck_assinatura_status",
         ),
         CheckConstraint(
-            "trial_ends_at = trial_started_at + interval '7 days'",
+            "trial_ends_at = trial_started_at + interval '168 hours'",
             name="ck_assinatura_trial_length",
         ),
         CheckConstraint(
@@ -40,3 +49,5 @@ class Assinatura(Base):
     provider_customer_ref: Mapped[str | None] = mapped_column(String)
     provider_subscription_ref: Mapped[str | None] = mapped_column(String)
     last_reconciled_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    trial_confirmed: Mapped[bool] = mapped_column(Boolean, server_default=text("false"))
+    cancel_at_period_end: Mapped[bool] = mapped_column(Boolean, server_default=text("false"))
