@@ -419,3 +419,5 @@ baixo manda a aposta para revisão humana, que é barato. Um número alto e
 errado entra na planilha e contamina o lucro para sempre.
 
 Prefira sempre confessar a dúvida.
+
+Se o bilhete declarar explicitamente stake em unidades, retorne stake_unidades. Se mostrar apenas valor monetário ou não declarar unidades, deixe stake_unidades nulo; não converta moeda em unidades nem invente esse valor.

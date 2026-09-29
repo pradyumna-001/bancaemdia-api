@@ -16,11 +16,15 @@ from sqlalchemy.ext.asyncio import AsyncEngine, AsyncSession
 from bancaemdia.domain.access import AccountReadOnlyError, require_write_access
 from bancaemdia.extracao.cliente import VERSAO_PROMPT
 from bancaemdia.integrations.telegram.client import TelegramApiError, TelegramClient
-from bancaemdia.integrations.telegram.codec import InvalidTelegramUpdateError, decrypt_payload
+from bancaemdia.integrations.telegram.codec import (
+    InvalidTelegramUpdateError,
+    _fernet,
+    decrypt_payload,
+)
 from bancaemdia.integrations.telegram.media import download_photo
 from bancaemdia.models.rascunho_aposta import ACTIVE_DRAFT_STATUSES, RascunhoAposta
-from bancaemdia.observability.metrics import observe_stage
-from bancaemdia.repositories.mensagem_repo import MidiaArquivoRepo, MidiaRepo
+from bancaemdia.models.telegram_media import TelegramMedia
+from bancaemdia.observability.metrics import observe_stage, telegram_extraction_failures_total
 from bancaemdia.services.telegram_conversation import apply_extraction, draft_summary
 from bancaemdia.services.telegram_photo_intake import candidates_from_reading
 from bancaemdia.workers.extraction import RETRY_ON, extrair_bilhete
@@ -210,8 +214,15 @@ async def _complete(
             media_hash = None
             if content is not None and mime is not None:
                 media_hash = hashlib.sha256(content).hexdigest()
-                await MidiaRepo().upsert_idempotent(session, media_hash, mime, len(content))
-                await MidiaArquivoRepo().upsert_idempotent(session, media_hash, content)
+                session.add(
+                    TelegramMedia(
+                        draft_id=draft.id,
+                        usuario_id=claim.user_id,
+                        content_ciphertext=_fernet().encrypt(content),
+                        content_hash=media_hash,
+                        mime=mime,
+                    )
+                )
                 source = dict(draft.source_metadata_json)
                 source["content_hash"] = media_hash
                 draft.source_metadata_json = source
@@ -263,10 +274,12 @@ async def process_photo_once(
         await _complete(engine, claim, error_code="account_read_only")
     except (TelegramApiError, InvalidTelegramUpdateError) as exc:
         reason = exc.reason if isinstance(exc, TelegramApiError) else "invalid_reference"
+        telegram_extraction_failures_total.labels(reason=reason).inc()
         retryable = isinstance(exc, TelegramApiError) and exc.retryable
         await _complete(engine, claim, error_code=reason, retryable=retryable)
         structlog.get_logger(__name__).warning("telegram_photo_retry", reason=reason)
-    except RETRY_ON:
+    except (*RETRY_ON, TimeoutError):
+        telegram_extraction_failures_total.labels(reason="unavailable").inc()
         await _complete(engine, claim, error_code="extraction_unavailable", retryable=True)
         structlog.get_logger(__name__).warning(
             "telegram_photo_retry", reason="extraction_unavailable"

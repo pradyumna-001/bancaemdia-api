@@ -20,6 +20,7 @@ class ExtracaoBilhete(BaseModel):
     selecoes: list[Selecao] = Field(default_factory=list)
     odd_total: float | None = None
     odd_original: float | None = None
+    stake_unidades: float | None = Field(default=None, gt=0, allow_inf_nan=False)
     quando: str | None = None
     ilegivel: bool = False
     confianca: float = 0.0
