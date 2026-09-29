@@ -6,7 +6,7 @@ from pathlib import Path
 from uuid import uuid4
 
 import pytest
-from sqlalchemy import update
+from sqlalchemy import select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 sys.path.insert(0, str(Path(__file__).parents[1] / "integration/coleta"))
@@ -99,3 +99,61 @@ async def test_composed_v2_explicit_historical_account_wins_even_outside_placeme
     assert relations[0].conta_casa_id == api.account
     await reconstruir_usuario(api.user, engine=api.engine)
     assert (await financial(api.engine, api.user))[0] == totals
+
+
+async def test_holder_switch_preview_uses_game_and_preserves_explicit_multicontas(
+    engine_app, engine_admin, novo_usuario
+):
+    import httpx
+    from test_consolidacao import application
+
+    user = await novo_usuario()
+    house, ids = await accounts(engine_admin, engine_app, user, count=2)
+    async with AsyncSession(engine_app) as session, session.begin():
+        await owner(session, user)
+        await session.execute(
+            update(models.ContaCasa).where(models.ContaCasa.id == ids[0]).values(estado="EM_USO")
+        )
+        await UsoContaCasaRepo().open(session, user, house, ids[0], PLACEMENT - timedelta(days=1))
+    async with httpx.AsyncClient(
+        transport=httpx.ASGITransport(app=application(engine_app, user)), base_url="http://test"
+    ) as client:
+        body = {
+            "casa": "Betano",
+            "odd": 2,
+            "stake_unidades": 1,
+            "data_aposta": PLACEMENT.isoformat(),
+            "data_jogo": GAME.isoformat(),
+        }
+        keys = []
+        for reference in (None, ids[0]):
+            result = await client.post(
+                "/api/v1/apostas",
+                json={**body, **({"conta_casa_ref": reference} if reference else {})},
+            )
+            assert result.status_code == 201, result.text
+            keys.append(result.json()["aposta"]["chave"])
+    async with AsyncSession(engine_app) as session, session.begin():
+        await owner(session, user)
+        default_id = await session.scalar(
+            select(models.Aposta.id).where(
+                models.Aposta.chave == keys[0], models.Aposta.usuario_id == user
+            )
+        )
+        pedido = TrocaPedido(house, ids[0], ids[1], PLACEMENT + timedelta(days=1), "LIMITADA")
+        key = uuid4().hex
+        preview = await trocar_conta(session, user, pedido, key, aplicar=False)
+        assert preview["apostas_afetadas_ids"] == [default_id]
+        await trocar_conta(session, user, pedido, key, aplicar=True)
+    await reconstruir_usuario(user, engine=engine_app)
+    async with AsyncSession(engine_app) as session:
+        await owner(session, user)
+        account_ids = [
+            await session.scalar(
+                select(models.Aposta.conta_casa_id).where(
+                    models.Aposta.chave == key, models.Aposta.usuario_id == user
+                )
+            )
+            for key in keys
+        ]
+        assert account_ids == [ids[1], ids[0]]

@@ -18,11 +18,40 @@ index 0000000..12aad4d
 +
 +def downgrade():
 +    pass
+diff --git a/docs/account-attribution.md b/docs/account-attribution.md
+index 61fd416..0ae2a4f 100644
+--- a/docs/account-attribution.md
++++ b/docs/account-attribution.md
+@@ -1,9 +1,15 @@
+-# Atribuição de conta de aposta
+-
+-Cada aposta mantém `conta_casa_id` no evento de criação e no `snapshot_replay`. A decisão é tomada pelo instante em que a aposta foi feita, consultando os intervalos de `usos_conta_casa` da mesma pessoa e casa. O início é inclusivo; o fim é exclusivo. A hora de recebimento ou processamento não participa da escolha. Uma releitura só recalcula a conta se corrigir a casa ou a data da aposta. O replay usa a decisão gravada para que mudanças posteriores nos intervalos não alterem apostas antigas.
+-
+-Uma referência explícita `conta_casa_id` tem precedência depois de validar que a conta pertence à pessoa e à casa sob RLS. A criação manual aceita esse campo opcionalmente. O contrato `contrato: 1` de `POST /api/v1/coleta` reserva o mesmo campo opcional dentro de cada objeto de `apostas`; o coletor conserva o objeto bruto e o trabalhador valida a referência. Não se usa nome de login da casa para identificar a conta.
+-
+-Sem referência explícita, uma única conta temporal é atribuída. Se não houver conta ou houver mais de uma candidata, `conta_casa_id` permanece nulo e `conta_atribuicao` na resposta da aposta é `UNASSIGNED`. Surge uma revisão pendente vinculada à chave da aposta. A aposta continua nos totais da pessoa. Corrigir a conta fecha a revisão de atribuição sem fechar revisões de extração.
+-
+-Nas coletas de casas, a data financeira pode ser a do jogo. Os leitores que fornecem o horário de colocação guardam esse horário separadamente para a atribuição da conta. O leitor Betfair atual não fornece um horário de colocação verificado: suas apostas ficam sem conta atribuída automaticamente, salvo referência explícita, e entram em revisão.
++# Atribuição de conta
++
++O padrão resolve exatamente uma conta/uso do usuário e da casa na data do jogo
++(`data_jogo` / `comeca_em`), em intervalos `[vigente_de, vigente_ate)`.
++A referência explícita `conta_casa_ref`, validada para o mesmo usuário e bookmaker,
++identifica a conta que realmente fez a aposta no multicontas e tem precedência,
++mesmo fora do intervalo padrão. Sem data/conta única, a aposta permanece UNASSIGNED
++com revisão; referência inválida nunca recebe fallback. Ocorrência, postagem e
++captura continuam sendo relógios de fonte para matching/cortes de coleta.
++
++Materialização, CRUD, Excel e replay compartilham o resolver. A prévia de troca
++de titular identifica apostas padrão afetadas pela data do jogo; decisões
++explícitas de multicontas permanecem na conta real escolhida. A troca preserva
++histórico de usos e exige prévia/aplicação idempotente. O contrato detalhado está
++em [consolidação de apostas](contracts/consolidacao-apostas.md).
 diff --git a/src/bancaemdia/domain/titulares.py b/src/bancaemdia/domain/titulares.py
-index 464982b..e518290 100644
+index 464982b..889d0ad 100644
 --- a/src/bancaemdia/domain/titulares.py
 +++ b/src/bancaemdia/domain/titulares.py
-@@ -150,8 +150,7 @@ async def trocar_conta(
+@@ -150,13 +150,31 @@ async def trocar_conta(
                  .where(
                      models.Aposta.usuario_id == usuario_id,
                      models.Aposta.conta_casa_id == source.id,
@@ -32,6 +61,30 @@ index 464982b..e518290 100644
                  )
                  .order_by(models.Aposta.id)
              )
+         ).scalars()
+     )
++    default_impacted = []
++    from bancaemdia.domain.projecao import projetar
++
++    for ident in impacted:
++        bet = await session.get(models.Aposta, ident)
++        assert bet is not None
++        history = (
++            await session.execute(
++                select(models.Evento.tipo, models.Evento.fonte, models.Evento.payload_json)
++                .where(
++                    models.Evento.usuario_id == usuario_id, models.Evento.aposta_chave == bet.chave
++                )
++                .order_by(models.Evento.id)
++            )
++        ).all()
++        state, _ = projetar(history)
++        if state.get("conta_casa_ref") is None and state.get("conta_atribuicao") != "explicit":
++            default_impacted.append(ident)
++    impacted = default_impacted
+     result: dict[str, object] = {
+         "casa_id": pedido.casa_id,
+         "conta_origem_id": source.id,
 diff --git a/src/bancaemdia/main.py b/src/bancaemdia/main.py
 index a59b2eb..feace0c 100644
 --- a/src/bancaemdia/main.py
