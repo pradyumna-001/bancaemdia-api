@@ -692,6 +692,10 @@ async def test_painel_totals_match_the_conferir_numeros_logic(
         assert panel.resumo.roi_basis_points == 10000
     # Exercise the existing checker CLI's real read-only replay against those same events.
     checker = run_path(str(Path(__file__).parents[2] / "scripts/conferir_numeros.py"))
-    monkeypatch.setattr(replay, "get_engine", lambda: engine_app)
+    checker_engine = create_async_engine(engine_app.url, poolclass=NullPool)
+    monkeypatch.setattr(replay, "get_engine", lambda: checker_engine)
     monkeypatch.setattr(sys, "argv", ["conferir_numeros.py", "--usuario-id", str(user)])
-    assert await asyncio.to_thread(checker["main"]) == 0
+    try:
+        assert await asyncio.to_thread(checker["main"]) == 0
+    finally:
+        await checker_engine.dispose()
