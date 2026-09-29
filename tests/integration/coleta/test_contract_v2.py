@@ -332,6 +332,66 @@ async def test_duplicate_content_new_event_and_lifecycle_out_of_order(api):
         assert tuple(bet) == ("GREEN", 30400, api.account)
 
 
+@pytest.mark.parametrize("protocol", [1, 2])
+async def test_same_financial_content_advances_source_clock_without_new_events(api, protocol):
+    original = capture(api.account)
+    ack = (await api.send([original])).json()["items"][0]
+    assert await api.run(ack) == "materialized"
+    async with api.admin.connect() as conn:
+        events_before = await conn.scalar(
+            select(func.count())
+            .select_from(models.Evento)
+            .where(models.Evento.usuario_id == api.user)
+        )
+        coleta_id = await conn.scalar(
+            select(models.ColetaCasa.id).where(models.ColetaCasa.usuario_id == api.user)
+        )
+    same = copy.deepcopy(original)
+    same["client_event_id"] = str(uuid4())
+    same["payload"]["settledAt"] += 7200000
+    same["content_hash"] = digest(same["payload"])
+    if protocol == 2:
+        assert await api.run((await api.send([same])).json()["items"][0]) == "duplicate"
+    else:
+        response = await api.http.post(
+            PREFIX,
+            headers=api.headers,
+            json={
+                "contrato": 1,
+                "casa": "betano",
+                "apostas": [same["payload"]],
+            },
+        )
+        assert response.status_code == 200
+        await materialization.gravar_coleta(api.engine, api.user, coleta_id)
+    stale = copy.deepcopy(original)
+    stale["client_event_id"] = str(uuid4())
+    stale["payload"]["settledAt"] += 3600000
+    stale["payload"]["finalBetResult"] = "Lose"
+    stale["content_hash"] = digest(stale["payload"])
+    ack = (await api.send([stale])).json()["items"][0]
+    assert await api.run(ack) == "duplicate"
+    assert (await api.status(ack))["reason"] == "stale_source"
+    async with api.admin.connect() as conn:
+        assert (
+            await conn.scalar(
+                select(func.count())
+                .select_from(models.Evento)
+                .where(models.Evento.usuario_id == api.user)
+            )
+            == events_before
+        )
+        assert await conn.scalar(
+            select(models.ColetaCasa.v2_fonte_em).where(models.ColetaCasa.id == coleta_id)
+        ) == datetime.fromtimestamp(same["payload"]["settledAt"] / 1000, UTC)
+        assert (
+            await conn.scalar(
+                select(models.Aposta.estado).where(models.Aposta.usuario_id == api.user)
+            )
+            == "GREEN"
+        )
+
+
 async def test_session_resume_is_explicit_immutable_and_owned_by_installation(api):
     path = PREFIX + "/sessions"
     assert (

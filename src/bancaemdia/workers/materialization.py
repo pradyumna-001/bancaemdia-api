@@ -469,8 +469,15 @@ async def _gravar_coletada(
     if coletas[-1].v2_fonte_em is not None and existia:
         _, revision = source_times(casa, coletas[-1].bruto_json)
         current_state, _ = projetar(historico)
+        same_content = canonical_ticket(lidas[-1]) == coletas[-1].v2_hash
+        if same_content and revision is not None and revision > coletas[-1].v2_fonte_em:
+            await session.execute(
+                update(models.ColetaCasa)
+                .where(models.ColetaCasa.id == coletas[-1].id)
+                .values(v2_fonte_em=revision)
+            )
         if (
-            canonical_ticket(lidas[-1]) == coletas[-1].v2_hash
+            same_content
             or revision is None
             or revision <= coletas[-1].v2_fonte_em
             or (current_state.get("estado") != "PENDENTE" and lidas[-1].estado == "PENDENTE")

@@ -119,6 +119,8 @@ async def materialize(session: AsyncSession, row: ColetaEntrega) -> None:
         finish(row, "needs_review", "account_conflict")
         return
     if current.v2_hash == canonical and existing is not None:
+        if current.v2_fonte_em is None or revised > current.v2_fonte_em:
+            current.v2_fonte_em = revised
         finish(row, "duplicate", "identical_canonical_content")
         return
     if current.v2_fonte_em is not None and revised <= current.v2_fonte_em:
