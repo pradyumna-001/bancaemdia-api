@@ -1,6 +1,161 @@
 {
   "components": {
     "schemas": {
+      "AnalisesSaida": {
+        "additionalProperties": false,
+        "properties": {
+          "atualizado_em": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Atualizado Em"
+          },
+          "faixas_odds": {
+            "items": {
+              "$ref": "#/components/schemas/BucketAnaliseSaida"
+            },
+            "title": "Faixas Odds",
+            "type": "array"
+          },
+          "fonte_dados": {
+            "const": "visao_canonica_ao_vivo",
+            "title": "Fonte Dados",
+            "type": "string"
+          },
+          "fuso_horario": {
+            "title": "Fuso Horario",
+            "type": "string"
+          },
+          "heatmap": {
+            "items": {
+              "$ref": "#/components/schemas/BucketAnaliseSaida"
+            },
+            "title": "Heatmap",
+            "type": "array"
+          },
+          "idade_mv_segundos": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Idade Mv Segundos"
+          },
+          "odd_media": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Odd Media"
+          },
+          "odds_desconhecidas": {
+            "title": "Odds Desconhecidas",
+            "type": "integer"
+          },
+          "odds_nao_aplicaveis": {
+            "title": "Odds Nao Aplicaveis",
+            "type": "integer"
+          },
+          "por_banca_progressao": {
+            "items": {
+              "$ref": "#/components/schemas/BucketAnaliseSaida"
+            },
+            "title": "Por Banca Progressao",
+            "type": "array"
+          },
+          "por_esporte": {
+            "items": {
+              "$ref": "#/components/schemas/BucketAnaliseSaida"
+            },
+            "title": "Por Esporte",
+            "type": "array"
+          },
+          "profit_factor": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Profit Factor"
+          },
+          "quartis_stake": {
+            "items": {
+              "$ref": "#/components/schemas/BucketAnaliseSaida"
+            },
+            "title": "Quartis Stake",
+            "type": "array"
+          },
+          "replica_atraso_disponivel": {
+            "title": "Replica Atraso Disponivel",
+            "type": "boolean"
+          },
+          "replica_atraso_estado": {
+            "enum": [
+              "disponivel",
+              "primario_ou_sem_telemetria"
+            ],
+            "title": "Replica Atraso Estado",
+            "type": "string"
+          },
+          "replica_atraso_segundos": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Replica Atraso Segundos"
+          },
+          "respondido_em": {
+            "format": "date-time",
+            "title": "Respondido Em",
+            "type": "string"
+          },
+          "total_filtrado": {
+            "$ref": "#/components/schemas/ResumoAnaliseSaida"
+          }
+        },
+        "required": [
+          "atualizado_em",
+          "idade_mv_segundos",
+          "respondido_em",
+          "replica_atraso_segundos",
+          "replica_atraso_disponivel",
+          "replica_atraso_estado",
+          "fonte_dados",
+          "fuso_horario",
+          "total_filtrado",
+          "faixas_odds",
+          "heatmap",
+          "por_esporte",
+          "quartis_stake",
+          "por_banca_progressao",
+          "odd_media",
+          "odds_desconhecidas",
+          "odds_nao_aplicaveis",
+          "profit_factor"
+        ],
+        "title": "AnalisesSaida",
+        "type": "object"
+      },
       "ApostaExtratoSaida": {
         "additionalProperties": false,
         "properties": {
@@ -873,6 +1028,143 @@
         "title": "Body_importar_planilha_api_v1_apostas_importar_planilha_post",
         "type": "object"
       },
+      "BucketAnaliseSaida": {
+        "additionalProperties": false,
+        "properties": {
+          "base_roi_centavos": {
+            "title": "Base Roi Centavos",
+            "type": "integer"
+          },
+          "capital_banca_centavos": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Capital Banca Centavos"
+          },
+          "chave": {
+            "title": "Chave",
+            "type": "string"
+          },
+          "giro_centavos": {
+            "title": "Giro Centavos",
+            "type": "integer"
+          },
+          "greens": {
+            "title": "Greens",
+            "type": "integer"
+          },
+          "hit_rate": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Hit Rate"
+          },
+          "lucro_centavos": {
+            "title": "Lucro Centavos",
+            "type": "integer"
+          },
+          "motivo_progressao": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Motivo Progressao"
+          },
+          "nome": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Nome"
+          },
+          "pendentes": {
+            "title": "Pendentes",
+            "type": "integer"
+          },
+          "progressao": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Progressao"
+          },
+          "reds": {
+            "title": "Reds",
+            "type": "integer"
+          },
+          "resultado_nao_aplicavel": {
+            "title": "Resultado Nao Aplicavel",
+            "type": "integer"
+          },
+          "roi": {
+            "title": "Roi",
+            "type": "string"
+          },
+          "total_apostas": {
+            "title": "Total Apostas",
+            "type": "integer"
+          },
+          "valor_face_max_centavos": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Valor Face Max Centavos"
+          },
+          "valor_face_min_centavos": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Valor Face Min Centavos"
+          }
+        },
+        "required": [
+          "total_apostas",
+          "pendentes",
+          "greens",
+          "reds",
+          "giro_centavos",
+          "base_roi_centavos",
+          "lucro_centavos",
+          "roi",
+          "hit_rate",
+          "resultado_nao_aplicavel",
+          "chave"
+        ],
+        "title": "BucketAnaliseSaida",
+        "type": "object"
+      },
       "CollectionRejectedItem": {
         "additionalProperties": false,
         "properties": {
@@ -1503,6 +1795,16 @@
             ],
             "title": "Banca Nome"
           },
+          "depositos_acumulados_centavos": {
+            "default": 0,
+            "title": "Depositos Acumulados Centavos",
+            "type": "integer"
+          },
+          "depositos_periodo_centavos": {
+            "default": 0,
+            "title": "Depositos Periodo Centavos",
+            "type": "integer"
+          },
           "lucro_acumulado_centavos": {
             "title": "Lucro Acumulado Centavos",
             "type": "integer"
@@ -1526,6 +1828,27 @@
               }
             ],
             "title": "Saldo Centavos"
+          },
+          "saldo_inicial_centavos": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Saldo Inicial Centavos"
+          },
+          "saques_acumulados_centavos": {
+            "default": 0,
+            "title": "Saques Acumulados Centavos",
+            "type": "integer"
+          },
+          "saques_periodo_centavos": {
+            "default": 0,
+            "title": "Saques Periodo Centavos",
+            "type": "integer"
           }
         },
         "required": [
@@ -1572,6 +1895,22 @@
           "pagination"
         ],
         "title": "ExtratoSaida",
+        "type": "object"
+      },
+      "FusoEntrada": {
+        "additionalProperties": false,
+        "properties": {
+          "fuso_horario": {
+            "maxLength": 64,
+            "minLength": 1,
+            "title": "Fuso Horario",
+            "type": "string"
+          }
+        },
+        "required": [
+          "fuso_horario"
+        ],
+        "title": "FusoEntrada",
         "type": "object"
       },
       "GrupoSaida": {
@@ -1717,6 +2056,265 @@
           "status"
         ],
         "title": "LivenessResponse",
+        "type": "object"
+      },
+      "MetaAlteracao": {
+        "additionalProperties": false,
+        "properties": {
+          "alvo": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Alvo"
+          },
+          "fim": {
+            "anyOf": [
+              {
+                "format": "date",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Fim"
+          },
+          "inicio": {
+            "anyOf": [
+              {
+                "format": "date",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Inicio"
+          },
+          "linha_base": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Linha Base"
+          },
+          "metrica": {
+            "anyOf": [
+              {
+                "enum": [
+                  "lucro_centavos",
+                  "giro_centavos",
+                  "roi",
+                  "win_rate",
+                  "total_apostas"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Metrica"
+          },
+          "status": {
+            "anyOf": [
+              {
+                "enum": [
+                  "ativa",
+                  "concluida",
+                  "arquivada"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Status"
+          },
+          "titulo": {
+            "anyOf": [
+              {
+                "maxLength": 120,
+                "minLength": 1,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Titulo"
+          }
+        },
+        "title": "MetaAlteracao",
+        "type": "object"
+      },
+      "MetaEntrada": {
+        "additionalProperties": false,
+        "properties": {
+          "alvo": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+                "type": "string"
+              }
+            ],
+            "title": "Alvo"
+          },
+          "fim": {
+            "format": "date",
+            "title": "Fim",
+            "type": "string"
+          },
+          "inicio": {
+            "format": "date",
+            "title": "Inicio",
+            "type": "string"
+          },
+          "linha_base": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+                "type": "string"
+              }
+            ],
+            "default": "0",
+            "title": "Linha Base"
+          },
+          "metrica": {
+            "enum": [
+              "lucro_centavos",
+              "giro_centavos",
+              "roi",
+              "win_rate",
+              "total_apostas"
+            ],
+            "title": "Metrica",
+            "type": "string"
+          },
+          "titulo": {
+            "maxLength": 120,
+            "minLength": 1,
+            "title": "Titulo",
+            "type": "string"
+          }
+        },
+        "required": [
+          "titulo",
+          "metrica",
+          "inicio",
+          "fim",
+          "alvo"
+        ],
+        "title": "MetaEntrada",
+        "type": "object"
+      },
+      "MetaSaida": {
+        "additionalProperties": false,
+        "properties": {
+          "alvo": {
+            "title": "Alvo",
+            "type": "string"
+          },
+          "alvo_atingido": {
+            "title": "Alvo Atingido",
+            "type": "boolean"
+          },
+          "fim": {
+            "format": "date",
+            "title": "Fim",
+            "type": "string"
+          },
+          "id": {
+            "title": "Id",
+            "type": "integer"
+          },
+          "inicio": {
+            "format": "date",
+            "title": "Inicio",
+            "type": "string"
+          },
+          "linha_base": {
+            "title": "Linha Base",
+            "type": "string"
+          },
+          "metrica": {
+            "enum": [
+              "lucro_centavos",
+              "giro_centavos",
+              "roi",
+              "win_rate",
+              "total_apostas"
+            ],
+            "title": "Metrica",
+            "type": "string"
+          },
+          "progresso": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Progresso"
+          },
+          "status": {
+            "enum": [
+              "ativa",
+              "concluida",
+              "arquivada"
+            ],
+            "title": "Status",
+            "type": "string"
+          },
+          "titulo": {
+            "title": "Titulo",
+            "type": "string"
+          },
+          "valor_atual": {
+            "title": "Valor Atual",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "titulo",
+          "metrica",
+          "inicio",
+          "fim",
+          "alvo",
+          "linha_base",
+          "status",
+          "valor_atual",
+          "progresso",
+          "alvo_atingido"
+        ],
+        "title": "MetaSaida",
         "type": "object"
       },
       "MetricasGraficosSaida": {
@@ -2734,6 +3332,72 @@
           "estado"
         ],
         "title": "Resultado",
+        "type": "object"
+      },
+      "ResumoAnaliseSaida": {
+        "additionalProperties": false,
+        "properties": {
+          "base_roi_centavos": {
+            "title": "Base Roi Centavos",
+            "type": "integer"
+          },
+          "giro_centavos": {
+            "title": "Giro Centavos",
+            "type": "integer"
+          },
+          "greens": {
+            "title": "Greens",
+            "type": "integer"
+          },
+          "hit_rate": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Hit Rate"
+          },
+          "lucro_centavos": {
+            "title": "Lucro Centavos",
+            "type": "integer"
+          },
+          "pendentes": {
+            "title": "Pendentes",
+            "type": "integer"
+          },
+          "reds": {
+            "title": "Reds",
+            "type": "integer"
+          },
+          "resultado_nao_aplicavel": {
+            "title": "Resultado Nao Aplicavel",
+            "type": "integer"
+          },
+          "roi": {
+            "title": "Roi",
+            "type": "string"
+          },
+          "total_apostas": {
+            "title": "Total Apostas",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "total_apostas",
+          "pendentes",
+          "greens",
+          "reds",
+          "giro_centavos",
+          "base_roi_centavos",
+          "lucro_centavos",
+          "roi",
+          "hit_rate",
+          "resultado_nao_aplicavel"
+        ],
+        "title": "ResumoAnaliseSaida",
         "type": "object"
       },
       "RevisaoFechadaSaida": {
@@ -5557,6 +6221,150 @@
         "summary": "Consultar painel financeiro"
       }
     },
+    "/api/v1/painel/analises": {
+      "get": {
+        "description": "Recorta as contribuições canônicas por odds, horário, esporte, stake e banca.",
+        "operationId": "consultar_analises_api_v1_painel_analises_get",
+        "parameters": [
+          {
+            "description": "Janela civil de agregação no fuso America/Sao_Paulo.",
+            "in": "query",
+            "name": "periodo",
+            "required": false,
+            "schema": {
+              "$ref": "#/components/schemas/PeriodoPainel",
+              "default": "30d",
+              "description": "Mesma janela civil do painel, em America/Sao_Paulo"
+            }
+          },
+          {
+            "description": "Identificador canônico da casa usada como filtro.",
+            "in": "query",
+            "name": "casa_id",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "maximum": 9223372036854775807,
+                  "minimum": 1,
+                  "type": "integer"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Casa Id"
+            }
+          },
+          {
+            "description": "Identificador canônico do tipster usado como filtro.",
+            "in": "query",
+            "name": "tipster_id",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "maximum": 9223372036854775807,
+                  "minimum": 1,
+                  "type": "integer"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Tipster Id"
+            }
+          },
+          {
+            "description": "Identificador canônico do mercado usado como filtro.",
+            "in": "query",
+            "name": "mercado_id",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "maximum": 9223372036854775807,
+                  "minimum": 1,
+                  "type": "integer"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Mercado Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AnalisesSaida"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Missing, expired, or invalid bearer token."
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorOrValidationResponse"
+                }
+              }
+            },
+            "description": "The request does not satisfy the published contract or a domain rule."
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "The caller exceeded an applicable request limit."
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unexpected internal failure with no sensitive exception details."
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "A required dependency is temporarily unavailable."
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Consultar análises adicionais"
+      }
+    },
     "/api/v1/painel/export": {
       "get": {
         "description": "Gera um XLSX write-only e o transmite sem manter o arquivo completo em memória.",
@@ -5702,6 +6510,473 @@
         "summary": "Exportar painel em Excel"
       }
     },
+    "/api/v1/painel/metas": {
+      "get": {
+        "description": "Retorna as metas privadas com progresso calculado sobre apostas incluídas.",
+        "operationId": "listar_metas_api_v1_painel_metas_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/MetaSaida"
+                  },
+                  "title": "Response Listar Metas Api V1 Painel Metas Get",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Missing, expired, or invalid bearer token."
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorOrValidationResponse"
+                }
+              }
+            },
+            "description": "The request does not satisfy the published contract or a domain rule."
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "The caller exceeded an applicable request limit."
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unexpected internal failure with no sensitive exception details."
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "A required dependency is temporarily unavailable."
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Listar metas de desempenho"
+      },
+      "post": {
+        "description": "Cria uma meta privada para uma métrica canônica e um intervalo civil.",
+        "operationId": "criar_meta_api_v1_painel_metas_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "examples": {
+                "default": {
+                  "summary": "Meta de lucro",
+                  "value": {
+                    "alvo": "100000",
+                    "fim": "2026-09-30",
+                    "inicio": "2026-09-01",
+                    "linha_base": "0",
+                    "metrica": "lucro_centavos",
+                    "titulo": "Lucro mensal"
+                  }
+                }
+              },
+              "schema": {
+                "$ref": "#/components/schemas/MetaEntrada"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MetaSaida"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Missing, expired, or invalid bearer token."
+          },
+          "413": {
+            "content": {
+              "text/plain": {
+                "example": "Content Too Large",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            },
+            "description": "The request body exceeds the server-wide streaming limit."
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorOrValidationResponse"
+                }
+              }
+            },
+            "description": "The request does not satisfy the published contract or a domain rule."
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "The caller exceeded an applicable request limit."
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unexpected internal failure with no sensitive exception details."
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "A required dependency is temporarily unavailable."
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Criar meta de desempenho"
+      }
+    },
+    "/api/v1/painel/metas/{meta_id}": {
+      "delete": {
+        "description": "Arquiva a meta mantendo seu histórico e progresso consultáveis.",
+        "operationId": "arquivar_meta_api_v1_painel_metas__meta_id__delete",
+        "parameters": [
+          {
+            "description": "Identificador de uma meta pertencente ao usuário autenticado.",
+            "in": "path",
+            "name": "meta_id",
+            "required": true,
+            "schema": {
+              "title": "Meta Id",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MetaSaida"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Missing, expired, or invalid bearer token."
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorOrValidationResponse"
+                }
+              }
+            },
+            "description": "The request does not satisfy the published contract or a domain rule."
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "The caller exceeded an applicable request limit."
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unexpected internal failure with no sensitive exception details."
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "A required dependency is temporarily unavailable."
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Arquivar meta de desempenho"
+      },
+      "get": {
+        "description": "Retorna uma meta privada e seu progresso atual.",
+        "operationId": "ler_meta_api_v1_painel_metas__meta_id__get",
+        "parameters": [
+          {
+            "description": "Identificador de uma meta pertencente ao usuário autenticado.",
+            "in": "path",
+            "name": "meta_id",
+            "required": true,
+            "schema": {
+              "title": "Meta Id",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MetaSaida"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Missing, expired, or invalid bearer token."
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorOrValidationResponse"
+                }
+              }
+            },
+            "description": "The request does not satisfy the published contract or a domain rule."
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "The caller exceeded an applicable request limit."
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unexpected internal failure with no sensitive exception details."
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "A required dependency is temporarily unavailable."
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Consultar meta de desempenho"
+      },
+      "patch": {
+        "description": "Altera os parâmetros ou o estado de uma meta privada.",
+        "operationId": "alterar_meta_api_v1_painel_metas__meta_id__patch",
+        "parameters": [
+          {
+            "description": "Identificador de uma meta pertencente ao usuário autenticado.",
+            "in": "path",
+            "name": "meta_id",
+            "required": true,
+            "schema": {
+              "title": "Meta Id",
+              "type": "integer"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "examples": {
+                "default": {
+                  "summary": "Alterar alvo",
+                  "value": {
+                    "alvo": "120000"
+                  }
+                }
+              },
+              "schema": {
+                "$ref": "#/components/schemas/MetaAlteracao"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MetaSaida"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Missing, expired, or invalid bearer token."
+          },
+          "413": {
+            "content": {
+              "text/plain": {
+                "example": "Content Too Large",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            },
+            "description": "The request body exceeds the server-wide streaming limit."
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorOrValidationResponse"
+                }
+              }
+            },
+            "description": "The request does not satisfy the published contract or a domain rule."
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "The caller exceeded an applicable request limit."
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unexpected internal failure with no sensitive exception details."
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "A required dependency is temporarily unavailable."
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Alterar meta de desempenho"
+      }
+    },
     "/api/v1/painel/metricas": {
       "get": {
         "description": "Retorna séries temporais já agregadas para os gráficos do painel.",
@@ -5844,6 +7119,181 @@
           }
         ],
         "summary": "Consultar séries para gráficos"
+      }
+    },
+    "/api/v1/painel/preferencias": {
+      "get": {
+        "description": "Retorna o fuso IANA usado no mapa de horário das apostas.",
+        "operationId": "ler_preferencias_api_v1_painel_preferencias_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FusoEntrada"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Missing, expired, or invalid bearer token."
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorOrValidationResponse"
+                }
+              }
+            },
+            "description": "The request does not satisfy the published contract or a domain rule."
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "The caller exceeded an applicable request limit."
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unexpected internal failure with no sensitive exception details."
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "A required dependency is temporarily unavailable."
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Consultar preferências do painel"
+      },
+      "patch": {
+        "description": "Configura o fuso IANA usado no mapa de horário das apostas.",
+        "operationId": "alterar_preferencias_api_v1_painel_preferencias_patch",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "examples": {
+                "default": {
+                  "summary": "Fuso do painel",
+                  "value": {
+                    "fuso_horario": "America/Sao_Paulo"
+                  }
+                }
+              },
+              "schema": {
+                "$ref": "#/components/schemas/FusoEntrada"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FusoEntrada"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Missing, expired, or invalid bearer token."
+          },
+          "413": {
+            "content": {
+              "text/plain": {
+                "example": "Content Too Large",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            },
+            "description": "The request body exceeds the server-wide streaming limit."
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorOrValidationResponse"
+                }
+              }
+            },
+            "description": "The request does not satisfy the published contract or a domain rule."
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "The caller exceeded an applicable request limit."
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unexpected internal failure with no sensitive exception details."
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "A required dependency is temporarily unavailable."
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Alterar preferências do painel"
       }
     },
     "/api/v1/revisao": {

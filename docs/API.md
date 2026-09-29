@@ -32,8 +32,16 @@ python scripts/generate_openapi.py
 | `GET` | `/api/v1/caixa/saldo` | Consultar saldos | `200`, `401`, `422`, `429`, `500`, `503` | — |
 | `POST` | `/api/v1/coleta` | Receber coleta da extensão | `200`, `400`, `403`, `413`, `429`, `500`, `503` | — |
 | `GET` | `/api/v1/painel` | Consultar painel financeiro | `200`, `401`, `422`, `429`, `500`, `503` | — |
+| `GET` | `/api/v1/painel/analises` | Consultar análises adicionais | `200`, `401`, `422`, `429`, `500`, `503` | — |
 | `GET` | `/api/v1/painel/export` | Exportar painel em Excel | `200`, `401`, `422`, `429`, `500`, `503` | — |
+| `GET` | `/api/v1/painel/metas` | Listar metas de desempenho | `200`, `401`, `422`, `429`, `500`, `503` | — |
+| `POST` | `/api/v1/painel/metas` | Criar meta de desempenho | `201`, `401`, `413`, `422`, `429`, `500`, `503` | — |
+| `GET` | `/api/v1/painel/metas/{meta_id}` | Consultar meta de desempenho | `200`, `401`, `422`, `429`, `500`, `503` | — |
+| `PATCH` | `/api/v1/painel/metas/{meta_id}` | Alterar meta de desempenho | `200`, `401`, `413`, `422`, `429`, `500`, `503` | — |
+| `DELETE` | `/api/v1/painel/metas/{meta_id}` | Arquivar meta de desempenho | `200`, `401`, `422`, `429`, `500`, `503` | — |
 | `GET` | `/api/v1/painel/metricas` | Consultar séries para gráficos | `200`, `401`, `422`, `429`, `500`, `503` | — |
+| `GET` | `/api/v1/painel/preferencias` | Consultar preferências do painel | `200`, `401`, `422`, `429`, `500`, `503` | — |
+| `PATCH` | `/api/v1/painel/preferencias` | Alterar preferências do painel | `200`, `401`, `413`, `422`, `429`, `500`, `503` | — |
 | `GET` | `/api/v1/revisao` | Listar revisões pendentes | `200`, `401`, `422`, `429`, `500`, `503` | — |
 | `GET` | `/api/v1/revisao/stats` | Consultar estatísticas de revisão | `200`, `401`, `422`, `429`, `500`, `503` | — |
 | `GET` | `/api/v1/revisao/{revisao_id}` | Consultar revisão | `200`, `401`, `404`, `422`, `429`, `500`, `503` | — |

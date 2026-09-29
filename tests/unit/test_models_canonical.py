@@ -20,6 +20,7 @@ from bancaemdia.models.extracao_cache import ExtracaoCache
 from bancaemdia.models.mensagem import Mensagem
 from bancaemdia.models.mensagem_versao import MensagemVersao
 from bancaemdia.models.mercado import FAMILIAS, Mercado
+from bancaemdia.models.meta_desempenho import MetaDesempenho
 from bancaemdia.models.midia import Midia
 from bancaemdia.models.midia_arquivo import MidiaArquivo
 from bancaemdia.models.movimento import Movimento
@@ -44,6 +45,7 @@ SUPORTE = (
     RevisaoPendente,
     MidiaArquivo,
     MovimentoRequisicao,
+    MetaDesempenho,
 )
 UPLOAD = (Upload, UploadBilhete, UploadArquivo)
 POR_USUARIO = (
@@ -55,6 +57,7 @@ POR_USUARIO = (
     UploadBilhete,
     UploadArquivo,
     MovimentoRequisicao,
+    MetaDesempenho,
 )
 
 
@@ -83,9 +86,9 @@ def _indexes(modelo: type[Base]) -> dict[str, list[str]]:
     return {i.name: [c.name for c in i.columns] for i in modelo.__table__.indexes}
 
 
-def test_all_twenty_seven_tables_are_registered() -> None:
+def test_all_twenty_eight_tables_are_registered() -> None:
     esperadas = {m.__tablename__ for m in NUCLEO + CANONICOS + SUPORTE + UPLOAD}
-    assert len(esperadas) == 27
+    assert len(esperadas) == 28
     assert set(Base.metadata.tables) == esperadas
     assert {m.__tablename__ for m in CANONICOS} == {
         "casas",
@@ -107,6 +110,7 @@ def test_all_twenty_seven_tables_are_registered() -> None:
         "revisao_pendente",
         "midia_arquivos",
         "movimento_requisicoes",
+        "metas_desempenho",
     }
     assert {m.__tablename__ for m in UPLOAD} == {"uploads", "upload_bilhetes", "upload_arquivos"}
 

@@ -21,7 +21,7 @@ REVISAO_RESOLVIDA = "f2a9c4e7b106"
 PAINEL = "d3f6a8c1e209"
 CAIXA_REVISAO_MERGE = "e5a1c7d9b204"
 PAINEL_CAIXA_MERGE = "f8b2d4a6c901"
-HEAD = "a9d6e3f1c210"
+HEAD = "b6c8e1a4d205"
 USUARIO_ATUAL = "NULLIF(current_setting('app.current_user_id', true), '')::bigint"
 JOB_OFERECIDO = "NULLIF(current_setting('app.upload_job_id', true), '')::uuid"
 POR_USUARIO = {
@@ -42,6 +42,7 @@ POR_USUARIO_UPLOAD = {
     "upload_arquivos",
 }
 POR_USUARIO_IDEMPOTENCIA = {"movimento_requisicoes"}
+POR_USUARIO_ANALYTICS = {"metas_desempenho"}
 COMPARTILHADAS = {
     "midia_arquivos",
     "casas",
@@ -96,7 +97,7 @@ def test_rls_revision_follows_the_baseline() -> None:
 
 
 def test_protected_and_shared_tables_cover_the_whole_schema() -> None:
-    protegidas = POR_USUARIO | POR_USUARIO_UPLOAD | POR_USUARIO_IDEMPOTENCIA
+    protegidas = POR_USUARIO | POR_USUARIO_UPLOAD | POR_USUARIO_IDEMPOTENCIA | POR_USUARIO_ANALYTICS
     assert protegidas | COMPARTILHADAS | {"usuarios"} == set(Base.metadata.tables)
     assert not protegidas & COMPARTILHADAS
     for tabela in protegidas:

@@ -96,6 +96,38 @@ OPERATION_DOCUMENTATION: dict[OperationKey, tuple[str, str]] = {
         "Consultar séries para gráficos",
         "Retorna séries temporais já agregadas para os gráficos do painel.",
     ),
+    ("get", "/api/v1/painel/analises"): (
+        "Consultar análises adicionais",
+        "Recorta as contribuições canônicas por odds, horário, esporte, stake e banca.",
+    ),
+    ("get", "/api/v1/painel/preferencias"): (
+        "Consultar preferências do painel",
+        "Retorna o fuso IANA usado no mapa de horário das apostas.",
+    ),
+    ("patch", "/api/v1/painel/preferencias"): (
+        "Alterar preferências do painel",
+        "Configura o fuso IANA usado no mapa de horário das apostas.",
+    ),
+    ("post", "/api/v1/painel/metas"): (
+        "Criar meta de desempenho",
+        "Cria uma meta privada para uma métrica canônica e um intervalo civil.",
+    ),
+    ("get", "/api/v1/painel/metas"): (
+        "Listar metas de desempenho",
+        "Retorna as metas privadas com progresso calculado sobre apostas incluídas.",
+    ),
+    ("get", "/api/v1/painel/metas/{meta_id}"): (
+        "Consultar meta de desempenho",
+        "Retorna uma meta privada e seu progresso atual.",
+    ),
+    ("patch", "/api/v1/painel/metas/{meta_id}"): (
+        "Alterar meta de desempenho",
+        "Altera os parâmetros ou o estado de uma meta privada.",
+    ),
+    ("delete", "/api/v1/painel/metas/{meta_id}"): (
+        "Arquivar meta de desempenho",
+        "Arquiva a meta mantendo seu histórico e progresso consultáveis.",
+    ),
     ("get", "/api/v1/painel/export"): (
         "Exportar painel em Excel",
         "Gera um XLSX write-only e o transmite sem manter o arquivo completo em memória.",
@@ -152,6 +184,7 @@ PARAMETER_DESCRIPTIONS = {
     "incluir_apagadas": "Inclui apostas retiradas da apuração quando verdadeiro.",
     "job_id": "UUID público retornado quando o upload foi aceito.",
     "mercado_id": "Identificador canônico do mercado usado como filtro.",
+    "meta_id": "Identificador de uma meta pertencente ao usuário autenticado.",
     "motivo": "Texto do motivo usado para filtrar a fila de revisões.",
     "origem": "Canal de origem da aposta usado como filtro.",
     "page": "Número da página, começando em 1.",
@@ -165,6 +198,25 @@ PARAMETER_DESCRIPTIONS = {
 
 
 REQUEST_EXAMPLES: dict[OperationKey, tuple[str, JsonObject]] = {
+    ("patch", "/api/v1/painel/preferencias"): (
+        "Fuso do painel",
+        {"fuso_horario": "America/Sao_Paulo"},
+    ),
+    ("post", "/api/v1/painel/metas"): (
+        "Meta de lucro",
+        {
+            "titulo": "Lucro mensal",
+            "metrica": "lucro_centavos",
+            "inicio": "2026-09-01",
+            "fim": "2026-09-30",
+            "alvo": "100000",
+            "linha_base": "0",
+        },
+    ),
+    ("patch", "/api/v1/painel/metas/{meta_id}"): (
+        "Alterar alvo",
+        {"alvo": "120000"},
+    ),
     ("patch", "/api/v1/caixa/contas/{conta_casa_id}/banca"): (
         "Vincular conta à banca",
         {"banca_id": 12},

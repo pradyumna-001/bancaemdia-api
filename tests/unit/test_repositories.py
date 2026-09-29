@@ -62,7 +62,14 @@ def _params(statement: Any) -> dict[str, Any]:
 
 
 def _usuario() -> models.Usuario:
-    return models.Usuario(id=1, email="Ana@Exemplo.com", nome="Ana", criado_em=AGORA, ativo=True)
+    return models.Usuario(
+        id=1,
+        email="Ana@Exemplo.com",
+        nome="Ana",
+        criado_em=AGORA,
+        ativo=True,
+        fuso_horario="America/Sao_Paulo",
+    )
 
 
 def _aposta(**mudancas: Any) -> models.Aposta:
@@ -110,6 +117,7 @@ def test_colunas_reads_every_mapped_column() -> None:
         "nome": "Ana",
         "criado_em": AGORA,
         "ativo": True,
+        "fuso_horario": "America/Sao_Paulo",
     }
     assert set(colunas(_aposta())) == {c.name for c in models.Aposta.__table__.columns}
 

@@ -12,6 +12,7 @@ class Usuario:
     nome: str
     criado_em: datetime
     ativo: bool
+    fuso_horario: str = "America/Sao_Paulo"
 
 
 @dataclass(frozen=True)
