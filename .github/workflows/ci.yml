@@ -128,7 +128,7 @@ jobs:
   docker-build:
     name: Docker Build
     runs-on: ubuntu-latest
-    needs: [lint, format, typecheck, test, contract, matching-db, consolidation-db, security]
+    needs: [lint, format, typecheck, test, contract, matching-db, consolidation-db, convergence-db, security]
     steps:
       - uses: actions/checkout@v4
       - name: Build Docker image
@@ -208,3 +208,49 @@ jobs:
         with:
           name: consolidation-results
           path: consolidation-results.xml
+
+  convergence-db:
+    name: Dependency convergence (PostgreSQL)
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_DB: bancaemdia
+          POSTGRES_USER: bancaemdia
+          POSTGRES_PASSWORD: test-password
+        ports: ["5432:5432"]
+        options: --health-cmd "pg_isready -U bancaemdia -d bancaemdia" --health-interval 5s --health-timeout 3s --health-retries 5
+      redis:
+        image: redis:7
+        ports: ["6379:6379"]
+        options: --health-cmd "redis-cli ping" --health-interval 5s --health-timeout 3s --health-retries 5
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+      - name: Fetch pinned dependency HEADs
+        run: git fetch origin 9210cef7e1b64664ac8ad347afa69ad02c056cef 427e6af8d6664bd2076bfe6518be754b5934d77b
+      - name: Prepare disposable composition
+        run: python scripts/prepare_convergence.py /tmp/bancaemdia-convergence
+      - run: pip install -e "/tmp/bancaemdia-convergence[dev]"
+      - run: ruff check src/ && mypy src/ --strict --ignore-missing-imports
+        working-directory: /tmp/bancaemdia-convergence
+      - run: pytest tests/integration/coleta/ tests/integration/test_troca_titular.py tests/convergence/financial_acceptance.py -n 0 --show-capture=no --junitxml=convergence-results.xml
+        working-directory: /tmp/bancaemdia-convergence
+        env:
+          TEST_DATABASE_URL: postgresql+asyncpg://bancaemdia:test-password@localhost:5432/bancaemdia
+          REDIS_URL: redis://localhost:6379/0
+      - run: python scripts/check_acceptance_junit.py /tmp/bancaemdia-convergence/convergence-results.xml
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: convergence-results
+          path: |
+            /tmp/bancaemdia-convergence/convergence-results.xml
+            /tmp/bancaemdia-convergence/convergence-heads.json

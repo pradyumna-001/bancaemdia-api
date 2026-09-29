@@ -834,7 +834,9 @@ async def test_panel_refresh_filters_export_and_cash_use_same_single_fact(
     house, ids = await accounts(engine_admin, engine_app, user)
     ticket = uuid4().hex
     await intake_house(engine_app, user, house, house_payload(ticket))
-    await intake_telegram(engine_app, user, telegram_payload(ticket))
+    tg = telegram_payload(ticket)
+    tg["bilhete"]["tipster"] = "synthetic-panel-context"
+    await intake_telegram(engine_app, user, tg)
     await intake_house(engine_app, user, house, house_payload(ticket, state="Win"))
     async with AsyncSession(engine_app) as session, session.begin():
         await owner(session, user)
@@ -852,9 +854,22 @@ async def test_panel_refresh_filters_export_and_cash_use_same_single_fact(
         await owner(session, user)
         balances = await MovimentoRepo().aggregate_saldos_by_usuario(session, user)
         assert balances[ids[0]].saldo_centavos == 60000
-        for filter_house in (None, house):
+        contextual_tipster = await session.scalar(
+            select(models.Aposta.tipster_id).where(
+                models.Aposta.usuario_id == user, models.Aposta.origem == "casa"
+            )
+        )
+        assert contextual_tipster is not None
+        for filter_house, filter_tipster in (
+            (None, None),
+            (house, None),
+            (house, contextual_tipster),
+        ):
             filters = FiltrosPainel.criar(
-                "all", casa_id=filter_house, agora=GAME + timedelta(days=1)
+                "all",
+                casa_id=filter_house,
+                tipster_id=filter_tipster,
+                agora=GAME + timedelta(days=1),
             )
             panel = await PainelRepo().consultar(session, user, filters)
             assert panel.resumo.total_apostas == 1
@@ -977,3 +992,42 @@ async def test_unlink_preserves_later_manual_context_and_user_deletion(
         deleted = await session.get(models.Aposta, tip)
         assert actual.tipster_id == context_id and not deleted.selecionada
     assert (await financial(engine_app, user))[0]["count"] == 1
+
+
+async def test_review_media_is_private_and_cross_tenant_ids_cannot_fetch_it(
+    engine_app, engine_admin, novo_usuario
+):
+    import httpx
+
+    user, other = await novo_usuario(), await novo_usuario()
+    house, _ = await accounts(engine_admin, engine_app, user)
+    ticket = uuid4().hex
+    await intake_house(engine_app, user, house, house_payload(ticket))
+    await intake_telegram(engine_app, user, telegram_payload(ticket, identity=False))
+    async with engine_admin.begin() as conn:
+        media_hash = uuid4().hex
+        await conn.execute(insert(models.Midia).values(hash=media_hash, tipo="image/png", bytes=16))
+        await conn.execute(
+            insert(models.MidiaArquivo).values(hash=media_hash, conteudo=b"synthetic-image")
+        )
+    async with AsyncSession(engine_app) as session, session.begin():
+        await owner(session, user)
+        review = await session.scalar(
+            select(models.RevisaoPendente).where(
+                models.RevisaoPendente.usuario_id == user,
+                models.RevisaoPendente.motivo == "cruzamento_pendente",
+            )
+        )
+        assert review is not None
+        review.midia_hash = media_hash
+        ident = review.id
+    for tenant, expected in ((user, 200), (other, 404)):
+        async with httpx.AsyncClient(
+            transport=httpx.ASGITransport(app=application(engine_app, tenant)),
+            base_url="http://test",
+        ) as client:
+            response = await client.get(f"/api/v1/revisao/{ident}/foto")
+            assert response.status_code == expected, response.text
+            if expected == 200:
+                assert response.content == b"synthetic-image"
+                assert response.headers["cache-control"] == "private, no-store"
