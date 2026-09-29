@@ -62,11 +62,18 @@ jobs:
           python-version: "3.12"
           cache: "pip"
       - run: pip install -e ".[dev]"
-      - run: >
-          pytest -n 8 --dist loadgroup --tb=short -q
-          --cov=src/bancaemdia --cov-fail-under=80
-          --cov-report=term --cov-report=xml:coverage.xml
-          --junitxml=test-results.xml
+      - name: Run complete suite and isolated performance acceptance
+        run: |
+          # Keep the HTTP benchmark's CPU budget independent of xdist workers.
+          pytest -n 8 --dist loadgroup --tb=short -q \
+            --ignore=tests/integration/test_prelaunch_painel_replay.py \
+            --cov=src/bancaemdia --cov-fail-under=80 \
+            --cov-report=term --cov-report=xml:coverage.xml --junitxml=test-results.xml
+          if [ -f tests/integration/test_prelaunch_painel_replay.py ]; then
+            pytest tests/integration/test_prelaunch_painel_replay.py -n 0 --tb=short -q \
+              --cov=src/bancaemdia --cov-append --cov-fail-under=80 \
+              --cov-report=term --cov-report=xml:coverage.xml --junitxml=benchmark-results.xml
+          fi
         env:
           DATABASE_URL: postgresql+asyncpg://user:pass@localhost:5432/bancaemdia
           DATABASE_URL_REPLICA: postgresql+asyncpg://user:pass@localhost:5432/bancaemdia
@@ -85,7 +92,9 @@ jobs:
         if: always()
         with:
           name: test-results
-          path: test-results.xml
+          path: |
+            test-results.xml
+            benchmark-results.xml
       - uses: actions/upload-artifact@v4
         if: always()
         with:

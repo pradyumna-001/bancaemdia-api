@@ -91,3 +91,5 @@ creates local test-only merge commits; it never pushes or merges a GitHub PR.
 The fixture resolves predictable integration conflicts before administrative
 merges. Its broad compatibility coverage still does not satisfy all nonbilling
 product acceptance in #118. Each original PR retains its own diff and CI.
+
+O benchmark HTTP de 16 mil apostas roda depois da suíte paralela, sem disputar CPU com workers xdist. Permanecem 200 requisições, concorrência 10, P95 < 500 ms e frescor < 30 s; o XML separado é obrigatório no ensaio completo. A evidência usa dados sintéticos e não substitui medição na infraestrutura de produção.

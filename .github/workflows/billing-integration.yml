@@ -59,7 +59,10 @@ jobs:
       - name: Validate billing alert rules
         run: docker run --rm --entrypoint /bin/promtool -v "$PWD/infra/observability/billing.rules.yml:/rules.yml:ro" prom/prometheus:v3.5.0 check rules /rules.yml
       - name: Full suite including real PostgreSQL billing lifecycle
-        run: pytest -n 8 --dist loadgroup --tb=short -q --cov=src/bancaemdia --cov-fail-under=80 --junitxml=billing-integration.xml
+        run: pytest -n 8 --dist loadgroup --tb=short -q --ignore=tests/integration/test_prelaunch_painel_replay.py --cov=src/bancaemdia --cov-fail-under=80 --junitxml=billing-integration.xml
+      - name: Require isolated 16k-bet replay and HTTP performance acceptance
+        if: matrix.scope == 'api-review-queue'
+        run: pytest tests/integration/test_prelaunch_painel_replay.py -n 0 --tb=short -q --junitxml=benchmark-results.xml
       - name: Require all eight PostgreSQL and Redis cross-flow scenarios
         run: |
           python - <<'PY'
@@ -72,6 +75,9 @@ jobs:
           assert all(not list(c) or all(x.tag not in ('skipped', 'failure', 'error') for x in c) for c in required)
           if os.environ['API_REVIEW_QUEUE_REQUIRED'] == '1':
               goals = [c for c in cases if 'test_billing_analytics_compatibility' in c.attrib.get('classname', '')]
+              benchmark = ET.parse('benchmark-results.xml').findall('.//testcase')
+              assert len(benchmark) == 1
+              assert all(not any(x.tag in ('skipped', 'failure', 'error') for x in c) for c in benchmark)
               assert len(goals) == 2
               assert all(not any(x.tag in ('skipped', 'failure', 'error') for x in c) for c in goals)
           print('All required real PostgreSQL/Redis scenarios passed.')
@@ -80,7 +86,9 @@ jobs:
         if: always()
         with:
           name: billing-integration-${{ matrix.scope }}-${{ github.event.pull_request.head.sha }}
-          path: billing-integration.xml
+          path: |
+            billing-integration.xml
+            benchmark-results.xml
       - name: Build the assembled API image
         if: matrix.scope == 'api-review-queue'
         run: docker build --tag bancaemdia-api:review-queue .
