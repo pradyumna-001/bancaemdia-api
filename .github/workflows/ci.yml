@@ -95,22 +95,24 @@ jobs:
         run: pytest tests/contract/ -v
       - name: Verify generated OpenAPI artifacts
         run: python scripts/generate_openapi.py --check
-      - name: Prepare origin/main OpenAPI baseline
+      - name: Prepare pull request base OpenAPI baseline
         id: openapi_baseline
         if: github.event_name == 'pull_request'
         shell: bash
+        env:
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
         run: |
           set -euo pipefail
           baseline="$GITHUB_WORKSPACE/.openapi-main.json"
-          git fetch --no-tags --depth=1 origin main:refs/remotes/origin/main
+          git fetch --no-tags --depth=1 origin "$BASE_SHA"
 
-          if git show origin/main:tests/contract/schemas/openapi.json > "$baseline" 2>/dev/null; then
-            echo "Using the checked-in origin/main OpenAPI snapshot."
+          if git show "$BASE_SHA:tests/contract/schemas/openapi.json" > "$baseline" 2>/dev/null; then
+            echo "Using the checked-in pull request base OpenAPI snapshot."
             echo "available=true" >> "$GITHUB_OUTPUT"
           else
             rm -f "$baseline"
             echo "available=false" >> "$GITHUB_OUTPUT"
-            echo "::notice::origin/main has no checked-in OpenAPI snapshot; this PR establishes the initial baseline."
+            echo "::notice::The pull request base has no checked-in OpenAPI snapshot; this PR establishes the initial baseline."
           fi
       - name: Reject breaking API changes
         if: >-
