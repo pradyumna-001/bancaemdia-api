@@ -7,6 +7,7 @@ from sqlalchemy.sql.ddl import DDLElement
 from bancaemdia.db.models import Base
 from bancaemdia.models.apelido import ENTIDADES, Apelido
 from bancaemdia.models.aposta import Aposta
+from bancaemdia.models.audit_log import AuditLog
 from bancaemdia.models.banca import Banca
 from bancaemdia.models.casa import Casa
 from bancaemdia.models.chamada_ia import ChamadaIA
@@ -83,9 +84,9 @@ def _indexes(modelo: type[Base]) -> dict[str, list[str]]:
     return {i.name: [c.name for c in i.columns] for i in modelo.__table__.indexes}
 
 
-def test_all_twenty_seven_tables_are_registered() -> None:
-    esperadas = {m.__tablename__ for m in NUCLEO + CANONICOS + SUPORTE + UPLOAD}
-    assert len(esperadas) == 27
+def test_all_twenty_eight_tables_are_registered() -> None:
+    esperadas = {m.__tablename__ for m in NUCLEO + CANONICOS + SUPORTE + UPLOAD + (AuditLog,)}
+    assert len(esperadas) == 28
     assert set(Base.metadata.tables) == esperadas
     assert {m.__tablename__ for m in CANONICOS} == {
         "casas",
