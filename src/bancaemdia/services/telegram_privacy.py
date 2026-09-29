@@ -38,6 +38,7 @@ async def forget_pending_content(session: AsyncSession, user_id: int) -> None:
         .values(
             payload_ciphertext=b"",
             chat_id=0,
+            telegram_message_id=None,
             status="DLQ",
             last_error_code="unlinked",
             lease_token=None,

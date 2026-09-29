@@ -666,6 +666,9 @@ async def test_unlink_cancels_draft_and_stops_claimed_extraction_and_delivery(bo
     draft = await bot.draft()
     claim = await telegram_extraction.claim_photo(bot.engine, draft_id=draft.id)
     assert claim
+    await bot.deliver()
+    assert bot.provider.sent
+    bot.provider.sent.clear()
     async with bot.como(bot.engine, bot.user) as session:
         assert await revoke_link(session, bot.user)
         await session.commit()
@@ -678,6 +681,12 @@ async def test_unlink_cancels_draft_and_stops_claimed_extraction_and_delivery(bo
     assert (await bot.draft()).status == "CANCELLED"
     async with bot.como(bot.engine, bot.user) as session:
         assert await session.get(models.TelegramMedia, draft.id) is None
+        responses = (await session.scalars(select(models.TelegramOutbox))).all()
+        assert responses
+        assert all(
+            row.chat_id == 0 and row.telegram_message_id is None and not row.payload_ciphertext
+            for row in responses
+        )
 
 
 async def test_limiter_backend_failure_rolls_back_and_preserves_update(bot, monkeypatch):
