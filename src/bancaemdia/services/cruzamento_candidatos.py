@@ -33,6 +33,8 @@ FIELDS = (
 
 async def dictionary_for(session: AsyncSession, raw: dict[str, Any]) -> dict[str, str]:
     legs = raw.get("selecoes") or []
+    if not isinstance(legs, list) or not all(isinstance(leg, dict) for leg in legs):
+        legs = []
     events = {str(raw.get("evento") or ""), *(str(leg.get("evento") or "") for leg in legs[:32])}
     names = {
         "mercado": {
@@ -119,6 +121,11 @@ async def generate(session: AsyncSession, user: int, bet: Any, state: dict[str, 
         return "nova"
     neighbors = (await session.scalars(repo.neighbors_query(entry))).all()
     truncated = len(neighbors) > MAX_NEIGHBORS
+    entry.dados = {**entry.dados, "search_truncated": truncated}
+    await session.flush()
+    if truncated:
+        await repo.demote_saturated_window(session, entry)
+    source_veto = await repo.saturated_neighbor(session, entry)
     candidates = []
     for neighbor in neighbors[:MAX_NEIGHBORS]:
         house, tip = (entry, neighbor) if entry.origem == "casa" else (neighbor, entry)
@@ -133,7 +140,9 @@ async def generate(session: AsyncSession, user: int, bet: Any, state: dict[str, 
                 "score": result.score,
                 "classe_base": result.classification,
                 "status": result.classification,
-                "busca_truncada": truncated,
+                "busca_truncada": truncated
+                or source_veto
+                or await repo.saturated_neighbor(session, neighbor),
                 "sinais_iguais": list(result.matched),
                 "sinais_conflitantes": list(result.conflicts),
                 "evidencia": {

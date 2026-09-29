@@ -79,7 +79,11 @@ os candidatos materializados. Nenhuma dessas contagens declara consolidação.
 
 Cada busca usa mesma casa/tenant e uma janela de ±14 dias, pede no máximo 201
 vizinhos e avalia 200. O registro adicional detecta saturação: uma busca incompleta
-nunca produz exact. A busca não percorre todo o histórico do usuário. O teste
+nunca produz exact. A saturação também retira exact de pares existentes ligados
+a vizinhos ocultos além do limite, em páginas de até 200 pares na mesma janela
+indexada. O marcador persistido veta reativação por reprocessamento da outra ponta;
+uma busca completa posterior permite reavaliar esse veto. A busca não percorre
+todo o histórico do usuário. O teste
 PostgreSQL com 100 mil entradas exige uso de `ix_cruzamento_busca`, retorno de no
 máximo 201 registros e execução SQL abaixo de 250 ms; o tempo medido é registrado
 no JUnit. Esse orçamento é da busca, não uma promessa de latência HTTP para todo

@@ -1,18 +1,16 @@
-"""Serialize automatic house/tip matching and retain its decision in events."""
+"""Generate matching evidence and retain explicit manual consolidation."""
 
 from __future__ import annotations
 
 from typing import Any
 
-from sqlalchemy import select, update
+from sqlalchemy import update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from bancaemdia import models
 from bancaemdia.domain.registros import Aposta
 from bancaemdia.observability.tracing import custom_span, set_custom_span_attributes
 from bancaemdia.repositories.evento_repo import EventoRepo
-
-MAX_CANDIDATES = 500
 
 
 async def _registrar(
@@ -31,25 +29,6 @@ async def _registrar(
             "aposta_chave": chave,
         },
     )
-
-
-async def _criacoes(
-    session: AsyncSession, usuario_id: int, chaves: list[str]
-) -> dict[str, dict[str, Any]]:
-    if not chaves:
-        return {}
-    linhas = (
-        await session.execute(
-            select(models.Evento.aposta_chave, models.Evento.payload_json)
-            .where(
-                models.Evento.usuario_id == usuario_id,
-                models.Evento.tipo == "APOSTA_CRIADA",
-                models.Evento.aposta_chave.in_(chaves),
-            )
-            .order_by(models.Evento.id)
-        )
-    ).all()
-    return {str(chave): payload for chave, payload in linhas if chave is not None}
 
 
 async def confirmar_par(session: AsyncSession, usuario_id: int, uma: Any, outra: Any) -> None:

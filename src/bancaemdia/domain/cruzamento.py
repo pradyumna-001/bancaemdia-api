@@ -51,6 +51,9 @@ def normalize(raw: dict[str, Any], dictionary: dict[str, str] | None = None) -> 
         return dictionary.get(f"{kind}:{value}", value)
 
     legs = raw.get("selecoes") or []
+    valid_legs = isinstance(legs, list) and all(isinstance(leg, dict) for leg in legs)
+    if not valid_legs:
+        legs = []
     normalized_legs = []
     for leg in legs[:32]:
         normalized_legs.append({

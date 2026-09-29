@@ -82,6 +82,49 @@ class CruzamentoCandidatoRepo:
             await session.execute(stmt.returning(Pair).execution_options(populate_existing=True))
         ).scalar_one()
 
+    async def saturated_neighbor(self, session: AsyncSession, entry: Entry) -> bool:
+        query = (
+            self
+            .neighbors_query(entry)
+            .where(Entry.dados["search_truncated"].as_boolean().is_(True))
+            .limit(1)
+        )
+        return await session.scalar(query) is not None
+
+    async def demote_saturated_window(self, session: AsyncSession, entry: Entry) -> None:
+        # A hidden neighbor beyond the cap may already have an exact edge. Veto it too,
+        # using the same indexed time window, and process reviews in bounded pages.
+        neighbors = (
+            self
+            .neighbors_query(entry)
+            .with_only_columns(Entry.aposta_id)
+            .order_by(None)
+            .limit(None)
+        )
+        endpoint = Pair.telegram_aposta_id if entry.origem == "casa" else Pair.casa_aposta_id
+        after = 0
+        while True:
+            rows = list(
+                await session.scalars(
+                    select(Pair)
+                    .where(
+                        Pair.usuario_id == entry.usuario_id,
+                        Pair.versao == VERSION,
+                        Pair.status == "exact",
+                        Pair.id > after,
+                        endpoint.in_(neighbors),
+                    )
+                    .order_by(Pair.id)
+                    .limit(MAX_NEIGHBORS)
+                )
+            )
+            if not rows:
+                break
+            after = rows[-1].id
+            for pair in rows:
+                pair.busca_truncada = True
+            await self.adjudicate(session, entry.usuario_id, rows)
+
     async def invalidate(self, session: AsyncSession, user: int, ids: list[int]) -> None:
         reviews = (
             await session.scalars(

@@ -47,6 +47,13 @@ def test_only_supplied_canonical_dictionary_can_normalize_names():
     assert raw["evento"] == "Azul FC - Verde"
 
 
+@pytest.mark.parametrize("legs", ["invalid", {"bad": "shape"}, [None], ["invalid"]])
+def test_malformed_legacy_legs_never_establish_exact_identity(legs):
+    base = normalize(FIXTURES["base"])
+    malformed = normalize({**FIXTURES["base"], "selecoes": legs})
+    assert compare(base, malformed).classification == "probable"
+
+
 def test_full_multiple_is_order_independent_but_missing_leg_cannot_be_exact():
     raw = copy.deepcopy(FIXTURES["base"])
     raw["tipo_aposta"] = "MULTIPLA"

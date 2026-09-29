@@ -272,7 +272,7 @@ async def test_search_budget_on_one_hundred_thousand_source_rows(
         await conn.execute(
             text("""WITH added AS (
             INSERT INTO apostas(usuario_id,chave,origem,chat_id,message_id,data_aposta,stake_unidades,stake_centavos,odd)
-            SELECT :uid,'bench:'||:uid||':'||n,'telegram',:uid,n,now(),1,10000,1.9
+            SELECT CAST(:uid AS bigint),'bench:'||CAST(CAST(:uid AS bigint) AS text)||':'||n,'telegram',CAST(:uid AS bigint),n,now(),1,10000,1.9
             FROM generate_series(1,100000) n RETURNING id,usuario_id,message_id)
             INSERT INTO cruzamento_entradas(aposta_id,usuario_id,casa,origem,ocorrido_em,dados)
             SELECT id,usuario_id,CASE WHEN message_id%10=0 THEN 'Betano' ELSE 'Superbet' END,
@@ -343,6 +343,58 @@ async def test_any_source_correction_invalidates_stale_exact_eligibility(engine_
             update(models.Aposta).where(models.Aposta.id == tip).values(stake_centavos=999)
         )
     assert (await pairs(engine_app, user))[0].status == "excluded"
+
+
+async def test_saturation_demotes_hidden_exact_edge_and_cannot_be_bypassed_by_refresh(
+    engine_app, novo_usuario
+):
+    user = await novo_usuario()
+    await create(engine_app, user, "casa")
+    tip, raw, _ = await create(
+        engine_app,
+        user,
+        "telegram",
+        {
+            "comeca_em": "2026-09-20T22:31:00Z",
+        },
+    )
+    assert (await pairs(engine_app, user))[0].status == "exact"
+    for index in range(200):
+        await create(engine_app, user, "telegram", {"identidade_bilhete": f"FILLER-{index}"})
+    assert (await pairs(engine_app, user))[0].status == "exact"
+    await create(engine_app, user, "casa")
+    hidden = (await pairs(engine_app, user))[0]
+    assert hidden.status == "probable" and hidden.busca_truncada and hidden.revisao_id
+    assert await refresh(engine_app, user, tip, raw) == "duvida"
+    assert not any(p.status == "exact" for p in await pairs(engine_app, user))
+
+
+@pytest.mark.parametrize("confirmed", [False, True])
+async def test_only_confirmed_database_aliases_normalize_and_originals_survive(
+    engine_admin, engine_app, novo_usuario, confirmed
+):
+    user = await novo_usuario()
+    name, alias = f"Market-{uuid4().hex}", f"Alias-{uuid4().hex}"
+    async with AsyncSession(engine_admin) as session, session.begin():
+        market = models.Mercado(nome=name)
+        session.add(market)
+        await session.flush()
+        session.add(
+            models.Apelido(
+                entidade_tipo="mercado", entidade_id=market.id, nome=alias, confirmado=confirmed
+            )
+        )
+
+    def market_state(value):
+        legs = copy.deepcopy(BASE["selecoes"])
+        legs[0]["mercado"] = value
+        return {"mercado_bruto": value, "selecoes": legs}
+
+    await create(engine_app, user, "casa", market_state(name))
+    await create(engine_app, user, "telegram", market_state(alias))
+    row = (await pairs(engine_app, user))[0]
+    assert row.status == ("exact" if confirmed else "probable")
+    assert row.evidencia["telegram"]["original"]["mercado_bruto"] == alias
 
 
 def test_matching_migration_roundtrip_and_evidence_preservation(isolated_database, monkeypatch):
