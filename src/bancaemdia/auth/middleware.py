@@ -15,6 +15,12 @@ from bancaemdia.auth.jwt import (
 # são lidos pela infraestrutura, sem usuário. O aviso de fim de upload vem do trabalhador, que tem
 # o segredo do webhook e nenhum token de pessoa.
 PUBLIC_PATHS = frozenset({
+    "/auth/start",
+    "/auth/callback",
+    "/auth/session",
+    "/auth/refresh",
+    "/auth/logout",
+    "/auth/jwks",
     "/health",
     "/ready",
     "/metrics",
@@ -49,6 +55,28 @@ class JWTAuthMiddleware(BaseHTTPMiddleware):
         self, request: Request, call_next: Callable[[Request], Awaitable[Response]]
     ) -> Response:
         if route_path(request) in PUBLIC_PATHS:
+            return await call_next(request)
+
+        from bancaemdia.api.identity import failure
+        from bancaemdia.auth.identity_config import identity_settings
+        from bancaemdia.auth.identity_service import identity_service
+        from bancaemdia.auth.oidc import IdentityError
+
+        settings = identity_settings()
+        if settings.AUTH_ENABLED:
+            try:
+                service = identity_service()
+                scheme, _, token = (request.headers.get("Authorization") or "").partition(" ")
+                if scheme.lower() == "bearer" and token.strip():
+                    request.state.usuario_id = await service.authenticate_bearer(token.strip())
+                elif request.headers.get("Authorization"):
+                    raise IdentityError("not_authenticated")
+                else:
+                    request.state.usuario_id = await service.authenticate(
+                        request.cookies.get(settings.session_cookie, "")
+                    )
+            except IdentityError as error:
+                return failure(error)
             return await call_next(request)
 
         scheme, _, token = (request.headers.get("Authorization") or "").partition(" ")

@@ -17,7 +17,7 @@ REVISAO_RESOLVIDA = "f2a9c4e7b106"
 CAIXA_REVISAO_MERGE = "e5a1c7d9b204"
 PAINEL = "d3f6a8c1e209"
 PAINEL_CAIXA_MERGE = "f8b2d4a6c901"
-HEAD = "a9d6e3f1c210"
+HEAD = "i167session2026"
 PARTICIONADAS = {
     "eventos": "criado_em",
     "movimentos": "ocorrido_em",
@@ -75,7 +75,7 @@ def test_late_branches_merge_without_rewriting_published_revisions() -> None:
 
     downgrade = _downgrade_sql()
     regra_compativel = downgrade.index("ALTER TABLE eventos ADD CONSTRAINT ck_eventos_tipo")
-    # O rollback mantém a auditoria legível e não falha depois do primeiro uso.
+    # O rollback mantÃƒÂ©m a auditoria legÃƒÂ­vel e nÃƒÂ£o falha depois do primeiro uso.
     assert "REVISAO_RESOLVIDA" in downgrade[regra_compativel : regra_compativel + 500]
 
 
@@ -85,7 +85,7 @@ def test_upgrade_creates_every_model_table_once() -> None:
         assert sql.count(f"\nCREATE TABLE {nome} (") == 1
     # Alembic's own version table and the private dashboard refresh state are intentionally not
     # SQLAlchemy models.
-    assert sql.count("\nCREATE TABLE ") == len(Base.metadata.tables) + 2
+    assert sql.count("\nCREATE TABLE ") == len(Base.metadata.tables) + 8
     assert "CREATE TABLE alembic_version" in sql
     assert "CREATE TABLE painel.estado_refresh" in sql
     assert f"INSERT INTO alembic_version (version_num) VALUES ('{BASELINE}')" in sql

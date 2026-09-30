@@ -18,16 +18,16 @@ python scripts/generate_openapi.py
 | Method | Path | Summary | Responses | Tags |
 | --- | --- | --- | --- | --- |
 | `GET` | `/api/v1/apostas` | Listar apostas | `200`, `401`, `422`, `429`, `500`, `503` | — |
-| `POST` | `/api/v1/apostas` | Criar aposta manual | `201`, `401`, `409`, `413`, `422`, `429`, `500`, `503` | — |
-| `POST` | `/api/v1/apostas/importar-planilha` | Importar apostas do Excel | `200`, `401`, `413`, `422`, `429`, `500`, `503` | — |
+| `POST` | `/api/v1/apostas` | Criar aposta manual | `201`, `401`, `403`, `409`, `413`, `422`, `429`, `500`, `503` | — |
+| `POST` | `/api/v1/apostas/importar-planilha` | Importar apostas do Excel | `200`, `401`, `403`, `413`, `422`, `429`, `500`, `503` | — |
 | `GET` | `/api/v1/apostas/{chave}` | Consultar aposta | `200`, `401`, `404`, `422`, `429`, `500`, `503` | — |
-| `PATCH` | `/api/v1/apostas/{chave}` | Corrigir aposta | `200`, `401`, `404`, `409`, `413`, `422`, `429`, `500`, `503` | — |
-| `DELETE` | `/api/v1/apostas/{chave}` | Excluir aposta da apuração | `200`, `401`, `404`, `409`, `422`, `429`, `500`, `503` | — |
-| `POST` | `/api/v1/apostas/{chave}/restaurar` | Restaurar aposta na apuração | `200`, `401`, `404`, `409`, `422`, `429`, `500`, `503` | — |
-| `POST` | `/api/v1/apostas/{chave}/resultado` | Registrar resultado da aposta | `200`, `401`, `404`, `409`, `413`, `422`, `429`, `500`, `503` | — |
+| `PATCH` | `/api/v1/apostas/{chave}` | Corrigir aposta | `200`, `401`, `403`, `404`, `409`, `413`, `422`, `429`, `500`, `503` | — |
+| `DELETE` | `/api/v1/apostas/{chave}` | Excluir aposta da apuração | `200`, `401`, `403`, `404`, `409`, `422`, `429`, `500`, `503` | — |
+| `POST` | `/api/v1/apostas/{chave}/restaurar` | Restaurar aposta na apuração | `200`, `401`, `403`, `404`, `409`, `422`, `429`, `500`, `503` | — |
+| `POST` | `/api/v1/apostas/{chave}/resultado` | Registrar resultado da aposta | `200`, `401`, `403`, `404`, `409`, `413`, `422`, `429`, `500`, `503` | — |
 | `GET` | `/api/v1/caixa` | Listar movimentos de caixa | `200`, `401`, `422`, `429`, `500`, `503` | — |
-| `POST` | `/api/v1/caixa` | Registrar movimento de caixa | `201`, `401`, `404`, `409`, `413`, `422`, `429`, `500`, `503` | — |
-| `PATCH` | `/api/v1/caixa/contas/{conta_casa_id}/banca` | Vincular conta à banca | `200`, `401`, `404`, `413`, `422`, `429`, `500`, `503` | — |
+| `POST` | `/api/v1/caixa` | Registrar movimento de caixa | `201`, `401`, `403`, `404`, `409`, `413`, `422`, `429`, `500`, `503` | — |
+| `PATCH` | `/api/v1/caixa/contas/{conta_casa_id}/banca` | Vincular conta à banca | `200`, `401`, `403`, `404`, `413`, `422`, `429`, `500`, `503` | — |
 | `GET` | `/api/v1/caixa/extrato` | Consultar extrato | `200`, `401`, `422`, `429`, `500`, `503` | — |
 | `GET` | `/api/v1/caixa/saldo` | Consultar saldos | `200`, `401`, `422`, `429`, `500`, `503` | — |
 | `POST` | `/api/v1/coleta` | Receber coleta da extensão | `200`, `400`, `403`, `413`, `429`, `500`, `503` | — |
@@ -38,9 +38,15 @@ python scripts/generate_openapi.py
 | `GET` | `/api/v1/revisao/stats` | Consultar estatísticas de revisão | `200`, `401`, `422`, `429`, `500`, `503` | — |
 | `GET` | `/api/v1/revisao/{revisao_id}` | Consultar revisão | `200`, `401`, `404`, `422`, `429`, `500`, `503` | — |
 | `GET` | `/api/v1/revisao/{revisao_id}/foto` | Consultar foto da revisão | `200`, `401`, `404`, `422`, `429`, `500`, `503` | — |
-| `POST` | `/api/v1/revisao/{revisao_id}/resolver` | Resolver revisão | `200`, `401`, `404`, `409`, `413`, `422`, `429`, `500`, `503` | — |
-| `POST` | `/api/v1/upload` | Enviar exportação do Telegram | `202`, `400`, `401`, `413`, `422`, `429`, `500`, `503` | — |
+| `POST` | `/api/v1/revisao/{revisao_id}/resolver` | Resolver revisão | `200`, `401`, `403`, `404`, `409`, `413`, `422`, `429`, `500`, `503` | — |
+| `POST` | `/api/v1/upload` | Enviar exportação do Telegram | `202`, `400`, `401`, `403`, `413`, `422`, `429`, `500`, `503` | — |
 | `GET` | `/api/v1/upload/{job_id}` | Consultar processamento do upload | `200`, `401`, `404`, `422`, `429`, `500`, `503` | — |
+| `GET` | `/auth/callback` | Concluir identidade verificada | `302`, `400`, `401`, `403`, `409`, `422`, `429`, `500`, `503` | Identity |
+| `GET` | `/auth/jwks` | Consultar chaves públicas | `200`, `400`, `401`, `403`, `409`, `429`, `500`, `503` | Identity |
+| `POST` | `/auth/logout` | Revogar sessão | `200`, `400`, `401`, `403`, `409`, `422`, `429`, `500`, `503` | Identity |
+| `POST` | `/auth/refresh` | Renovar sessão | `200`, `400`, `401`, `403`, `409`, `429`, `500`, `503` | Identity |
+| `GET` | `/auth/session` | Consultar sessão | `200`, `400`, `401`, `403`, `409`, `429`, `500`, `503` | Identity |
+| `GET` | `/auth/start` | Iniciar login hospedado | `302`, `400`, `401`, `403`, `409`, `422`, `429`, `500`, `503` | Identity |
 | `POST` | `/coleta` | Receber coleta da extensão | `200`, `400`, `403`, `413`, `429`, `500`, `503` | — |
 | `GET` | `/health` | Consultar liveness | `200`, `500` | — |
 | `GET` | `/metrics` | Exportar métricas Prometheus | `200`, `500` | — |
