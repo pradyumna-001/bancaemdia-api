@@ -122,14 +122,14 @@ async def catalog(
     client_version: str = Query(pattern=r"^\d+\.\d+\.\d+$"),
     environment: str = Query(min_length=1, max_length=40),
     known_version: int = Query(default=0, ge=0, le=2**53 - 1),
-    installation_token: str | None = Header(default=None, alias="X-Coleta-Token", max_length=128),
+    installation_token: str | None = Header(default=None, alias="X-Coleta-Token"),
     if_none_match: str | None = Header(default=None, alias="If-None-Match"),
     session: AsyncSession = Depends(get_db_primary),
     repository: InstallationRepository = Depends(installation_repository),
 ) -> Response:
     identity = (
         await repository.authenticate(session, hash_do_token(installation_token))
-        if installation_token
+        if installation_token and len(installation_token) <= 128
         else None
     )
     if identity is None:

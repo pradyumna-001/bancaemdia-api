@@ -2,15 +2,24 @@
 
 import argparse
 import ast
+import hashlib
 import io
 import json
 import shutil
 import subprocess
+import sys
 import tarfile
 from pathlib import Path
 
 PARENT = "a824c8e85638ebb3823990886e9514aa07f424cc"
 ROOT = Path(__file__).resolve().parents[1]
+AUTH = (ROOT / "src/bancaemdia/auth/middleware.py").read_text(encoding="utf-8")
+METHODS = AUTH[AUTH.index("CATALOG_METHODS =") : AUTH.index("def route_path")]
+METHOD_GUARD = AUTH[
+    AUTH.index("        allowed = CATALOG_METHODS") : AUTH.index(
+        "        if route_path(request) in PUBLIC_PATHS:"
+    )
+]
 FILES = (
     "src/bancaemdia/coleta/catalogo.py",
     "src/bancaemdia/coleta/catalogo_fontes.py",
@@ -33,6 +42,9 @@ def prepare(destination: Path) -> None:
     archive = subprocess.check_output(["git", "archive", PARENT], cwd=ROOT)
     with tarfile.open(fileobj=io.BytesIO(archive)) as tar:
         tar.extractall(destination, filter="data")
+    patch = ROOT / "scripts/catalogo/credential-middleware.patch"
+    subprocess.run(["git", "apply", "--check", str(patch)], cwd=destination, check=True)
+    subprocess.run(["git", "apply", str(patch)], cwd=destination, check=True)
     for name in FILES:
         target = destination / name
         target.parent.mkdir(parents=True, exist_ok=True)
@@ -46,21 +58,35 @@ def prepare(destination: Path) -> None:
         (
             "src/bancaemdia/models/__init__.py",
             lambda s: (
-                s
-                + "\nfrom bancaemdia.models.casa_dominio import CasaDominio, CatalogoOperador, CatalogoFonte, CatalogoSnapshot, CatalogoPublicacao, CatalogoConfirmacao, CatalogoAuditoria\n"
+                s.replace(
+                    "from bancaemdia.models.casa import Casa",
+                    "from bancaemdia.models.casa import Casa\nfrom bancaemdia.models.casa_dominio import CasaDominio, CatalogoOperador, CatalogoFonte, CatalogoSnapshot, CatalogoPublicacao, CatalogoConfirmacao, CatalogoAuditoria",
+                )
+                + '\n__all__ += ["CasaDominio", "CatalogoOperador", "CatalogoFonte", "CatalogoSnapshot", "CatalogoPublicacao", "CatalogoConfirmacao", "CatalogoAuditoria"]\n'
             ),
         ),
         (
             "src/bancaemdia/main.py",
             lambda s: (
-                s
-                + "\nfrom bancaemdia.api.v1 import coleta_catalogo, admin_casas\napp.include_router(coleta_catalogo.router)\napp.include_router(admin_casas.router)\n"
+                s.replace(
+                    "from bancaemdia.api.v1 import",
+                    "from bancaemdia.api.v1 import coleta_catalogo, admin_casas\nfrom bancaemdia.api.v1 import",
+                    1,
+                )
+                + "\napp.include_router(coleta_catalogo.router)\napp.include_router(admin_casas.router)\n"
             ),
         ),
         (
             "src/bancaemdia/auth/middleware.py",
-            lambda s: s.replace(
-                '"/api/v1/coleta",', '"/api/v1/coleta",\n    "/api/v1/coleta/catalogo",'
+            lambda s: (
+                s
+                .replace('"/api/v1/coleta",', '"/api/v1/coleta",\n    "/api/v1/coleta/catalogo",')
+                .replace("def route_path", METHODS + "def route_path", 1)
+                .replace(
+                    "        if route_path(request) in PUBLIC_PATHS:",
+                    METHOD_GUARD + "        if route_path(request) in PUBLIC_PATHS:",
+                    1,
+                )
             ),
         ),
         (
@@ -105,6 +131,12 @@ def prepare(destination: Path) -> None:
     with path.open("a", encoding="utf-8") as out:
         for name, values in metadata.items():
             out.write(f"\n{name}.update({values!r})\n")
+    subprocess.run(
+        [sys.executable, "-m", "ruff", "check", "src/", "--fix"], cwd=destination, check=True
+    )
+    subprocess.run([sys.executable, "-m", "ruff", "format", "src/"], cwd=destination, check=True)
+
+    patch_hash = hashlib.sha256(patch.read_bytes()).hexdigest()
     evidence = {
         "parent_pr": 163,
         "parent_sha": PARENT,
@@ -114,6 +146,7 @@ def prepare(destination: Path) -> None:
         "product_base": "main",
         "overlay": list(FILES),
         "published_migration_ids_preserved": True,
+        "mandatory_credential_patch_sha256": patch_hash,
     }
     (destination / "catalog-composition.json").write_text(
         json.dumps(evidence, indent=2), encoding="utf-8"

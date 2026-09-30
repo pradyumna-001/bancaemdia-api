@@ -13,6 +13,7 @@ from bancaemdia.coleta.catalogo import (
     Source,
     Technical,
     canonical,
+    normalize_redirects,
     sha256,
     source_diff,
     version,
@@ -76,16 +77,13 @@ async def synchronize(
     }
     if dry_run:
         return result
-    if (
-        previous
-        and previous.snapshot_sha256 == source.snapshot_sha256
-        and previous.consultado_em == source.consulted_at
-    ):
+    if previous and previous.snapshot_sha256 == source.snapshot_sha256:
         # Identical bytes cannot be reinterpreted by changing the submitted observations.
         if previous.fonte["observations"] != source.model_dump(mode="json")["observations"]:
             raise ValueError("identical snapshot cannot have different parsed observations")
-        result["idempotent"] = True
-        return result
+        if previous.consultado_em == source.consulted_at:
+            result["idempotent"] = True
+            return result
     if previous and source.consulted_at < previous.consultado_em:
         raise ValueError("source consultation cannot move backwards")
     source_row = await session.scalar(
@@ -198,6 +196,58 @@ async def update_technical(
     audit(
         session, uid, "technical_changed", {"entry_id": row.id, "before": old, "after": row.tecnico}
     )
+
+
+async def record_redirect(
+    session: AsyncSession, uid: int, entry_id: int, chain: list[str]
+) -> CasaDominio:
+    """Reviewed redirect evidence never carries authorization/support to the new hostname."""
+    await require_operator(session)
+    await lock_catalog(session)
+    old = await session.get(CasaDominio, entry_id)
+    if old is None:
+        raise HTTPException(404, "Catalog entry not found")
+    final_host, aliases = normalize_redirects(chain)
+    from urllib.parse import urlsplit
+
+    if urlsplit(chain[0]).hostname != old.hostname or final_host == old.hostname:
+        raise ValueError("redirect must start at this entry and end at a different exact host")
+    target = await session.scalar(
+        select(CasaDominio).where(
+            CasaDominio.marca == old.marca, CasaDominio.hostname == final_host
+        )
+    )
+    if target is None:
+        target = CasaDominio(
+            marca=old.marca, hostname=final_host, tecnico=Technical().model_dump(), evidencias={}
+        )
+        session.add(target)
+        await session.flush()
+    target_technical = Technical.model_validate(target.tecnico)
+    target.tecnico = target_technical.model_copy(
+        update={
+            "aliases": sorted(set(target_technical.aliases) | set(aliases)),
+            "redirect_chain": chain,
+            "rollout": "disabled",
+        }
+    ).model_dump()
+    old.tecnico = (
+        Technical
+        .model_validate(old.tecnico)
+        .model_copy(update={"rollout": "disabled"})
+        .model_dump()
+    )
+    proof = {
+        "situation": "redirecionada",
+        "chain": chain,
+        "final_hostname": final_host,
+        "observed_at": datetime.now(UTC).isoformat(),
+        "chain_sha256": sha256(canonical(chain)),
+    }
+    old.evidencias = {**old.evidencias, "redirect-" + str(proof["chain_sha256"]): proof}
+    audit(session, uid, "redirect_observed", {"from_entry": old.id, "to_entry": target.id, **proof})
+    await session.flush()
+    return target
 
 
 async def publish(

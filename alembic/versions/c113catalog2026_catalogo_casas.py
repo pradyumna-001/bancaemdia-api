@@ -139,9 +139,13 @@ def upgrade() -> None:
 
 def downgrade() -> None:
     # Offline SQL remains reviewable; an online rollback refuses destructive audit loss.
+    # A forced-RLS owner must fail rather than mistake invisible history for an empty table.
+    op.execute("SET LOCAL row_security = off")
     op.execute("""DO $$ BEGIN
         IF EXISTS (SELECT 1 FROM catalogo_snapshots) OR EXISTS (SELECT 1 FROM catalogo_publicacoes)
           OR EXISTS (SELECT 1 FROM catalogo_confirmacoes) OR EXISTS (SELECT 1 FROM catalogo_auditoria)
+          OR EXISTS (SELECT 1 FROM casa_dominios) OR EXISTS (SELECT 1 FROM catalogo_fontes)
+          OR EXISTS (SELECT 1 FROM catalogo_operadores)
         THEN RAISE EXCEPTION 'catalog audit data exists: roll back application, retain schema'; END IF;
         END $$""")
     for table in reversed((

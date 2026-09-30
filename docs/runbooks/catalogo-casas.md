@@ -118,9 +118,11 @@ O suporte pode ser alterado **explicitamente** com `--technical arquivo.json --e
 Valores: `nao_avaliado`, `precisa_captura`, `em_desenvolvimento`, `suportado`, `bloqueado_externo`,
 `regressao`. `suportado` exige adapter, versão e hash da captura de aceite; enabled/canary exigem
 suporte comprovado. A promoção depende da campanha/aceite, não dos seis parsers antigos.
-O CLI registra antes/depois e ator. Para redirects, registrar a cadeia HTTPS observada (sem segredos),
-usar o hostname final como entrada e preservar os hosts anteriores em `aliases`; nenhuma alias
-vira wildcard. Host antigo permanece auditável, com rollout disabled/revoked após decisão explícita.
+O CLI registra antes/depois e ator. Para redirects, fornecer a cadeia HTTPS revisada (array JSON
+sem segredos) com `--redirect-chain cadeia.json --entry-id ID --apply`. O comando cria ou encontra
+a entrada do host final, guarda os anteriores em `aliases` e desabilita os dois rollouts. O host
+antigo mantém suporte e evidências; o novo não herda autorização legal nem suporte técnico.
+Nenhuma alias vira wildcard. A cadeia não é seguida automaticamente pelo backend.
 
 ## Assinatura, contrato e cache
 
@@ -172,6 +174,14 @@ são append-only inclusive contra DELETE/UPDATE pelo proprietário (triggers). D
 de auditoria é recusado; rollback operacional é da aplicação, mantendo esquema, snapshots e chaves
 públicas para verificação histórica. Downgrade em banco vazio é possível. Concessões administrativas
 pertencem ao DBA; não adicionar concessões amplas para resolver falhas de RLS.
+
+O PR #163 exige ainda o ajuste revisável `scripts/catalogo/credential-middleware.patch`, aplicado
+obrigatoriamente na composição fixada em `a824c8e85638ebb3823990886e9514aa07f424cc`.
+Após integrar #107, o mantenedor deve incorporar esse ajuste: somente GET exato do catálogo aceita
+os três parâmetros documentados, sem duplicatas, com valores limitados; somente respostas assinadas
+200/304 com ETag conservam cache privado. HTTPS, proibição de redirects e no-store dos demais
+endpoints permanecem. A composição também executa os testes originais de pareamento e segurança
+de tokens. A aplicação direta em main retorna 503 enquanto #107 estiver ausente.
 
 CI exige lint/formato, tipagem estrita, suíte completa com 80% de cobertura, contrato OpenAPI/oasdiff,
 segurança de dependências/código, Docker e duas aceitações PostgreSQL 16: main e montagem #107.

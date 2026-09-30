@@ -21,6 +21,9 @@ required = {
     "test_publication_monotonic_signed_and_readable_without_regulatory_data",
     "test_no_hash_mismatch_or_stale_source_can_mutate_catalog",
     "test_operator_authorization_is_not_a_claim_or_user_choice",
+    "test_redirect_creates_final_exact_host_with_aliases_and_no_support_promotion",
+    "test_new_consultation_cannot_reinterpret_identical_snapshot",
+    "test_downgrade_cannot_erase_history_hidden_by_rls",
 }
 if mode == "installation":
     required |= {
@@ -29,6 +32,8 @@ if mode == "installation":
         "test_revocation_and_rotation_are_checked_even_with_valid_etag",
         "test_retrieval_uses_installation_credentials_not_bearer_or_legacy_token",
         "test_revoked_exact_host_remains_signed_tombstone_and_preserves_old_catalog",
+        "test_catalog_rejects_unknown_duplicate_or_unbounded_query_without_cache",
+        "test_catalog_never_accepts_credentials_over_http",
     }
 assert required <= {c.attrib["name"].split("[", 1)[0] for c in cases}, "required acceptance missing"
 assert all(not list(c) for c in cases), "acceptance has skipped, failed or errored cases"

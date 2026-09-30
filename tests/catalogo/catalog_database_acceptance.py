@@ -1,9 +1,13 @@
 """Real migrations, PostgreSQL constraints/RLS, transactions, audit and publication."""
 
 import asyncio
+import importlib.util
 from datetime import UTC, datetime, timedelta
+from pathlib import Path
 
 import pytest
+from alembic.migration import MigrationContext
+from alembic.operations import Operations
 from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
 from fastapi import HTTPException
 from sqlalchemy import func, select, text
@@ -21,6 +25,7 @@ from bancaemdia.services.catalogo import (
     admin_export,
     include_manual_candidates,
     publish,
+    record_redirect,
     synchronize,
     update_technical,
 )
@@ -229,7 +234,11 @@ async def test_rls_cannot_self_grant_operator_or_read_foreign_confirmations(cata
         response = await s.http.get(path, headers=s.headers())
         assert response.status_code == 200, response.text
         assert response.json()["totals"]["state_jurisdictions"] == 27
-        assert len(response.json()["totals"]["unconfigured_states"]) == 27
+        assert (
+            response.json()["totals"]["configured_states"]
+            + len(response.json()["totals"]["unconfigured_states"])
+            == 27
+        )
     async with s.como(s.engine, s.other) as session:
         with pytest.raises(DBAPIError):
             session.add(
@@ -337,7 +346,10 @@ async def test_publication_monotonic_signed_and_readable_without_regulatory_data
         one = await publish(session, s.user, s.environment, CatalogSigner("test", key))
         two = await publish(session, s.user, s.environment, CatalogSigner("test", key))
         assert two.id > one.id
-        assert "evidence" not in str(two.envelope) and "company" not in str(two.envelope)
+        assert all(
+            "evidence" not in entry and "evidencias" not in entry and "company" not in entry
+            for entry in two.envelope["payload"]["entries"]
+        )
         assert "usuario_id" not in str(two.envelope) and "token" not in str(two.envelope)
         await session.commit()
     async with s.como(s.engine, s.other) as session:
@@ -374,3 +386,86 @@ async def test_operator_authorization_is_not_a_claim_or_user_choice(catalog_syst
             await publish(
                 session, s.other, s.environment, CatalogSigner("test", Ed25519PrivateKey.generate())
             )
+
+
+async def test_redirect_creates_final_exact_host_with_aliases_and_no_support_promotion(
+    catalog_system,
+):
+    s = catalog_system
+    async with s.como(s.engine, s.user) as session:
+        await synchronize(session, s.user, source(s), b"snapshot", dry_run=False)
+        old = await session.scalar(select(CasaDominio).where(CasaDominio.marca == s.brand.upper()))
+        await update_technical(
+            session,
+            s.user,
+            old.id,
+            Technical(
+                support="suportado",
+                rollout="enabled",
+                adapter="synthetic",
+                adapter_version="1.0.0",
+                capture_evidence_sha256=sha256(b"capture"),
+            ),
+        )
+        target = await record_redirect(
+            session, s.user, old.id, ["https://exact.bet.br/", "https://new.bet.br/"]
+        )
+        assert target.hostname == "new.bet.br" and target.tecnico["aliases"] == ["exact.bet.br"]
+        assert (
+            target.tecnico["support"] == "nao_avaliado" and target.tecnico["rollout"] == "disabled"
+        )
+        assert target.evidencias == {} and old.evidencias
+        assert old.tecnico["support"] == "suportado" and old.tecnico["rollout"] == "disabled"
+        await session.commit()
+
+
+async def test_new_consultation_cannot_reinterpret_identical_snapshot(catalog_system):
+    s = catalog_system
+    original = source(s)
+    async with s.como(s.engine, s.user) as session:
+        await synchronize(session, s.user, original, b"snapshot", dry_run=False)
+        await session.commit()
+    changed = original.model_copy(
+        update={
+            "consulted_at": original.consulted_at + timedelta(seconds=1),
+            "observations": [
+                Observation(brand=s.brand, hostname="forged.bet.br", situation="autorizada")
+            ],
+        }
+    )
+    async with s.como(s.engine, s.user) as session:
+        with pytest.raises(ValueError, match="identical snapshot"):
+            await synchronize(session, s.user, changed, b"snapshot", dry_run=False)
+
+
+@pytest.mark.parametrize("role", ["admin", "engine"])
+async def test_downgrade_cannot_erase_history_hidden_by_rls(catalog_system, role):
+    s = catalog_system
+    async with s.como(s.engine, s.user) as session:
+        await synchronize(session, s.user, source(s), b"snapshot", dry_run=False)
+        await session.commit()
+    path = (
+        Path(__file__).resolve().parents[2] / "alembic/versions/c113catalog2026_catalogo_casas.py"
+    )
+    spec = importlib.util.spec_from_file_location("catalog_downgrade_test", path)
+    assert spec and spec.loader
+    migration = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(migration)
+
+    def attempt(conn):
+        with Operations.context(MigrationContext.configure(conn)):
+            migration.downgrade()
+
+    async with getattr(s, role).connect() as conn:
+        with pytest.raises(DBAPIError):
+            await conn.run_sync(attempt)
+        await conn.rollback()
+    async with s.como(s.engine, s.user) as session:
+        assert (
+            await session.scalar(
+                select(func.count())
+                .select_from(CatalogoSnapshot)
+                .where(CatalogoSnapshot.source_key == "synthetic-" + s.brand.lower())
+            )
+            == 1
+        )

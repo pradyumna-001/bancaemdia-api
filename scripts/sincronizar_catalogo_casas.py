@@ -25,6 +25,7 @@ from bancaemdia.services.catalogo import (
     audit,
     include_manual_candidates,
     publish,
+    record_redirect,
     require_operator,
     synchronize,
     update_technical,
@@ -128,7 +129,7 @@ async def run(args: argparse.Namespace) -> dict[str, Any]:
         captured.append((source, args.raw.read_bytes()))
     matrix = source_matrix(args.matrix)
     if args.offline:
-        if args.apply or args.publish or args.technical or args.manual:
+        if args.apply or args.publish or args.technical or args.manual or args.redirect_chain:
             raise ValueError("offline preview cannot persist or publish")
         return {
             "mode": "offline_empty_baseline_preview",
@@ -206,6 +207,11 @@ async def run(args: argparse.Namespace) -> dict[str, Any]:
                     Technical.model_validate_json(args.technical.read_text(encoding="utf-8")),
                 )
             published = None
+            if args.redirect_chain:
+                if not args.apply or not args.entry_id:
+                    raise ValueError("redirect update requires --apply --entry-id")
+                chain = json.loads(args.redirect_chain.read_text(encoding="utf-8"))
+                await record_redirect(session, args.usuario_id, args.entry_id, chain)
             if args.publish:
                 if not args.apply or not args.signing_key_file or not args.key_id:
                     raise ValueError("publication requires --apply and configured signing key/id")
@@ -252,6 +258,7 @@ def main() -> None:
     parser.add_argument("--manual", action="store_true")
     parser.add_argument("--technical", type=Path)
     parser.add_argument("--entry-id", type=int)
+    parser.add_argument("--redirect-chain", type=Path)
     parser.add_argument("--publish", action="store_true")
     parser.add_argument("--signing-key-file", type=Path)
     parser.add_argument("--key-id")

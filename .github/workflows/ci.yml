@@ -183,7 +183,12 @@ jobs:
         working-directory: /tmp/catalog-integration
         run: |
           pip install -e ".[dev]"
-          pytest tests/catalogo/catalog_database_acceptance.py tests/catalogo/installation_catalog_acceptance.py -n 0 --junitxml=catalog-installation.xml
+          ruff check src/
+          ruff format --check src/
+          mypy src/ --strict --ignore-missing-imports
+          pip-audit --local --skip-editable
+          bandit -r src/bancaemdia -q -lll
+          pytest tests/catalogo/catalog_database_acceptance.py tests/catalogo/installation_catalog_acceptance.py tests/integration/coleta/test_pairing.py tests/security/test_coleta_tokens.py -n 0 --junitxml=catalog-installation.xml
       - name: Reject skipped, failed, missing acceptance
         run: python scripts/check_catalog_junit.py ${{ matrix.base }}
       - uses: actions/upload-artifact@v4

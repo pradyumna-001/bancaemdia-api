@@ -159,6 +159,30 @@ async def test_revocation_and_rotation_are_checked_even_with_valid_etag(installa
     assert (await s.http.get(PATH, params=params(s), headers=new_headers)).status_code == 403
 
 
+@pytest.mark.parametrize(
+    "query",
+    ["token=secret", "client_version=1.0.0&client_version=2.0.0", "environment=" + "a" * 41],
+)
+async def test_catalog_rejects_unknown_duplicate_or_unbounded_query_without_cache(
+    installation_system, query
+):
+    s = installation_system
+    pair = await s.pair()
+    response = await s.http.get(PATH + "?" + query, headers={"X-Coleta-Token": pair["token"]})
+    assert response.status_code == 400 and response.headers["Cache-Control"] == "no-store"
+    assert pair["token"] not in response.text and "secret" not in response.text
+
+
+async def test_catalog_never_accepts_credentials_over_http(installation_system):
+    s = installation_system
+    pair = await s.pair()
+    response = await s.http.get(
+        "http://api.test" + PATH, params=params(s), headers={"X-Coleta-Token": pair["token"]}
+    )
+    assert response.status_code == 400 and response.headers["Cache-Control"] == "no-store"
+    assert pair["token"] not in response.text
+
+
 async def test_retrieval_uses_installation_credentials_not_bearer_or_legacy_token(
     installation_system,
 ):

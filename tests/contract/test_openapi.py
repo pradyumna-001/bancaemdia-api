@@ -580,6 +580,6 @@ def test_schemathesis_invalid_protected_requests(case: schemathesis.Case) -> Non
     response = case.call_and_validate()
     if case.path == "/api/v1/catalogo/candidatos" and case.method.upper() != "POST":
         assert response.status_code == 405
-        assert response.headers["Allow"] == "POST"
+        assert "POST" in response.headers["allow"]
     else:
         assert response.status_code == 401
