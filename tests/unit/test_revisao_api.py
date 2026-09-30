@@ -1,3 +1,4 @@
+import asyncio
 from dataclasses import replace
 from datetime import UTC, datetime
 from typing import Any
@@ -10,6 +11,7 @@ from bancaemdia.api.deps import get_current_user, get_current_user_snapshot
 from bancaemdia.api.v1 import apostas as apostas_api
 from bancaemdia.api.v1 import revisao as rota
 from bancaemdia.db.session import get_db, get_db_snapshot
+from bancaemdia.domain.account_attribution import AccountResolution, ResolutionStatus
 from bancaemdia.domain.registros import (
     Aposta,
     EstatisticasRevisao,
@@ -136,6 +138,9 @@ def _banco(
             return banco.revisao
 
     class ApostaRepo:
+        async def get_by_chave(self, session, usuario_id, chave):
+            return await self.get_by_chave_for_update(session, usuario_id, chave)
+
         async def get_by_chave_for_update(self, session, usuario_id, chave):
             return banco.aposta if banco.tem_aposta and chave == CHAVE else None
 
@@ -188,6 +193,9 @@ def _banco(
             return None
 
     class Session:
+        async def execute(self, statement, params=None):
+            banco.sql.append((str(statement), params))
+
         async def scalar(self, statement, params=None):
             banco.sql.append((str(statement), params))
             return banco.trava_livre
@@ -221,6 +229,17 @@ def _cliente(monkeypatch, banco) -> TestClient:
     monkeypatch.setattr(apostas_api, "ApostaRepo", banco.repos["ApostaRepo"])
     monkeypatch.setattr(apostas_api, "EventoRepo", banco.repos["EventoRepo"])
     monkeypatch.setattr(apostas_api, "ContaCasaRepo", banco.repos["ContaCasaRepo"])
+
+    async def account(*args, **kwargs):
+        await asyncio.sleep(0)
+        return AccountResolution(ResolutionStatus.NONE)
+
+    async def no_account_review(*args, **kwargs):
+        await asyncio.sleep(0)
+        return None
+
+    monkeypatch.setattr(apostas_api, "account_for_state", account)
+    monkeypatch.setattr(apostas_api, "account_review", no_account_review)
     app = FastAPI()
     app.include_router(rota.router)
     app.dependency_overrides[get_current_user] = usuario

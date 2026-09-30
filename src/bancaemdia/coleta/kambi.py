@@ -190,6 +190,7 @@ def ler(bruto: object) -> Coletada:
 
     return Coletada(
         identidade=identidade,
+        ocorrido_em=colocada_em,
         casa="kambi",
         tipo=tipo_da_aposta(escolhas),
         odd=odd,

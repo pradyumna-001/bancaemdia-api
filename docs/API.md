@@ -31,6 +31,8 @@ python scripts/generate_openapi.py
 | `GET` | `/api/v1/caixa/extrato` | Consultar extrato | `200`, `401`, `422`, `429`, `500`, `503` | — |
 | `GET` | `/api/v1/caixa/saldo` | Consultar saldos | `200`, `401`, `422`, `429`, `500`, `503` | — |
 | `POST` | `/api/v1/coleta` | Receber coleta da extensão | `200`, `400`, `403`, `413`, `429`, `500`, `503` | — |
+| `POST` | `/api/v1/consolidacoes` | Consolidar fontes após revisão | `200`, `401`, `413`, `422`, `429`, `500`, `503` | — |
+| `POST` | `/api/v1/consolidacoes/{relacao_id}/desvincular` | Desvincular fontes após revisão | `200`, `401`, `413`, `422`, `429`, `500`, `503` | — |
 | `GET` | `/api/v1/painel` | Consultar painel financeiro | `200`, `401`, `422`, `429`, `500`, `503` | — |
 | `GET` | `/api/v1/painel/export` | Exportar painel em Excel | `200`, `401`, `422`, `429`, `500`, `503` | — |
 | `GET` | `/api/v1/painel/metricas` | Consultar séries para gráficos | `200`, `401`, `422`, `429`, `500`, `503` | — |

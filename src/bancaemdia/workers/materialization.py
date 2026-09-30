@@ -17,6 +17,12 @@ from sqlalchemy.pool import NullPool
 
 from bancaemdia.coleta.leitores import LEITORES
 from bancaemdia.config import get_settings
+from bancaemdia.domain.account_attribution import AccountResolution, ResolutionStatus
+from bancaemdia.domain.account_attribution_service import (
+    InvalidAccountReferenceError,
+    account_for_state,
+    account_review,
+)
 from bancaemdia.domain.coleta_casa import (
     ApostaInvalidaError,
     casa_da_coleta,
@@ -54,7 +60,6 @@ from bancaemdia.observability.tracing import custom_span
 from bancaemdia.repositories.aposta_repo import ApostaRepo
 from bancaemdia.repositories.casa_repo import CasaRepo
 from bancaemdia.repositories.coleta_casa_repo import ColetaCasaRepo
-from bancaemdia.repositories.conta_casa_repo import ContaCasaRepo
 from bancaemdia.repositories.evento_repo import EventoRepo
 from bancaemdia.repositories.revisao_pendente_repo import RevisaoPendenteRepo
 from bancaemdia.repositories.unidade_repo import UnidadeRepo
@@ -178,6 +183,9 @@ async def _historico(
 ) -> list[tuple[str, str, dict[str, Any]]]:
     # Entrega "pelo menos uma vez": duas cópias da mesma aposta não podem decidir juntas que
     # ela é nova.
+    from bancaemdia.repositories.cruzamento_candidato import CruzamentoCandidatoRepo
+
+    await CruzamentoCandidatoRepo().lock(session, usuario_id)
     await session.execute(
         text("SELECT pg_advisory_xact_lock(hashtextextended(:chave, 0))"),
         {"chave": f"{usuario_id}:{chave}"},
@@ -258,14 +266,24 @@ async def _gravar(
         dados["data_jogo"] = _data(estado["data_jogo"])
     if midia_hash is not None:
         dados["midia_hash"] = midia_hash
-    conta_casa_id = estado.get("conta_casa_id")
-    if conta_casa_id is None and estado.get("casa"):
-        conta = await ContaCasaRepo().get_vigente_by_nome_da_casa(
-            session, usuario_id, estado["casa"], data_aposta
+    try:
+        assignment = await account_for_state(session, usuario_id, estado)
+        invalid_account = False
+    except InvalidAccountReferenceError:
+        assignment = AccountResolution(ResolutionStatus.NONE)
+        invalid_account = True
+    dados["conta_casa_id"] = assignment.conta_casa_id
+    dados["data_jogo"] = _data(estado.get("data_jogo") or estado.get("comeca_em"))
+    estado["conta_atribuicao"] = "explicit" if estado.get("conta_casa_ref") is not None else "game"
+    if criada:
+        novos[0] = replace(
+            novos[0],
+            payload={
+                **novos[0].payload,
+                "conta_casa_id": assignment.conta_casa_id,
+                "conta_atribuicao": estado["conta_atribuicao"],
+            },
         )
-        conta_casa_id = None if conta is None else conta.id
-    if conta_casa_id is not None or criada or any("casa" in e.payload for e in novos):
-        dados["conta_casa_id"] = conta_casa_id
     if criada:
         # The first event now carries every derived association needed to recreate a deleted
         # projection. Legacy events without this marker remain fail-closed during replay.
@@ -297,7 +315,8 @@ async def _gravar(
         aposta = await ApostaRepo().upsert_materializada(session, dados)
     if aposta is None:
         raise GravacaoConcorrenteError(f"outra gravação mais nova de {nova.chave} chegou antes")
-    if criada and getattr(aposta, "id", None) is not None:
+    if getattr(aposta, "id", None) is not None:
+        await account_review(session, usuario_id, nova.chave, assignment, invalid=invalid_account)
         await parear_criacao(session, usuario_id, aposta, estado)
 
     revisao = await _revisar(
@@ -503,18 +522,26 @@ async def _gravar_coletada(
     if existia and aviso is not None and not atual.get("revisao_motivo"):
         novos.append(evento_do_aviso(aviso[1]))
         coleta_da_revisao = aviso[0].id
-    conta_criacao = None
+    explicit_reference = getattr(coletas[-1], "conta_casa_ref", None)
+    if explicit_reference is None:
+        explicit_reference = coletas[-1].bruto_json.get("conta_casa_ref")
+    if explicit_reference is not None and explicit_reference != atual.get("conta_casa_ref"):
+        novos.append(EventoNovo("CORRECAO_MANUAL", "casa", {"conta_casa_ref": explicit_reference}))
+        atual["conta_casa_ref"] = explicit_reference
+    try:
+        assignment = await account_for_state(session, usuario_id, atual)
+        invalid_account = False
+    except InvalidAccountReferenceError:
+        assignment = AccountResolution(ResolutionStatus.NONE)
+        invalid_account = True
     if criada:
-        conta_criacao = await ContaCasaRepo().get_vigente_by_nome_da_casa(
-            session, usuario_id, nome_da_casa, data_aposta
-        )
         financeira_criacao = _financeira(atual)
         snapshot = {
             "snapshot_completo": True,
             "origem": "casa",
             "stake_unidades": financeira_criacao.stake_unidades,
             "valor_unidade_centavos": financeira_criacao.valor_unidade_centavos,
-            "conta_casa_id": None if conta_criacao is None else conta_criacao.id,
+            "conta_casa_id": assignment.conta_casa_id,
             "chat_id": None,
             "message_id": None,
             "ordem_na_mensagem": 0,
@@ -525,7 +552,14 @@ async def _gravar_coletada(
             if evento.tipo == "APOSTA_CRIADA":
                 novos[indice] = replace(
                     evento,
-                    payload={**evento.payload, "snapshot_replay": snapshot},
+                    payload={
+                        **evento.payload,
+                        "snapshot_replay": snapshot,
+                        "conta_casa_id": assignment.conta_casa_id,
+                        "conta_atribuicao": "explicit"
+                        if atual.get("conta_casa_ref") is not None
+                        else "game",
+                    },
                 )
                 break
     eventos = EventoRepo()
@@ -560,13 +594,14 @@ async def _gravar_coletada(
         "retorno_centavos": estado.get("retorno_centavos"),
         "revisao_grave": bool(estado.get("revisao_grave")),
     }
-    if criada:
-        dados["conta_casa_id"] = None if conta_criacao is None else conta_criacao.id
+    dados["conta_casa_id"] = assignment.conta_casa_id
+    dados["data_jogo"] = _data(estado.get("data_jogo") or estado.get("comeca_em"))
     with custom_span("materializacao.upsert", origem="casa", usuario_id=usuario_id):
         aposta = await ApostaRepo().upsert_materializada(session, dados)
     if aposta is None:
         raise GravacaoConcorrenteError(f"outra gravação mais nova de {chave} chegou antes")
-    if criada and getattr(aposta, "id", None) is not None:
+    if getattr(aposta, "id", None) is not None:
+        await account_review(session, usuario_id, chave, assignment, invalid=invalid_account)
         await parear_criacao(session, usuario_id, aposta, estado)
 
     revisao = await _revisar(
@@ -607,6 +642,9 @@ async def gravar_coletas(
     ):
         async with session.begin():
             await _set_current_user(session, usuario_id)
+            from bancaemdia.repositories.cruzamento_candidato import CruzamentoCandidatoRepo
+
+            await CruzamentoCandidatoRepo().lock(session, usuario_id)
             repo = ColetaCasaRepo()
             # As linhas são travadas antes de serem lidas: uma tarefa atrasada lê o conteúdo atual de
             # cada uma, e a rota só grava outra captura nelas depois deste commit.

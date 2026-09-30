@@ -134,6 +134,11 @@ class RevisaoPendenteRepo:
             models.RevisaoPendente.usuario_id == usuario_id,
             models.RevisaoPendente.extracao_bruta["aposta_chave"].astext == aposta_chave,
             models.RevisaoPendente.resolvido_em.is_(None),
+            models.RevisaoPendente.motivo.not_in([
+                "conta_pendente",
+                "consolidacao_pendente",
+                "cruzamento_candidato",
+            ]),
         )
         if motivo is not None:
             stmt = stmt.where(models.RevisaoPendente.motivo != motivo)

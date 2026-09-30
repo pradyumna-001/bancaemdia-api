@@ -1,0 +1,319 @@
+diff --git a/alembic/versions/f110prereq2026_convergence.py b/alembic/versions/f110prereq2026_convergence.py
+new file mode 100644
+index 0000000..12aad4d
+--- /dev/null
++++ b/alembic/versions/f110prereq2026_convergence.py
+@@ -0,0 +1,14 @@
++"""Rehearsal-only merge of the published dependency revisions before #110."""
++
++revision = "f110prereq2026"
++down_revision = ("c109match2026", "c108v22026", "f134billing2026")
++branch_labels = None
++depends_on = None
++
++
++def upgrade():
++    pass
++
++
++def downgrade():
++    pass
+diff --git a/docs/account-attribution.md b/docs/account-attribution.md
+index 61fd416..0ae2a4f 100644
+--- a/docs/account-attribution.md
++++ b/docs/account-attribution.md
+@@ -1,9 +1,15 @@
+-# Atribuição de conta de aposta
+-
+-Cada aposta mantém `conta_casa_id` no evento de criação e no `snapshot_replay`. A decisão é tomada pelo instante em que a aposta foi feita, consultando os intervalos de `usos_conta_casa` da mesma pessoa e casa. O início é inclusivo; o fim é exclusivo. A hora de recebimento ou processamento não participa da escolha. Uma releitura só recalcula a conta se corrigir a casa ou a data da aposta. O replay usa a decisão gravada para que mudanças posteriores nos intervalos não alterem apostas antigas.
+-
+-Uma referência explícita `conta_casa_id` tem precedência depois de validar que a conta pertence à pessoa e à casa sob RLS. A criação manual aceita esse campo opcionalmente. O contrato `contrato: 1` de `POST /api/v1/coleta` reserva o mesmo campo opcional dentro de cada objeto de `apostas`; o coletor conserva o objeto bruto e o trabalhador valida a referência. Não se usa nome de login da casa para identificar a conta.
+-
+-Sem referência explícita, uma única conta temporal é atribuída. Se não houver conta ou houver mais de uma candidata, `conta_casa_id` permanece nulo e `conta_atribuicao` na resposta da aposta é `UNASSIGNED`. Surge uma revisão pendente vinculada à chave da aposta. A aposta continua nos totais da pessoa. Corrigir a conta fecha a revisão de atribuição sem fechar revisões de extração.
+-
+-Nas coletas de casas, a data financeira pode ser a do jogo. Os leitores que fornecem o horário de colocação guardam esse horário separadamente para a atribuição da conta. O leitor Betfair atual não fornece um horário de colocação verificado: suas apostas ficam sem conta atribuída automaticamente, salvo referência explícita, e entram em revisão.
++# Atribuição de conta
++
++O padrão resolve exatamente uma conta/uso do usuário e da casa na data do jogo
++(`data_jogo` / `comeca_em`), em intervalos `[vigente_de, vigente_ate)`.
++A referência explícita `conta_casa_ref`, validada para o mesmo usuário e bookmaker,
++identifica a conta que realmente fez a aposta no multicontas e tem precedência,
++mesmo fora do intervalo padrão. Sem data/conta única, a aposta permanece UNASSIGNED
++com revisão; referência inválida nunca recebe fallback. Ocorrência, postagem e
++captura continuam sendo relógios de fonte para matching/cortes de coleta.
++
++Materialização, CRUD, Excel e replay compartilham o resolver. A prévia de troca
++de titular identifica apostas padrão afetadas pela data do jogo; decisões
++explícitas de multicontas permanecem na conta real escolhida. A troca preserva
++histórico de usos e exige prévia/aplicação idempotente. O contrato detalhado está
++em [consolidação de apostas](contracts/consolidacao-apostas.md).
+diff --git a/src/bancaemdia/domain/titulares.py b/src/bancaemdia/domain/titulares.py
+index 464982b..4b9dd77 100644
+--- a/src/bancaemdia/domain/titulares.py
++++ b/src/bancaemdia/domain/titulares.py
+@@ -150,13 +150,31 @@ async def trocar_conta(
+                 .where(
+                     models.Aposta.usuario_id == usuario_id,
+                     models.Aposta.conta_casa_id == source.id,
+-                    func.coalesce(models.Aposta.data_aposta, models.Aposta.criada_em)
+-                    >= pedido.efetiva_em,
++                    models.Aposta.data_jogo >= pedido.efetiva_em,
+                 )
+                 .order_by(models.Aposta.id)
+             )
+         ).scalars()
+     )
++    default_impacted = []
++    from bancaemdia.domain.projecao import projetar
++
++    for ident in impacted:
++        bet = await session.get(models.Aposta, ident)
++        assert bet is not None
++        history = (
++            await session.execute(
++                select(models.Evento.tipo, models.Evento.fonte, models.Evento.payload_json)
++                .where(
++                    models.Evento.usuario_id == usuario_id, models.Evento.aposta_chave == bet.chave
++                )
++                .order_by(models.Evento.id)
++            )
++        ).all()
++        state, _ = projetar((kind, source, payload) for kind, source, payload in history)
++        if state.get("conta_casa_ref") is None and state.get("conta_atribuicao") != "explicit":
++            default_impacted.append(ident)
++    impacted = default_impacted
+     result: dict[str, object] = {
+         "casa_id": pedido.casa_id,
+         "conta_origem_id": source.id,
+diff --git a/src/bancaemdia/main.py b/src/bancaemdia/main.py
+index a59b2eb..feace0c 100644
+--- a/src/bancaemdia/main.py
++++ b/src/bancaemdia/main.py
+@@ -23,7 +23,9 @@ from bancaemdia.api.v1 import (
+     coleta_sessoes,
+     painel,
+     revisao,
++    titulares,
+     upload,
++    usuario,
+ )
+ from bancaemdia.auth.middleware import JWTAuthMiddleware
+ from bancaemdia.config import get_settings
+@@ -111,10 +113,7 @@ app.include_router(usuario.router)
+ # O teto de tamanho é registrado primeiro para rodar por DENTRO dos outros: por fora de um
+ # BaseHTTPMiddleware o 413 dele vira 500 (medido).
+ app.add_middleware(CollectionBodyLimit)
+-app.add_middleware(
+-    RequestBodyLimitMiddleware,
+-    max_body_size=get_settings().UPLOAD_MAX_BYTES + upload.MARGEM_DO_FORMULARIO,
+-)
++app.add_middleware(EndpointBodyLimitMiddleware)
+ # O roteador precisa do usuário que a autenticação põe no pedido: registrado primeiro, ele roda por
+ # último, depois da autenticação e do RLS.
+ app.add_middleware(RouterMiddleware)
+diff --git a/src/bancaemdia/models/__init__.py b/src/bancaemdia/models/__init__.py
+index a243438..721cab5 100644
+--- a/src/bancaemdia/models/__init__.py
++++ b/src/bancaemdia/models/__init__.py
+@@ -2,6 +2,8 @@ from bancaemdia.db.models import Base
+ from bancaemdia.models.apelido import Apelido
+ from bancaemdia.models.aposta import Aposta
+ from bancaemdia.models.aposta_consolidacao import ApostaConsolidacao
++from bancaemdia.models.assinatura import Assinatura
++from bancaemdia.models.audit_log import AuditLog
+ from bancaemdia.models.banca import Banca
+ from bancaemdia.models.billing_price import BillingPrice
+ from bancaemdia.models.billing_price_audit import BillingPriceAudit
+diff --git a/src/bancaemdia/repositories/coleta_casa_repo.py b/src/bancaemdia/repositories/coleta_casa_repo.py
+index 50942c4..72bc4d2 100644
+--- a/src/bancaemdia/repositories/coleta_casa_repo.py
++++ b/src/bancaemdia/repositories/coleta_casa_repo.py
+@@ -10,6 +10,12 @@ from bancaemdia.repositories.base import colunas
+ 
+ 
+ class ColetaCasaRepo:
++    async def lock_daily_admission(self, session: AsyncSession, usuario_id: int) -> None:
++        await session.execute(
++            text("SELECT pg_advisory_xact_lock(hashtextextended(:resource,0))"),
++            {"resource": f"collection-daily:{usuario_id}"},
++        )
++
+     async def matching_counts(
+         self, session: AsyncSession, usuario_id: int, chave: str
+     ) -> dict[str, int]:
+diff --git a/src/bancaemdia/workers/coleta_v2.py b/src/bancaemdia/workers/coleta_v2.py
+index fcfced6..809bc88 100644
+--- a/src/bancaemdia/workers/coleta_v2.py
++++ b/src/bancaemdia/workers/coleta_v2.py
+@@ -7,7 +7,7 @@ from uuid import UUID
+ 
+ import structlog
+ from prometheus_client import Counter
+-from sqlalchemy import or_, select, text
++from sqlalchemy import select, text
+ from sqlalchemy.dialects.postgresql import insert
+ from sqlalchemy.exc import SQLAlchemyError
+ from sqlalchemy.ext.asyncio import AsyncEngine, AsyncSession
+@@ -22,6 +22,7 @@ from bancaemdia.domain.registros import ColetaCasa
+ from bancaemdia.models.coleta_sessao import ColetaEntrega, ColetaSessao
+ from bancaemdia.repositories.base import colunas
+ from bancaemdia.repositories.coleta_instalacao import owner_scope
++from bancaemdia.repositories.cruzamento_candidato import CruzamentoCandidatoRepo
+ from bancaemdia.workers.celery_app import app
+ from bancaemdia.workers.materialization import _gravar_coletada, get_engine
+ 
+@@ -36,6 +37,7 @@ def finish(row: ColetaEntrega, status: str, reason: str) -> None:
+ 
+ 
+ async def materialize(session: AsyncSession, row: ColetaEntrega) -> None:
++    await CruzamentoCandidatoRepo().lock(session, row.usuario_id)
+     envelope = row.envelope
+     if envelope is None:
+         finish(row, "failed", "payload_unavailable")
+@@ -76,13 +78,11 @@ async def materialize(session: AsyncSession, row: ColetaEntrega) -> None:
+             models.ContaCasa.id == reference,
+             models.ContaCasa.usuario_id == row.usuario_id,
+             models.ContaCasa.casa_id == casa_id,
+-            or_(models.ContaCasa.desde.is_(None), models.ContaCasa.desde <= occurred),
+-            or_(models.ContaCasa.ate.is_(None), models.ContaCasa.ate > occurred),
+         )
+         .with_for_update()
+     )
+-    # An inactive historical account is valid only inside its explicit closed interval.
+-    if account is None or (not account.ativa and account.ate is None):
++    # An explicit multi-account reference identifies the actual account, independently of game/placement clocks.
++    if account is None:
+         finish(row, "needs_review", "account_unavailable")
+         return
+     # Insert before locking: ON CONFLICT serializes first deliveries of the same ticket,
+diff --git a/src/bancaemdia/workers/materialization.py b/src/bancaemdia/workers/materialization.py
+index 63503f4..d0797f5 100644
+--- a/src/bancaemdia/workers/materialization.py
++++ b/src/bancaemdia/workers/materialization.py
+@@ -339,11 +339,6 @@ async def _gravar(
+             ),
+         },
+     )
+-    if resolution is not None:
+-        account_review = await sync_account_review(
+-            session, usuario_id, nova.chave, resolution, midia_hash=midia_hash
+-        )
+-        revisao = revisao or account_review
+     return Gravada(
+         nova.chave,
+         nova.origem,
+@@ -524,7 +519,6 @@ async def _gravar_coletada(
+     capturas = list(zip(coletas, lidas, strict=True))
+     novos: list[EventoNovo] = []
+     data_aposta = None
+-    captura_da_criacao: tuple[ColetaCasa, Any] | None = None
+     recusa: ApostaInvalidaError | None = None
+     coleta_da_revisao = coletas[-1].id
+     # A aposta que já existe recebe só a captura mais nova: repassar as velhas desfaria o resultado.
+@@ -550,7 +544,6 @@ async def _gravar_coletada(
+             except ApostaInvalidaError as erro:
+                 recusa = erro
+                 continue
+-            captura_da_criacao = coleta, coletada
+             novos.extend(eventos_da_criacao(coletada, valor_unidade))
+         if any(e.payload.get("revisao_motivo") for e in novos[antes:]):
+             coleta_da_revisao = coleta.id
+@@ -564,7 +557,7 @@ async def _gravar_coletada(
+     if existia and aviso is not None and not atual.get("revisao_motivo"):
+         novos.append(evento_do_aviso(aviso[1]))
+         coleta_da_revisao = aviso[0].id
+-    explicit_reference = getattr(coletas[-1], "conta_casa_ref", None)
++    explicit_reference = conta_casa_id or getattr(coletas[-1], "conta_casa_ref", None)
+     if explicit_reference is None:
+         explicit_reference = coletas[-1].bruto_json.get("conta_casa_ref")
+     if explicit_reference is not None and explicit_reference != atual.get("conta_casa_ref"):
+@@ -664,11 +657,6 @@ async def _gravar_coletada(
+             ),
+         },
+     )
+-    if account_resolution is not None:
+-        account_review = await sync_account_review(
+-            session, usuario_id, chave, account_resolution, context={"coleta_id": coleta_da_revisao}
+-        )
+-        revisao = revisao or account_review
+     return Gravada(
+         chave,
+         "casa",
+diff --git a/tests/integration/coleta/test_contract_v2.py b/tests/integration/coleta/test_contract_v2.py
+index 990abbd..be5c341 100644
+--- a/tests/integration/coleta/test_contract_v2.py
++++ b/tests/integration/coleta/test_contract_v2.py
+@@ -475,7 +475,8 @@ async def test_account_reference_is_never_a_first_active_fallback(api, kind):
+         elif kind == "unknown":
+             reference = 2**62
+     ack = (await api.send([capture(reference)])).json()["items"][0]
+-    assert await api.run(ack) == "needs_review"
++    valid_explicit = kind in {"before", "ended"}
++    assert await api.run(ack) == ("materialized" if valid_explicit else "needs_review")
+     async with api.admin.connect() as conn:
+         assert (
+             await conn.scalar(
+@@ -483,7 +484,7 @@ async def test_account_reference_is_never_a_first_active_fallback(api, kind):
+                 .select_from(models.Aposta)
+                 .where(models.Aposta.usuario_id == api.user)
+             )
+-            == 0
++            == (1 if valid_explicit else 0)
+         )
+ 
+ 
+@@ -860,7 +861,7 @@ async def test_v2_migration_roundtrip_and_populated_downgrade_guard(banco_migrac
+             await asyncio.to_thread(command.downgrade, config, "c107pair2026")
+         async with engine.connect() as conn:
+             assert (
+-                await conn.scalar(text("SELECT version_num FROM alembic_version")) == "c108v22026"
++                await conn.scalar(text("SELECT version_num FROM alembic_version")) == "c110fact2026"
+             )
+             assert await conn.scalar(select(func.count()).select_from(ColetaSessao)) == 1
+     finally:
+diff --git a/tests/integration/coleta/test_pairing.py b/tests/integration/coleta/test_pairing.py
+index b949a7c..2c9f7b8 100644
+--- a/tests/integration/coleta/test_pairing.py
++++ b/tests/integration/coleta/test_pairing.py
+@@ -571,7 +571,7 @@ async def test_legacy_upgrade_requires_repair_and_roundtrip_never_reactivates(ba
+             await asyncio.to_thread(command.downgrade, config, "a9d6e3f1c210")
+         async with engine.connect() as conn:
+             assert (
+-                await conn.scalar(text("SELECT version_num FROM alembic_version")) == "c108v22026"
++                await conn.scalar(text("SELECT version_num FROM alembic_version")) == "c110fact2026"
+             )
+             assert await conn.scalar(text("SELECT ativo FROM coleta_token")) is False
+     finally:
+diff --git a/tests/integration/test_troca_titular.py b/tests/integration/test_troca_titular.py
+index 84bb34d..42b12dc 100644
+--- a/tests/integration/test_troca_titular.py
++++ b/tests/integration/test_troca_titular.py
+@@ -75,7 +75,7 @@ async def _setup(
+     return casa_id, source.id, target.id, start
+ 
+ 
+-async def test_attribution_uses_bet_time_and_validates_explicit_account(
++async def test_attribution_uses_game_time_and_validates_explicit_account(
+     engine_admin: AsyncEngine,
+     engine_app: AsyncEngine,
+     novo_usuario: Callable[[], Awaitable[int]],
+@@ -149,7 +149,8 @@ async def test_preview_apply_retry_and_event_time_resolution(
+                     stake_unidades=1.0,
+                     stake_centavos=10000,
+                     conta_casa_id=source,
+-                    data_aposta=effective - timedelta(seconds=1),
++                    data_aposta=effective - timedelta(days=2),
++                    data_jogo=effective - timedelta(seconds=1),
+                 )
+                 .returning(models.Aposta.id)
+             )
+@@ -163,7 +164,8 @@ async def test_preview_apply_retry_and_event_time_resolution(
+                     stake_unidades=1.0,
+                     stake_centavos=10000,
+                     conta_casa_id=source,
+-                    data_aposta=effective,
++                    data_aposta=effective - timedelta(days=2),
++                    data_jogo=effective,
+                 )
+                 .returning(models.Aposta.id)
+             )

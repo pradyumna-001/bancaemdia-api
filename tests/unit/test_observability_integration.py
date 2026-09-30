@@ -53,6 +53,9 @@ class RecordingSession:
         self.commits = 0
         self.rollbacks = 0
 
+    async def execute(self, *args: object, **kwargs: object) -> None:
+        await asyncio.sleep(0)
+
     async def commit(self) -> None:
         # A counter increment before this point would report data that can still be rolled back.
         assert self.counter.events == []
@@ -306,6 +309,13 @@ async def _prepare_manual_bet(
         await asyncio.sleep(0)
         return object()
 
+    from bancaemdia.domain.account_attribution import AccountResolution, ResolutionStatus
+
+    async def account(*args, **kwargs):
+        await asyncio.sleep(0)
+        return AccountResolution(ResolutionStatus.NONE)
+
+    monkeypatch.setattr(apostas, "attribute_account", account)
     monkeypatch.setattr(apostas, "apostas_created_total", counter)
     monkeypatch.setattr(apostas, "casa_canonica", lambda value: value)
     monkeypatch.setattr(apostas.UnidadeRepo, "get_vigente", no_unit)

@@ -19,6 +19,7 @@ from uuid import uuid4
 import anthropic
 import httpx
 import httpx2
+import jwt
 import pytest
 import redis
 from cryptography.hazmat.primitives.asymmetric import rsa
@@ -27,9 +28,9 @@ from cryptography.hazmat.primitives.serialization import (
     NoEncryption,
     PrivateFormat,
     PublicFormat,
+    load_pem_public_key,
 )
 from fastapi.testclient import TestClient
-from jose import jwk, jwt
 from prometheus_client import REGISTRY
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncEngine, AsyncSession, create_async_engine
@@ -264,6 +265,12 @@ async def test_prints_that_fail_their_checks_open_reviews_and_an_illegible_one_i
         graves = {
             a.chave for a in await ApostaRepo().list_by_usuario(session, usuario) if a.revisao_grave
         }
+    pending = [r for r in revisoes if r.motivo == "conta_pendente"]
+    async with como(engine_app, usuario) as session:
+        all_bets = await ApostaRepo().list_by_usuario(session, usuario)
+    assert {r.extracao_bruta["aposta_chave"] for r in pending} == {a.chave for a in all_bets}
+    assert len(pending) == len(all_bets)
+    revisoes = [r for r in revisoes if r.motivo != "conta_pendente"]
     da_imagem = {hashlib.sha256(imagem).hexdigest(): message_id for message_id, imagem in mensagens}
     motivos = {
         (da_imagem[r.midia_hash], r.extracao_bruta["aposta_chave"]): r.motivo for r in revisoes
@@ -415,7 +422,10 @@ def chave():
     par = rsa.generate_private_key(public_exponent=65537, key_size=2048)
     privada = par.private_bytes(Encoding.PEM, PrivateFormat.PKCS8, NoEncryption()).decode()
     publica = par.public_key().public_bytes(Encoding.PEM, PublicFormat.SubjectPublicKeyInfo)
-    return privada, {**jwk.construct(publica, "RS256").to_dict(), "kid": "k1"}
+    return privada, {
+        **jwt.algorithms.RSAAlgorithm.to_jwk(load_pem_public_key(publica), as_dict=True),
+        "kid": "k1",
+    }
 
 
 def _sessoes(url: str):
@@ -645,5 +655,47 @@ async def test_a_telegram_export_uploaded_to_the_api_is_read_and_reported_comple
     )
 
 
-def test_painel_totals_match_the_conferir_numeros_logic() -> None:
-    pytest.skip("GET /painel arrives with issue #30; conferir_numeros.py has not been ported")
+async def test_painel_totals_match_the_conferir_numeros_logic(isolated_banco, monkeypatch) -> None:
+    import sys
+    from runpy import run_path
+
+    from bancaemdia.cli import replay
+    from bancaemdia.cli.refresh_painel import refresh_painel
+    from bancaemdia.domain.painel import FiltrosPainel
+    from bancaemdia.repositories.painel_repo import PainelRepo
+    from bancaemdia.repositories.usuario_repo import UsuarioRepo
+
+    # This case crosses the Redis and replay boundaries. Its own migrated database
+    # prevents its real writes/refresh from racing the NOWAIT replay acceptance cases.
+    database = isolated_banco
+    engine_app = create_async_engine(database.url_app, poolclass=NullPool)
+    engine_admin = create_async_engine(database.url_admin, poolclass=NullPool)
+    checker_engine = create_async_engine(database.url_app, poolclass=NullPool)
+    try:
+        helpers = run_path(str(Path(__file__).parent / "cruzamento/test_consolidacao.py"))
+        async with AsyncSession(engine_admin) as session:
+            user = (await UsuarioRepo().create(session, f"{uuid4().hex}@teste.local", "Teste")).id
+            await session.commit()
+        house, _ = await helpers["accounts"](engine_admin, engine_app, user)
+        ticket = uuid4().hex
+        await helpers["intake_telegram"](engine_app, user, helpers["telegram_payload"](ticket))
+        await helpers["intake_house"](engine_app, user, house, helpers["house_payload"](ticket))
+        await helpers["intake_house"](
+            engine_app, user, house, helpers["house_payload"](ticket, state="Win")
+        )
+        await refresh_painel(engine_admin)
+        async with AsyncSession(engine_app) as session:
+            await helpers["owner"](session, user)
+            panel = await PainelRepo().consultar(session, user, FiltrosPainel.criar("all"))
+            assert panel.resumo.total_apostas == 1
+            assert panel.resumo.giro_centavos == 10000
+            assert panel.resumo.lucro_centavos == 10000
+            assert panel.resumo.roi_basis_points == 10000
+        checker = run_path(str(Path(__file__).parents[2] / "scripts/conferir_numeros.py"))
+        monkeypatch.setattr(replay, "get_engine", lambda: checker_engine)
+        monkeypatch.setattr(sys, "argv", ["conferir_numeros.py", "--usuario-id", str(user)])
+        assert await asyncio.to_thread(checker["main"]) == 0
+    finally:
+        await checker_engine.dispose()
+        await engine_app.dispose()
+        await engine_admin.dispose()

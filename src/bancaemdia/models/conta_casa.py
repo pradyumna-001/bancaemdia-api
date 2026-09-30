@@ -19,6 +19,7 @@ from bancaemdia.db.models import Base
 class ContaCasa(Base):
     __tablename__ = "contas_casa"
     __table_args__ = (
+        UniqueConstraint("id", "usuario_id", name="uq_contas_consolidacao_owner"),
         UniqueConstraint(
             "usuario_id", "casa_id", "apelido", name="uq_contas_casa_usuario_casa_apelido"
         ),

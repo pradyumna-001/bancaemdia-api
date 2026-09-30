@@ -7,6 +7,7 @@ from sqlalchemy.sql.ddl import DDLElement
 from bancaemdia.db.models import Base
 from bancaemdia.models.apelido import ENTIDADES, Apelido
 from bancaemdia.models.aposta import Aposta
+from bancaemdia.models.aposta_consolidacao import ApostaConsolidacao
 from bancaemdia.models.banca import Banca
 from bancaemdia.models.casa import Casa
 from bancaemdia.models.chamada_ia import ChamadaIA
@@ -14,6 +15,7 @@ from bancaemdia.models.coleta_casa import ColetaCasa
 from bancaemdia.models.coleta_token import ColetaToken
 from bancaemdia.models.competicao import Competicao
 from bancaemdia.models.conta_casa import ContaCasa
+from bancaemdia.models.cruzamento_candidato import CruzamentoCandidato, CruzamentoEntrada
 from bancaemdia.models.esporte import Esporte
 from bancaemdia.models.evento import Evento
 from bancaemdia.models.extracao_cache import ExtracaoCache
@@ -34,6 +36,9 @@ from bancaemdia.models.usuario import Usuario
 NUCLEO = (Usuario, Banca, ContaCasa, Unidade, Movimento, Aposta, Evento)
 CANONICOS = (Casa, Esporte, Competicao, Time, Mercado, Tipster, Apelido)
 SUPORTE = (
+    ApostaConsolidacao,
+    CruzamentoCandidato,
+    CruzamentoEntrada,
     Mensagem,
     MensagemVersao,
     Midia,
@@ -83,9 +88,9 @@ def _indexes(modelo: type[Base]) -> dict[str, list[str]]:
     return {i.name: [c.name for c in i.columns] for i in modelo.__table__.indexes}
 
 
-def test_all_twenty_seven_tables_are_registered() -> None:
+def test_all_thirty_tables_are_registered() -> None:
     esperadas = {m.__tablename__ for m in NUCLEO + CANONICOS + SUPORTE + UPLOAD}
-    assert len(esperadas) == 27
+    assert len(esperadas) == 30
     assert set(Base.metadata.tables) == esperadas
     assert {m.__tablename__ for m in CANONICOS} == {
         "casas",
@@ -97,6 +102,9 @@ def test_all_twenty_seven_tables_are_registered() -> None:
         "apelidos",
     }
     assert {m.__tablename__ for m in SUPORTE} == {
+        "aposta_consolidacoes",
+        "cruzamento_candidatos",
+        "cruzamento_entradas",
         "mensagens",
         "mensagem_versoes",
         "midias",
@@ -266,5 +274,5 @@ def test_revisao_pendente_indexes() -> None:
 
 
 def test_bigserial_everywhere_except_the_cache() -> None:
-    for nome in set(Base.metadata.tables) - {"extracoes_cache"}:
+    for nome in set(Base.metadata.tables) - {"extracoes_cache", "cruzamento_entradas"}:
         assert "id BIGSERIAL NOT NULL" in _create_table(nome)

@@ -62,6 +62,9 @@ def test_telegram_reading_becomes_one_bet_with_the_original_payload() -> None:
 
     assert (aposta.chave, aposta.origem, aposta.ordem) == ("t:100:200:0", "telegram", 0)
     assert aposta.payload == {
+        "conta_casa_ref": None,
+        "identidade_bilhete": None,
+        "ocorrido_em": None,
         "origem": "telegram",
         "data_aposta": "2026-07-24T16:00:00",
         "chat_id": 100,
@@ -73,9 +76,18 @@ def test_telegram_reading_becomes_one_bet_with_the_original_payload() -> None:
         "descricao": "Instituto (Handicap)",
         "mercado_bruto": "Handicap",
         "tipo_aposta": "SIMPLES",
+        "selecoes": [
+            {
+                "evento": "Velez x Instituto",
+                "mercado": "Handicap",
+                "escolha": "Instituto",
+                "linha": -0.5,
+            }
+        ],
         "odd": 1.82,
         "odd_original": None,
         "comeca_em": "2026-07-24T19:00",
+        "data_jogo": "2026-07-24T19:00",
         "stake_unidades": 0.0,
         "valor_unidade_centavos": 10_000,
         "freebet": False,
@@ -235,6 +247,7 @@ def test_missing_odd_is_a_better_reading() -> None:
         "evento": "Velez x Instituto",
         "descricao": "Instituto (Handicap)",
         "comeca_em": "2026-07-24T19:00",
+        "data_jogo": "2026-07-24T19:00",
         "mercado_bruto": "Handicap",
         "odd": 1.82,
         "revisao_motivo": None,

@@ -97,7 +97,7 @@ def test_unidade_vigente_latest_vigente_de_wins_on_overlap() -> None:
 def test_open_ended_conta_is_always_valid() -> None:
     conta = ContaCasa(casa_id=BET365)
     assert conta.valia_em(date(2020, 1, 1)) is True
-    assert conta.valia_em(None) is True
+    assert conta.valia_em(None) is False
 
 
 def test_conta_desde_is_inclusive() -> None:
@@ -106,15 +106,16 @@ def test_conta_desde_is_inclusive() -> None:
     assert conta.valia_em(date(2026, 7, 8)) is True
 
 
-def test_conta_ate_is_inclusive() -> None:
+def test_conta_ate_is_exclusive() -> None:
     conta = ContaCasa(casa_id=BET365, ate=date(2026, 7, 31))
-    assert conta.valia_em(date(2026, 7, 31)) is True
+    assert conta.valia_em(date(2026, 7, 30)) is True
+    assert conta.valia_em(date(2026, 7, 31)) is False
     assert conta.valia_em(date(2026, 8, 1)) is False
 
 
-def test_conta_no_date_never_excludes() -> None:
+def test_conta_no_game_date_is_unassigned() -> None:
     conta = ContaCasa(casa_id=BET365, desde=date(2026, 7, 8), ate=date(2026, 7, 9))
-    assert conta.valia_em(None) is True
+    assert conta.valia_em(None) is False
 
 
 def test_conta_casa_vigente_finds_the_matching_conta() -> None:
@@ -127,10 +128,10 @@ def test_conta_casa_vigente_finds_the_matching_conta() -> None:
     assert conta_casa_vigente(contas, 99, date(2026, 7, 10)) is None
 
 
-def test_conta_casa_vigente_skips_inactive_conta() -> None:
+def test_conta_casa_vigente_preserves_closed_historical_conta() -> None:
     contas = [ContaCasa(casa_id=BET365, ativa=False)]
     assert conta_casa_vigente(contas, BET365, None) is None
-    assert conta_casa_vigente(contas, BET365, date(2026, 7, 8)) is None
+    assert conta_casa_vigente(contas, BET365, date(2026, 7, 8)) == contas[0]
 
 
 def test_pendente_leaves_the_balance_but_is_not_lucro() -> None:

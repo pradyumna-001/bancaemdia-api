@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import re
-from collections.abc import Iterable, Iterator, Mapping
+from collections.abc import Callable, Iterable, Iterator, Mapping
 from contextlib import contextmanager
 from dataclasses import dataclass
 from threading import Lock
@@ -93,7 +93,7 @@ def _create_otlp_exporter(endpoint: str) -> SpanExporter | None:
         # spans, and a missing optional exporter must not stop the API from starting.
         from opentelemetry.exporter.otlp.proto.grpc.trace_exporter import OTLPSpanExporter
 
-        return OTLPSpanExporter(endpoint=endpoint)
+        return cast(SpanExporter, OTLPSpanExporter(endpoint=endpoint))
     except Exception as error:
         structlog.get_logger(__name__).warning(
             "otel_exporter_unavailable", error=type(error).__name__
@@ -278,9 +278,9 @@ def _replace_sql_error_handler(engine: Engine) -> None:
                 and identifier == "handle_error"
                 and function is _otel_sql_error_handler
             ):
-                EngineTracer._dispose_of_event_listener(registration)  # type: ignore[no-untyped-call]
+                cast(Callable[..., None], EngineTracer._dispose_of_event_listener)(registration)
     # Use the instrumentor's own bookkeeping so a later `uninstrument()` removes our replacement.
-    EngineTracer._register_event_listener(  # type: ignore[no-untyped-call]
+    cast(Callable[..., None], EngineTracer._register_event_listener)(
         engine, "handle_error", _sanitize_sql_error
     )
 
@@ -341,7 +341,7 @@ def _instrument_dependencies(
     _install_sql_span_sanitizers(sync_engines)
     active.add("sqlalchemy")
 
-    celery = CeleryInstrumentor()  # type: ignore[no-untyped-call]
+    celery = cast(Callable[[], CeleryInstrumentor], CeleryInstrumentor)()
     if not celery.is_instrumented_by_opentelemetry:
         celery.instrument(tracer_provider=provider)
     _replace_sensitive_celery_handlers(celery)

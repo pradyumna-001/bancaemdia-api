@@ -1,9 +1,11 @@
 from __future__ import annotations
 
+import asyncio
 import time
 from datetime import UTC, datetime, timedelta
 
 import httpx
+import jwt
 import pytest
 from cryptography.hazmat.primitives.asymmetric import rsa
 from cryptography.hazmat.primitives.serialization import (
@@ -11,9 +13,9 @@ from cryptography.hazmat.primitives.serialization import (
     NoEncryption,
     PrivateFormat,
     PublicFormat,
+    load_pem_public_key,
 )
 from fastapi.testclient import TestClient
-from jose import jwk, jwt
 
 from bancaemdia import main
 from bancaemdia.api import deps
@@ -22,6 +24,7 @@ from bancaemdia.auth import jwt as auth_jwt
 from bancaemdia.auth import middleware as auth_middleware
 from bancaemdia.config import get_settings
 from bancaemdia.db.session import get_db
+from bancaemdia.domain.account_attribution import AccountResolution, ResolutionStatus
 from bancaemdia.domain.materializar import MOTIVO_APAGADA, projetar
 from bancaemdia.domain.registros import Aposta, ContaCasa, Evento, RevisaoPendente, Usuario
 
@@ -51,7 +54,10 @@ def chave_rsa():
     par = rsa.generate_private_key(public_exponent=65537, key_size=2048)
     privada = par.private_bytes(Encoding.PEM, PrivateFormat.PKCS8, NoEncryption()).decode()
     publica = par.public_key().public_bytes(Encoding.PEM, PublicFormat.SubjectPublicKeyInfo)
-    return privada, {**jwk.construct(publica, "RS256").to_dict(), "kid": "k1"}
+    return privada, {
+        **jwt.algorithms.RSAAlgorithm.to_jwk(load_pem_public_key(publica), as_dict=True),
+        "kid": "k1",
+    }
 
 
 def _token(privada, sub=str(USUARIO)):
@@ -259,6 +265,28 @@ def _cliente(monkeypatch, chave_rsa, banco, usuario_id=USUARIO):
                 return None
             return Usuario(id=id_, email="p@teste.local", nome="P", criado_em=AGORA, ativo=True)
 
+    async def account(*args, **kwargs):
+        await asyncio.sleep(0)
+        state = args[2] if len(args) > 2 and isinstance(args[2], dict) else {}
+        ident = state.get("conta_casa_ref") or state.get("conta_casa_id")
+        return AccountResolution(
+            ResolutionStatus.NONE if ident is None else ResolutionStatus.UNIQUE, ident
+        )
+
+    async def no_account_review(*args, **kwargs):
+        await asyncio.sleep(0)
+        return None
+
+    async def no_relations(*args, **kwargs):
+        await asyncio.sleep(0)
+        return []
+
+    monkeypatch.setattr(rota, "account_for_state", account)
+    monkeypatch.setattr(rota, "attribute_account", account)
+    monkeypatch.setattr(rota, "account_review", no_account_review)
+    from bancaemdia.repositories.aposta_consolidacao import ApostaConsolidacaoRepo
+
+    monkeypatch.setattr(ApostaConsolidacaoRepo, "history", no_relations)
     for nome, classe in banco.repos.items():
         monkeypatch.setattr(rota, nome, classe)
     monkeypatch.setattr(auth_middleware, "get_jwks_cache", lambda: _chaves(publica))
@@ -743,9 +771,9 @@ def test_a_bet_created_by_hand_is_born_from_its_own_creation_event(monkeypatch, 
     assert payload["casa"] == "Betano" and payload["origem"] == "manual"
     assert corpo["chave"].startswith("m:")
     assert corpo["stake_centavos"] == 15_000
-    assert corpo["conta_casa_id"] == 42
+    assert corpo["conta_casa_id"] is None
     assert resposta.json()["casa_id"] == 1
-    assert "aviso" not in resposta.json()
+    assert "aviso" in resposta.json()
 
 
 def test_a_bet_created_without_a_date_uses_brazil_time(monkeypatch, chave_rsa) -> None:

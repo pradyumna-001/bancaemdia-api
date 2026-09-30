@@ -199,7 +199,7 @@ def test_openapi_endpoint_matches_checked_in_snapshot(openapi_document: JsonObje
 @pytest.mark.contract
 def test_every_operation_has_human_documentation(openapi_document: JsonObject) -> None:
     operations = list(_operations(openapi_document))
-    assert len(operations) == 28
+    assert len(operations) == 30
     for method, path, operation in operations:
         location = f"{method.upper()} {path}"
         assert str(operation.get("summary", "")).strip(), location
@@ -224,7 +224,7 @@ def test_request_bodies_have_examples(openapi_document: JsonObject) -> None:
             assert media.get("example") is not None or media.get("examples"), (
                 f"{method.upper()} {path}: {media_type} lacks an example"
             )
-    assert bodies == 10
+    assert bodies == 12
 
 
 @pytest.mark.contract
@@ -399,13 +399,15 @@ def test_collection_envelope_and_body_limit_match_runtime(openapi_document: Json
 
 
 @pytest.mark.contract
-def test_ci_rejects_breaking_changes_after_the_initial_main_baseline() -> None:
+def test_ci_rejects_breaking_changes_against_the_pull_request_base() -> None:
     workflow = WORKFLOW.read_text(encoding="utf-8")
-    assert "origin/main:tests/contract/schemas/openapi.json" in workflow
+    assert "github.event.pull_request.base.sha" in workflow
+    assert '"$BASE_SHA:tests/contract/schemas/openapi.json"' in workflow
     assert "id: openapi_baseline" in workflow
     assert 'echo "available=true" >> "$GITHUB_OUTPUT"' in workflow
-    assert 'echo "available=false" >> "$GITHUB_OUTPUT"' in workflow
-    assert "this PR establishes the initial baseline" in workflow
+    assert 'git archive "$BASE_SHA"' in workflow
+    assert '--source-root "$baseline_dir/src" --schema-only --schema-output "$baseline"' in workflow
+    assert 'echo "available=false"' not in workflow
     assert "steps.openapi_baseline.outputs.available == 'true'" in workflow
     assert "oasdiff/oasdiff-action/breaking@5e81b5c380accc6b523f9d32a637ca630e33620b" in workflow
     assert "fail-on: WARN" in workflow
@@ -565,6 +567,19 @@ negative_schema = (
     # This authenticated stats operation has no request input to invalidate.
     .exclude(path="/api/v1/revisao/stats")
 )
+
+
+@negative_schema.hook
+def before_generate_path_parameters(
+    context: Any, strategy: SearchStrategy[Any]
+) -> SearchStrategy[Any]:
+    if context.operation.path == "/api/v1/upload/{job_id}":
+        # Construct invalid UUID strings directly; generic schema negation can reject
+        # most generated values before any HTTP call. Keep this route and all assertions.
+        return st.text(
+            alphabet="abcdefghijklmnopqrstuvwxyz0123456789-", min_size=1, max_size=30
+        ).map(lambda value: {"job_id": value})
+    return strategy
 
 
 @pytest.mark.contract
