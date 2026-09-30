@@ -405,8 +405,9 @@ def test_ci_rejects_breaking_changes_against_the_pull_request_base() -> None:
     assert '"$BASE_SHA:tests/contract/schemas/openapi.json"' in workflow
     assert "id: openapi_baseline" in workflow
     assert 'echo "available=true" >> "$GITHUB_OUTPUT"' in workflow
-    assert 'echo "available=false" >> "$GITHUB_OUTPUT"' in workflow
-    assert "this PR establishes the initial baseline" in workflow
+    assert 'git archive "$BASE_SHA"' in workflow
+    assert '--source-root "$baseline_dir/src" --schema-only --schema-output "$baseline"' in workflow
+    assert 'echo "available=false"' not in workflow
     assert "steps.openapi_baseline.outputs.available == 'true'" in workflow
     assert "oasdiff/oasdiff-action/breaking@5e81b5c380accc6b523f9d32a637ca630e33620b" in workflow
     assert "fail-on: WARN" in workflow
