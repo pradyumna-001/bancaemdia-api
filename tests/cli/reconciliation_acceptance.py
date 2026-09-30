@@ -6,12 +6,16 @@ missing prerequisite or database is a failure, never a skip.
 
 import asyncio
 import copy
+import importlib.util
 import os
 import sys
 from datetime import UTC, datetime, timedelta
+from pathlib import Path
 from uuid import uuid4
 
 import pytest
+from alembic.migration import MigrationContext
+from alembic.operations import Operations
 from sqlalchemy import delete, func, insert, select, text, update
 from sqlalchemy.dialects.postgresql import insert as pg_insert
 from sqlalchemy.exc import DBAPIError
@@ -21,6 +25,7 @@ from bancaemdia import models
 from bancaemdia.cli import reconciliar_casa_telegram as cli
 from bancaemdia.cli.reconciliacao_journal import journal
 from bancaemdia.cli.reconciliacao_report import ReconciliationError, seal
+from bancaemdia.cli.replay import reconstruir_usuario
 from bancaemdia.domain.account_attribution_service import account_for_state
 from bancaemdia.domain.consolidacao_aposta import unlink
 from bancaemdia.services.consolidacao_replay import replay_relations
@@ -82,7 +87,11 @@ async def account(engine_admin, engine_app, user, *, desde=PLACED - timedelta(da
     async with AsyncSession(engine_app, expire_on_commit=False) as session, session.begin():
         await owner(session, user)
         row = models.ContaCasa(
-            usuario_id=user, casa_id=house_id, apelido="synthetic-history", desde=desde, ate=ate
+            usuario_id=user,
+            casa_id=house_id,
+            apelido="synthetic-" + uuid4().hex,
+            desde=desde,
+            ate=ate,
         )
         session.add(row)
         await session.flush()
@@ -112,7 +121,7 @@ async def historical(engine, user, origin, *, ticket="historical-42", patch=None
             estado=state["estado"],
             retorno_centavos=state["retorno_centavos"],
             data_aposta=PLACED,
-            data_jogo=GAME,
+            data_jogo=cli.boundary(state["data_jogo"]),
             conta_casa_id=account_id,
         )
         session.add(bet)
@@ -126,6 +135,19 @@ async def historical(engine, user, origin, *, ticket="historical-42", patch=None
                 payload_json=state,
             )
         )
+        if state["estado"] != "PENDENTE":
+            session.add(
+                models.Evento(
+                    usuario_id=user,
+                    aposta_chave=bet.chave,
+                    tipo="RESULTADO_REGISTRADO",
+                    fonte="liquidacao",
+                    payload_json={
+                        "estado": state["estado"],
+                        "retorno_centavos": state["retorno_centavos"],
+                    },
+                )
+            )
         await session.flush()
         return bet.id
 
@@ -221,7 +243,7 @@ async def test_apply_shared_domain_once_and_replay_rebuilds_same_fact(
     assert result["complete"] and not result["idempotent"]
     after = await stored(engine_app, user)
     assert after["totals"] == reviewed["projected_totals"]
-    assert after["events"] == 4 and len(after["relations"]) == len(after["journals"]) == 1
+    assert after["events"] == 6 and len(after["relations"]) == len(after["journals"]) == 1
     link = after["relations"][0]
     assert (
         link.casa_aposta_id == house
@@ -231,10 +253,18 @@ async def test_apply_shared_domain_once_and_replay_rebuilds_same_fact(
     again = await cli.apply_report(engine_app, reviewed, reviewed["sha256"], cli.Filters(user), 1)
     assert again["idempotent"]
     repeated = await stored(engine_app, user)
-    assert repeated["watermark"] == after["watermark"] and repeated["events"] == 4
+    assert repeated["watermark"] == after["watermark"] and repeated["events"] == 6
     async with engine_admin.begin() as conn:
+        # Explicit fault injection on disposable synthetic projections, as in #110 acceptance.
+        # The product still forbids deletion; restore the guard before running any domain code.
+        await conn.execute(
+            text("ALTER TABLE aposta_consolidacoes DISABLE TRIGGER consolidation_immutable")
+        )
         await conn.execute(
             delete(models.ApostaConsolidacao).where(models.ApostaConsolidacao.usuario_id == user)
+        )
+        await conn.execute(
+            text("ALTER TABLE aposta_consolidacoes ENABLE TRIGGER consolidation_immutable")
         )
     async with AsyncSession(engine_app) as session, session.begin():
         await owner(session, user)
@@ -242,6 +272,8 @@ async def test_apply_shared_domain_once_and_replay_rebuilds_same_fact(
     replayed = await stored(engine_app, user)
     assert replayed["totals"] == reviewed["projected_totals"]
     assert replayed["relations"][0].id == link.id
+    await reconstruir_usuario(user, engine=engine_app)
+    assert (await stored(engine_app, user))["totals"] == reviewed["projected_totals"]
     new = await cli.dry_run(engine_app, cli.Filters(user))
     assert new["counts"]["already-consolidated"] == 1
 
@@ -364,7 +396,7 @@ async def test_ambiguous_candidates_never_change_finance_and_review_is_idempoten
     assert reviewed["projected_totals"] == reviewed["current_totals"]
     await cli.apply_report(engine_app, reviewed, reviewed["sha256"], cli.Filters(user))
     after = await stored(engine_app, user)
-    assert not after["relations"] and after["events"] == (3 if kind == "competing" else 2)
+    assert not after["relations"] and after["events"] == (6 if kind == "competing" else 4)
     assert after["totals"] == reviewed["current_totals"]
     if kind != "incompatible":
         async with AsyncSession(engine_app) as session:
@@ -515,7 +547,7 @@ async def test_ten_concurrent_apply_retries_create_one_chunk_relation_and_audit(
     ])
     assert sum(not result["idempotent"] for result in results) == 1
     after = await stored(engine_app, user)
-    assert len(after["relations"]) == len(after["journals"]) == 1 and after["events"] == 4
+    assert len(after["relations"]) == len(after["journals"]) == 1 and after["events"] == 6
 
 
 async def test_resume_refuses_external_changes_preserving_confirmed_checkpoint(
@@ -620,10 +652,40 @@ async def test_fault_after_real_domain_audit_is_atomic_and_retry_converges(
         await cli.apply_report(engine_app, reviewed, reviewed["sha256"], cli.Filters(user))
     monkeypatch.setattr(rt.service, "_audit", real)
     failed = await stored(engine_app, user)
-    assert failed["watermark"] == before["watermark"] and failed["events"] == 2
+    assert failed["watermark"] == before["watermark"] and failed["events"] == 4
     assert not failed["relations"] and not failed["journals"]
     await cli.apply_report(engine_app, reviewed, reviewed["sha256"], cli.Filters(user))
     assert (await stored(engine_app, user))["totals"] == reviewed["projected_totals"]
+
+
+async def test_cli_refuses_superuser_or_bypass_credentials(engine_admin, engine_app, novo_usuario):
+    user, _, _, _ = await fixture_pair(engine_admin, engine_app, novo_usuario)
+    with pytest.raises(ReconciliationError, match="BYPASSRLS"):
+        await cli.dry_run(engine_admin, cli.Filters(user))
+    assert not (await stored(engine_app, user))["journals"]
+
+
+async def test_populated_journal_migration_refuses_destructive_downgrade(
+    engine_admin, engine_app, novo_usuario
+):
+    user, _, _, _ = await fixture_pair(engine_admin, engine_app, novo_usuario)
+    reviewed = await cli.dry_run(engine_app, cli.Filters(user))
+    await cli.apply_report(engine_app, reviewed, reviewed["sha256"], cli.Filters(user))
+    specification = importlib.util.spec_from_file_location(
+        "journal_migration", Path("alembic/versions/r111journal2026_reconciliacao_chunks.py")
+    )
+    module = importlib.util.module_from_spec(specification)
+    specification.loader.exec_module(module)
+
+    def attempt(connection):
+        with Operations.context(MigrationContext.configure(connection)):
+            module.downgrade()
+
+    with pytest.raises(DBAPIError, match="Preserve reconciliation audit"):
+        async with engine_admin.begin() as conn:
+            await conn.run_sync(attempt)
+    after = await stored(engine_app, user)
+    assert len(after["journals"]) == 1 and after["totals"] == reviewed["projected_totals"]
 
 
 async def test_real_cli_subprocess_json_csv_apply_and_safe_rerun(

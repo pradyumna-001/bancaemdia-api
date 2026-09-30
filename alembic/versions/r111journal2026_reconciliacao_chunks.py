@@ -58,7 +58,13 @@ def upgrade() -> None:
 
 
 def downgrade() -> None:
-    if op.get_bind().scalar(sa.text("SELECT EXISTS(SELECT 1 FROM reconciliacao_chunks)")):
-        raise RuntimeError("Preserve reconciliation audit; rollback application, not journal")
+    # Server-side guard also renders in Alembic offline SQL; no fake offline SELECT result.
+    op.execute("""
+        DO $$ BEGIN
+          IF EXISTS(SELECT 1 FROM reconciliacao_chunks) THEN
+            RAISE EXCEPTION 'Preserve reconciliation audit; rollback application, not journal';
+          END IF;
+        END $$
+    """)
     op.drop_table("reconciliacao_chunks")
     op.execute("DROP FUNCTION r111_immutable()")

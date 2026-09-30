@@ -13,6 +13,7 @@ import httpx
 import pytest
 import structlog
 from fastapi import FastAPI, Request
+from opentelemetry.propagate import inject
 from opentelemetry.sdk.trace import TracerProvider
 from starlette.middleware.base import BaseHTTPMiddleware
 
@@ -317,13 +318,13 @@ async def test_unhandled_error_is_correlated_and_context_is_cleared() -> None:
     tracer = provider.get_tracer("test")
     with tracer.start_as_current_span("server") as span:
         expected_span = span.get_span_context()
+        headers = {REQUEST_ID_HEADER: request_id, "X-User-ID": "7"}
+        inject(headers)
         async with httpx.AsyncClient(
             transport=httpx.ASGITransport(app=app, raise_app_exceptions=True),
             base_url="http://test",
         ) as client:
-            response = await client.get(
-                "/failure", headers={REQUEST_ID_HEADER: request_id, "X-User-ID": "7"}
-            )
+            response = await client.get("/failure", headers=headers)
 
     assert response.status_code == 500
     assert response.headers[REQUEST_ID_HEADER] == request_id
