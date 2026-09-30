@@ -186,6 +186,12 @@ def isolated_database(banco: Banco) -> Iterator[str]:
 
 
 @pytest.fixture
+def isolated_banco(isolated_database: str) -> Banco:
+    """Provide an independently migrated database through pytest's fixture namespace."""
+    return _preparar(isolated_database)
+
+
+@pytest.fixture
 async def engine_app(banco: Banco) -> AsyncIterator[AsyncEngine]:
     engine = create_async_engine(banco.url_app)
     yield engine

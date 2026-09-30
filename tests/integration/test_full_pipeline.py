@@ -655,13 +655,9 @@ async def test_a_telegram_export_uploaded_to_the_api_is_read_and_reported_comple
     )
 
 
-async def test_painel_totals_match_the_conferir_numeros_logic(
-    isolated_database, monkeypatch
-) -> None:
+async def test_painel_totals_match_the_conferir_numeros_logic(isolated_banco, monkeypatch) -> None:
     import sys
     from runpy import run_path
-
-    from conftest import _preparar
 
     from bancaemdia.cli import replay
     from bancaemdia.cli.refresh_painel import refresh_painel
@@ -671,7 +667,7 @@ async def test_painel_totals_match_the_conferir_numeros_logic(
 
     # This case crosses the Redis and replay boundaries. Its own migrated database
     # prevents its real writes/refresh from racing the NOWAIT replay acceptance cases.
-    database = await asyncio.to_thread(_preparar, isolated_database)
+    database = isolated_banco
     engine_app = create_async_engine(database.url_app, poolclass=NullPool)
     engine_admin = create_async_engine(database.url_admin, poolclass=NullPool)
     checker_engine = create_async_engine(database.url_app, poolclass=NullPool)
