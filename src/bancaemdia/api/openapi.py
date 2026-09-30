@@ -593,17 +593,17 @@ def _install_collection_security(document: JsonObject) -> None:
                 **({"CsrfProof": []} if method not in {"get", "head"} else {}),
             })
             for status in ("401", "503"):
-                operation["responses"][status]["content"]["application/json"]["schema"] = {
-                    "anyOf": [
-                        {"$ref": "#/components/schemas/ErrorResponse"},
-                        {"$ref": "#/components/schemas/AuthFailure"},
-                    ]
+                operation["responses"][status].setdefault("headers", {})["X-Auth-Error"] = {
+                    "description": "Identity error code when AUTH_ENABLED; legacy response body is preserved.",
+                    "schema": {"type": "string"},
                 }
             if method not in {"get", "head"}:
                 operation["responses"]["403"] = {
                     "description": "Cookie mutation requires exact Origin and current CSRF proof.",
                     "content": {
-                        "application/json": {"schema": {"$ref": "#/components/schemas/AuthFailure"}}
+                        "application/json": {
+                            "schema": {"$ref": "#/components/schemas/ErrorResponse"}
+                        }
                     },
                 }
     paths = _object(document["paths"], context="paths")

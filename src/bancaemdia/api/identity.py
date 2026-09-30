@@ -57,12 +57,15 @@ AUTH_ERRORS[429] = AUTHENTICATED_ERROR_RESPONSES[429]
 AUTH_ERRORS[503]["model"] = AuthFailure | ErrorResponse
 
 
-def failure(error: IdentityError) -> JSONResponse:
-    headers = {"Cache-Control": "private, no-store"}
+def failure(error: IdentityError, *, legacy: bool = False) -> JSONResponse:
+    headers = {"Cache-Control": "private, no-store", "X-Auth-Error": error.code}
     if error.status == 401:
         headers["WWW-Authenticate"] = 'Bearer error="invalid_token"'
     return JSONResponse(
-        {"detail": "Identity request could not be completed", "code": error.code},
+        {
+            "detail": "Identity request could not be completed",
+            **({} if legacy else {"code": error.code}),
+        },
         status_code=error.status,
         headers=headers,
     )

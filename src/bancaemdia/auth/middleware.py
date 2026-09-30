@@ -76,7 +76,7 @@ class JWTAuthMiddleware(BaseHTTPMiddleware):
                         request.cookies.get(settings.session_cookie, "")
                     )
             except IdentityError as error:
-                return failure(error)
+                return failure(error, legacy=True)
             return await call_next(request)
 
         scheme, _, token = (request.headers.get("Authorization") or "").partition(" ")

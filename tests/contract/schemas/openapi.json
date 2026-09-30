@@ -3900,18 +3900,19 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "anyOf": [
-                    {
-                      "$ref": "#/components/schemas/ErrorResponse"
-                    },
-                    {
-                      "$ref": "#/components/schemas/AuthFailure"
-                    }
-                  ]
+                  "$ref": "#/components/schemas/ErrorResponse"
                 }
               }
             },
-            "description": "Missing, expired, or invalid bearer token."
+            "description": "Missing, expired, or invalid bearer token.",
+            "headers": {
+              "X-Auth-Error": {
+                "description": "Identity error code when AUTH_ENABLED; legacy response body is preserved.",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
           },
           "422": {
             "content": {
@@ -3947,18 +3948,19 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "anyOf": [
-                    {
-                      "$ref": "#/components/schemas/ErrorResponse"
-                    },
-                    {
-                      "$ref": "#/components/schemas/AuthFailure"
-                    }
-                  ]
+                  "$ref": "#/components/schemas/ErrorResponse"
                 }
               }
             },
-            "description": "A required dependency is temporarily unavailable."
+            "description": "A required dependency is temporarily unavailable.",
+            "headers": {
+              "X-Auth-Error": {
+                "description": "Identity error code when AUTH_ENABLED; legacy response body is preserved.",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
           }
         },
         "security": [
@@ -4014,24 +4016,25 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "anyOf": [
-                    {
-                      "$ref": "#/components/schemas/ErrorResponse"
-                    },
-                    {
-                      "$ref": "#/components/schemas/AuthFailure"
-                    }
-                  ]
+                  "$ref": "#/components/schemas/ErrorResponse"
                 }
               }
             },
-            "description": "Missing, expired, or invalid bearer token."
+            "description": "Missing, expired, or invalid bearer token.",
+            "headers": {
+              "X-Auth-Error": {
+                "description": "Identity error code when AUTH_ENABLED; legacy response body is preserved.",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
           },
           "403": {
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/AuthFailure"
+                  "$ref": "#/components/schemas/ErrorResponse"
                 }
               }
             },
@@ -4092,18 +4095,19 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "anyOf": [
-                    {
-                      "$ref": "#/components/schemas/ErrorResponse"
-                    },
-                    {
-                      "$ref": "#/components/schemas/AuthFailure"
-                    }
-                  ]
+                  "$ref": "#/components/schemas/ErrorResponse"
                 }
               }
             },
-            "description": "A required dependency is temporarily unavailable."
+            "description": "A required dependency is temporarily unavailable.",
+            "headers": {
+              "X-Auth-Error": {
+                "description": "Identity error code when AUTH_ENABLED; legacy response body is preserved.",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
           }
         },
         "security": [
@@ -4172,24 +4176,25 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "anyOf": [
-                    {
-                      "$ref": "#/components/schemas/ErrorResponse"
-                    },
-                    {
-                      "$ref": "#/components/schemas/AuthFailure"
-                    }
-                  ]
+                  "$ref": "#/components/schemas/ErrorResponse"
                 }
               }
             },
-            "description": "Missing, expired, or invalid bearer token."
+            "description": "Missing, expired, or invalid bearer token.",
+            "headers": {
+              "X-Auth-Error": {
+                "description": "Identity error code when AUTH_ENABLED; legacy response body is preserved.",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
           },
           "403": {
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/AuthFailure"
+                  "$ref": "#/components/schemas/ErrorResponse"
                 }
               }
             },
@@ -4240,18 +4245,19 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "anyOf": [
-                    {
-                      "$ref": "#/components/schemas/ErrorResponse"
-                    },
-                    {
-                      "$ref": "#/components/schemas/AuthFailure"
-                    }
-                  ]
+                  "$ref": "#/components/schemas/ErrorResponse"
                 }
               }
             },
-            "description": "A required dependency is temporarily unavailable."
+            "description": "A required dependency is temporarily unavailable.",
+            "headers": {
+              "X-Auth-Error": {
+                "description": "Identity error code when AUTH_ENABLED; legacy response body is preserved.",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
           }
         },
         "security": [
@@ -4297,24 +4303,25 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "anyOf": [
-                    {
-                      "$ref": "#/components/schemas/ErrorResponse"
-                    },
-                    {
-                      "$ref": "#/components/schemas/AuthFailure"
-                    }
-                  ]
+                  "$ref": "#/components/schemas/ErrorResponse"
                 }
               }
             },
-            "description": "Missing, expired, or invalid bearer token."
+            "description": "Missing, expired, or invalid bearer token.",
+            "headers": {
+              "X-Auth-Error": {
+                "description": "Identity error code when AUTH_ENABLED; legacy response body is preserved.",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
           },
           "403": {
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/AuthFailure"
+                  "$ref": "#/components/schemas/ErrorResponse"
                 }
               }
             },
@@ -4374,18 +4381,19 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "anyOf": [
-                    {
-                      "$ref": "#/components/schemas/ErrorResponse"
-                    },
-                    {
-                      "$ref": "#/components/schemas/AuthFailure"
-                    }
-                  ]
+                  "$ref": "#/components/schemas/ErrorResponse"
                 }
               }
             },
-            "description": "A required dependency is temporarily unavailable."
+            "description": "A required dependency is temporarily unavailable.",
+            "headers": {
+              "X-Auth-Error": {
+                "description": "Identity error code when AUTH_ENABLED; legacy response body is preserved.",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
           }
         },
         "security": [
@@ -4429,18 +4437,19 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "anyOf": [
-                    {
-                      "$ref": "#/components/schemas/ErrorResponse"
-                    },
-                    {
-                      "$ref": "#/components/schemas/AuthFailure"
-                    }
-                  ]
+                  "$ref": "#/components/schemas/ErrorResponse"
                 }
               }
             },
-            "description": "Missing, expired, or invalid bearer token."
+            "description": "Missing, expired, or invalid bearer token.",
+            "headers": {
+              "X-Auth-Error": {
+                "description": "Identity error code when AUTH_ENABLED; legacy response body is preserved.",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
           },
           "404": {
             "content": {
@@ -4486,18 +4495,19 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "anyOf": [
-                    {
-                      "$ref": "#/components/schemas/ErrorResponse"
-                    },
-                    {
-                      "$ref": "#/components/schemas/AuthFailure"
-                    }
-                  ]
+                  "$ref": "#/components/schemas/ErrorResponse"
                 }
               }
             },
-            "description": "A required dependency is temporarily unavailable."
+            "description": "A required dependency is temporarily unavailable.",
+            "headers": {
+              "X-Auth-Error": {
+                "description": "Identity error code when AUTH_ENABLED; legacy response body is preserved.",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
           }
         },
         "security": [
@@ -4560,24 +4570,25 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "anyOf": [
-                    {
-                      "$ref": "#/components/schemas/ErrorResponse"
-                    },
-                    {
-                      "$ref": "#/components/schemas/AuthFailure"
-                    }
-                  ]
+                  "$ref": "#/components/schemas/ErrorResponse"
                 }
               }
             },
-            "description": "Missing, expired, or invalid bearer token."
+            "description": "Missing, expired, or invalid bearer token.",
+            "headers": {
+              "X-Auth-Error": {
+                "description": "Identity error code when AUTH_ENABLED; legacy response body is preserved.",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
           },
           "403": {
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/AuthFailure"
+                  "$ref": "#/components/schemas/ErrorResponse"
                 }
               }
             },
@@ -4648,18 +4659,19 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "anyOf": [
-                    {
-                      "$ref": "#/components/schemas/ErrorResponse"
-                    },
-                    {
-                      "$ref": "#/components/schemas/AuthFailure"
-                    }
-                  ]
+                  "$ref": "#/components/schemas/ErrorResponse"
                 }
               }
             },
-            "description": "A required dependency is temporarily unavailable."
+            "description": "A required dependency is temporarily unavailable.",
+            "headers": {
+              "X-Auth-Error": {
+                "description": "Identity error code when AUTH_ENABLED; legacy response body is preserved.",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
           }
         },
         "security": [
@@ -4705,24 +4717,25 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "anyOf": [
-                    {
-                      "$ref": "#/components/schemas/ErrorResponse"
-                    },
-                    {
-                      "$ref": "#/components/schemas/AuthFailure"
-                    }
-                  ]
+                  "$ref": "#/components/schemas/ErrorResponse"
                 }
               }
             },
-            "description": "Missing, expired, or invalid bearer token."
+            "description": "Missing, expired, or invalid bearer token.",
+            "headers": {
+              "X-Auth-Error": {
+                "description": "Identity error code when AUTH_ENABLED; legacy response body is preserved.",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
           },
           "403": {
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/AuthFailure"
+                  "$ref": "#/components/schemas/ErrorResponse"
                 }
               }
             },
@@ -4782,18 +4795,19 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "anyOf": [
-                    {
-                      "$ref": "#/components/schemas/ErrorResponse"
-                    },
-                    {
-                      "$ref": "#/components/schemas/AuthFailure"
-                    }
-                  ]
+                  "$ref": "#/components/schemas/ErrorResponse"
                 }
               }
             },
-            "description": "A required dependency is temporarily unavailable."
+            "description": "A required dependency is temporarily unavailable.",
+            "headers": {
+              "X-Auth-Error": {
+                "description": "Identity error code when AUTH_ENABLED; legacy response body is preserved.",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
           }
         },
         "security": [
@@ -4858,24 +4872,25 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "anyOf": [
-                    {
-                      "$ref": "#/components/schemas/ErrorResponse"
-                    },
-                    {
-                      "$ref": "#/components/schemas/AuthFailure"
-                    }
-                  ]
+                  "$ref": "#/components/schemas/ErrorResponse"
                 }
               }
             },
-            "description": "Missing, expired, or invalid bearer token."
+            "description": "Missing, expired, or invalid bearer token.",
+            "headers": {
+              "X-Auth-Error": {
+                "description": "Identity error code when AUTH_ENABLED; legacy response body is preserved.",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
           },
           "403": {
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/AuthFailure"
+                  "$ref": "#/components/schemas/ErrorResponse"
                 }
               }
             },
@@ -4946,18 +4961,19 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "anyOf": [
-                    {
-                      "$ref": "#/components/schemas/ErrorResponse"
-                    },
-                    {
-                      "$ref": "#/components/schemas/AuthFailure"
-                    }
-                  ]
+                  "$ref": "#/components/schemas/ErrorResponse"
                 }
               }
             },
-            "description": "A required dependency is temporarily unavailable."
+            "description": "A required dependency is temporarily unavailable.",
+            "headers": {
+              "X-Auth-Error": {
+                "description": "Identity error code when AUTH_ENABLED; legacy response body is preserved.",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
           }
         },
         "security": [
@@ -5091,18 +5107,19 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "anyOf": [
-                    {
-                      "$ref": "#/components/schemas/ErrorResponse"
-                    },
-                    {
-                      "$ref": "#/components/schemas/AuthFailure"
-                    }
-                  ]
+                  "$ref": "#/components/schemas/ErrorResponse"
                 }
               }
             },
-            "description": "Missing, expired, or invalid bearer token."
+            "description": "Missing, expired, or invalid bearer token.",
+            "headers": {
+              "X-Auth-Error": {
+                "description": "Identity error code when AUTH_ENABLED; legacy response body is preserved.",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
           },
           "422": {
             "content": {
@@ -5146,18 +5163,19 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "anyOf": [
-                    {
-                      "$ref": "#/components/schemas/ErrorResponse"
-                    },
-                    {
-                      "$ref": "#/components/schemas/AuthFailure"
-                    }
-                  ]
+                  "$ref": "#/components/schemas/ErrorResponse"
                 }
               }
             },
-            "description": "A required dependency is temporarily unavailable."
+            "description": "A required dependency is temporarily unavailable.",
+            "headers": {
+              "X-Auth-Error": {
+                "description": "Identity error code when AUTH_ENABLED; legacy response body is preserved.",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
           }
         },
         "security": [
@@ -5226,24 +5244,25 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "anyOf": [
-                    {
-                      "$ref": "#/components/schemas/ErrorResponse"
-                    },
-                    {
-                      "$ref": "#/components/schemas/AuthFailure"
-                    }
-                  ]
+                  "$ref": "#/components/schemas/ErrorResponse"
                 }
               }
             },
-            "description": "Missing, expired, or invalid bearer token."
+            "description": "Missing, expired, or invalid bearer token.",
+            "headers": {
+              "X-Auth-Error": {
+                "description": "Identity error code when AUTH_ENABLED; legacy response body is preserved.",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
           },
           "403": {
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/AuthFailure"
+                  "$ref": "#/components/schemas/ErrorResponse"
                 }
               }
             },
@@ -5322,18 +5341,19 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "anyOf": [
-                    {
-                      "$ref": "#/components/schemas/ErrorResponse"
-                    },
-                    {
-                      "$ref": "#/components/schemas/AuthFailure"
-                    }
-                  ]
+                  "$ref": "#/components/schemas/ErrorResponse"
                 }
               }
             },
-            "description": "A required dependency is temporarily unavailable."
+            "description": "A required dependency is temporarily unavailable.",
+            "headers": {
+              "X-Auth-Error": {
+                "description": "Identity error code when AUTH_ENABLED; legacy response body is preserved.",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
           }
         },
         "security": [
@@ -5399,24 +5419,25 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "anyOf": [
-                    {
-                      "$ref": "#/components/schemas/ErrorResponse"
-                    },
-                    {
-                      "$ref": "#/components/schemas/AuthFailure"
-                    }
-                  ]
+                  "$ref": "#/components/schemas/ErrorResponse"
                 }
               }
             },
-            "description": "Missing, expired, or invalid bearer token."
+            "description": "Missing, expired, or invalid bearer token.",
+            "headers": {
+              "X-Auth-Error": {
+                "description": "Identity error code when AUTH_ENABLED; legacy response body is preserved.",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
           },
           "403": {
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/AuthFailure"
+                  "$ref": "#/components/schemas/ErrorResponse"
                 }
               }
             },
@@ -5477,18 +5498,19 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "anyOf": [
-                    {
-                      "$ref": "#/components/schemas/ErrorResponse"
-                    },
-                    {
-                      "$ref": "#/components/schemas/AuthFailure"
-                    }
-                  ]
+                  "$ref": "#/components/schemas/ErrorResponse"
                 }
               }
             },
-            "description": "A required dependency is temporarily unavailable."
+            "description": "A required dependency is temporarily unavailable.",
+            "headers": {
+              "X-Auth-Error": {
+                "description": "Identity error code when AUTH_ENABLED; legacy response body is preserved.",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
           }
         },
         "security": [
@@ -5605,18 +5627,19 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "anyOf": [
-                    {
-                      "$ref": "#/components/schemas/ErrorResponse"
-                    },
-                    {
-                      "$ref": "#/components/schemas/AuthFailure"
-                    }
-                  ]
+                  "$ref": "#/components/schemas/ErrorResponse"
                 }
               }
             },
-            "description": "Missing, expired, or invalid bearer token."
+            "description": "Missing, expired, or invalid bearer token.",
+            "headers": {
+              "X-Auth-Error": {
+                "description": "Identity error code when AUTH_ENABLED; legacy response body is preserved.",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
           },
           "422": {
             "content": {
@@ -5652,18 +5675,19 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "anyOf": [
-                    {
-                      "$ref": "#/components/schemas/ErrorResponse"
-                    },
-                    {
-                      "$ref": "#/components/schemas/AuthFailure"
-                    }
-                  ]
+                  "$ref": "#/components/schemas/ErrorResponse"
                 }
               }
             },
-            "description": "A required dependency is temporarily unavailable."
+            "description": "A required dependency is temporarily unavailable.",
+            "headers": {
+              "X-Auth-Error": {
+                "description": "Identity error code when AUTH_ENABLED; legacy response body is preserved.",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
           }
         },
         "security": [
@@ -5716,18 +5740,19 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "anyOf": [
-                    {
-                      "$ref": "#/components/schemas/ErrorResponse"
-                    },
-                    {
-                      "$ref": "#/components/schemas/AuthFailure"
-                    }
-                  ]
+                  "$ref": "#/components/schemas/ErrorResponse"
                 }
               }
             },
-            "description": "Missing, expired, or invalid bearer token."
+            "description": "Missing, expired, or invalid bearer token.",
+            "headers": {
+              "X-Auth-Error": {
+                "description": "Identity error code when AUTH_ENABLED; legacy response body is preserved.",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
           },
           "422": {
             "content": {
@@ -5763,18 +5788,19 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "anyOf": [
-                    {
-                      "$ref": "#/components/schemas/ErrorResponse"
-                    },
-                    {
-                      "$ref": "#/components/schemas/AuthFailure"
-                    }
-                  ]
+                  "$ref": "#/components/schemas/ErrorResponse"
                 }
               }
             },
-            "description": "A required dependency is temporarily unavailable."
+            "description": "A required dependency is temporarily unavailable.",
+            "headers": {
+              "X-Auth-Error": {
+                "description": "Identity error code when AUTH_ENABLED; legacy response body is preserved.",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
           }
         },
         "security": [
@@ -6031,18 +6057,19 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "anyOf": [
-                    {
-                      "$ref": "#/components/schemas/ErrorResponse"
-                    },
-                    {
-                      "$ref": "#/components/schemas/AuthFailure"
-                    }
-                  ]
+                  "$ref": "#/components/schemas/ErrorResponse"
                 }
               }
             },
-            "description": "Missing, expired, or invalid bearer token."
+            "description": "Missing, expired, or invalid bearer token.",
+            "headers": {
+              "X-Auth-Error": {
+                "description": "Identity error code when AUTH_ENABLED; legacy response body is preserved.",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
           },
           "422": {
             "content": {
@@ -6078,18 +6105,19 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "anyOf": [
-                    {
-                      "$ref": "#/components/schemas/ErrorResponse"
-                    },
-                    {
-                      "$ref": "#/components/schemas/AuthFailure"
-                    }
-                  ]
+                  "$ref": "#/components/schemas/ErrorResponse"
                 }
               }
             },
-            "description": "A required dependency is temporarily unavailable."
+            "description": "A required dependency is temporarily unavailable.",
+            "headers": {
+              "X-Auth-Error": {
+                "description": "Identity error code when AUTH_ENABLED; legacy response body is preserved.",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
           }
         },
         "security": [
@@ -6193,18 +6221,19 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "anyOf": [
-                    {
-                      "$ref": "#/components/schemas/ErrorResponse"
-                    },
-                    {
-                      "$ref": "#/components/schemas/AuthFailure"
-                    }
-                  ]
+                  "$ref": "#/components/schemas/ErrorResponse"
                 }
               }
             },
-            "description": "Missing, expired, or invalid bearer token."
+            "description": "Missing, expired, or invalid bearer token.",
+            "headers": {
+              "X-Auth-Error": {
+                "description": "Identity error code when AUTH_ENABLED; legacy response body is preserved.",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
           },
           "422": {
             "content": {
@@ -6240,18 +6269,19 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "anyOf": [
-                    {
-                      "$ref": "#/components/schemas/ErrorResponse"
-                    },
-                    {
-                      "$ref": "#/components/schemas/AuthFailure"
-                    }
-                  ]
+                  "$ref": "#/components/schemas/ErrorResponse"
                 }
               }
             },
-            "description": "A required dependency is temporarily unavailable."
+            "description": "A required dependency is temporarily unavailable.",
+            "headers": {
+              "X-Auth-Error": {
+                "description": "Identity error code when AUTH_ENABLED; legacy response body is preserved.",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
           }
         },
         "security": [
@@ -6354,18 +6384,19 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "anyOf": [
-                    {
-                      "$ref": "#/components/schemas/ErrorResponse"
-                    },
-                    {
-                      "$ref": "#/components/schemas/AuthFailure"
-                    }
-                  ]
+                  "$ref": "#/components/schemas/ErrorResponse"
                 }
               }
             },
-            "description": "Missing, expired, or invalid bearer token."
+            "description": "Missing, expired, or invalid bearer token.",
+            "headers": {
+              "X-Auth-Error": {
+                "description": "Identity error code when AUTH_ENABLED; legacy response body is preserved.",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
           },
           "422": {
             "content": {
@@ -6401,18 +6432,19 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "anyOf": [
-                    {
-                      "$ref": "#/components/schemas/ErrorResponse"
-                    },
-                    {
-                      "$ref": "#/components/schemas/AuthFailure"
-                    }
-                  ]
+                  "$ref": "#/components/schemas/ErrorResponse"
                 }
               }
             },
-            "description": "A required dependency is temporarily unavailable."
+            "description": "A required dependency is temporarily unavailable.",
+            "headers": {
+              "X-Auth-Error": {
+                "description": "Identity error code when AUTH_ENABLED; legacy response body is preserved.",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
           }
         },
         "security": [
@@ -6526,18 +6558,19 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "anyOf": [
-                    {
-                      "$ref": "#/components/schemas/ErrorResponse"
-                    },
-                    {
-                      "$ref": "#/components/schemas/AuthFailure"
-                    }
-                  ]
+                  "$ref": "#/components/schemas/ErrorResponse"
                 }
               }
             },
-            "description": "Missing, expired, or invalid bearer token."
+            "description": "Missing, expired, or invalid bearer token.",
+            "headers": {
+              "X-Auth-Error": {
+                "description": "Identity error code when AUTH_ENABLED; legacy response body is preserved.",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
           },
           "422": {
             "content": {
@@ -6573,18 +6606,19 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "anyOf": [
-                    {
-                      "$ref": "#/components/schemas/ErrorResponse"
-                    },
-                    {
-                      "$ref": "#/components/schemas/AuthFailure"
-                    }
-                  ]
+                  "$ref": "#/components/schemas/ErrorResponse"
                 }
               }
             },
-            "description": "A required dependency is temporarily unavailable."
+            "description": "A required dependency is temporarily unavailable.",
+            "headers": {
+              "X-Auth-Error": {
+                "description": "Identity error code when AUTH_ENABLED; legacy response body is preserved.",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
           }
         },
         "security": [
@@ -6617,18 +6651,19 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "anyOf": [
-                    {
-                      "$ref": "#/components/schemas/ErrorResponse"
-                    },
-                    {
-                      "$ref": "#/components/schemas/AuthFailure"
-                    }
-                  ]
+                  "$ref": "#/components/schemas/ErrorResponse"
                 }
               }
             },
-            "description": "Missing, expired, or invalid bearer token."
+            "description": "Missing, expired, or invalid bearer token.",
+            "headers": {
+              "X-Auth-Error": {
+                "description": "Identity error code when AUTH_ENABLED; legacy response body is preserved.",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
           },
           "422": {
             "content": {
@@ -6664,18 +6699,19 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "anyOf": [
-                    {
-                      "$ref": "#/components/schemas/ErrorResponse"
-                    },
-                    {
-                      "$ref": "#/components/schemas/AuthFailure"
-                    }
-                  ]
+                  "$ref": "#/components/schemas/ErrorResponse"
                 }
               }
             },
-            "description": "A required dependency is temporarily unavailable."
+            "description": "A required dependency is temporarily unavailable.",
+            "headers": {
+              "X-Auth-Error": {
+                "description": "Identity error code when AUTH_ENABLED; legacy response body is preserved.",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
           }
         },
         "security": [
@@ -6722,18 +6758,19 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "anyOf": [
-                    {
-                      "$ref": "#/components/schemas/ErrorResponse"
-                    },
-                    {
-                      "$ref": "#/components/schemas/AuthFailure"
-                    }
-                  ]
+                  "$ref": "#/components/schemas/ErrorResponse"
                 }
               }
             },
-            "description": "Missing, expired, or invalid bearer token."
+            "description": "Missing, expired, or invalid bearer token.",
+            "headers": {
+              "X-Auth-Error": {
+                "description": "Identity error code when AUTH_ENABLED; legacy response body is preserved.",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
           },
           "404": {
             "content": {
@@ -6779,18 +6816,19 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "anyOf": [
-                    {
-                      "$ref": "#/components/schemas/ErrorResponse"
-                    },
-                    {
-                      "$ref": "#/components/schemas/AuthFailure"
-                    }
-                  ]
+                  "$ref": "#/components/schemas/ErrorResponse"
                 }
               }
             },
-            "description": "A required dependency is temporarily unavailable."
+            "description": "A required dependency is temporarily unavailable.",
+            "headers": {
+              "X-Auth-Error": {
+                "description": "Identity error code when AUTH_ENABLED; legacy response body is preserved.",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
           }
         },
         "security": [
@@ -6862,18 +6900,19 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "anyOf": [
-                    {
-                      "$ref": "#/components/schemas/ErrorResponse"
-                    },
-                    {
-                      "$ref": "#/components/schemas/AuthFailure"
-                    }
-                  ]
+                  "$ref": "#/components/schemas/ErrorResponse"
                 }
               }
             },
-            "description": "Missing, expired, or invalid bearer token."
+            "description": "Missing, expired, or invalid bearer token.",
+            "headers": {
+              "X-Auth-Error": {
+                "description": "Identity error code when AUTH_ENABLED; legacy response body is preserved.",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
           },
           "404": {
             "content": {
@@ -6919,18 +6958,19 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "anyOf": [
-                    {
-                      "$ref": "#/components/schemas/ErrorResponse"
-                    },
-                    {
-                      "$ref": "#/components/schemas/AuthFailure"
-                    }
-                  ]
+                  "$ref": "#/components/schemas/ErrorResponse"
                 }
               }
             },
-            "description": "A required dependency is temporarily unavailable."
+            "description": "A required dependency is temporarily unavailable.",
+            "headers": {
+              "X-Auth-Error": {
+                "description": "Identity error code when AUTH_ENABLED; legacy response body is preserved.",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
           }
         },
         "security": [
@@ -6998,24 +7038,25 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "anyOf": [
-                    {
-                      "$ref": "#/components/schemas/ErrorResponse"
-                    },
-                    {
-                      "$ref": "#/components/schemas/AuthFailure"
-                    }
-                  ]
+                  "$ref": "#/components/schemas/ErrorResponse"
                 }
               }
             },
-            "description": "Missing, expired, or invalid bearer token."
+            "description": "Missing, expired, or invalid bearer token.",
+            "headers": {
+              "X-Auth-Error": {
+                "description": "Identity error code when AUTH_ENABLED; legacy response body is preserved.",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
           },
           "403": {
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/AuthFailure"
+                  "$ref": "#/components/schemas/ErrorResponse"
                 }
               }
             },
@@ -7094,18 +7135,19 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "anyOf": [
-                    {
-                      "$ref": "#/components/schemas/ErrorResponse"
-                    },
-                    {
-                      "$ref": "#/components/schemas/AuthFailure"
-                    }
-                  ]
+                  "$ref": "#/components/schemas/ErrorResponse"
                 }
               }
             },
-            "description": "A required dependency is temporarily unavailable."
+            "description": "A required dependency is temporarily unavailable.",
+            "headers": {
+              "X-Auth-Error": {
+                "description": "Identity error code when AUTH_ENABLED; legacy response body is preserved.",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
           }
         },
         "security": [
@@ -7195,24 +7237,25 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "anyOf": [
-                    {
-                      "$ref": "#/components/schemas/ErrorResponse"
-                    },
-                    {
-                      "$ref": "#/components/schemas/AuthFailure"
-                    }
-                  ]
+                  "$ref": "#/components/schemas/ErrorResponse"
                 }
               }
             },
-            "description": "Missing, expired, or invalid bearer token."
+            "description": "Missing, expired, or invalid bearer token.",
+            "headers": {
+              "X-Auth-Error": {
+                "description": "Identity error code when AUTH_ENABLED; legacy response body is preserved.",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
           },
           "403": {
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/AuthFailure"
+                  "$ref": "#/components/schemas/ErrorResponse"
                 }
               }
             },
@@ -7268,18 +7311,19 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "anyOf": [
-                    {
-                      "$ref": "#/components/schemas/ErrorResponse"
-                    },
-                    {
-                      "$ref": "#/components/schemas/AuthFailure"
-                    }
-                  ]
+                  "$ref": "#/components/schemas/ErrorResponse"
                 }
               }
             },
-            "description": "A required dependency is temporarily unavailable."
+            "description": "A required dependency is temporarily unavailable.",
+            "headers": {
+              "X-Auth-Error": {
+                "description": "Identity error code when AUTH_ENABLED; legacy response body is preserved.",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
           }
         },
         "security": [
@@ -7326,18 +7370,19 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "anyOf": [
-                    {
-                      "$ref": "#/components/schemas/ErrorResponse"
-                    },
-                    {
-                      "$ref": "#/components/schemas/AuthFailure"
-                    }
-                  ]
+                  "$ref": "#/components/schemas/ErrorResponse"
                 }
               }
             },
-            "description": "Missing, expired, or invalid bearer token."
+            "description": "Missing, expired, or invalid bearer token.",
+            "headers": {
+              "X-Auth-Error": {
+                "description": "Identity error code when AUTH_ENABLED; legacy response body is preserved.",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
           },
           "404": {
             "content": {
@@ -7383,18 +7428,19 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "anyOf": [
-                    {
-                      "$ref": "#/components/schemas/ErrorResponse"
-                    },
-                    {
-                      "$ref": "#/components/schemas/AuthFailure"
-                    }
-                  ]
+                  "$ref": "#/components/schemas/ErrorResponse"
                 }
               }
             },
-            "description": "A required dependency is temporarily unavailable."
+            "description": "A required dependency is temporarily unavailable.",
+            "headers": {
+              "X-Auth-Error": {
+                "description": "Identity error code when AUTH_ENABLED; legacy response body is preserved.",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
           }
         },
         "security": [

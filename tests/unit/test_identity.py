@@ -172,3 +172,15 @@ def test_retained_encryption_keys_allow_rotation(tmp_path):
     data["keys"]["next"] = base64.urlsafe_b64encode(secrets.token_bytes(32)).decode()
     path.write_text(json.dumps(data))
     assert IdentityKeys(settings).open(ciphertext, "session:one") == "refresh"
+
+
+def test_existing_api_error_body_is_preserved_and_auth_code_is_an_additive_header():
+    from bancaemdia.api.contracts import ErrorResponse
+    from bancaemdia.api.identity import AuthFailure, failure
+
+    reason = IdentityError("access_expired")
+    legacy = failure(reason, legacy=True)
+    ErrorResponse.model_validate_json(legacy.body)
+    assert json.loads(legacy.body) == {"detail": "Identity request could not be completed"}
+    assert legacy.headers["x-auth-error"] == "access_expired"
+    AuthFailure.model_validate_json(failure(reason).body)

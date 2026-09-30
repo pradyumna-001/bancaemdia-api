@@ -10,6 +10,7 @@ from urllib.parse import urlencode, urlsplit
 
 import httpx
 import jwt
+from pydantic import EmailStr, TypeAdapter
 
 from bancaemdia.auth.identity_config import IdentitySettings
 from bancaemdia.auth.jwt import InvalidTokenError, JWKSCache, KeysUnavailableError
@@ -70,6 +71,7 @@ class OIDCClient:
                     raise ValueError("algorithm")
             except (
                 httpx.HTTPError,
+                httpx.InvalidURL,
                 ValueError,
                 TypeError,
                 AttributeError,
@@ -130,7 +132,7 @@ class OIDCClient:
             ):
                 raise ValueError("tokens")
             return result
-        except (httpx.HTTPError, ValueError, TypeError, RecursionError) as error:
+        except (httpx.HTTPError, httpx.InvalidURL, ValueError, TypeError, RecursionError) as error:
             raise IdentityError("issuer_unavailable", 503) from error
 
     async def identity(self, token: str, nonce: str | None) -> dict[str, Any]:
@@ -177,6 +179,7 @@ class OIDCClient:
             email = claims.get("email")
             if not isinstance(email, str) or len(email) > 254 or "@" not in email:
                 raise ValueError("email")
+            claims["email"] = TypeAdapter(EmailStr).validate_python(email)
             return claims
         except KeysUnavailableError as error:
             raise IdentityError("issuer_unavailable", 503) from error
@@ -200,5 +203,5 @@ class OIDCClient:
             async with httpx.AsyncClient(timeout=5, follow_redirects=False) as client:
                 response = await client.post(document["revocation_endpoint"], data=data, auth=auth)
                 response.raise_for_status()
-        except httpx.HTTPError as error:
+        except (httpx.HTTPError, httpx.InvalidURL) as error:
             raise IdentityError("issuer_unavailable", 503) from error

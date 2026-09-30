@@ -34,6 +34,7 @@ class IdentityTransportMiddleware(BaseHTTPMiddleware):
             settings.AUTH_PUBLIC_URL.rstrip("/"),
         } - {""}
         path = request_path(request)
+        legacy = path.startswith("/api/")
         if settings.AUTH_ENABLED and request.method == "OPTIONS" and origin is not None:
             requested = {
                 h.strip().lower()
@@ -41,7 +42,9 @@ class IdentityTransportMiddleware(BaseHTTPMiddleware):
                 if h.strip()
             }
             if origin not in origins or not requested <= ALLOWED_HEADERS:
-                response: Response = failure(IdentityError("origin_not_allowed", 403))
+                response: Response = failure(
+                    IdentityError("origin_not_allowed", 403), legacy=legacy
+                )
             else:
                 response = Response(
                     status_code=204,
@@ -67,7 +70,7 @@ class IdentityTransportMiddleware(BaseHTTPMiddleware):
                     or not cookie
                     or not secrets.compare_digest(proof, identity_service().keys.csrf(cookie))
                 ):
-                    response = failure(IdentityError("csrf_failed", 403))
+                    response = failure(IdentityError("csrf_failed", 403), legacy=legacy)
                 else:
                     response = await call_next(request)
             else:
@@ -75,6 +78,9 @@ class IdentityTransportMiddleware(BaseHTTPMiddleware):
         if settings.AUTH_ENABLED and origin in origins:
             response.headers["Access-Control-Allow-Origin"] = str(origin)
             response.headers["Access-Control-Allow-Credentials"] = "true"
+            response.headers["Access-Control-Expose-Headers"] = (
+                "X-Auth-Error, X-Request-ID, Retry-After"
+            )
             response.headers["Vary"] = ", ".join(
                 filter(None, [response.headers.get("Vary"), "Origin"])
             )

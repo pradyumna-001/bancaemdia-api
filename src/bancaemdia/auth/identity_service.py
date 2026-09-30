@@ -299,6 +299,27 @@ class IdentityService:
         }
 
     async def refresh(self, cookie: str) -> str:
+        try:
+            return await self._renew(cookie)
+        except IdentityError as error:
+            if error.code != "session_expired":
+                raise
+            # A concurrent winner can rotate between the initial retired-cookie lookup and
+            # the session lock. Recheck after that transaction: replay still revokes its family.
+            async with AsyncSession(self.engine) as session, session.begin():
+                retired = await session.scalar(
+                    text(
+                        "SELECT session_id FROM auth_private.retired_cookies WHERE cookie_hash=:cookie"
+                    ),
+                    {"cookie": digest(cookie)},
+                )
+                if retired is not None:
+                    await self._revoke(session, str(retired), "reuse")
+            if retired is not None:
+                raise IdentityError("refresh_reused") from error
+            raise
+
+    async def _renew(self, cookie: str) -> str:
         new_cookie = secrets.token_urlsafe(32)
         failure: IdentityError | None = None
         async with AsyncSession(self.engine) as session, session.begin():

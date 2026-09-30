@@ -340,8 +340,8 @@ async def register(page, email, password, *, fail_jwks=False, harness=None):
     await page.locator("#email").fill(email)
     await page.locator("#firstName").fill("Disposable")
     await page.locator("#lastName").fill("Acceptance")
-    await page.locator("#password").fill(password)
-    await page.locator("#password-confirm").fill(password)
+    # Keycloak 26.7 confirms email before asking the registrant to set a password.
+    assert await page.locator("#password").count() == 0
     await page.locator('input[type="submit"],button[type="submit"]').click()
     link, message = await mail_link(email)
     # No API user can exist before email confirmation.
@@ -355,6 +355,9 @@ async def register(page, email, password, *, fail_jwks=False, harness=None):
     if fail_jwks:
         harness.network.fault = "jwks"
     await page.goto(link)
+    await page.locator("#password-new").fill(password)
+    await page.locator("#password-confirm").fill(password)
+    await page.locator('input[type="submit"],button[type="submit"]').click()
     if fail_jwks:
         await page.wait_for_url(API + "/auth/callback?**", timeout=30000)
         assert (await page.locator("body").inner_text()).find("issuer_unavailable") >= 0
@@ -433,6 +436,13 @@ async def test_real_registration_refresh_recovery_isolation_and_revocation(harne
                 API + "/auth/callback", params={"state": "forged", "code": "forged"}
             )
             assert wrong_state.status_code == 400
+            empty_bearer = await client.post(
+                API + "/api/v1/apostas",
+                headers={"Authorization": "Bearer ", "Origin": "https://untrusted.example.org"},
+                cookies={"bancaemdia_session": cookie_before},
+                json={"casa": "betano", "odd": 2, "stake_unidades": 1},
+            )
+            assert empty_bearer.status_code == 403
 
         # Real internal JWT expiry (no frozen clock), with session retained for renewal.
         import jwt
@@ -475,6 +485,13 @@ async def test_real_registration_refresh_recovery_isolation_and_revocation(harne
         assert (await fetch(pa, "/auth/refresh", method="POST", csrf=sa["csrf_token"]))[
             "status"
         ] == 200
+        async with httpx.AsyncClient() as client:
+            # Still within exp, but the JWT generation changed with the successful refresh.
+            assert (
+                await client.get(
+                    API + "/api/v1/apostas", headers={"Authorization": "Bearer " + live["internal"]}
+                )
+            ).status_code == 401
 
         # Real hosted password recovery and SMTP mail, preserving the external/internal link.
         await pr.goto(API + "/auth/start?intent=recover&return_to=/signed-in")
@@ -552,6 +569,31 @@ async def test_real_registration_refresh_recovery_isolation_and_revocation(harne
         refused = await fetch(pb, "/auth/refresh", method="POST", csrf=sb["csrf_token"])
         assert refused["status"] == 403 and refused["data"]["code"] == "email_unconfirmed"
         assert (await fetch(pb, "/auth/session"))["status"] == 401
+        sa = await login(pa, email_a, next_password)
+        race_cookie, _ = await harness.credentials(a)
+        grants = harness.network.token_requests
+        async with httpx.AsyncClient() as client:
+            replies = await asyncio.gather(
+                *(
+                    client.post(
+                        API + "/auth/refresh",
+                        headers={
+                            "Origin": FRONT,
+                            "X-CSRF-Token": sa["csrf_token"],
+                            "Cookie": "bancaemdia_session=" + race_cookie,
+                        },
+                    )
+                    for _ in range(3)
+                )
+            )
+        assert sum(reply.status_code == 200 for reply in replies) <= 1
+        assert all(reply.status_code in {200, 401} for reply in replies)
+        assert any(
+            reply.status_code == 401 and reply.json()["code"] == "refresh_reused"
+            for reply in replies
+        )
+        assert harness.network.token_requests == grants + 1
+        assert (await fetch(pa, "/auth/session"))["status"] == 401
         sa = await login(pa, email_a, next_password)
         async with engine_admin.begin() as conn:
             await conn.execute(
