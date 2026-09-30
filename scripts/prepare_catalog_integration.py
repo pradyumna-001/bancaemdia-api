@@ -109,6 +109,16 @@ def prepare(destination: Path) -> None:
         '"""Disposable catalog/pairing composition."""\nrevision = "c113integration2026"\ndown_revision = ("c107pair2026", "c113catalog2026")\nbranch_labels = depends_on = None\ndef upgrade(): pass\ndef downgrade(): pass\n',
         encoding="utf-8",
     )
+    # Preserve the original rollback assertion, checking the exact composed HEAD.
+    pairing_test = destination / "tests/integration/coleta/test_pairing.py"
+    original = pairing_test.read_text(encoding="utf-8")
+    needle = 'await conn.scalar(text("SELECT version_num FROM alembic_version")) == "c107pair2026"'
+    if original.count(needle) != 1:
+        raise ValueError("pairing migration acceptance boundary changed")
+    pairing_test.write_text(
+        original.replace(needle, needle.replace("c107pair2026", "c113integration2026")),
+        encoding="utf-8",
+    )
     # #107's OpenAPI contains its own operations; add exactly the new contract metadata.
     source = ast.parse((ROOT / "src/bancaemdia/api/openapi.py").read_text(encoding="utf-8"))
     metadata = {}
@@ -128,9 +138,37 @@ def prepare(destination: Path) -> None:
         ):
             metadata["PARAMETER_DESCRIPTIONS"] = ast.literal_eval(node.value)
     path = destination / "src/bancaemdia/api/openapi.py"
+    original = path.read_text(encoding="utf-8")
+    security_function = next(
+        node
+        for node in ast.parse(original).body
+        if isinstance(node, ast.FunctionDef) and node.name == "_install_collection_security"
+    )
+    lines = original.splitlines(keepends=True)
+    assert security_function.end_lineno is not None
+    lines.insert(security_function.end_lineno, "    _install_catalog_security(document)\n")
+    path.write_text("".join(lines), encoding="utf-8")
     with path.open("a", encoding="utf-8") as out:
         for name, values in metadata.items():
             out.write(f"\n{name}.update({values!r})\n")
+        for node in source.body:
+            if isinstance(node, ast.FunctionDef) and node.name == "_install_catalog_security":
+                out.write("\n" + ast.unparse(node) + "\n")
+            if (
+                isinstance(node, ast.AnnAssign)
+                and isinstance(node.target, ast.Name)
+                and node.target.id == "REQUEST_EXAMPLES"
+            ):
+                assert isinstance(node.value, ast.Dict)
+                selected = ast.Dict(keys=[], values=[])
+                for key, value in zip(node.value.keys, node.value.values, strict=True):
+                    if key is not None and ast.literal_eval(key) == (
+                        "post",
+                        "/api/v1/catalogo/candidatos",
+                    ):
+                        selected.keys.append(key)
+                        selected.values.append(value)
+                out.write("\nREQUEST_EXAMPLES.update(" + ast.unparse(selected) + ")\n")
     subprocess.run(
         [sys.executable, "-m", "ruff", "check", "src/", "--fix"], cwd=destination, check=True
     )

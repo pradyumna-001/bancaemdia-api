@@ -113,6 +113,13 @@ class Technical(StrictModel):
     aliases: list[str] = Field(default_factory=list, max_length=20)
     redirect_chain: list[str] = Field(default_factory=list, max_length=10)
 
+    @field_validator("adapter_version", "minimum_client_version")
+    @classmethod
+    def stable_versions(cls, value: str | None) -> str | None:
+        if value is not None:
+            version(value)
+        return value
+
     @field_validator("aliases")
     @classmethod
     def validate_aliases(cls, values: list[str]) -> list[str]:
@@ -200,9 +207,12 @@ class Source(StrictModel):
             raise ValueError("source cannot promote applicants/manual access into authorization")
         if len({o.key for o in self.observations}) != len(self.observations):
             raise ValueError("duplicate brand/hostname in source")
+        allowed_origins = {"www.gov.br"}
+        if self.kind == "applicants":
+            allowed_origins.add("sigap.fazenda.gov.br")
         if (
             self.kind in ("federal", "judicial", "applicants")
-            and urlsplit(self.url).hostname != "www.gov.br"
+            and urlsplit(self.url).hostname not in allowed_origins
         ):
             raise ValueError("federal evidence must originate from gov.br")
         return self

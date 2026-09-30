@@ -160,6 +160,30 @@ def test_legal_evidence_and_old_adapters_never_imply_support():
         Technical(rollout="enabled")
 
 
+def test_sigap_applicant_source_does_not_become_authorized():
+    applicant = Observation(brand="Applicant", hostname="applicant.bet.br", situation="solicitante")
+    assert (
+        source(
+            [applicant],
+            kind="applicants",
+            url="https://sigap.fazenda.gov.br/consulta-publica/lista-operacoes-aqf",
+        ).kind
+        == "applicants"
+    )
+    with pytest.raises(ValueError, match="promote"):
+        source(
+            [applicant.model_copy(update={"situation": "autorizada"})],
+            kind="applicants",
+            url="https://sigap.fazenda.gov.br/consulta-publica/lista-operacoes-aqf",
+        )
+
+
+@pytest.mark.parametrize("field", ["adapter_version", "minimum_client_version"])
+def test_technical_versions_reject_ambiguous_leading_zero(field):
+    with pytest.raises(ValueError, match="stable"):
+        Technical(**{field: "01.0.0"})
+
+
 @pytest.mark.parametrize(
     "changes",
     [

@@ -3858,6 +3858,11 @@
       }
     },
     "securitySchemes": {
+      "BearerAuth": {
+        "bearerFormat": "JWT",
+        "scheme": "bearer",
+        "type": "http"
+      },
       "CollectionToken": {
         "description": "Token opaco da extensão; armazenado no servidor somente como HMAC.",
         "in": "header",
@@ -3867,6 +3872,12 @@
       "HTTPBearer": {
         "scheme": "bearer",
         "type": "http"
+      },
+      "InstallationToken": {
+        "description": "Credencial de instalação pareada (#107), sujeita a expiração, rotação e revogação; tokens legados não são aceitos.",
+        "in": "header",
+        "name": "X-Coleta-Token",
+        "type": "apiKey"
       }
     }
   },
@@ -3977,6 +3988,11 @@
             "description": "A required dependency is temporarily unavailable."
           }
         },
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ],
         "summary": "Consultar catálogo administrativo"
       }
     },
@@ -4080,6 +4096,11 @@
             "description": "A required dependency is temporarily unavailable."
           }
         },
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ],
         "summary": "Exportar catálogo administrativo"
       }
     },
@@ -6003,6 +6024,11 @@
             "description": "A required dependency is temporarily unavailable."
           }
         },
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ],
         "summary": "Confirmar acesso a domínio exato"
       }
     },
@@ -6321,7 +6347,7 @@
         },
         "security": [
           {
-            "CollectionToken": []
+            "InstallationToken": []
           }
         ],
         "summary": "Consultar catálogo assinado"

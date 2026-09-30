@@ -353,6 +353,16 @@ def test_security_and_binary_media_are_explicit(openapi_document: JsonObject) ->
     paths = _as_object(openapi_document["paths"])
     for path in ("/coleta", "/api/v1/coleta"):
         assert _as_object(_as_object(paths[path])["post"])["security"] == [{"CollectionToken": []}]
+    assert _as_object(_as_object(paths["/api/v1/coleta/catalogo"])["get"])["security"] == [
+        {"InstallationToken": []}
+    ]
+    assert _as_object(schemes["InstallationToken"])["name"] == "X-Coleta-Token"
+    for method, path in (
+        ("post", "/api/v1/catalogo/candidatos"),
+        ("get", "/api/v1/admin/casas"),
+        ("get", "/api/v1/admin/casas/export"),
+    ):
+        assert _as_object(_as_object(paths[path])[method])["security"] == [{"BearerAuth": []}]
 
     metrics = _as_object(_as_object(_as_object(paths["/metrics"])["get"])["responses"])
     assert "text/plain" in _as_object(_as_object(metrics["200"])["content"])

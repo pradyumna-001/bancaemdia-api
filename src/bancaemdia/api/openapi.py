@@ -570,17 +570,34 @@ def _install_collection_security(document: JsonObject) -> None:
         "description": "Token opaco da extensão; armazenado no servidor somente como HMAC.",
     }
     paths = _object(document["paths"], context="paths")
-    catalog = _object(
-        _object(paths["/api/v1/coleta/catalogo"], context="catalog path")["get"],
-        context="catalog operation",
-    )
-    catalog["security"] = [{"CollectionToken": []}]
     for path in COLLECTION_PATHS:
         operation = _object(
             _object(paths[path], context=f"path {path}")["post"],
             context=f"POST {path}",
         )
         operation["security"] = [{"CollectionToken": []}]
+    _install_catalog_security(document)
+
+
+def _install_catalog_security(document: JsonObject) -> None:
+    components = _object(document.setdefault("components", {}), context="components")
+    schemes = _object(components.setdefault("securitySchemes", {}), context="securitySchemes")
+    schemes["InstallationToken"] = {
+        "type": "apiKey",
+        "in": "header",
+        "name": "X-Coleta-Token",
+        "description": "Credencial de instalação pareada (#107), sujeita a expiração, rotação e revogação; tokens legados não são aceitos.",
+    }
+    schemes["BearerAuth"] = {"type": "http", "scheme": "bearer", "bearerFormat": "JWT"}
+    paths = _object(document["paths"], context="paths")
+    for method, path, scheme in (
+        ("get", "/api/v1/coleta/catalogo", "InstallationToken"),
+        ("get", "/api/v1/admin/casas", "BearerAuth"),
+        ("get", "/api/v1/admin/casas/export", "BearerAuth"),
+        ("post", "/api/v1/catalogo/candidatos", "BearerAuth"),
+    ):
+        operation = _object(_object(paths[path], context=path)[method], context="catalog operation")
+        operation["security"] = [{scheme: []}]
 
 
 def _strictify_schema(schema: JsonObject) -> None:
