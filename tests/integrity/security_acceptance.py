@@ -65,8 +65,9 @@ async def test_rotation_or_revocation_wins_before_collection_commit(
         release.set()
     response, refused = await asyncio.wait_for(asyncio.gather(rotating, collecting), 20)
     assert response.status_code == (204 if revoke else 200)
-    assert refused.status_code == 403
-    assert (await api.send([item_for(api, uuid4().hex)])).status_code == 403
+    assert refused.status_code == 401
+    assert refused.headers["WWW-Authenticate"] == "Collection"
+    assert (await api.send([item_for(api, uuid4().hex)])).status_code == 401
     await invariant(api, request, money(count=0, stake=0, exposure=0), sources=0, lineages=0)
     assert (await snapshot(api))["deliveries"] == 0
 
@@ -102,7 +103,7 @@ async def test_accepted_transaction_commits_before_revocation_returns(
         release.set()
     admitted, changed = await asyncio.wait_for(asyncio.gather(collecting, rotating), 20)
     assert admitted.status_code == 200 and changed.status_code == (204 if revoke else 200)
-    assert (await api.send([item_for(api, uuid4().hex)])).status_code == 403
+    assert (await api.send([item_for(api, uuid4().hex)])).status_code == 401
     ack = admitted.json()["items"][0]
     assert await api.run(ack) == "materialized"
     await invariant(api, request, money(), sources=1)

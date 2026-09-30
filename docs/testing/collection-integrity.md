@@ -40,6 +40,8 @@ pip install -e '/tmp/issue112-integration[dev]'
 cd /tmp/issue112-integration
 export TEST_DATABASE_URL=postgresql+asyncpg://bancaemdia:test-password@localhost:5432/bancaemdia
 export REDIS_URL=redis://localhost:6379/0
+export CELERY_BROKER_URL=redis://localhost:6379/0
+export CELERY_RESULT_BACKEND=redis://localhost:6379/1
 pytest tests/integration/coleta/ tests/integration/test_troca_titular.py \
   tests/convergence/financial_acceptance.py tests/cli/test_reconciliar_casa_telegram.py \
   tests/integrity/collection_acceptance.py tests/integrity/accounts_races_acceptance.py \
@@ -81,7 +83,7 @@ oculta do ambiente nem evidência de código já entregue em produção.
 | --- | --- |
 | Código de pareamento consumido uma vez | 10 exchanges HTTP, uma instalação/token, casos herdados `test_pairing` |
 | Rotate/revoke isolados | Duas instalações; códigos/segredos só como hashes; lifecycle herdado |
-| Revogação disputando coleta | `security_acceptance`: barreiras e `pg_blocking_pids`; revogação vence → 403/zero entregas; coleta autenticada vence → commit antes de rotate/revoke retornar; credencial antiga sempre recusada depois |
+| Revogação disputando coleta | `security_acceptance`: barreiras e `pg_blocking_pids`; revogação vence → 401 com challenge Collection/zero entregas; coleta autenticada vence → commit antes de rotate/revoke retornar; credencial antiga sempre recusada depois (v1/status herdados: 403) |
 | Isolamento e menor privilégio | HTTP com token/JWT reais; sessões/jobs/contas de outro tenant; RLS SELECT/UPDATE zero linhas; worker não processa job alheio; papel NOBYPASSRLS/não superuser |
 | Duplicatas no batch, outros batches e retries | 10 requests com `[item,item]`, ACK estável, 10 workers, uma entrega/linhagem/aposta Casa/relação; replay completo em três ordens |
 | ACK parcial e resposta perdida | Accepted/rejected terminais não são reenviados; apenas ACK perdido é recuperado pelo mesmo ID; accepted subset mantém hash de auditoria |

@@ -68,13 +68,16 @@ def prepare(target: Path) -> None:
             encoding="utf-8",
         )
     fixes = root / "scripts/integrity/fixes.patch"
-    git(target, "apply", "--whitespace=error", str(fixes))
+    patch_bytes = fixes.read_text(encoding="utf-8").encode("utf-8")
+    normalized_patch = target / "integrity-fixes.patch"
+    normalized_patch.write_bytes(patch_bytes)
+    git(target, "apply", "--whitespace=error", str(normalized_patch))
     manifest = json.loads((target / "convergence-heads.json").read_text(encoding="utf-8"))
     manifest.update({
         "integrity": git(root, "rev-parse", "HEAD").decode().strip(),
         "reconciliation": RECONCILIATION,
         "migration_head": "r112integration",
-        "fixes_sha256": hashlib.sha256(fixes.read_bytes()).hexdigest(),
+        "fixes_sha256": hashlib.sha256(patch_bytes).hexdigest(),
         "scope": "disposable full Week 7 integration; product PR remains based directly on main",
     })
     (target / "integrity-heads.json").write_text(

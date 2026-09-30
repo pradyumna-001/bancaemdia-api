@@ -73,13 +73,10 @@ async def redis_required():
 
 
 @pytest.fixture(autouse=True)
-async def persisted_diagnostics(request):
+async def persisted_diagnostics(request, api):
     yield
-    if "api" not in request.fixturenames:
-        return
     from sqlalchemy import text
 
-    api = request.getfixturevalue("api")
     state = {
         "test": request.node.nodeid,
         "invariant": getattr(request.node, "integrity_snapshot", None),
