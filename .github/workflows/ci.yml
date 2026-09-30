@@ -164,7 +164,7 @@ jobs:
         run: docker compose -f tests/identity/docker-compose.yml up -d --wait postgres mailpit
       - run: docker compose -f tests/identity/docker-compose.yml up -d issuer
       - name: Prove implemented journey and database invariants
-        run: pytest -n 0 tests/identity/journey.py tests/integration/test_identity_db.py --junitxml=identity-results.xml -v
+        run: pytest -n 0 tests/identity/journey.py tests/integration/test_identity_db.py --junitxml=identity-results.xml --tb=short -v
       - name: Require real acceptance with zero skips
         run: python scripts/check_identity_results.py identity-results.xml
       - uses: actions/upload-artifact@v4

@@ -13,7 +13,6 @@ from fastapi.testclient import TestClient
 from hypothesis import given, settings
 from hypothesis import strategies as st
 from hypothesis.strategies import SearchStrategy
-from schemathesis.config import HealthCheck
 from starlette.types import ASGIApp, Message, Receive, Scope, Send
 
 from bancaemdia.api.contracts import ReadinessResponse
@@ -552,7 +551,7 @@ def test_schemathesis_invalid_collection_requests_match_contract(
         assert collection_backend.queued == []
 
 
-negative_config = schemathesis.Config(suppress_health_check=[HealthCheck.filter_too_much])
+negative_config = schemathesis.Config()
 negative_config.projects.default.generation.update(
     modes=[schemathesis.GenerationMode.NEGATIVE],
     max_examples=5,
@@ -572,6 +571,20 @@ negative_schema = (
     # This authenticated stats operation has no request input to invalidate.
     .exclude(path="/api/v1/revisao/stats")
 )
+
+
+@negative_schema.hook
+def before_generate_path_parameters(
+    context: schemathesis.HookContext, strategy: SearchStrategy[JsonObject]
+) -> SearchStrategy[JsonObject]:
+    if context.operation is not None and context.operation.path == "/api/v1/upload/{job_id}":
+        # Construct invalid UUIDs directly. The generic negative-format strategy spends most
+        # draws filtering values which cannot be serialized into a path; keep the health check
+        # and test every generated request against the real authentication middleware.
+        return st.text(alphabet="abcdefghijklmnopqrstuvwxyz0123456789", max_size=40).map(
+            lambda suffix: {"job_id": "invalid-uuid-" + suffix}
+        )
+    return strategy
 
 
 @pytest.mark.contract

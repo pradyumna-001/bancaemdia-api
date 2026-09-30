@@ -459,7 +459,9 @@ async def test_real_registration_refresh_recovery_isolation_and_revocation(harne
             assert wrong_state.status_code == 400
             empty_bearer = await client.post(
                 API + "/api/v1/apostas",
-                headers={"Authorization": "Bearer ", "Origin": "https://untrusted.example.org"},
+                # A scheme without a credential is legal HTTP; trailing whitespace is rejected
+                # by the HTTP client before it can exercise the API's CSRF/authentication gates.
+                headers={"Authorization": "Bearer", "Origin": "https://untrusted.example.org"},
                 cookies={"bancaemdia_session": cookie_before},
                 json={"casa": "betano", "odd": 2, "stake_unidades": 1},
             )
