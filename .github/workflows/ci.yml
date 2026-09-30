@@ -128,8 +128,63 @@ jobs:
   docker-build:
     name: Docker Build
     runs-on: ubuntu-latest
-    needs: [lint, format, typecheck, test, contract]
+    needs: [lint, format, typecheck, test, contract, reconciliation-db]
     steps:
       - uses: actions/checkout@v4
       - name: Build Docker image
         run: docker build -t bancaemdia-api .
+
+  reconciliation-db:
+    name: Historical reconciliation acceptance (PostgreSQL)
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_DB: bancaemdia
+          POSTGRES_USER: bancaemdia
+          POSTGRES_PASSWORD: test-password
+        ports: ["5432:5432"]
+        options: --health-cmd "pg_isready -U bancaemdia -d bancaemdia" --health-interval 5s --health-timeout 3s --health-retries 5
+      redis:
+        image: redis:7
+        ports: ["6379:6379"]
+        options: --health-cmd "redis-cli ping" --health-interval 5s --health-timeout 3s --health-retries 5
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+      - name: Fetch explicit consolidation prerequisite
+        run: git fetch --no-tags origin db7f63eccd03635bac20235270bffa30351e41a9
+      - name: Assemble current CLI with pinned prerequisite in disposable directory
+        run: python scripts/prepare_reconciliation_integration.py /tmp/reconciliation
+      - run: pip install -e "/tmp/reconciliation[dev]" pip-audit==2.10.1 bandit==1.9.4
+      - name: Check composed production code
+        run: ruff check src/ && ruff format --check src/ && mypy src/ --strict --ignore-missing-imports
+        working-directory: /tmp/reconciliation
+      - name: Audit composed runtime dependencies
+        run: pip-audit --local --skip-editable && bandit -r src/bancaemdia -q -lll
+        working-directory: /tmp/reconciliation
+      - name: Test historical CLI and shared online consolidation on real PostgreSQL
+        run: >
+          pytest tests/cli/test_reconciliar_casa_telegram.py tests/cli/reconciliation_acceptance.py
+          tests/integration/cruzamento/ -n 0 --show-capture=no
+          --junitxml=reconciliation-results.xml
+        working-directory: /tmp/reconciliation
+        env:
+          TEST_DATABASE_URL: postgresql+asyncpg://bancaemdia:test-password@localhost:5432/bancaemdia
+          REDIS_URL: redis://localhost:6379/0
+      - name: Require acceptance with no skipped or missing tests
+        run: python scripts/check_reconciliation_junit.py /tmp/reconciliation/reconciliation-results.xml
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: reconciliation-results
+          path: |
+            /tmp/reconciliation/reconciliation-results.xml
+            /tmp/reconciliation/reconciliation-heads.json
