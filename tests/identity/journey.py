@@ -66,13 +66,18 @@ def serve_issuer(network):
                 for k, v in self.headers.items()
                 if k.lower() not in {"host", "connection", "accept-encoding"}
             }
-            with httpx.Client(timeout=15, follow_redirects=False) as client:
-                response = client.request(
-                    self.command,
-                    "http://127.0.0.1:58081" + self.path,
-                    content=body,
-                    headers=headers,
-                )
+            try:
+                with httpx.Client(timeout=15, follow_redirects=False) as client:
+                    response = client.request(
+                        self.command,
+                        "http://127.0.0.1:58081" + self.path,
+                        content=body,
+                        headers=headers,
+                    )
+            except httpx.HTTPError:
+                self.send_response(503)
+                self.end_headers()
+                return
             self.send_response(response.status_code)
             for key, value in response.headers.multi_items():
                 if key.lower() not in {
@@ -84,10 +89,14 @@ def serve_issuer(network):
                     self.send_header(key, value)
             self.send_header("Content-Length", str(len(response.content)))
             self.end_headers()
-            self.wfile.write(response.content)
+            try:
+                self.wfile.write(response.content)
+            except (BrokenPipeError, ConnectionResetError):
+                return  # A browser navigation can cancel an earlier asset/protocol response.
 
         do_GET = forward  # ruff: ignore[mixed-case-variable-in-class-scope] - BaseHTTPRequestHandler protocol
         do_POST = forward  # ruff: ignore[mixed-case-variable-in-class-scope] - BaseHTTPRequestHandler protocol
+        do_PUT = forward  # ruff: ignore[mixed-case-variable-in-class-scope] - disposable issuer admin protocol
 
     return ThreadingHTTPServer(("127.0.0.1", 58080), Proxy)
 
