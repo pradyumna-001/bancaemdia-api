@@ -17,7 +17,7 @@ REVISAO_RESOLVIDA = "f2a9c4e7b106"
 CAIXA_REVISAO_MERGE = "e5a1c7d9b204"
 PAINEL = "d3f6a8c1e209"
 PAINEL_CAIXA_MERGE = "f8b2d4a6c901"
-HEAD = "a9d6e3f1c210"
+HEAD = "r111journal2026"
 PARTICIONADAS = {
     "eventos": "criado_em",
     "movimentos": "ocorrido_em",
@@ -83,9 +83,12 @@ def test_upgrade_creates_every_model_table_once() -> None:
     sql = _upgrade_sql()
     for nome in Base.metadata.tables:
         assert sql.count(f"\nCREATE TABLE {nome} (") == 1
-    # Alembic's own version table and the private dashboard refresh state are intentionally not
-    # SQLAlchemy models.
-    assert sql.count("\nCREATE TABLE ") == len(Base.metadata.tables) + 2
+    # Alembic version, private dashboard state and the CLI's operational journal are intentionally
+    # separate from the application's domain ORM registry.
+    assert sql.count("\nCREATE TABLE ") == len(Base.metadata.tables) + 3
+    assert sql.count("\nCREATE TABLE reconciliacao_chunks (") == 1
+    assert "PRIMARY KEY (usuario_id, report_sha256, chunk_index)" in sql
+    assert "FOREIGN KEY(usuario_id) REFERENCES usuarios (id)" in sql
     assert "CREATE TABLE alembic_version" in sql
     assert "CREATE TABLE painel.estado_refresh" in sql
     assert f"INSERT INTO alembic_version (version_num) VALUES ('{BASELINE}')" in sql

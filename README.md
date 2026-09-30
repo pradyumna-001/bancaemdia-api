@@ -141,6 +141,11 @@ make shell        # Shell into API container
 
 ### Replay and stored-media rereading
 
+Historical Casa / Telegram reconciliation has a dry-run-first reviewed JSON/CSV workflow:
+see [the historical reconciliation runbook](docs/runbooks/reconciliacao-historica.md).
+It requires the shared consolidation service from #110 / PR #166, currently an explicit
+integration prerequisite; main alone refuses the operation without writing data.
+
 Run these operational CLIs with primary database credentials. They are not HTTP endpoints.
 
 ```bash
