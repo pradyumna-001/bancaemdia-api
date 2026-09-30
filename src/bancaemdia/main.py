@@ -3,8 +3,10 @@ from collections.abc import AsyncGenerator
 from contextlib import asynccontextmanager, suppress
 from typing import Any
 
-from fastapi import FastAPI
+from fastapi import FastAPI, Request
 from fastapi.concurrency import run_in_threadpool
+from fastapi.exception_handlers import request_validation_exception_handler
+from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse, Response
 from prometheus_client import CONTENT_TYPE_LATEST, generate_latest
 from sqlalchemy import text
@@ -15,9 +17,15 @@ from bancaemdia.api.contracts import (
     LivenessResponse,
     ReadinessResponse,
 )
+from bancaemdia.api.identity import failure
+from bancaemdia.api.identity import router as identity_router
 from bancaemdia.api.openapi import build_openapi
 from bancaemdia.api.v1 import apostas, caixa, coleta, painel, revisao, upload
-from bancaemdia.auth.middleware import JWTAuthMiddleware
+from bancaemdia.auth.identity_config import identity_settings
+from bancaemdia.auth.identity_service import identity_service
+from bancaemdia.auth.middleware import JWTAuthMiddleware, route_path
+from bancaemdia.auth.oidc import IdentityError
+from bancaemdia.auth.transport import IdentityTransportMiddleware
 from bancaemdia.config import get_settings
 from bancaemdia.db.session import LAG_CHECK_SECONDS, engine, replica_engine, replica_lag_seconds
 from bancaemdia.middleware.rate_limit import AuthRateLimitMiddleware, RateLimitMiddleware
@@ -58,6 +66,8 @@ replica_lag_monitor = ReplicaLagMonitor(
 
 @asynccontextmanager
 async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
+    if identity_settings().AUTH_ENABLED:
+        await identity_service().verify_database_role()
     async with engine.begin() as conn:
         await conn.execute(text("SELECT 1"))
     replica_lag_task = asyncio.create_task(
@@ -72,6 +82,8 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
             await replica_lag_task
         await engine.dispose()
         await replica_engine.dispose()
+        if identity_settings().AUTH_ENABLED:
+            await identity_service().engine.dispose()
 
 
 app = BancaemdiaAPI(
@@ -85,10 +97,18 @@ app = BancaemdiaAPI(
 )
 app.include_router(coleta.router)
 app.include_router(upload.router)
+app.include_router(identity_router)
 app.include_router(apostas.router)
 app.include_router(caixa.router)
 app.include_router(painel.router)
 app.include_router(revisao.router)
+
+
+@app.exception_handler(RequestValidationError)
+async def validation_failure(request: Request, error: RequestValidationError) -> JSONResponse:
+    if route_path(request).startswith("/auth/"):
+        return failure(IdentityError("invalid_request", 422))
+    return await request_validation_exception_handler(request, error)
 
 
 # O teto de tamanho é registrado primeiro para rodar por DENTRO dos outros: por fora de um
@@ -113,6 +133,7 @@ app.add_middleware(JWTAuthMiddleware)
 # Login/refresh traffic must be throttled before authentication, including failed credentials.
 # The inner limiter above remains after JWT so every API bucket uses only a validated usuario_id.
 app.add_middleware(AuthRateLimitMiddleware)
+app.add_middleware(IdentityTransportMiddleware)
 
 # Métricas entram depois dos middlewares de domínio, e o request_id por último: entre os middlewares
 # da aplicação, o último registrado é o primeiro a rodar e envolve autenticação e métricas. O OTel

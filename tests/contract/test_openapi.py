@@ -13,7 +13,6 @@ from fastapi.testclient import TestClient
 from hypothesis import given, settings
 from hypothesis import strategies as st
 from hypothesis.strategies import SearchStrategy
-from schemathesis.config import HealthCheck
 from starlette.types import ASGIApp, Message, Receive, Scope, Send
 
 from bancaemdia.api.contracts import ReadinessResponse
@@ -199,7 +198,7 @@ def test_openapi_endpoint_matches_checked_in_snapshot(openapi_document: JsonObje
 @pytest.mark.contract
 def test_every_operation_has_human_documentation(openapi_document: JsonObject) -> None:
     operations = list(_operations(openapi_document))
-    assert len(operations) == 28
+    assert len(operations) == 34
     for method, path, operation in operations:
         location = f"{method.upper()} {path}"
         assert str(operation.get("summary", "")).strip(), location
@@ -233,7 +232,10 @@ def test_responses_cover_success_and_failures_with_schemas(openapi_document: Jso
         location = f"{method.upper()} {path}"
         responses = _as_object(operation["responses"])
         numeric_codes = {int(code) for code in responses if str(code).isdigit()}
-        assert any(200 <= code < 300 for code in numeric_codes), f"{location}: missing 2xx"
+        if path in {"/auth/start", "/auth/callback"}:
+            assert method == "get" and 302 in numeric_codes, location
+        else:
+            assert any(200 <= code < 300 for code in numeric_codes), f"{location}: missing 2xx"
         assert any(500 <= code < 600 for code in numeric_codes), f"{location}: missing 5xx"
         if path.startswith("/api/") or operation.get("requestBody") or operation.get("parameters"):
             assert any(400 <= code < 500 for code in numeric_codes), f"{location}: missing 4xx"
@@ -242,6 +244,10 @@ def test_responses_cover_success_and_failures_with_schemas(openapi_document: Jso
             response = _as_object(response_value)
             assert str(response.get("description", "")).strip(), f"{location}: {code} description"
             content = response.get("content")
+            if path in {"/auth/start", "/auth/callback"} and str(code) == "302":
+                assert not content, f"{location}: redirect must have no JSON body"
+                assert response["headers"]["Location"]["schema"]["type"] == "string"
+                continue
             assert isinstance(content, dict) and content, f"{location}: {code} content"
             for media_type, media_value in content.items():
                 schema = _as_object(_as_object(media_value).get("schema"))
@@ -545,7 +551,7 @@ def test_schemathesis_invalid_collection_requests_match_contract(
         assert collection_backend.queued == []
 
 
-negative_config = schemathesis.Config(suppress_health_check=[HealthCheck.filter_too_much])
+negative_config = schemathesis.Config()
 negative_config.projects.default.generation.update(
     modes=[schemathesis.GenerationMode.NEGATIVE],
     max_examples=5,
@@ -565,6 +571,20 @@ negative_schema = (
     # This authenticated stats operation has no request input to invalidate.
     .exclude(path="/api/v1/revisao/stats")
 )
+
+
+@negative_schema.hook
+def before_generate_path_parameters(
+    context: schemathesis.HookContext, strategy: SearchStrategy[JsonObject]
+) -> SearchStrategy[JsonObject]:
+    if context.operation is not None and context.operation.path == "/api/v1/upload/{job_id}":
+        # Construct invalid UUIDs directly. The generic negative-format strategy spends most
+        # draws filtering values which cannot be serialized into a path; keep the health check
+        # and test every generated request against the real authentication middleware.
+        return st.text(alphabet="abcdefghijklmnopqrstuvwxyz0123456789", max_size=40).map(
+            lambda suffix: {"job_id": "invalid-uuid-" + suffix}
+        )
+    return strategy
 
 
 @pytest.mark.contract
