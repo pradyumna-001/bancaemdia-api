@@ -24,6 +24,7 @@ from bancaemdia.models.midia import Midia
 from bancaemdia.models.midia_arquivo import MidiaArquivo
 from bancaemdia.models.movimento import Movimento
 from bancaemdia.models.movimento_requisicao import MovimentoRequisicao
+from bancaemdia.models.reader_quarantine import ReaderQuarantine
 from bancaemdia.models.revisao_pendente import RevisaoPendente
 from bancaemdia.models.time import Time
 from bancaemdia.models.tipster import Tipster
@@ -83,10 +84,10 @@ def _indexes(modelo: type[Base]) -> dict[str, list[str]]:
     return {i.name: [c.name for c in i.columns] for i in modelo.__table__.indexes}
 
 
-def test_all_twenty_seven_tables_are_registered() -> None:
+def test_all_twenty_eight_tables_are_registered() -> None:
     esperadas = {m.__tablename__ for m in NUCLEO + CANONICOS + SUPORTE + UPLOAD}
     assert len(esperadas) == 27
-    assert set(Base.metadata.tables) == esperadas
+    assert set(Base.metadata.tables) == esperadas | {ReaderQuarantine.__tablename__}
     assert {m.__tablename__ for m in CANONICOS} == {
         "casas",
         "esportes",
