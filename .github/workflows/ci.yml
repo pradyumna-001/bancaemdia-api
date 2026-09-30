@@ -174,7 +174,7 @@ jobs:
         run: pip-audit --local --skip-editable && bandit -r src/bancaemdia -q -lll
       - name: Pin installation prerequisite in disposable composition
         if: matrix.base == 'installation'
-        run: python scripts/prepare_catalog_integration.py --destination /tmp/catalog-integration
+        run: python scripts/prepare_catalog_integration.py --destination /tmp/catalog-integration --product-sha ${{ github.event.pull_request.head.sha || github.sha }}
       - name: Real main catalog acceptance
         if: matrix.base == 'main'
         run: pytest tests/catalogo/catalog_database_acceptance.py -n 0 --junitxml=catalog-main.xml

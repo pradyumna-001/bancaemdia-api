@@ -34,11 +34,25 @@ FILES = (
 )
 
 
-def prepare(destination: Path) -> None:
+def prepare(destination: Path, product_sha: str | None = None) -> None:
     if destination.exists():
         raise ValueError("use a fresh disposable integration directory")
     destination.mkdir(parents=True)
     subprocess.run(["git", "fetch", "origin", "refs/pull/163/head"], cwd=ROOT, check=True)
+    fetched = subprocess.check_output(
+        ["git", "rev-parse", "FETCH_HEAD"], cwd=ROOT, text=True
+    ).strip()
+    if fetched != PARENT:
+        raise ValueError(
+            "installation prerequisite HEAD changed: revalidate the pinned composition"
+        )
+    checkout_sha = subprocess.check_output(
+        ["git", "rev-parse", "HEAD"], cwd=ROOT, text=True
+    ).strip()
+    product_sha = product_sha or checkout_sha
+    subprocess.run(
+        ["git", "merge-base", "--is-ancestor", product_sha, checkout_sha], cwd=ROOT, check=True
+    )
     archive = subprocess.check_output(["git", "archive", PARENT], cwd=ROOT)
     with tarfile.open(fileobj=io.BytesIO(archive)) as tar:
         tar.extractall(destination, filter="data")
@@ -178,9 +192,8 @@ def prepare(destination: Path) -> None:
     evidence = {
         "parent_pr": 163,
         "parent_sha": PARENT,
-        "product_sha": subprocess.check_output(
-            ["git", "rev-parse", "HEAD"], cwd=ROOT, text=True
-        ).strip(),
+        "product_sha": product_sha,
+        "checkout_sha": checkout_sha,
         "product_base": "main",
         "overlay": list(FILES),
         "published_migration_ids_preserved": True,
@@ -194,4 +207,6 @@ def prepare(destination: Path) -> None:
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--destination", type=Path, required=True)
-    prepare(parser.parse_args().destination.resolve())
+    parser.add_argument("--product-sha")
+    args = parser.parse_args()
+    prepare(args.destination.resolve(), args.product_sha)
