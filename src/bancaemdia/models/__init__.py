@@ -3,6 +3,15 @@ from bancaemdia.models.apelido import Apelido
 from bancaemdia.models.aposta import Aposta
 from bancaemdia.models.banca import Banca
 from bancaemdia.models.casa import Casa
+from bancaemdia.models.casa_dominio import (
+    CasaDominio,
+    CatalogoAuditoria,
+    CatalogoConfirmacao,
+    CatalogoFonte,
+    CatalogoOperador,
+    CatalogoPublicacao,
+    CatalogoSnapshot,
+)
 from bancaemdia.models.chamada_ia import ChamadaIA
 from bancaemdia.models.coleta_casa import ColetaCasa
 from bancaemdia.models.coleta_token import ColetaToken
@@ -31,6 +40,13 @@ __all__ = [
     "Banca",
     "Base",
     "Casa",
+    "CasaDominio",
+    "CatalogoAuditoria",
+    "CatalogoConfirmacao",
+    "CatalogoFonte",
+    "CatalogoOperador",
+    "CatalogoPublicacao",
+    "CatalogoSnapshot",
     "ChamadaIA",
     "ColetaCasa",
     "ColetaToken",

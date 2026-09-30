@@ -83,10 +83,18 @@ def _indexes(modelo: type[Base]) -> dict[str, list[str]]:
     return {i.name: [c.name for c in i.columns] for i in modelo.__table__.indexes}
 
 
-def test_all_twenty_seven_tables_are_registered() -> None:
+def test_all_thirty_four_tables_are_registered() -> None:
     esperadas = {m.__tablename__ for m in NUCLEO + CANONICOS + SUPORTE + UPLOAD}
     assert len(esperadas) == 27
-    assert set(Base.metadata.tables) == esperadas
+    assert set(Base.metadata.tables) == esperadas | {
+        "catalogo_operadores",
+        "casa_dominios",
+        "catalogo_fontes",
+        "catalogo_snapshots",
+        "catalogo_publicacoes",
+        "catalogo_confirmacoes",
+        "catalogo_auditoria",
+    }
     assert {m.__tablename__ for m in CANONICOS} == {
         "casas",
         "esportes",

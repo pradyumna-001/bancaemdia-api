@@ -1,0 +1,281 @@
+[
+  {
+    "jurisdiction": "AC",
+    "url": "https://www.ac.gov.br/",
+    "consulted_at": "2026-09-30T13:04:17.341671+00:00",
+    "recheck_at": "2026-10-07T13:04:17.341671+00:00",
+    "status": "unconfigured",
+    "evidence": "Official portal consulted; no reviewed machine-readable authorization feed configured. This is not evidence that the jurisdiction has no licenses.",
+    "http_status": 200,
+    "snapshot_sha256": "a00078a591bd943ec28b9a5587016727553644d959ce876452c30e429013f971",
+    "final_url": "https://www.ac.gov.br/"
+  },
+  {
+    "jurisdiction": "AL",
+    "url": "https://www.al.gov.br/",
+    "consulted_at": "2026-09-30T13:04:17.341671+00:00",
+    "recheck_at": "2026-10-07T13:04:17.341671+00:00",
+    "status": "unavailable",
+    "evidence": "Official portal unavailable during consultation (ConnectError); authorization coverage remains unknown."
+  },
+  {
+    "jurisdiction": "AP",
+    "url": "https://www.ap.gov.br/",
+    "consulted_at": "2026-09-30T13:04:17.341671+00:00",
+    "recheck_at": "2026-10-07T13:04:17.341671+00:00",
+    "status": "unavailable",
+    "evidence": "Official portal unavailable during consultation (ConnectError); authorization coverage remains unknown."
+  },
+  {
+    "jurisdiction": "AM",
+    "url": "https://www.am.gov.br/",
+    "consulted_at": "2026-09-30T13:04:17.341671+00:00",
+    "recheck_at": "2026-10-07T13:04:17.341671+00:00",
+    "status": "unavailable",
+    "evidence": "Official portal unavailable during consultation (ConnectError); authorization coverage remains unknown."
+  },
+  {
+    "jurisdiction": "BA",
+    "url": "https://www.ba.gov.br/",
+    "consulted_at": "2026-09-30T13:04:17.341671+00:00",
+    "recheck_at": "2026-10-07T13:04:17.341671+00:00",
+    "status": "unconfigured",
+    "evidence": "Official portal consulted; no reviewed machine-readable authorization feed configured. This is not evidence that the jurisdiction has no licenses.",
+    "http_status": 200,
+    "snapshot_sha256": "a7a6b6a3ceddba3b89080ddb56fec143097635057b17bf194a1ef2d1caaf5e33",
+    "final_url": "https://www.ba.gov.br/"
+  },
+  {
+    "jurisdiction": "CE",
+    "url": "https://www.ce.gov.br/",
+    "consulted_at": "2026-09-30T13:04:17.341671+00:00",
+    "recheck_at": "2026-10-07T13:04:17.341671+00:00",
+    "status": "unconfigured",
+    "evidence": "Official portal consulted; no reviewed machine-readable authorization feed configured. This is not evidence that the jurisdiction has no licenses.",
+    "http_status": 200,
+    "snapshot_sha256": "3ed93b6abb6cfd8b94969ced58e5fe6999fc610ffc0d649f705d254809075538",
+    "final_url": "https://www.ce.gov.br/"
+  },
+  {
+    "jurisdiction": "DF",
+    "url": "https://www.economia.df.gov.br/",
+    "consulted_at": "2026-09-30T13:04:17.341671+00:00",
+    "recheck_at": "2026-10-07T13:04:17.341671+00:00",
+    "status": "unconfigured",
+    "evidence": "Official portal consulted; no reviewed machine-readable authorization feed configured. This is not evidence that the jurisdiction has no licenses.",
+    "http_status": 200,
+    "snapshot_sha256": "9ac754f18c8ef6ca8dcc1f70fb7bbc7da7b476c98f848952501e5efa3f8096c5",
+    "final_url": "https://www.economia.df.gov.br/"
+  },
+  {
+    "jurisdiction": "ES",
+    "url": "https://www.es.gov.br/",
+    "consulted_at": "2026-09-30T13:04:17.341671+00:00",
+    "recheck_at": "2026-10-07T13:04:17.341671+00:00",
+    "status": "unconfigured",
+    "evidence": "Official portal consulted; no reviewed machine-readable authorization feed configured. This is not evidence that the jurisdiction has no licenses.",
+    "http_status": 200,
+    "snapshot_sha256": "cdc232c23e906d2366be23be9a19d02fb7f08408ff70c9a799bc754aaf6b144e",
+    "final_url": "https://www.es.gov.br/"
+  },
+  {
+    "jurisdiction": "GO",
+    "url": "https://www.go.gov.br/",
+    "consulted_at": "2026-09-30T13:04:17.341671+00:00",
+    "recheck_at": "2026-10-07T13:04:17.341671+00:00",
+    "status": "unconfigured",
+    "evidence": "Official portal consulted; no reviewed machine-readable authorization feed configured. This is not evidence that the jurisdiction has no licenses.",
+    "http_status": 200,
+    "snapshot_sha256": "742a18f193c5e845791cc5166a14abe583befa0d40e6d2539a60f98445693099",
+    "final_url": "https://www.go.gov.br/"
+  },
+  {
+    "jurisdiction": "MA",
+    "url": "https://www.ma.gov.br/",
+    "consulted_at": "2026-09-30T13:04:17.341671+00:00",
+    "recheck_at": "2026-10-07T13:04:17.341671+00:00",
+    "status": "unconfigured",
+    "evidence": "Official portal consulted; no reviewed machine-readable authorization feed configured. This is not evidence that the jurisdiction has no licenses.",
+    "http_status": 200,
+    "snapshot_sha256": "a5e49e52e7221b8f66bc24c9aed8563ae84c4ad6816738a31c942cfdcfb496fb",
+    "final_url": "https://www.ma.gov.br/inicio"
+  },
+  {
+    "jurisdiction": "MT",
+    "url": "https://www.mt.gov.br/",
+    "consulted_at": "2026-09-30T13:04:17.341671+00:00",
+    "recheck_at": "2026-10-07T13:04:17.341671+00:00",
+    "status": "unconfigured",
+    "evidence": "Official portal consulted; no reviewed machine-readable authorization feed configured. This is not evidence that the jurisdiction has no licenses.",
+    "http_status": 200,
+    "snapshot_sha256": "fb2de5c6ac749342a66ee3adba29b410d8c1c097fe8cf47985cd98323aa52fda",
+    "final_url": "https://portal.mt.gov.br"
+  },
+  {
+    "jurisdiction": "MS",
+    "url": "https://www.ms.gov.br/",
+    "consulted_at": "2026-09-30T13:04:17.341671+00:00",
+    "recheck_at": "2026-10-07T13:04:17.341671+00:00",
+    "status": "unconfigured",
+    "evidence": "Official portal consulted; no reviewed machine-readable authorization feed configured. This is not evidence that the jurisdiction has no licenses.",
+    "http_status": 200,
+    "snapshot_sha256": "f8bcb9bdd1658df9560f228697f78e2516e0c21cf2111282b1abab2bc38216cf",
+    "final_url": "https://www.ms.gov.br/"
+  },
+  {
+    "jurisdiction": "MG",
+    "url": "https://www.loterias.mg.gov.br/",
+    "consulted_at": "2026-09-30T13:04:17.341671+00:00",
+    "recheck_at": "2026-10-07T13:04:17.341671+00:00",
+    "status": "unavailable",
+    "evidence": "Official portal unavailable during consultation (ConnectError); authorization coverage remains unknown."
+  },
+  {
+    "jurisdiction": "PA",
+    "url": "https://www.pa.gov.br/",
+    "consulted_at": "2026-09-30T13:04:17.341671+00:00",
+    "recheck_at": "2026-10-07T13:04:17.341671+00:00",
+    "status": "unconfigured",
+    "evidence": "Official portal consulted; no reviewed machine-readable authorization feed configured. This is not evidence that the jurisdiction has no licenses.",
+    "http_status": 200,
+    "snapshot_sha256": "2590b77c0d5cf36863e12325ede8556ea7b82cdeadb878bd695c2b95ad6e13b5",
+    "final_url": "https://www.pa.gov.br/"
+  },
+  {
+    "jurisdiction": "PB",
+    "url": "https://lotep.pb.gov.br/",
+    "consulted_at": "2026-09-30T13:04:17.341671+00:00",
+    "recheck_at": "2026-10-07T13:04:17.341671+00:00",
+    "status": "unconfigured",
+    "evidence": "Official portal consulted; no reviewed machine-readable authorization feed configured. This is not evidence that the jurisdiction has no licenses.",
+    "http_status": 200,
+    "snapshot_sha256": "cb91be06a2ff8518c2576353f6f14ce0e08f986fb4fc2fd2fa8cc703da799f13",
+    "final_url": "https://lotep.pb.gov.br/"
+  },
+  {
+    "jurisdiction": "PR",
+    "url": "https://www.lottopar.pr.gov.br/",
+    "consulted_at": "2026-09-30T13:04:17.341671+00:00",
+    "recheck_at": "2026-10-07T13:04:17.341671+00:00",
+    "status": "unconfigured",
+    "evidence": "Official portal consulted; no reviewed machine-readable authorization feed configured. This is not evidence that the jurisdiction has no licenses.",
+    "http_status": 200,
+    "snapshot_sha256": "1e3be6133878367c6bbe35a6c6365a787df099758d7b45efbfbbedfc13cc8926",
+    "final_url": "https://www.lottopar.pr.gov.br/"
+  },
+  {
+    "jurisdiction": "PE",
+    "url": "https://www.pe.gov.br/",
+    "consulted_at": "2026-09-30T13:04:17.341671+00:00",
+    "recheck_at": "2026-10-07T13:04:17.341671+00:00",
+    "status": "unconfigured",
+    "evidence": "Official portal consulted; no reviewed machine-readable authorization feed configured. This is not evidence that the jurisdiction has no licenses.",
+    "http_status": 200,
+    "snapshot_sha256": "57c3299b2259997f0ca9a8e463582bdb7d9bf33e4089632f10b5cbac431ef45b",
+    "final_url": "https://www.pe.gov.br/"
+  },
+  {
+    "jurisdiction": "PI",
+    "url": "https://www.pi.gov.br/",
+    "consulted_at": "2026-09-30T13:04:17.341671+00:00",
+    "recheck_at": "2026-10-07T13:04:17.341671+00:00",
+    "status": "unconfigured",
+    "evidence": "Official portal consulted; no reviewed machine-readable authorization feed configured. This is not evidence that the jurisdiction has no licenses.",
+    "http_status": 200,
+    "snapshot_sha256": "f11ea2abd1f41422e17296be78160fe748f70707e87b1b9266983b56a82ab218",
+    "final_url": "https://www.pi.gov.br/home2/"
+  },
+  {
+    "jurisdiction": "RJ",
+    "url": "https://www.loterj.rj.gov.br/",
+    "consulted_at": "2026-09-30T13:04:17.341671+00:00",
+    "recheck_at": "2026-10-07T13:04:17.341671+00:00",
+    "status": "unavailable",
+    "evidence": "Official portal unavailable during consultation (ConnectError); authorization coverage remains unknown."
+  },
+  {
+    "jurisdiction": "RN",
+    "url": "https://www.rn.gov.br/",
+    "consulted_at": "2026-09-30T13:04:17.341671+00:00",
+    "recheck_at": "2026-10-07T13:04:17.341671+00:00",
+    "status": "unconfigured",
+    "evidence": "Official portal consulted; no reviewed machine-readable authorization feed configured. This is not evidence that the jurisdiction has no licenses.",
+    "http_status": 200,
+    "snapshot_sha256": "fccf54a32275c0176da897091c82fbf501312410570ed7b46ba8ad4ce09141bf",
+    "final_url": "https://www.rn.gov.br/"
+  },
+  {
+    "jurisdiction": "RS",
+    "url": "https://www.rs.gov.br/",
+    "consulted_at": "2026-09-30T13:04:17.341671+00:00",
+    "recheck_at": "2026-10-07T13:04:17.341671+00:00",
+    "status": "unconfigured",
+    "evidence": "Official portal consulted; no reviewed machine-readable authorization feed configured. This is not evidence that the jurisdiction has no licenses.",
+    "http_status": 200,
+    "snapshot_sha256": "69300be1b8d1064536d7f07a137c2827c450955f2f5b9cff2df8596b7b77ad67",
+    "final_url": "https://www.rs.gov.br/inicial"
+  },
+  {
+    "jurisdiction": "RO",
+    "url": "https://www.ro.gov.br/",
+    "consulted_at": "2026-09-30T13:04:17.341671+00:00",
+    "recheck_at": "2026-10-07T13:04:17.341671+00:00",
+    "status": "unconfigured",
+    "evidence": "Official portal consulted; no reviewed machine-readable authorization feed configured. This is not evidence that the jurisdiction has no licenses.",
+    "http_status": 200,
+    "snapshot_sha256": "b9eec4cef6678c59e18f3153921011c7f0e5cdfb1afb20c70df08e10bee57576",
+    "final_url": "https://www.ro.gov.br/"
+  },
+  {
+    "jurisdiction": "RR",
+    "url": "https://www.rr.gov.br/",
+    "consulted_at": "2026-09-30T13:04:17.341671+00:00",
+    "recheck_at": "2026-10-07T13:04:17.341671+00:00",
+    "status": "unavailable",
+    "evidence": "Official portal unavailable during consultation (ConnectTimeout); authorization coverage remains unknown."
+  },
+  {
+    "jurisdiction": "SC",
+    "url": "https://www.sc.gov.br/",
+    "consulted_at": "2026-09-30T13:04:17.341671+00:00",
+    "recheck_at": "2026-10-07T13:04:17.341671+00:00",
+    "status": "unconfigured",
+    "evidence": "Official portal consulted; no reviewed machine-readable authorization feed configured. This is not evidence that the jurisdiction has no licenses.",
+    "http_status": 200,
+    "snapshot_sha256": "c740543cd0986b04c2c0dde59b2ebbd1ee1090da5eb1159d9d855b541234af32",
+    "final_url": "https://www.sc.gov.br/"
+  },
+  {
+    "jurisdiction": "SP",
+    "url": "https://portal.fazenda.sp.gov.br/",
+    "consulted_at": "2026-09-30T13:04:17.341671+00:00",
+    "recheck_at": "2026-10-07T13:04:17.341671+00:00",
+    "status": "unconfigured",
+    "evidence": "Official portal consulted; no reviewed machine-readable authorization feed configured. This is not evidence that the jurisdiction has no licenses.",
+    "http_status": 200,
+    "snapshot_sha256": "18a7ab84958e08f6b1e383c88de02aec4e080aeb36e8f1e680d6208a6b2d9081",
+    "final_url": "https://www.sfp.sp.gov.br/sefaz"
+  },
+  {
+    "jurisdiction": "SE",
+    "url": "https://www.se.gov.br/",
+    "consulted_at": "2026-09-30T13:04:17.341671+00:00",
+    "recheck_at": "2026-10-07T13:04:17.341671+00:00",
+    "status": "unconfigured",
+    "evidence": "Official portal consulted; no reviewed machine-readable authorization feed configured. This is not evidence that the jurisdiction has no licenses.",
+    "http_status": 200,
+    "snapshot_sha256": "e3610190479b6bb10b79409b6aeb114e8af37e39d94adc6d1f428433f7b100b3",
+    "final_url": "https://www.se.gov.br/"
+  },
+  {
+    "jurisdiction": "TO",
+    "url": "https://www.to.gov.br/",
+    "consulted_at": "2026-09-30T13:04:17.341671+00:00",
+    "recheck_at": "2026-10-07T13:04:17.341671+00:00",
+    "status": "unconfigured",
+    "evidence": "Official portal consulted; no reviewed machine-readable authorization feed configured. This is not evidence that the jurisdiction has no licenses.",
+    "http_status": 200,
+    "snapshot_sha256": "b740ce4f1616ca5a2948a255040c11db748d814a849c02a43dcf6b68d4713710",
+    "final_url": "https://www.to.gov.br/"
+  }
+]

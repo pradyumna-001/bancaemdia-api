@@ -199,7 +199,7 @@ def test_openapi_endpoint_matches_checked_in_snapshot(openapi_document: JsonObje
 @pytest.mark.contract
 def test_every_operation_has_human_documentation(openapi_document: JsonObject) -> None:
     operations = list(_operations(openapi_document))
-    assert len(operations) == 28
+    assert len(operations) == 32
     for method, path, operation in operations:
         location = f"{method.upper()} {path}"
         assert str(operation.get("summary", "")).strip(), location
@@ -224,7 +224,7 @@ def test_request_bodies_have_examples(openapi_document: JsonObject) -> None:
             assert media.get("example") is not None or media.get("examples"), (
                 f"{method.upper()} {path}: {media_type} lacks an example"
             )
-    assert bodies == 10
+    assert bodies == 11
 
 
 @pytest.mark.contract
@@ -242,6 +242,9 @@ def test_responses_cover_success_and_failures_with_schemas(openapi_document: Jso
             response = _as_object(response_value)
             assert str(response.get("description", "")).strip(), f"{location}: {code} description"
             content = response.get("content")
+            if code == "304":
+                assert content is None, "HTTP 304 cannot carry a response body"
+                continue
             assert isinstance(content, dict) and content, f"{location}: {code} content"
             for media_type, media_value in content.items():
                 schema = _as_object(_as_object(media_value).get("schema"))
@@ -350,6 +353,16 @@ def test_security_and_binary_media_are_explicit(openapi_document: JsonObject) ->
     paths = _as_object(openapi_document["paths"])
     for path in ("/coleta", "/api/v1/coleta"):
         assert _as_object(_as_object(paths[path])["post"])["security"] == [{"CollectionToken": []}]
+    assert _as_object(_as_object(paths["/api/v1/coleta/catalogo"])["get"])["security"] == [
+        {"InstallationToken": []}
+    ]
+    assert _as_object(schemes["InstallationToken"])["name"] == "X-Coleta-Token"
+    for method, path in (
+        ("post", "/api/v1/catalogo/candidatos"),
+        ("get", "/api/v1/admin/casas"),
+        ("get", "/api/v1/admin/casas/export"),
+    ):
+        assert _as_object(_as_object(paths[path])[method])["security"] == [{"BearerAuth": []}]
 
     metrics = _as_object(_as_object(_as_object(paths["/metrics"])["get"])["responses"])
     assert "text/plain" in _as_object(_as_object(metrics["200"])["content"])
@@ -564,6 +577,10 @@ negative_schema = (
     )
     # This authenticated stats operation has no request input to invalidate.
     .exclude(path="/api/v1/revisao/stats")
+    # Like stats, these GET operations have no request input to invalidate.
+    .exclude(path_regex=r"^/api/v1/admin/casas(?:/export)?$")
+    # This installation-authenticated operation has a dedicated negative/real HTTP contract suite.
+    .exclude(path="/api/v1/coleta/catalogo")
 )
 
 
@@ -571,4 +588,8 @@ negative_schema = (
 @negative_schema.parametrize()
 def test_schemathesis_invalid_protected_requests(case: schemathesis.Case) -> None:
     response = case.call_and_validate()
-    assert response.status_code == 401
+    if case.path == "/api/v1/catalogo/candidatos" and case.method.upper() != "POST":
+        assert response.status_code == 405
+        assert "POST" in response.headers["allow"]
+    else:
+        assert response.status_code == 401
