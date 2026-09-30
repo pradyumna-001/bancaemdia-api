@@ -42,10 +42,10 @@ python scripts/generate_openapi.py
 | `POST` | `/api/v1/upload` | Enviar exportação do Telegram | `202`, `400`, `401`, `403`, `413`, `422`, `429`, `500`, `503` | — |
 | `GET` | `/api/v1/upload/{job_id}` | Consultar processamento do upload | `200`, `401`, `404`, `422`, `429`, `500`, `503` | — |
 | `GET` | `/auth/callback` | Concluir identidade verificada | `302`, `400`, `401`, `403`, `409`, `422`, `429`, `500`, `503` | Identity |
-| `GET` | `/auth/jwks` | Consultar chaves públicas | `200`, `400`, `401`, `403`, `409`, `429`, `500`, `503` | Identity |
+| `GET` | `/auth/jwks` | Consultar chaves públicas | `200`, `400`, `401`, `403`, `409`, `422`, `429`, `500`, `503` | Identity |
 | `POST` | `/auth/logout` | Revogar sessão | `200`, `400`, `401`, `403`, `409`, `422`, `429`, `500`, `503` | Identity |
-| `POST` | `/auth/refresh` | Renovar sessão | `200`, `400`, `401`, `403`, `409`, `429`, `500`, `503` | Identity |
-| `GET` | `/auth/session` | Consultar sessão | `200`, `400`, `401`, `403`, `409`, `429`, `500`, `503` | Identity |
+| `POST` | `/auth/refresh` | Renovar sessão | `200`, `400`, `401`, `403`, `409`, `422`, `429`, `500`, `503` | Identity |
+| `GET` | `/auth/session` | Consultar sessão | `200`, `400`, `401`, `403`, `409`, `422`, `429`, `500`, `503` | Identity |
 | `GET` | `/auth/start` | Iniciar login hospedado | `302`, `400`, `401`, `403`, `409`, `422`, `429`, `500`, `503` | Identity |
 | `POST` | `/coleta` | Receber coleta da extensão | `200`, `400`, `403`, `413`, `429`, `500`, `503` | — |
 | `GET` | `/health` | Consultar liveness | `200`, `500` | — |

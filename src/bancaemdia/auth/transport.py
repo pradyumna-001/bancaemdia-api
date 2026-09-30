@@ -68,7 +68,9 @@ class IdentityTransportMiddleware(BaseHTTPMiddleware):
                 if (
                     origin not in origins
                     or not cookie
-                    or not secrets.compare_digest(proof, identity_service().keys.csrf(cookie))
+                    or not secrets.compare_digest(
+                        proof.encode(), identity_service().keys.csrf(cookie).encode()
+                    )
                 ):
                     response = failure(IdentityError("csrf_failed", 403), legacy=legacy)
                 else:

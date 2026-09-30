@@ -22,6 +22,7 @@ from uuid import uuid4
 
 import httpx
 import pytest
+from playwright.async_api import TimeoutError as BrowserTimeout
 from playwright.async_api import async_playwright
 from sqlalchemy import text
 from sqlalchemy.engine import make_url
@@ -327,11 +328,31 @@ async def mark_external_email_unconfirmed(email):
 
 async def login(page, email, password, *, intent="login"):
     await page.goto(API + "/auth/start?return_to=/signed-in&intent=" + intent)
-    await page.locator("#username").fill(email)
+    if await page.locator("#username").is_visible():
+        await page.locator("#username").fill(email)
+        if not await page.locator("#password").count():
+            await page.locator("#kc-login").click()
+    try:
+        await page.locator("#password").wait_for(timeout=5000)
+    except BrowserTimeout:
+        # No URLs with codes/action tokens, no input values, passwords or provider responses.
+        controls = await page.locator("input").evaluate_all(
+            "nodes=>nodes.map(n=>({id:n.id,name:n.name,type:n.type}))"
+        )
+        pytest.fail(
+            "Hosted login has no password form: "
+            + json.dumps({
+                "path": urlsplit(page.url).path,
+                "title": await page.title(),
+                "controls": controls,
+            })
+        )
     await page.locator("#password").fill(password)
     await page.locator("#kc-login").click()
     await page.wait_for_url(FRONT + "/signed-in", timeout=30000)
-    return (await fetch(page, "/auth/session"))["data"]
+    result = await fetch(page, "/auth/session")
+    assert result["status"] == 200 and result["data"]["email"] == email
+    return result["data"]
 
 
 async def register(page, email, password, *, fail_jwks=False, harness=None):
@@ -509,7 +530,8 @@ async def test_real_registration_refresh_recovery_isolation_and_revocation(harne
         assert (await fetch(pa, "/api/v1/apostas"))["status"] == 401
         cookie_recovery, live = await harness.credentials(recovery)
         await pa.goto(API + "/auth/start?return_to=/signed-in")
-        await pa.locator("#username").fill(email_a)
+        if await pa.locator("#username").is_visible():
+            await pa.locator("#username").fill(email_a)
         await pa.locator("#password").fill(password_a)
         await pa.locator("#kc-login").click()
         await pa.get_by_text("Invalid username or password.", exact=True).wait_for()

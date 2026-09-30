@@ -47,6 +47,23 @@ class IdentityService:
         self.keys = IdentityKeys(settings)
         self.oidc = OIDCClient(settings)
 
+    async def verify_database_role(self) -> None:
+        async with self.engine.connect() as conn:
+            unsafe = await conn.scalar(
+                text("""
+                SELECT NOT pg_has_role(current_user,'bancaemdia_auth','MEMBER')
+                  OR NOT has_schema_privilege(current_user,'auth_private','USAGE')
+                  OR NOT has_table_privilege(current_user,'public.usuarios','INSERT')
+                  OR has_table_privilege(current_user,'public.apostas','SELECT')
+                  OR has_table_privilege(current_user,'public.usuarios','UPDATE')
+                  OR has_table_privilege(current_user,'auth_private.identities','UPDATE')
+                  OR has_table_privilege(current_user,'auth_private.audit','DELETE')
+                  OR EXISTS (SELECT 1 FROM pg_roles r WHERE pg_has_role(current_user,r.oid,'MEMBER') AND (r.rolsuper OR r.rolbypassrls))
+            """)
+            )
+        if unsafe is not False:
+            raise ValueError("Identity database credential must be a limited, separate auth role")
+
     async def begin(self, return_to: str, intent: str = "login") -> tuple[str, str]:
         return_to = destination(return_to)
         state, browser, nonce, verifier = (secrets.token_urlsafe(32) for _ in range(4))

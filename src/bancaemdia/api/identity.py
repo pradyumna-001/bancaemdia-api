@@ -48,6 +48,7 @@ AUTH_ERRORS: dict[int | str, dict[str, Any]] = {
         401: "Session/identity is missing, expired, revoked or inactive.",
         403: "Email is unconfirmed or origin/CSRF proof is invalid.",
         409: "Email conflicts with a different internal identity; never auto-linked.",
+        422: "Invalid identity query; sensitive input is never reflected in the response.",
         429: "Authentication traffic is rate limited.",
         503: "Identity is not configured or issuer/database is temporarily unavailable.",
     }.items()

@@ -184,3 +184,15 @@ def test_existing_api_error_body_is_preserved_and_auth_code_is_an_additive_heade
     assert json.loads(legacy.body) == {"detail": "Identity request could not be completed"}
     assert legacy.headers["x-auth-error"] == "access_expired"
     AuthFailure.model_validate_json(failure(reason).body)
+
+
+async def test_identity_query_validation_does_not_reflect_authorization_codes():
+    from bancaemdia.main import app
+
+    code = "SECRET-CODE-" + "x" * 4097
+    async with httpx.AsyncClient(
+        transport=httpx.ASGITransport(app=app), base_url="http://test"
+    ) as client:
+        response = await client.get("/auth/callback", params={"state": "state", "code": code})
+    assert response.status_code == 422 and response.json()["code"] == "invalid_request"
+    assert "SECRET-CODE" not in response.text and "input" not in response.json()

@@ -121,6 +121,7 @@ async def test_inactive_link_cannot_be_reactivated_by_login(identity_service_db,
 async def test_ordinary_api_role_has_no_private_identity_or_token_access(
     engine_app, engine_admin, identity_service_db
 ):
+    await identity_service_db.verify_database_role()
     async with engine_app.connect() as conn:
         with pytest.raises(DBAPIError):
             await conn.execute(text("SELECT encrypted FROM auth_private.sessions"))
@@ -140,3 +141,11 @@ async def test_ordinary_api_role_has_no_private_identity_or_token_access(
         assert not await conn.scalar(
             text("SELECT rolbypassrls FROM pg_roles WHERE rolname=current_user")
         )
+
+
+async def test_startup_refuses_database_owner_as_identity_credential(
+    identity_service_db, engine_admin
+):
+    unsafe = IdentityService(identity_service_db.settings, engine_admin)
+    with pytest.raises(ValueError, match="limited, separate auth role"):
+        await unsafe.verify_database_role()
