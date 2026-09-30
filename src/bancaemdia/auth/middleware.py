@@ -20,12 +20,20 @@ PUBLIC_PATHS = frozenset({
     "/metrics",
     "/coleta",
     "/api/v1/coleta",
+    "/api/v1/coleta/catalogo",
     "/webhook/upload-complete",
     "/openapi.json",
     "/docs",
     "/docs/oauth2-redirect",
     "/redoc",
 })
+
+CATALOG_METHODS = {
+    "/api/v1/coleta/catalogo": "GET",
+    "/api/v1/admin/casas": "GET",
+    "/api/v1/admin/casas/export": "GET",
+    "/api/v1/catalogo/candidatos": "POST",
+}
 
 
 def route_path(request: Request) -> str:
@@ -48,6 +56,13 @@ class JWTAuthMiddleware(BaseHTTPMiddleware):
     async def dispatch(
         self, request: Request, call_next: Callable[[Request], Awaitable[Response]]
     ) -> Response:
+        allowed = CATALOG_METHODS.get(route_path(request))
+        if allowed is not None and request.method != allowed:
+            return JSONResponse(
+                status_code=405,
+                content={"detail": "Method not allowed"},
+                headers={"Allow": allowed},
+            )
         if route_path(request) in PUBLIC_PATHS:
             return await call_next(request)
 

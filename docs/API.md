@@ -17,6 +17,8 @@ python scripts/generate_openapi.py
 
 | Method | Path | Summary | Responses | Tags |
 | --- | --- | --- | --- | --- |
+| `GET` | `/api/v1/admin/casas` | Consultar catálogo administrativo | `200`, `400`, `401`, `403`, `405`, `422`, `429`, `500`, `503` | — |
+| `GET` | `/api/v1/admin/casas/export` | Exportar catálogo administrativo | `200`, `400`, `401`, `403`, `405`, `422`, `429`, `500`, `503` | — |
 | `GET` | `/api/v1/apostas` | Listar apostas | `200`, `401`, `422`, `429`, `500`, `503` | — |
 | `POST` | `/api/v1/apostas` | Criar aposta manual | `201`, `401`, `409`, `413`, `422`, `429`, `500`, `503` | — |
 | `POST` | `/api/v1/apostas/importar-planilha` | Importar apostas do Excel | `200`, `401`, `413`, `422`, `429`, `500`, `503` | — |
@@ -30,7 +32,9 @@ python scripts/generate_openapi.py
 | `PATCH` | `/api/v1/caixa/contas/{conta_casa_id}/banca` | Vincular conta à banca | `200`, `401`, `404`, `413`, `422`, `429`, `500`, `503` | — |
 | `GET` | `/api/v1/caixa/extrato` | Consultar extrato | `200`, `401`, `422`, `429`, `500`, `503` | — |
 | `GET` | `/api/v1/caixa/saldo` | Consultar saldos | `200`, `401`, `422`, `429`, `500`, `503` | — |
+| `POST` | `/api/v1/catalogo/candidatos` | Confirmar acesso a domínio exato | `200`, `400`, `401`, `403`, `405`, `413`, `422`, `429`, `500`, `503` | — |
 | `POST` | `/api/v1/coleta` | Receber coleta da extensão | `200`, `400`, `403`, `413`, `429`, `500`, `503` | — |
+| `GET` | `/api/v1/coleta/catalogo` | Consultar catálogo assinado | `200`, `304`, `403`, `405`, `409`, `422`, `426`, `429`, `500`, `503` | — |
 | `GET` | `/api/v1/painel` | Consultar painel financeiro | `200`, `401`, `422`, `429`, `500`, `503` | — |
 | `GET` | `/api/v1/painel/export` | Exportar painel em Excel | `200`, `401`, `422`, `429`, `500`, `503` | — |
 | `GET` | `/api/v1/painel/metricas` | Consultar séries para gráficos | `200`, `401`, `422`, `429`, `500`, `503` | — |

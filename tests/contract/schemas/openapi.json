@@ -873,6 +873,203 @@
         "title": "Body_importar_planilha_api_v1_apostas_importar_planilha_post",
         "type": "object"
       },
+      "CatalogEntry": {
+        "additionalProperties": false,
+        "properties": {
+          "adapter": {
+            "anyOf": [
+              {
+                "pattern": "^[a-z0-9_-]{1,64}$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Adapter"
+          },
+          "adapter_version": {
+            "anyOf": [
+              {
+                "pattern": "^\\d+\\.\\d+\\.\\d+$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Adapter Version"
+          },
+          "aliases": {
+            "items": {
+              "type": "string"
+            },
+            "maxItems": 20,
+            "title": "Aliases",
+            "type": "array"
+          },
+          "brand": {
+            "maxLength": 120,
+            "minLength": 1,
+            "title": "Brand",
+            "type": "string"
+          },
+          "capture_evidence_sha256": {
+            "anyOf": [
+              {
+                "pattern": "^[0-9a-f]{64}$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Capture Evidence Sha256"
+          },
+          "hostname": {
+            "maxLength": 253,
+            "pattern": "^[a-z0-9.-]+$",
+            "title": "Hostname",
+            "type": "string"
+          },
+          "minimum_client_version": {
+            "default": "1.0.0",
+            "pattern": "^\\d+\\.\\d+\\.\\d+$",
+            "title": "Minimum Client Version",
+            "type": "string"
+          },
+          "redirect_chain": {
+            "items": {
+              "type": "string"
+            },
+            "maxItems": 10,
+            "title": "Redirect Chain",
+            "type": "array"
+          },
+          "rollout": {
+            "default": "disabled",
+            "enum": [
+              "disabled",
+              "canary",
+              "enabled",
+              "revoked"
+            ],
+            "title": "Rollout",
+            "type": "string"
+          },
+          "schema_version": {
+            "default": 1,
+            "maximum": 1000.0,
+            "minimum": 1.0,
+            "title": "Schema Version",
+            "type": "integer"
+          },
+          "support": {
+            "$ref": "#/components/schemas/Support",
+            "default": "nao_avaliado"
+          }
+        },
+        "required": [
+          "brand",
+          "hostname"
+        ],
+        "title": "CatalogEntry",
+        "type": "object"
+      },
+      "CatalogEnvelope": {
+        "additionalProperties": false,
+        "properties": {
+          "payload": {
+            "$ref": "#/components/schemas/CatalogPayload"
+          },
+          "signature": {
+            "title": "Signature",
+            "type": "string"
+          }
+        },
+        "required": [
+          "payload",
+          "signature"
+        ],
+        "title": "CatalogEnvelope",
+        "type": "object"
+      },
+      "CatalogPayload": {
+        "additionalProperties": false,
+        "properties": {
+          "algorithm": {
+            "const": "Ed25519",
+            "title": "Algorithm",
+            "type": "string"
+          },
+          "catalog_version": {
+            "maximum": 9007199254740991.0,
+            "minimum": 1.0,
+            "title": "Catalog Version",
+            "type": "integer"
+          },
+          "contract_version": {
+            "const": 1,
+            "title": "Contract Version",
+            "type": "integer"
+          },
+          "entries": {
+            "items": {
+              "$ref": "#/components/schemas/CatalogEntry"
+            },
+            "title": "Entries",
+            "type": "array"
+          },
+          "environment": {
+            "maxLength": 40,
+            "minLength": 1,
+            "title": "Environment",
+            "type": "string"
+          },
+          "expires_at": {
+            "format": "date-time",
+            "title": "Expires At",
+            "type": "string"
+          },
+          "issued_at": {
+            "format": "date-time",
+            "title": "Issued At",
+            "type": "string"
+          },
+          "key_id": {
+            "maxLength": 80,
+            "minLength": 1,
+            "title": "Key Id",
+            "type": "string"
+          },
+          "last_known_good": {
+            "$ref": "#/components/schemas/LastKnownGood"
+          },
+          "minimum_client_version": {
+            "pattern": "^\\d+\\.\\d+\\.\\d+$",
+            "title": "Minimum Client Version",
+            "type": "string"
+          },
+          "trust_roots": {
+            "$ref": "#/components/schemas/TrustRoots"
+          }
+        },
+        "required": [
+          "catalog_version",
+          "contract_version",
+          "environment",
+          "issued_at",
+          "expires_at",
+          "minimum_client_version",
+          "last_known_good",
+          "entries",
+          "key_id",
+          "algorithm",
+          "trust_roots"
+        ],
+        "title": "CatalogPayload",
+        "type": "object"
+      },
       "CollectionRejectedItem": {
         "additionalProperties": false,
         "properties": {
@@ -1623,6 +1820,20 @@
         "title": "GrupoSaida",
         "type": "object"
       },
+      "HTTPValidationError": {
+        "additionalProperties": false,
+        "properties": {
+          "detail": {
+            "items": {
+              "$ref": "#/components/schemas/ValidationError"
+            },
+            "title": "Detail",
+            "type": "array"
+          }
+        },
+        "title": "HTTPValidationError",
+        "type": "object"
+      },
       "ItemErroValidacaoSaida": {
         "additionalProperties": false,
         "properties": {
@@ -1704,6 +1915,39 @@
         ],
         "title": "JsonValue"
       },
+      "LastKnownGood": {
+        "additionalProperties": false,
+        "properties": {
+          "maximum_age_seconds": {
+            "const": 86400,
+            "title": "Maximum Age Seconds",
+            "type": "integer"
+          },
+          "new_hosts_allowed": {
+            "const": false,
+            "title": "New Hosts Allowed",
+            "type": "boolean"
+          },
+          "requires_previously_verified_signature": {
+            "const": true,
+            "title": "Requires Previously Verified Signature",
+            "type": "boolean"
+          },
+          "revoked_hosts_allowed": {
+            "const": false,
+            "title": "Revoked Hosts Allowed",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "maximum_age_seconds",
+          "new_hosts_allowed",
+          "revoked_hosts_allowed",
+          "requires_previously_verified_signature"
+        ],
+        "title": "LastKnownGood",
+        "type": "object"
+      },
       "LivenessResponse": {
         "additionalProperties": false,
         "properties": {
@@ -1717,6 +1961,70 @@
           "status"
         ],
         "title": "LivenessResponse",
+        "type": "object"
+      },
+      "ManualCandidate": {
+        "additionalProperties": false,
+        "properties": {
+          "access_confirmed": {
+            "title": "Access Confirmed",
+            "type": "boolean"
+          },
+          "brand": {
+            "maxLength": 120,
+            "minLength": 1,
+            "title": "Brand",
+            "type": "string"
+          },
+          "confirmed_at": {
+            "format": "date-time",
+            "title": "Confirmed At",
+            "type": "string"
+          },
+          "evidence_sha256": {
+            "pattern": "^[0-9a-f]{64}$",
+            "title": "Evidence Sha256",
+            "type": "string"
+          },
+          "hostname": {
+            "maxLength": 253,
+            "minLength": 3,
+            "title": "Hostname",
+            "type": "string"
+          }
+        },
+        "required": [
+          "brand",
+          "hostname",
+          "access_confirmed",
+          "confirmed_at",
+          "evidence_sha256"
+        ],
+        "title": "ManualCandidate",
+        "type": "object"
+      },
+      "ManualReceipt": {
+        "additionalProperties": false,
+        "properties": {
+          "brand": {
+            "title": "Brand",
+            "type": "string"
+          },
+          "hostname": {
+            "title": "Hostname",
+            "type": "string"
+          },
+          "situation": {
+            "default": "acesso_confirmado",
+            "title": "Situation",
+            "type": "string"
+          }
+        },
+        "required": [
+          "brand",
+          "hostname"
+        ],
+        "title": "ManualReceipt",
         "type": "object"
       },
       "MetricasGraficosSaida": {
@@ -3025,6 +3333,17 @@
         "title": "SaldoContaSaida",
         "type": "object"
       },
+      "Support": {
+        "enum": [
+          "nao_avaliado",
+          "precisa_captura",
+          "em_desenvolvimento",
+          "suportado",
+          "bloqueado_externo",
+          "regressao"
+        ],
+        "type": "string"
+      },
       "TipoMovimentoConsulta": {
         "enum": [
           "DEPOSITO",
@@ -3035,6 +3354,54 @@
         ],
         "title": "TipoMovimentoConsulta",
         "type": "string"
+      },
+      "TrustRoot": {
+        "additionalProperties": false,
+        "properties": {
+          "algorithm": {
+            "default": "Ed25519",
+            "title": "Algorithm",
+            "type": "string"
+          },
+          "key_id": {
+            "title": "Key Id",
+            "type": "string"
+          },
+          "public_key": {
+            "title": "Public Key",
+            "type": "string"
+          }
+        },
+        "required": [
+          "key_id",
+          "public_key"
+        ],
+        "title": "TrustRoot",
+        "type": "object"
+      },
+      "TrustRoots": {
+        "additionalProperties": false,
+        "properties": {
+          "current": {
+            "$ref": "#/components/schemas/TrustRoot"
+          },
+          "next": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/TrustRoot"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "required": [
+          "current",
+          "next"
+        ],
+        "title": "TrustRoots",
+        "type": "object"
       },
       "UploadAcceptedResponse": {
         "additionalProperties": false,
@@ -3225,6 +3592,48 @@
           "concluido_em"
         ],
         "title": "UploadStatusResponse",
+        "type": "object"
+      },
+      "ValidationError": {
+        "additionalProperties": false,
+        "properties": {
+          "ctx": {
+            "additionalProperties": false,
+            "title": "Context",
+            "type": "object"
+          },
+          "input": {
+            "title": "Input"
+          },
+          "loc": {
+            "items": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "integer"
+                }
+              ]
+            },
+            "title": "Location",
+            "type": "array"
+          },
+          "msg": {
+            "title": "Message",
+            "type": "string"
+          },
+          "type": {
+            "title": "Error Type",
+            "type": "string"
+          }
+        },
+        "required": [
+          "loc",
+          "msg",
+          "type"
+        ],
+        "title": "ValidationError",
         "type": "object"
       },
       "ValidationErrorResponse": {
@@ -3468,6 +3877,212 @@
   },
   "openapi": "3.1.0",
   "paths": {
+    "/api/v1/admin/casas": {
+      "get": {
+        "description": "Leitura auditada com autorização explícita de operador e RLS.",
+        "operationId": "coverage_api_v1_admin_casas_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": {
+                    "$ref": "#/components/schemas/JsonValue"
+                  },
+                  "title": "Response Coverage Api V1 Admin Casas Get",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Exact host/access confirmation required."
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Missing, expired, or invalid bearer token."
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Explicit catalog operator authorization required."
+          },
+          "405": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Method not allowed"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorOrValidationResponse"
+                }
+              }
+            },
+            "description": "The request does not satisfy the published contract or a domain rule."
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "The caller exceeded an applicable request limit."
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unexpected internal failure with no sensitive exception details."
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "A required dependency is temporarily unavailable."
+          }
+        },
+        "summary": "Consultar catálogo administrativo"
+      }
+    },
+    "/api/v1/admin/casas/export": {
+      "get": {
+        "description": "Exportação JSON auditada da campanha e matriz das 27 jurisdições.",
+        "operationId": "coverage_api_v1_admin_casas_export_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": {
+                    "$ref": "#/components/schemas/JsonValue"
+                  },
+                  "title": "Response Coverage Api V1 Admin Casas Export Get",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Exact host/access confirmation required."
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Missing, expired, or invalid bearer token."
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Explicit catalog operator authorization required."
+          },
+          "405": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Method not allowed"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorOrValidationResponse"
+                }
+              }
+            },
+            "description": "The request does not satisfy the published contract or a domain rule."
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "The caller exceeded an applicable request limit."
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unexpected internal failure with no sensitive exception details."
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "A required dependency is temporarily unavailable."
+          }
+        },
+        "summary": "Exportar catálogo administrativo"
+      }
+    },
     "/api/v1/apostas": {
       "get": {
         "description": "Lista apostas do usuário com filtros temporais, dimensionais e paginação.",
@@ -5259,6 +5874,138 @@
         "summary": "Consultar saldos"
       }
     },
+    "/api/v1/catalogo/candidatos": {
+      "post": {
+        "description": "Registra confirmação de acesso do usuário, sem afirmar autorização ou suporte técnico.",
+        "operationId": "candidate_api_v1_catalogo_candidatos_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "examples": {
+                "default": {
+                  "summary": "Confirmação sem credenciais",
+                  "value": {
+                    "access_confirmed": true,
+                    "brand": "EXEMPLO",
+                    "confirmed_at": "2026-09-29T12:00:00+00:00",
+                    "evidence_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+                    "hostname": "exemplo.bet.br"
+                  }
+                }
+              },
+              "schema": {
+                "$ref": "#/components/schemas/ManualCandidate"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ManualReceipt"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Exact host/access confirmation required."
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Missing, expired, or invalid bearer token."
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Explicit catalog operator authorization required."
+          },
+          "405": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Method not allowed"
+          },
+          "413": {
+            "content": {
+              "text/plain": {
+                "example": "Content Too Large",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            },
+            "description": "The request body exceeds the server-wide streaming limit."
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorOrValidationResponse"
+                }
+              }
+            },
+            "description": "The request does not satisfy the published contract or a domain rule."
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "The caller exceeded an applicable request limit."
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unexpected internal failure with no sensitive exception details."
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "A required dependency is temporarily unavailable."
+          }
+        },
+        "summary": "Confirmar acesso a domínio exato"
+      }
+    },
     "/api/v1/coleta": {
       "post": {
         "description": "Alias versionado para receber um lote bruto e agendar sua materialização idempotente.",
@@ -5399,6 +6146,186 @@
           }
         ],
         "summary": "Receber coleta da extensão"
+      }
+    },
+    "/api/v1/coleta/catalogo": {
+      "get": {
+        "description": "Projeção técnica autenticada pela instalação, sem evidência regulatória ou permissões de navegador.",
+        "operationId": "catalog_api_v1_coleta_catalogo_get",
+        "parameters": [
+          {
+            "description": "Versão estável do cliente em três componentes.",
+            "in": "query",
+            "name": "client_version",
+            "required": true,
+            "schema": {
+              "pattern": "^\\d+\\.\\d+\\.\\d+$",
+              "title": "Client Version",
+              "type": "string"
+            }
+          },
+          {
+            "description": "Ambiente esperado, vinculado à assinatura.",
+            "in": "query",
+            "name": "environment",
+            "required": true,
+            "schema": {
+              "maxLength": 40,
+              "minLength": 1,
+              "title": "Environment",
+              "type": "string"
+            }
+          },
+          {
+            "description": "Maior versão já verificada; downgrade é recusado.",
+            "in": "query",
+            "name": "known_version",
+            "required": false,
+            "schema": {
+              "default": 0,
+              "maximum": 9007199254740991,
+              "minimum": 0,
+              "title": "Known Version",
+              "type": "integer"
+            }
+          },
+          {
+            "description": "Credencial opaca de instalação pareada, não token legado de usuário.",
+            "in": "header",
+            "name": "X-Coleta-Token",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "maxLength": 128,
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Coleta-Token"
+            }
+          },
+          {
+            "description": "ETag previamente autenticado e verificado.",
+            "in": "header",
+            "name": "If-None-Match",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "If-None-Match"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CatalogEnvelope"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "304": {
+            "description": "Authenticated current catalog is unchanged."
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Installation credential is invalid, expired or revoked."
+          },
+          "405": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Method not allowed"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Catalog environment or monotonic version differs."
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "426": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Client version is unsupported."
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Installation or IP quota exceeded"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unexpected internal failure with no sensitive exception details."
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "No unexpired signed publication or installation prerequisite."
+          }
+        },
+        "security": [
+          {
+            "CollectionToken": []
+          }
+        ],
+        "summary": "Consultar catálogo assinado"
       }
     },
     "/api/v1/painel": {

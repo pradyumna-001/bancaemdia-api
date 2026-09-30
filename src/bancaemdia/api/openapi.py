@@ -20,6 +20,22 @@ MANUAL_BET_HOUSES = sorted(
 
 
 OPERATION_DOCUMENTATION: dict[OperationKey, tuple[str, str]] = {
+    ("get", "/api/v1/coleta/catalogo"): (
+        "Consultar catálogo assinado",
+        "Projeção técnica autenticada pela instalação, sem evidência regulatória ou permissões de navegador.",
+    ),
+    ("get", "/api/v1/admin/casas"): (
+        "Consultar catálogo administrativo",
+        "Leitura auditada com autorização explícita de operador e RLS.",
+    ),
+    ("get", "/api/v1/admin/casas/export"): (
+        "Exportar catálogo administrativo",
+        "Exportação JSON auditada da campanha e matriz das 27 jurisdições.",
+    ),
+    ("post", "/api/v1/catalogo/candidatos"): (
+        "Confirmar acesso a domínio exato",
+        "Registra confirmação de acesso do usuário, sem afirmar autorização ou suporte técnico.",
+    ),
     ("post", "/coleta"): (
         "Receber coleta da extensão",
         "Recebe um lote bruto capturado pela extensão e agenda a materialização idempotente.",
@@ -136,6 +152,11 @@ OPERATION_DOCUMENTATION: dict[OperationKey, tuple[str, str]] = {
 
 
 PARAMETER_DESCRIPTIONS = {
+    "client_version": "Versão estável do cliente em três componentes.",
+    "environment": "Ambiente esperado, vinculado à assinatura.",
+    "known_version": "Maior versão já verificada; downgrade é recusado.",
+    "X-Coleta-Token": "Credencial opaca de instalação pareada, não token legado de usuário.",
+    "If-None-Match": "ETag previamente autenticado e verificado.",
     "Idempotency-Key": (
         "Chave opaca obrigatória do cliente; reutilizá-la com o mesmo corpo reproduz a resposta "
         "original sem lançar dinheiro novamente."
@@ -165,6 +186,16 @@ PARAMETER_DESCRIPTIONS = {
 
 
 REQUEST_EXAMPLES: dict[OperationKey, tuple[str, JsonObject]] = {
+    ("post", "/api/v1/catalogo/candidatos"): (
+        "Confirmação sem credenciais",
+        {
+            "brand": "EXEMPLO",
+            "hostname": "exemplo.bet.br",
+            "access_confirmed": True,
+            "confirmed_at": "2026-09-29T12:00:00+00:00",
+            "evidence_sha256": "a" * 64,
+        },
+    ),
     ("patch", "/api/v1/caixa/contas/{conta_casa_id}/banca"): (
         "Vincular conta à banca",
         {"banca_id": 12},
@@ -539,6 +570,11 @@ def _install_collection_security(document: JsonObject) -> None:
         "description": "Token opaco da extensão; armazenado no servidor somente como HMAC.",
     }
     paths = _object(document["paths"], context="paths")
+    catalog = _object(
+        _object(paths["/api/v1/coleta/catalogo"], context="catalog path")["get"],
+        context="catalog operation",
+    )
+    catalog["security"] = [{"CollectionToken": []}]
     for path in COLLECTION_PATHS:
         operation = _object(
             _object(paths[path], context=f"path {path}")["post"],
