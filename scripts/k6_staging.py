@@ -49,6 +49,36 @@ def state(directory: Path) -> dict:
     return json.loads((directory / "state.json").read_text(encoding="utf-8"))
 
 
+def process_cpu(info: dict) -> dict[str, float]:
+    """Numeric CPU diagnostics for this run's live Python process groups only."""
+    groups = dict(
+        zip(
+            info["processes"],
+            ("issuer", "extraction", "materialization", "api", "refresh"),
+            strict=False,
+        )
+    )
+    totals = dict.fromkeys(groups.values(), 0.0)
+    ticks = os.sysconf("SC_CLK_TCK")
+    for path in Path("/proc").glob("[0-9]*/stat"):
+        try:
+            fields = path.read_text().rsplit(")", 1)[1].split()
+            name = groups.get(int(fields[2]))
+            if name is not None:
+                totals[name] += (int(fields[11]) + int(fields[12])) / ticks
+        except (OSError, ValueError, IndexError):
+            continue
+    return totals
+
+
+def cpu_since_ready(info: dict) -> dict[str, float]:
+    baseline = info.get("cpu_baseline", {})
+    return {
+        name: round(max(0, value - baseline.get(name, 0)), 3)
+        for name, value in process_cpu(info).items()
+    }
+
+
 def mask(value: str) -> None:
     # No workflow receives production credentials. Still mask all ephemeral credentials.
     sys.stdout.write(f"::add-mask::{value}\n")
@@ -529,6 +559,9 @@ async def start(directory: Path) -> None:
                 f"JWT_TOKENS_JSON_{index + 1}={json.dumps(tokens['jwt'][index * 50 : (index + 1) * 50])}\n"
             )
         handle.write(f"COLETA_TOKENS_JSON={json.dumps(tokens['coleta'])}\n")
+    info = state(directory)
+    info["cpu_baseline"] = process_cpu(info)
+    write_private(directory / "state.json", info)
 
 
 async def refresh(directory: Path) -> None:
@@ -616,6 +649,7 @@ async def verify(directory: Path) -> None:
         "checkout_sha": command(["git", "rev-parse", "HEAD"], cwd=ROOT),
         "profile": profile,
         "environment": "ephemeral-github-runner-phase-0",
+        "live_process_cpu_seconds_since_ready": cpu_since_ready(info),
         "runner_cpus": os.cpu_count(),
         "http_workers": min(4, os.cpu_count() or 1),
         "api_pool_per_engine": {
@@ -671,6 +705,10 @@ def diagnose(directory: Path) -> None:
     """Write sanitized tails to the job log, never upload private runtime files."""
     if not (directory / "state.json").exists():
         return
+    sys.stdout.write(
+        json.dumps({"live_process_cpu_seconds_since_ready": cpu_since_ready(state(directory))})
+        + "\n"
+    )
     hidden = [value for value in state(directory).values() if isinstance(value, str)]
     for name in ("tokens.json", "env.json"):
         path = directory / name
