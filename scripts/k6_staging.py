@@ -484,6 +484,8 @@ async def start(directory: Path) -> None:
             "127.0.0.1",
             "--port",
             "18000",
+            "--workers",
+            "2",
             "--log-level",
             "warning",
             "--no-access-log",

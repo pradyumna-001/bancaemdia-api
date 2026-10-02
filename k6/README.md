@@ -10,6 +10,10 @@ de execução do k6 e enviava `Bearer undefined`. O alocador nunca emite tokens 
 a autenticação do backend; apenas distribui os tokens fornecidos. Não grava logs de
 acesso. Além dos limiares globais, limiares iguais exclusivos do tráfego da API impedem
 que as poucas requisições locais de alocação diluam as métricas de desempenho/falha.
+O servidor local aceita o início simultâneo dos 100 VUs de coleta/painel. A coleta mantém
+a cadência de seis segundos e, ao consumir as dez requisições da janela, aguarda o
+`X-RateLimit-Reset` informado pela API. Isso evita antecipar a renovação por variação de
+fila/recebimento no servidor. Respostas 429 continuam reprovando o teste.
 
 | Perfil | Carga | Fluxo |
 | --- | --- | --- |
@@ -26,7 +30,7 @@ O fluxo de upload usa `fixtures/telegram-small.zip`, um export sintético com um
 
 Sem `STAGING_BASE_URL`, o job `staging` cria seu próprio ambiente no runner Linux do
 GitHub Actions. Roda o backend do commit em teste, PostgreSQL 16 com streaming replica
-real, Redis, os workers Celery reais de extração/materialização e refresh periódico das
+real, Redis, dois workers HTTP, os workers Celery reais de extração/materialização e refresh periódico das
 materialized views. Cria 250 usuários sintéticos e 100 tokens de coleta, assina JWTs RS256
 com chave efêmera e serve o JWKS local. Não é o `mock_server.py` do smoke.
 
@@ -35,6 +39,11 @@ Os quatro perfis completos mantêm 55 minutos e todos os limiares originais. `K6
 persistidas, apostas Casa materializadas, streaming ativo e RLS sem acesso entre tenants.
 Um preflight autenticado de 30 segundos usa a API real antes da carga; falha rapidamente
 se houver problemas de credenciais. Ele não substitui os quatro perfis completos.
+Para o perfil completo, a Fase 0 também executa primeiro cinco minutos de coleta com 100
+VUs, os mesmos limiares e verificação de materialização. Isso detecta problemas de início
+simultâneo, quota e pipeline antes dos 55 minutos. As coletas dessa etapa permanecem no
+banco e suas contagens são incluídas na verificação final, além das coletas da carga completa.
+Seus relatórios próprios são publicados como `k6-coleta-preflight-*`.
 Os relatórios incluem `k6-staging-evidence.json` com SHA, contagens e fronteiras da prova.
 O mesmo cluster também executa `tests/integration/test_router_db.py` num banco separado,
 com `TEST_REPLICA_DATABASE_URL` real. O job exige JUnit sem skips/falhas para roteamento,

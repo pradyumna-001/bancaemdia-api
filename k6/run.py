@@ -70,13 +70,19 @@ def handler_for(leases: CredentialLeases) -> type[BaseHTTPRequestHandler]:
     return Handler
 
 
+class CredentialServer(ThreadingHTTPServer):
+    # Constant-VU scenarios start 100 users together. The stdlib default backlog of five
+    # dropped/timed out leases before they could reach the handler on the Linux runner.
+    request_queue_size = 512
+
+
 def main() -> int:
     leases = CredentialLeases(
         tokens("JWT_TOKENS_JSON"),
         tokens("COLETA_TOKENS_JSON"),
         os.environ.get("LOAD_PROFILE", "all"),
     )
-    server = ThreadingHTTPServer(("127.0.0.1", 0), handler_for(leases))
+    server = CredentialServer(("127.0.0.1", 0), handler_for(leases))
     worker = threading.Thread(target=server.serve_forever, daemon=True)
     worker.start()
     try:

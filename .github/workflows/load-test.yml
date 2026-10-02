@@ -30,6 +30,8 @@ jobs:
           k6-version: '1.3.0'
       - name: Inspect load test
         run: k6 inspect k6/load-test.js
+      - name: Check collection cadence at fixed-window reset boundaries
+        run: k6 run --vus 1 --iterations 1 k6/tests/pacing.js
       - name: Exercise all scenarios against local contract mock
         shell: bash
         run: |
@@ -99,6 +101,14 @@ jobs:
           test -z "${K6_LOCAL_SMOKE:-}" || { echo 'Smoke mode is forbidden for staging load'; exit 1; }
       - name: Authenticated preflight against the real API
         run: LOAD_PROFILE=cd-smoke python k6/run.py
+      - name: Five-minute collection preflight with 100 simultaneous users
+        if: vars.STAGING_BASE_URL == '' && env.LOAD_PROFILE == 'all'
+        run: |
+          LOAD_PROFILE=coleta python k6/run.py
+          LOAD_PROFILE=coleta python scripts/k6_staging.py verify
+          mv load-test-summary.json k6-coleta-preflight-summary.json
+          mv load-test-report.html k6-coleta-preflight-report.html
+          mv k6-staging-evidence.json k6-coleta-preflight-evidence.json
       - name: Run staging load profile and enforce thresholds
         run: python k6/run.py
       - name: Verify persisted uploads, bets, tenant isolation and real replication
@@ -114,6 +124,9 @@ jobs:
             load-test-summary.json
             k6-staging-evidence.json
             k6-router-test-results.xml
+            k6-coleta-preflight-summary.json
+            k6-coleta-preflight-report.html
+            k6-coleta-preflight-evidence.json
           if-no-files-found: warn
       - name: Sanitized backend diagnostics on failure
         if: failure() && vars.STAGING_BASE_URL == ''

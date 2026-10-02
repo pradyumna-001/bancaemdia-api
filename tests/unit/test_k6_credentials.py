@@ -1,8 +1,11 @@
 """Global VU IDs can be sparse/reused; leases must still give distinct scenario users."""
 
 import importlib.util
+import json
+import threading
 from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
+from urllib.request import urlopen
 
 import pytest
 
@@ -35,3 +38,31 @@ def test_invalid_credential_requests_are_refused(scenario, vu):
     leases = launcher.CredentialLeases(["synthetic-user"], [], "cd-smoke")
     with pytest.raises(ValueError, match="Invalid"):
         leases.acquire(scenario, vu)
+
+
+def test_http_server_accepts_one_hundred_simultaneous_distinct_leases():
+    tokens = [f"synthetic-collection-{i}" for i in range(100)]
+    leases = launcher.CredentialLeases([], tokens, "coleta")
+    server = launcher.CredentialServer(("127.0.0.1", 0), launcher.handler_for(leases))
+    worker = threading.Thread(target=server.serve_forever, daemon=True)
+    worker.start()
+    gate = threading.Barrier(101)
+
+    def acquire(vu):
+        gate.wait(timeout=10)
+        with urlopen(f"http://127.0.0.1:{server.server_port}/coleta/{vu}", timeout=5) as response:
+            assert response.status == 200
+            assert response.headers["Cache-Control"] == "no-store"
+            return json.load(response)["token"]
+
+    try:
+        with ThreadPoolExecutor(max_workers=100) as pool:
+            futures = [pool.submit(acquire, 10 + 7 * i) for i in range(100)]
+            gate.wait(timeout=10)
+            allocated = [future.result() for future in futures]
+        assert set(allocated) == set(tokens)
+        assert len(set(allocated)) == 100
+    finally:
+        server.shutdown()
+        server.server_close()
+        worker.join()
