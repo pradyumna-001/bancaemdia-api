@@ -41,7 +41,8 @@ function escape(value) {
 
 export function handleSummary(data) {
   const rows = Object.entries(data.metrics || {})
-    .filter(([name]) => ['http_req_duration', 'http_req_failed', 'checks_pass_rate',
+    .filter(([name]) => ['http_req_duration', 'http_req_failed', 'http_req_duration{staging_api:true}',
+      'http_req_failed{staging_api:true}', 'checks_pass_rate',
       'extraction_queue_depth', 'replica_lag', 'telemetry_available'].includes(name))
     .map(([name, metric]) => `<tr><td>${escape(name)}</td><td>${escape(JSON.stringify(metric.values || {}))}</td><td>${escape(JSON.stringify(metric.thresholds || {}))}</td></tr>`)
     .join('\n');

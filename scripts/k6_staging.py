@@ -14,6 +14,7 @@ import subprocess
 import sys
 import time
 from pathlib import Path
+from xml.etree import ElementTree
 
 import asyncpg
 import httpx
@@ -383,6 +384,56 @@ def spawn(directory: Path, args: list[str], name: str, env: dict) -> None:
     write_private(directory / "state.json", info)
 
 
+async def regressions(directory: Path) -> None:
+    info = state(directory)
+    env = json.loads((directory / "env.json").read_text(encoding="utf-8"))
+    conn = await connect(15432, info["admin_password"])
+    try:
+        await conn.execute("CREATE DATABASE k6_router_regression")
+    finally:
+        await conn.close()
+    primary = f"postgresql+asyncpg://k6_admin:{info['admin_password']}@127.0.0.1:15432/k6_router_regression"
+    replica = primary.replace(":15432/", ":15433/")
+    mask(primary)
+    mask(replica)
+    result = subprocess.run(
+        [
+            sys.executable,
+            "-m",
+            "pytest",
+            "tests/integration/test_router_db.py",
+            "-n",
+            "0",
+            "-q",
+            "--junitxml=k6-router-test-results.xml",
+        ],
+        cwd=ROOT,
+        env={
+            **os.environ,
+            **env,
+            "TEST_DATABASE_URL": primary,
+            "TEST_REPLICA_DATABASE_URL": replica,
+        },
+        stdout=subprocess.PIPE,
+        stderr=subprocess.STDOUT,
+        text=True,
+        check=False,
+    )
+    (directory / "router-tests.log").write_text(result.stdout, encoding="utf-8")
+    report = ROOT / "k6-router-test-results.xml"
+    if report.exists():
+        sanitized = report.read_text(encoding="utf-8")
+        for value in info.values():
+            if isinstance(value, str) and len(value) > 16:
+                sanitized = sanitized.replace(value, "[REDACTED]")
+        report.write_text(sanitized, encoding="utf-8")
+    if result.returncode:
+        raise RuntimeError("Real primary/standby regression tests failed")
+    root = ElementTree.parse(report).getroot()
+    if list(root.iter("skipped")) or list(root.iter("failure")) or list(root.iter("error")):
+        raise RuntimeError("Primary/standby regression must have no failures or skips")
+
+
 async def start(directory: Path) -> None:
     env = json.loads((directory / "env.json").read_text(encoding="utf-8"))
     spawn(
@@ -616,7 +667,8 @@ def diagnose(directory: Path) -> None:
 async def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument(
-        "operation", choices=["prepare", "start", "refresh", "verify", "cleanup", "diagnose"]
+        "operation",
+        choices=["prepare", "regressions", "start", "refresh", "verify", "cleanup", "diagnose"],
     )
     operation = parser.parse_args().operation
     directory = runtime_dir()
@@ -625,9 +677,13 @@ async def main() -> None:
     elif operation == "diagnose":
         diagnose(directory)
     else:
-        await {"prepare": prepare, "start": start, "refresh": refresh, "verify": verify}[operation](
-            directory
-        )
+        await {
+            "prepare": prepare,
+            "regressions": regressions,
+            "start": start,
+            "refresh": refresh,
+            "verify": verify,
+        }[operation](directory)
 
 
 if __name__ == "__main__":

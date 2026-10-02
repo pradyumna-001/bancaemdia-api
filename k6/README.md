@@ -34,6 +34,11 @@ Os quatro perfis completos mantêm 55 minutos e todos os limiares originais. `K6
 é recusada neste job. A verificação posterior exige uploads concluídos, apostas Telegram
 persistidas, apostas Casa materializadas, streaming ativo e RLS sem acesso entre tenants.
 Os relatórios incluem `k6-staging-evidence.json` com SHA, contagens e fronteiras da prova.
+O mesmo cluster também executa `tests/integration/test_router_db.py` num banco separado,
+com `TEST_REPLICA_DATABASE_URL` real. O job exige JUnit sem skips/falhas para roteamento,
+RLS, leitura após gravação e pausa/retomada do replay. Esses testes não limpam os dados
+da carga. Os skips históricos desse módulo na suíte principal ficam comprovados por
+este job dedicado. `k6-router-test-results.xml` é publicado junto aos relatórios.
 
 O arquivo sintético já versionado `fixtures/telegram-small.zip` tem sua leitura sintética
 pré-carregada no cache real de extração. A IA aponta para uma porta local sem serviço;

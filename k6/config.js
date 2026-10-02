@@ -43,6 +43,7 @@ if (profile !== 'all' && !profiles[profile]) {
 const durations = { all: '55m', steady: '30m', spike: '10m', coleta: '5m', painel: '10m', 'cd-smoke': '30s' };
 
 export const options = {
+  summaryTrendStats: ['avg', 'min', 'med', 'max', 'p(95)', 'p(99)'],
   tags: { staging_api: 'true' },
   scenarios: {
     ...(profile === 'all' ? { steady, spike, coleta, painel } : { [profile]: profiles[profile] }),
