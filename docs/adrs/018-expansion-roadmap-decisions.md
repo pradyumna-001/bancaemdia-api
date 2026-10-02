@@ -1,5 +1,8 @@
 # Expansion Roadmap — Decisions Before New GitHub Issues
 
+> **Superseded client planning (2026-09-29):** Extension implementation now has its own [tracker](https://github.com/wfcgit-hub/bancaemdia-extension/issues) and [new backlog](https://github.com/wfcgit-hub/bancaemdia-extension/pull/18). Historical client task lists below are context only; live API issues #107–#118 govern backend scope. All user-supplied bookmakers worldwide are real targets; Brazilian regulatory sources are optional metadata, not the technical coverage universe. See [ADR 024](024-extension-client-backlog.md).
+
+
 ## Status
 
 **Proposed** — this document and the Week 5–9 issue drafts are being submitted by pull request. Merging the proposal approves the scope; it does not silently create or start any issue.
