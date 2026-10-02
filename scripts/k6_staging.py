@@ -490,7 +490,9 @@ async def start(directory: Path) -> None:
         "issuer",
         env,
     )
-    for queue, concurrency in [("extraction", "2"), ("materialization", "4")]:
+    # API, primary, standby and k6 share this runner. Two materializers drain the burst
+    # without scheduling four CPU-heavy database writers alongside the HTTP processes.
+    for queue, concurrency in [("extraction", "2"), ("materialization", "2")]:
         spawn(
             directory,
             [

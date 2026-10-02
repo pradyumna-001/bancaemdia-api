@@ -42,7 +42,8 @@ O fluxo de upload usa `fixtures/telegram-small.zip`, um export sintético com um
 Sem `STAGING_BASE_URL`, o job `staging` cria seu próprio ambiente no runner Linux do
 GitHub Actions. Roda o backend do commit em teste, PostgreSQL 16 com streaming replica
 real, Redis, até quatro workers HTTP conforme as CPUs do runner (keep-alive de 30 segundos
-para os intervalos de 6/10 s), os workers Celery reais de extração/materialização e refresh das
+para os intervalos de 6/10 s), dois processos Celery de extração e dois de materialização,
+para dividir as CPUs com API/banco/gerador, e refresh das
 materialized views. Cria 250 usuários sintéticos e 100 tokens de coleta, assina JWTs RS256
 com chave efêmera e serve o JWKS local. Não é o `mock_server.py` do smoke.
 
@@ -83,7 +84,8 @@ do runner, fora do checkout. A API e os workers usam papel PostgreSQL sem SUPERU
 BYPASSRLS. Migração, seed e refresh usam a credencial administrativa só deste banco novo.
 O script recusa execução fora do GitHub Actions Linux e destinos fora de `RUNNER_TEMP` ou
 dentro do checkout. Cleanup remove somente containers/rede etiquetados por esta execução;
-nenhuma credencial ou log bruto é enviado como artefato.
+Os resumos excluem `setup_data`, que contém tokens. Nenhuma credencial ou log bruto é
+enviado como artefato.
 
 Isso corresponde à Fase 0 da [decisão AWS](../docs/decisions/aws-initial-budget.md).
 Não provisiona AWS nem substitui prova de TLS, capacidade/custos da Lightsail, backup,

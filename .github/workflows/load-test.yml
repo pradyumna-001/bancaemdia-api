@@ -32,6 +32,8 @@ jobs:
         run: k6 inspect k6/load-test.js
       - name: Check collection cadence at fixed-window reset boundaries
         run: k6 run --vus 1 --iterations 1 k6/tests/pacing.js
+      - name: Verify reports retain measurements and exclude credentials
+        run: k6 run --vus 1 --iterations 1 k6/tests/summary.js
       - name: Exercise all scenarios against local contract mock
         shell: bash
         run: |

@@ -50,5 +50,7 @@ export function handleSummary(data) {
 <style>body{font:16px system-ui;margin:2rem;max-width:80rem}table{border-collapse:collapse;width:100%}td,th{border:1px solid #aaa;padding:.5rem;text-align:left}td{word-break:break-word}</style>
 <h1>BancaEmDia — teste de carga</h1><p>Perfil: ${escape(selectedProfile)} · Gerado em ${escape(new Date().toISOString())}</p>
 <table><thead><tr><th>Métrica</th><th>Valores</th><th>Limiares</th></tr></thead><tbody>${rows}</tbody></table></html>`;
-  return { 'load-test-report.html': html, 'load-test-summary.json': JSON.stringify(data, null, 2) };
+  // setup_data contains authentication credentials; reports only need measurement data.
+  const { setup_data: _credentials, ...report } = data;
+  return { 'load-test-report.html': html, 'load-test-summary.json': JSON.stringify(report, null, 2) };
 }
