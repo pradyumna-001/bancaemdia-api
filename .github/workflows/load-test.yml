@@ -114,9 +114,6 @@ jobs:
       - name: Verify persisted uploads, bets, tenant isolation and real replication
         if: vars.STAGING_BASE_URL == ''
         run: python scripts/k6_staging.py verify
-      - name: Collect numeric ingest timings
-        if: always() && vars.STAGING_BASE_URL == ''
-        run: python scripts/k6_profile.py
       - name: Upload HTML and JSON results
         if: always()
         uses: actions/upload-artifact@v4
@@ -130,7 +127,6 @@ jobs:
             k6-coleta-preflight-summary.json
             k6-coleta-preflight-report.html
             k6-coleta-preflight-evidence.json
-            k6-ingest-profile.json
           if-no-files-found: warn
       - name: Sanitized backend diagnostics on failure
         if: failure() && vars.STAGING_BASE_URL == ''
