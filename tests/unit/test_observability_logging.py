@@ -13,6 +13,7 @@ import httpx
 import pytest
 import structlog
 from fastapi import FastAPI, Request
+from opentelemetry.context import Context
 from opentelemetry.sdk.trace import TracerProvider
 from starlette.middleware.base import BaseHTTPMiddleware
 
@@ -315,7 +316,9 @@ async def test_unhandled_error_is_correlated_and_context_is_cleared() -> None:
     request_id = "37086c30-6fa6-4f59-b525-3ca244bf2ee2"
     provider = TracerProvider()
     tracer = provider.get_tracer("test")
-    with tracer.start_as_current_span("server") as span:
+    # Start on an empty context: a leaked ambient span from another test must not hijack this
+    # span into a foreign trace under xdist (the assertion below pins the trace ID).
+    with tracer.start_as_current_span("server", context=Context()) as span:
         expected_span = span.get_span_context()
         async with httpx.AsyncClient(
             transport=httpx.ASGITransport(app=app, raise_app_exceptions=True),
