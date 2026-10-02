@@ -1,5 +1,8 @@
 from __future__ import annotations
 
+import asyncio
+from contextlib import asynccontextmanager
+
 import pytest
 from sqlalchemy.exc import SQLAlchemyError
 
@@ -141,3 +144,43 @@ async def test_check_db_health_failure(monkeypatch) -> None:
 
     monkeypatch.setattr(db_session, "engine", Engine())
     assert await db_session.check_db_health() is False
+
+
+@pytest.mark.parametrize("fail", [False, True])
+async def test_prewarm_holds_connections_and_closes_all_successes_after_a_failure(fail):
+    entered = set()
+    exited = set()
+    peak = 0
+    next_id = 0
+
+    class Engine:
+        def connect(self):
+            nonlocal next_id
+            connection_id = next_id
+            next_id += 1
+
+            @asynccontextmanager
+            async def connection():
+                nonlocal peak
+                # Let other attempts complete before the failed connection reports its error.
+                await asyncio.sleep(0)
+                if fail and connection_id == 1:
+                    raise RuntimeError("connection unavailable")
+                entered.add(connection_id)
+                peak = max(peak, len(entered - exited))
+                try:
+                    yield connection_id
+                finally:
+                    exited.add(connection_id)
+
+            return connection()
+
+    if fail:
+        with pytest.raises(RuntimeError, match="connection unavailable"):
+            await db_session.prewarm_pool(Engine(), 3)
+        assert entered == {0, 2}
+    else:
+        await db_session.prewarm_pool(Engine(), 3)
+        assert entered == {0, 1, 2}
+        assert peak == 3
+    assert exited == entered

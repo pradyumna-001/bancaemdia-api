@@ -1,6 +1,7 @@
+import asyncio
 import time
 from collections.abc import AsyncGenerator, Callable
-from contextlib import asynccontextmanager
+from contextlib import AsyncExitStack, asynccontextmanager
 
 import structlog
 from sqlalchemy import text
@@ -17,6 +18,23 @@ from bancaemdia.config import get_settings
 from bancaemdia.core.context import current_user_id, use_primary
 
 settings = get_settings()
+
+
+async def prewarm_pool(target: AsyncEngine, size: int) -> None:
+    """Hold every retained connection at once, then return them to the pool.
+
+    Await all connection attempts before unwinding, including when one fails, so
+    successfully opened connections cannot escape startup cleanup.
+    """
+    async with AsyncExitStack() as stack:
+        results = await asyncio.gather(
+            *(stack.enter_async_context(target.connect()) for _ in range(size)),
+            return_exceptions=True,
+        )
+        for result in results:
+            if isinstance(result, BaseException):
+                raise result
+
 
 LAG_WARNING_SECONDS = 30
 LAG_CHECK_SECONDS = 30
@@ -52,7 +70,7 @@ engine = create_async_engine(
     pool_size=settings.DB_POOL_SIZE,
     max_overflow=settings.DB_POOL_MAX_OVERFLOW,
     pool_pre_ping=True,
-    pool_recycle=300,
+    pool_recycle=settings.DB_POOL_RECYCLE_SECONDS,
     connect_args=connect_args(replica=False),
 )
 
@@ -62,7 +80,7 @@ replica_engine = create_async_engine(
     pool_size=settings.DB_POOL_SIZE,
     max_overflow=settings.DB_POOL_MAX_OVERFLOW,
     pool_pre_ping=True,
-    pool_recycle=300,
+    pool_recycle=settings.DB_POOL_RECYCLE_SECONDS,
     connect_args=connect_args(replica=True),
 )
 

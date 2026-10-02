@@ -36,12 +36,18 @@ O fluxo de upload usa `fixtures/telegram-small.zip`, um export sintético com um
 Sem `STAGING_BASE_URL`, o job `staging` cria seu próprio ambiente no runner Linux do
 GitHub Actions. Roda o backend do commit em teste, PostgreSQL 16 com streaming replica
 real, Redis, até quatro workers HTTP conforme as CPUs do runner (keep-alive de 30 segundos
-para os intervalos de 6/10 s),
-pool de 30 conexões retidas por engine (`DB_POOL_SIZE=30`, `DB_POOL_MAX_OVERFLOW=0`,
-mesmo máximo de 30 dos padrões 10+20, evitando reconexão do overflow a cada rajada),
-os workers Celery reais de extração/materialização e refresh periódico das
+para os intervalos de 6/10 s), os workers Celery reais de extração/materialização e refresh das
 materialized views. Cria 250 usuários sintéticos e 100 tokens de coleta, assina JWTs RS256
 com chave efêmera e serve o JWKS local. Não é o `mock_server.py` do smoke.
+
+O pool mantém 30 conexões por engine (`DB_POOL_SIZE=30`, `DB_POOL_MAX_OVERFLOW=0`),
+mesmo máximo de 30 dos padrões 10+20, evitando reconexão do overflow a cada rajada.
+`DB_POOL_PREWARM=true` autentica as conexões de primário/réplica antes de concluir o startup.
+A opção é desligada por padrão nos demais ambientes. Falha de conexão impede prontidão
+e fecha os pools. A prova mede o backend pronto; não mede o tempo de arranque.
+`DB_POOL_RECYCLE_SECONDS=7200` cobre o job de até 90 minutos, sem recriar conexões
+saudáveis durante a carga; `pool_pre_ping` continua ativo. O padrão fora deste staging
+permanece em 300 segundos. CPUs, workers e configurações do pool ficam na evidência.
 
 Os quatro perfis completos mantêm 55 minutos e todos os limiares originais. `K6_LOCAL_SMOKE`
 é recusada neste job. A verificação posterior exige uploads concluídos, apostas Telegram

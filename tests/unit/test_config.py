@@ -49,6 +49,8 @@ class TestDatabasePoolSettings:
         monkeypatch.delenv("DB_POOL_MAX_OVERFLOW", raising=False)
         settings = Settings(_env_file=None)
         assert (settings.DB_POOL_SIZE, settings.DB_POOL_MAX_OVERFLOW) == (10, 20)
+        assert settings.DB_POOL_PREWARM is False
+        assert settings.DB_POOL_RECYCLE_SECONDS == 300
 
     def test_can_retain_connections_with_no_overflow(self, monkeypatch):
         monkeypatch.setenv("DB_POOL_SIZE", "30")
@@ -57,7 +59,8 @@ class TestDatabasePoolSettings:
         assert (settings.DB_POOL_SIZE, settings.DB_POOL_MAX_OVERFLOW) == (30, 0)
 
     @pytest.mark.parametrize(
-        ("name", "value"), [("DB_POOL_SIZE", "0"), ("DB_POOL_MAX_OVERFLOW", "-1")]
+        ("name", "value"),
+        [("DB_POOL_SIZE", "0"), ("DB_POOL_MAX_OVERFLOW", "-1"), ("DB_POOL_RECYCLE_SECONDS", "0")],
     )
     def test_rejects_unbounded_or_empty_pool(self, monkeypatch, name, value):
         monkeypatch.setenv(name, value)

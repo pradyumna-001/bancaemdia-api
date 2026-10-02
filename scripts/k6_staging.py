@@ -173,6 +173,8 @@ async def prepare(directory: Path) -> None:
         # Retain the existing maximum of 30 connections rather than recreating overflow per burst.
         "DB_POOL_SIZE": "30",
         "DB_POOL_MAX_OVERFLOW": "0",
+        "DB_POOL_PREWARM": "true",
+        "DB_POOL_RECYCLE_SECONDS": "7200",
         "REDIS_URL": "redis://127.0.0.1:16379/2",
         "CELERY_BROKER_URL": "redis://127.0.0.1:16379/0",
         "CELERY_RESULT_BACKEND": "redis://127.0.0.1:16379/1",
@@ -439,6 +441,10 @@ async def regressions(directory: Path) -> None:
 
 async def start(directory: Path) -> None:
     env = json.loads((directory / "env.json").read_text(encoding="utf-8"))
+    sys.stdout.write(
+        json.dumps({"runner_cpus": os.cpu_count(), "http_workers": min(4, os.cpu_count() or 1)})
+        + "\n"
+    )
     spawn(
         directory,
         [
@@ -612,7 +618,12 @@ async def verify(directory: Path) -> None:
         "environment": "ephemeral-github-runner-phase-0",
         "runner_cpus": os.cpu_count(),
         "http_workers": min(4, os.cpu_count() or 1),
-        "api_pool_per_engine": {"retained": 30, "overflow": 0},
+        "api_pool_per_engine": {
+            "retained": 30,
+            "overflow": 0,
+            "prewarm": True,
+            "recycle_seconds": 7200,
+        },
         "counts": counts,
         "streaming_replicas": streaming,
         "rls_cross_tenant_visible": leaked,
