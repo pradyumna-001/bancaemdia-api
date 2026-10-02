@@ -3662,6 +3662,12 @@
       "HTTPBearer": {
         "scheme": "bearer",
         "type": "http"
+      },
+      "StripeSignature": {
+        "description": "Stripe HMAC signature of the exact request bytes and timestamp.",
+        "in": "header",
+        "name": "Stripe-Signature",
+        "type": "apiKey"
       }
     }
   },
@@ -5148,6 +5154,94 @@
         "tags": [
           "billing"
         ]
+      }
+    },
+    "/api/v1/billing/webhook": {
+      "post": {
+        "description": "Verify the raw body signature and persist a minimal deduplicated test-mode inbox; worker fetches current state.",
+        "operationId": "stripe_webhook_api_v1_billing_webhook_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "example": {
+                "data": {
+                  "object": {
+                    "customer": "cus_contract"
+                  }
+                },
+                "id": "evt_contract",
+                "livemode": false,
+                "type": "invoice.paid"
+              },
+              "schema": {
+                "additionalProperties": {
+                  "$ref": "#/components/schemas/JsonValue"
+                },
+                "type": "object"
+              }
+            }
+          },
+          "description": "Raw Stripe JSON bytes; signature verification precedes parsing.",
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": {
+                    "type": "string"
+                  },
+                  "title": "Response Stripe Webhook Api V1 Billing Webhook Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Invalid signature or event."
+          },
+          "413": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              },
+              "text/plain": {
+                "example": "Content Too Large",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            },
+            "description": "Event too large."
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Webhook temporarily unavailable."
+          }
+        },
+        "security": [
+          {
+            "StripeSignature": []
+          }
+        ],
+        "summary": "Receive Stripe events"
       }
     },
     "/api/v1/caixa": {

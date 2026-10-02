@@ -20,6 +20,10 @@ MANUAL_BET_HOUSES = sorted(
 
 
 OPERATION_DOCUMENTATION: dict[OperationKey, tuple[str, str]] = {
+    ("post", "/api/v1/billing/webhook"): (
+        "Receive Stripe events",
+        "Verify the raw body signature and persist a minimal deduplicated test-mode inbox; worker fetches current state.",
+    ),
     ("get", "/api/v1/billing/status"): (
         "Subscription status",
         "Read server access, card-confirmed trial bounds and configured prices; redirects never grant access.",
@@ -561,6 +565,12 @@ def _document_operations(document: JsonObject) -> None:
 def _install_collection_security(document: JsonObject) -> None:
     components = _object(document.setdefault("components", {}), context="components")
     schemes = _object(components.setdefault("securitySchemes", {}), context="securitySchemes")
+    schemes["StripeSignature"] = {
+        "type": "apiKey",
+        "in": "header",
+        "name": "Stripe-Signature",
+        "description": "Stripe HMAC signature of the exact request bytes and timestamp.",
+    }
     schemes["CollectionToken"] = {
         "type": "apiKey",
         "in": "header",

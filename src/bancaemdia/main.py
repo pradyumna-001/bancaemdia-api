@@ -15,7 +15,17 @@ from bancaemdia.api.contracts import (
     ReadinessResponse,
 )
 from bancaemdia.api.openapi import build_openapi
-from bancaemdia.api.v1 import apostas, billing, caixa, coleta, painel, revisao, upload, usuario
+from bancaemdia.api.v1 import (
+    apostas,
+    billing,
+    billing_webhook,
+    caixa,
+    coleta,
+    painel,
+    revisao,
+    upload,
+    usuario,
+)
 from bancaemdia.auth.middleware import JWTAuthMiddleware
 from bancaemdia.config import get_settings
 from bancaemdia.db.session import LAG_CHECK_SECONDS, engine, replica_engine, replica_lag_seconds
@@ -91,6 +101,7 @@ app.include_router(apostas.router)
 app.include_router(caixa.router)
 app.include_router(painel.router)
 app.include_router(revisao.router)
+app.include_router(billing_webhook.router)
 app.include_router(billing.router)
 app.include_router(usuario.router)
 

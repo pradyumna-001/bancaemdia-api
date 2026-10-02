@@ -29,6 +29,7 @@ python scripts/generate_openapi.py
 | `POST` | `/api/v1/billing/portal` | Manage subscription | `200`, `401`, `409`, `422`, `429`, `500`, `503` | billing |
 | `GET` | `/api/v1/billing/status` | Subscription status | `200`, `401`, `409`, `422`, `429`, `500`, `503` | billing |
 | `POST` | `/api/v1/billing/subscribe` | Start hosted Checkout | `200`, `401`, `409`, `413`, `422`, `429`, `500`, `503` | billing |
+| `POST` | `/api/v1/billing/webhook` | Receive Stripe events | `200`, `400`, `413`, `503` | — |
 | `GET` | `/api/v1/caixa` | Listar movimentos de caixa | `200`, `401`, `422`, `429`, `500`, `503` | — |
 | `POST` | `/api/v1/caixa` | Registrar movimento de caixa | `201`, `401`, `404`, `409`, `413`, `422`, `429`, `500`, `503` | — |
 | `PATCH` | `/api/v1/caixa/contas/{conta_casa_id}/banca` | Vincular conta à banca | `200`, `401`, `404`, `413`, `422`, `429`, `500`, `503` | — |

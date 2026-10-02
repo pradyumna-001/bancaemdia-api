@@ -1,0 +1,23 @@
+name: Billing alert contracts
+
+on:
+  pull_request:
+    paths:
+      - 'infra/observability/billing.rules*.yml'
+      - '.github/workflows/billing-alerts.yml'
+  push:
+    branches: [main]
+    paths:
+      - 'infra/observability/billing.rules*.yml'
+      - '.github/workflows/billing-alerts.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  alerts:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Verify firing, recovery and missing metrics
+        run: docker run --rm --entrypoint /bin/promtool -v "$PWD/infra/observability:/rules:ro" -w /rules prom/prometheus:v3.5.0 test rules billing.rules.test.yml
