@@ -17,6 +17,12 @@ fila/recebimento no servidor. Respostas 429 continuam reprovando o teste.
 As consultas síncronas do SlowAPI/Redis, inclusive a leitura da janela para os cabeçalhos
 de sucesso/429, rodam no thread pool do backend. O loop ASGI continua atendendo outros
 pedidos enquanto o armazenamento aguarda I/O, preservando quotas, fallback e cabeçalhos.
+Nos filhos prefork, a materialização de coleta reutiliza um loop e uma conexão PostgreSQL
+por processo, com pre-ping, em vez de abrir uma conexão por captura. Cada chamada recebe
+um contexto novo; tarefas pendentes são canceladas ao terminar e shutdown fecha engine/loop.
+Fora dos filhos prefork, chamadas diretas, CLI/eager e outros pools mantêm `asyncio.run` e
+`NullPool`. Upload e extração mantêm seus fluxos. Testes com PostgreSQL real conferem que
+a conexão é reutilizada sem conservar o tenant da transação anterior.
 Coleta e upload acompanham o processamento no PostgreSQL e publicam suas tarefas sem
 assinar resultados Celery não consumidos; retries e o errback de upload permanecem ativos.
 
