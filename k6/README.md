@@ -42,7 +42,7 @@ O fluxo de upload usa `fixtures/telegram-small.zip`, um export sintético com um
 Sem `STAGING_BASE_URL`, o job `staging` cria seu próprio ambiente no runner Linux do
 GitHub Actions. Roda o backend do commit em teste, PostgreSQL 16 com streaming replica
 real, Redis, até quatro workers HTTP conforme as CPUs do runner (keep-alive de 30 segundos
-para os intervalos de 6/10 s), dois processos Celery de extração e dois de materialização,
+para os intervalos de 6/10 s), dois processos Celery de extração e um de materialização,
 para dividir as CPUs com API/banco/gerador, e refresh das
 materialized views. Cria 250 usuários sintéticos e 100 tokens de coleta, assina JWTs RS256
 com chave efêmera e serve o JWKS local. Não é o `mock_server.py` do smoke.

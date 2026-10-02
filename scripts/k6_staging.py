@@ -26,6 +26,7 @@ ROOT = Path(__file__).resolve().parents[1]
 LABEL = "bancaemdia.k6-run"
 USER_COUNT = 250
 COLLECTION_COUNT = 100
+WORKER_CONCURRENCY = {"extraction": 2, "materialization": 1}
 
 
 def runtime_dir() -> Path:
@@ -490,9 +491,9 @@ async def start(directory: Path) -> None:
         "issuer",
         env,
     )
-    # API, primary, standby and k6 share this runner. Two materializers drain the burst
-    # without scheduling four CPU-heavy database writers alongside the HTTP processes.
-    for queue, concurrency in [("extraction", "2"), ("materialization", "2")]:
+    # API, primary, standby and k6 share this runner. Serialize materialization so
+    # database writers do not compete with every HTTP process during a 100-user burst.
+    for queue, concurrency in WORKER_CONCURRENCY.items():
         spawn(
             directory,
             [
@@ -505,7 +506,7 @@ async def start(directory: Path) -> None:
                 "--queues",
                 queue,
                 "--concurrency",
-                concurrency,
+                str(concurrency),
                 "--hostname",
                 f"{queue}@%h",
                 "--loglevel",
@@ -654,6 +655,7 @@ async def verify(directory: Path) -> None:
         "live_process_cpu_seconds_since_ready": cpu_since_ready(info),
         "runner_cpus": os.cpu_count(),
         "http_workers": min(4, os.cpu_count() or 1),
+        "celery_concurrency": WORKER_CONCURRENCY,
         "api_pool_per_engine": {
             "retained": 30,
             "overflow": 0,
