@@ -482,7 +482,7 @@ async def start(directory: Path) -> None:
             sys.executable,
             "-m",
             "uvicorn",
-            "bancaemdia.main:app",
+            "scripts.k6_profile:app",
             "--host",
             "127.0.0.1",
             "--port",
