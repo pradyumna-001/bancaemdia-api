@@ -25,6 +25,10 @@ python scripts/generate_openapi.py
 | `DELETE` | `/api/v1/apostas/{chave}` | Excluir aposta da apuração | `200`, `401`, `404`, `409`, `422`, `429`, `500`, `503` | — |
 | `POST` | `/api/v1/apostas/{chave}/restaurar` | Restaurar aposta na apuração | `200`, `401`, `404`, `409`, `422`, `429`, `500`, `503` | — |
 | `POST` | `/api/v1/apostas/{chave}/resultado` | Registrar resultado da aposta | `200`, `401`, `404`, `409`, `413`, `422`, `429`, `500`, `503` | — |
+| `POST` | `/api/v1/billing/cancel` | Cancel renewal | `200`, `401`, `409`, `422`, `429`, `500`, `503` | billing |
+| `POST` | `/api/v1/billing/portal` | Manage subscription | `200`, `401`, `409`, `422`, `429`, `500`, `503` | billing |
+| `GET` | `/api/v1/billing/status` | Subscription status | `200`, `401`, `409`, `422`, `429`, `500`, `503` | billing |
+| `POST` | `/api/v1/billing/subscribe` | Start hosted Checkout | `200`, `401`, `409`, `413`, `422`, `429`, `500`, `503` | billing |
 | `GET` | `/api/v1/caixa` | Listar movimentos de caixa | `200`, `401`, `422`, `429`, `500`, `503` | — |
 | `POST` | `/api/v1/caixa` | Registrar movimento de caixa | `201`, `401`, `404`, `409`, `413`, `422`, `429`, `500`, `503` | — |
 | `PATCH` | `/api/v1/caixa/contas/{conta_casa_id}/banca` | Vincular conta à banca | `200`, `401`, `404`, `413`, `422`, `429`, `500`, `503` | — |

@@ -866,6 +866,136 @@
         "title": "BetsPageResponse",
         "type": "object"
       },
+      "BillingFrequency": {
+        "enum": [
+          "MONTHLY",
+          "YEARLY"
+        ],
+        "title": "BillingFrequency",
+        "type": "string"
+      },
+      "BillingStatusResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "access": {
+            "enum": [
+              "FULL_WRITE",
+              "READ_ONLY"
+            ],
+            "title": "Access",
+            "type": "string"
+          },
+          "can_manage": {
+            "title": "Can Manage",
+            "type": "boolean"
+          },
+          "cancel_at_period_end": {
+            "title": "Cancel At Period End",
+            "type": "boolean"
+          },
+          "card_required": {
+            "title": "Card Required",
+            "type": "boolean"
+          },
+          "checkout_available": {
+            "title": "Checkout Available",
+            "type": "boolean"
+          },
+          "current_period_ends_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Current Period Ends At"
+          },
+          "price_id": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Price Id"
+          },
+          "prices": {
+            "items": {
+              "$ref": "#/components/schemas/PublicPrice"
+            },
+            "title": "Prices",
+            "type": "array"
+          },
+          "status": {
+            "anyOf": [
+              {
+                "enum": [
+                  "AWAITING_CARD",
+                  "TRIALING",
+                  "ACTIVE",
+                  "PAST_DUE",
+                  "CANCELED",
+                  "EXPIRED"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Status"
+          },
+          "trial_confirmed": {
+            "title": "Trial Confirmed",
+            "type": "boolean"
+          },
+          "trial_ends_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Trial Ends At"
+          },
+          "trial_started_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Trial Started At"
+          }
+        },
+        "required": [
+          "status",
+          "access",
+          "trial_started_at",
+          "trial_ends_at",
+          "current_period_ends_at",
+          "price_id",
+          "trial_confirmed",
+          "cancel_at_period_end",
+          "card_required",
+          "prices",
+          "checkout_available",
+          "can_manage"
+        ],
+        "title": "BillingStatusResponse",
+        "type": "object"
+      },
       "Body_importar_planilha_api_v1_apostas_importar_planilha_post": {
         "additionalProperties": false,
         "properties": {
@@ -1636,6 +1766,20 @@
           "metricas"
         ],
         "title": "GrupoSaida",
+        "type": "object"
+      },
+      "HostedResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "url": {
+            "title": "Url",
+            "type": "string"
+          }
+        },
+        "required": [
+          "url"
+        ],
+        "title": "HostedResponse",
         "type": "object"
       },
       "ItemErroValidacaoSaida": {
@@ -2509,6 +2653,34 @@
         "title": "PlanilhaImportada",
         "type": "object"
       },
+      "PublicPrice": {
+        "additionalProperties": false,
+        "properties": {
+          "amount_minor": {
+            "title": "Amount Minor",
+            "type": "integer"
+          },
+          "currency": {
+            "title": "Currency",
+            "type": "string"
+          },
+          "frequency": {
+            "$ref": "#/components/schemas/BillingFrequency"
+          },
+          "id": {
+            "title": "Id",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "id",
+          "amount_minor",
+          "currency",
+          "frequency"
+        ],
+        "title": "PublicPrice",
+        "type": "object"
+      },
       "ReadinessCheckResponse": {
         "additionalProperties": false,
         "properties": {
@@ -3038,6 +3210,23 @@
           "deposito_faltante_centavos"
         ],
         "title": "SaldoContaSaida",
+        "type": "object"
+      },
+      "SubscribeRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "currency": {
+            "default": "BRL",
+            "pattern": "^[A-Z]{3}$",
+            "title": "Currency",
+            "type": "string"
+          },
+          "frequency": {
+            "$ref": "#/components/schemas/BillingFrequency",
+            "default": "MONTHLY"
+          }
+        },
+        "title": "SubscribeRequest",
         "type": "object"
       },
       "TipoMovimentoConsulta": {
@@ -4563,6 +4752,402 @@
           }
         ],
         "summary": "Registrar resultado da aposta"
+      }
+    },
+    "/api/v1/billing/cancel": {
+      "post": {
+        "description": "Idempotently schedule cancellation while preserving the remainder of the trial or paid period.",
+        "operationId": "billing_cancel_api_v1_billing_cancel_post",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": {
+                    "type": "string"
+                  },
+                  "title": "Response Billing Cancel Api V1 Billing Cancel Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Missing, expired, or invalid bearer token."
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Billing configuration or current subscription prevents this action."
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorOrValidationResponse"
+                }
+              }
+            },
+            "description": "The request does not satisfy the published contract or a domain rule."
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "The caller exceeded an applicable request limit."
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unexpected internal failure with no sensitive exception details."
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "A required dependency is temporarily unavailable."
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Cancel renewal",
+        "tags": [
+          "billing"
+        ]
+      }
+    },
+    "/api/v1/billing/portal": {
+      "post": {
+        "description": "Open the authenticated customer's Stripe portal with no plan changes and cancellation at period end.",
+        "operationId": "billing_portal_api_v1_billing_portal_post",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HostedResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Missing, expired, or invalid bearer token."
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Billing configuration or current subscription prevents this action."
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorOrValidationResponse"
+                }
+              }
+            },
+            "description": "The request does not satisfy the published contract or a domain rule."
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "The caller exceeded an applicable request limit."
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unexpected internal failure with no sensitive exception details."
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "A required dependency is temporarily unavailable."
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Manage subscription",
+        "tags": [
+          "billing"
+        ]
+      }
+    },
+    "/api/v1/billing/status": {
+      "get": {
+        "description": "Read server access, card-confirmed trial bounds and configured prices; redirects never grant access.",
+        "operationId": "billing_status_api_v1_billing_status_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BillingStatusResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Missing, expired, or invalid bearer token."
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Billing configuration or current subscription prevents this action."
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorOrValidationResponse"
+                }
+              }
+            },
+            "description": "The request does not satisfy the published contract or a domain rule."
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "The caller exceeded an applicable request limit."
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unexpected internal failure with no sensitive exception details."
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "A required dependency is temporarily unavailable."
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Subscription status",
+        "tags": [
+          "billing"
+        ]
+      }
+    },
+    "/api/v1/billing/subscribe": {
+      "post": {
+        "description": "Create or resume one durable Stripe test Checkout. Card confirmation starts one seven-day trial. No commercial default price.",
+        "operationId": "billing_subscribe_api_v1_billing_subscribe_post",
+        "parameters": [
+          {
+            "description": "Chave opaca obrigatória do cliente; reutilizá-la com o mesmo corpo reproduz a resposta original sem lançar dinheiro novamente.",
+            "in": "header",
+            "name": "Idempotency-Key",
+            "required": true,
+            "schema": {
+              "maxLength": 128,
+              "minLength": 8,
+              "title": "Idempotency-Key",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "examples": {
+                "default": {
+                  "summary": "Configured currency and cadence",
+                  "value": {
+                    "currency": "BRL",
+                    "frequency": "MONTHLY"
+                  }
+                }
+              },
+              "schema": {
+                "$ref": "#/components/schemas/SubscribeRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HostedResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Missing, expired, or invalid bearer token."
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Billing configuration or current subscription prevents this action."
+          },
+          "413": {
+            "content": {
+              "text/plain": {
+                "example": "Content Too Large",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            },
+            "description": "The request body exceeds this endpoint's streaming limit."
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorOrValidationResponse"
+                }
+              }
+            },
+            "description": "The request does not satisfy the published contract or a domain rule."
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "The caller exceeded an applicable request limit."
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unexpected internal failure with no sensitive exception details."
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "A required dependency is temporarily unavailable."
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Start hosted Checkout",
+        "tags": [
+          "billing"
+        ]
       }
     },
     "/api/v1/caixa": {

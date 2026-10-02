@@ -62,6 +62,9 @@ __all__ = [
     "Usuario",
 ]
 
+from bancaemdia.models.billing_checkout import BillingCheckout
+
+__all__ += ["BillingCheckout"]
 
 __all__ += ["Assinatura"]
 

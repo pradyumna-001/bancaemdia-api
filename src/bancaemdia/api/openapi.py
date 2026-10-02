@@ -20,6 +20,22 @@ MANUAL_BET_HOUSES = sorted(
 
 
 OPERATION_DOCUMENTATION: dict[OperationKey, tuple[str, str]] = {
+    ("get", "/api/v1/billing/status"): (
+        "Subscription status",
+        "Read server access, card-confirmed trial bounds and configured prices; redirects never grant access.",
+    ),
+    ("post", "/api/v1/billing/subscribe"): (
+        "Start hosted Checkout",
+        "Create or resume one durable Stripe test Checkout. Card confirmation starts one seven-day trial. No commercial default price.",
+    ),
+    ("post", "/api/v1/billing/portal"): (
+        "Manage subscription",
+        "Open the authenticated customer's Stripe portal with no plan changes and cancellation at period end.",
+    ),
+    ("post", "/api/v1/billing/cancel"): (
+        "Cancel renewal",
+        "Idempotently schedule cancellation while preserving the remainder of the trial or paid period.",
+    ),
     ("post", "/coleta"): (
         "Receber coleta da extensão",
         "Recebe um lote bruto capturado pela extensão e agenda a materialização idempotente.",
@@ -174,6 +190,10 @@ PARAMETER_DESCRIPTIONS = {
 
 
 REQUEST_EXAMPLES: dict[OperationKey, tuple[str, JsonObject]] = {
+    ("post", "/api/v1/billing/subscribe"): (
+        "Configured currency and cadence",
+        {"currency": "BRL", "frequency": "MONTHLY"},
+    ),
     ("patch", "/api/v1/caixa/contas/{conta_casa_id}/banca"): (
         "Vincular conta à banca",
         {"banca_id": 12},
