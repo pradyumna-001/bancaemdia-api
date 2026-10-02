@@ -49,8 +49,8 @@ def connect_args(replica: bool) -> dict[str, object]:
 engine = create_async_engine(
     settings.DATABASE_URL,
     echo=False,
-    pool_size=10,
-    max_overflow=20,
+    pool_size=settings.DB_POOL_SIZE,
+    max_overflow=settings.DB_POOL_MAX_OVERFLOW,
     pool_pre_ping=True,
     pool_recycle=300,
     connect_args=connect_args(replica=False),
@@ -59,8 +59,8 @@ engine = create_async_engine(
 replica_engine = create_async_engine(
     settings.DATABASE_URL_REPLICA,
     echo=False,
-    pool_size=10,
-    max_overflow=20,
+    pool_size=settings.DB_POOL_SIZE,
+    max_overflow=settings.DB_POOL_MAX_OVERFLOW,
     pool_pre_ping=True,
     pool_recycle=300,
     connect_args=connect_args(replica=True),

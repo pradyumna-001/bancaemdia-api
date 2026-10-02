@@ -170,6 +170,9 @@ async def prepare(directory: Path) -> None:
     env = {
         "DATABASE_URL": app_url,
         "DATABASE_URL_REPLICA": app_url.replace(":15432/", ":15433/"),
+        # Retain the existing maximum of 30 connections rather than recreating overflow per burst.
+        "DB_POOL_SIZE": "30",
+        "DB_POOL_MAX_OVERFLOW": "0",
         "REDIS_URL": "redis://127.0.0.1:16379/2",
         "CELERY_BROKER_URL": "redis://127.0.0.1:16379/0",
         "CELERY_RESULT_BACKEND": "redis://127.0.0.1:16379/1",

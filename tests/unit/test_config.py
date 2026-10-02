@@ -43,6 +43,28 @@ class TestSettingsValidation:
             Settings(_env_file=None)
 
 
+class TestDatabasePoolSettings:
+    def test_preserves_default_connection_budget(self, monkeypatch):
+        monkeypatch.delenv("DB_POOL_SIZE", raising=False)
+        monkeypatch.delenv("DB_POOL_MAX_OVERFLOW", raising=False)
+        settings = Settings(_env_file=None)
+        assert (settings.DB_POOL_SIZE, settings.DB_POOL_MAX_OVERFLOW) == (10, 20)
+
+    def test_can_retain_connections_with_no_overflow(self, monkeypatch):
+        monkeypatch.setenv("DB_POOL_SIZE", "30")
+        monkeypatch.setenv("DB_POOL_MAX_OVERFLOW", "0")
+        settings = Settings(_env_file=None)
+        assert (settings.DB_POOL_SIZE, settings.DB_POOL_MAX_OVERFLOW) == (30, 0)
+
+    @pytest.mark.parametrize(
+        ("name", "value"), [("DB_POOL_SIZE", "0"), ("DB_POOL_MAX_OVERFLOW", "-1")]
+    )
+    def test_rejects_unbounded_or_empty_pool(self, monkeypatch, name, value):
+        monkeypatch.setenv(name, value)
+        with pytest.raises(ValidationError):
+            Settings(_env_file=None)
+
+
 class TestAnthropicModelDefaults:
     def test_haiku_reads_and_sonnet_escalates(self, monkeypatch):
         monkeypatch.delenv("ANTHROPIC_MODEL", raising=False)

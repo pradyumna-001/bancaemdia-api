@@ -17,6 +17,8 @@ fila/recebimento no servidor. Respostas 429 continuam reprovando o teste.
 As consultas síncronas do SlowAPI/Redis, inclusive a leitura da janela para os cabeçalhos
 de sucesso/429, rodam no thread pool do backend. O loop ASGI continua atendendo outros
 pedidos enquanto o armazenamento aguarda I/O, preservando quotas, fallback e cabeçalhos.
+Coleta e upload acompanham o processamento no PostgreSQL e publicam suas tarefas sem
+assinar resultados Celery não consumidos; retries e o errback de upload permanecem ativos.
 
 | Perfil | Carga | Fluxo |
 | --- | --- | --- |
@@ -34,6 +36,8 @@ O fluxo de upload usa `fixtures/telegram-small.zip`, um export sintético com um
 Sem `STAGING_BASE_URL`, o job `staging` cria seu próprio ambiente no runner Linux do
 GitHub Actions. Roda o backend do commit em teste, PostgreSQL 16 com streaming replica
 real, Redis, dois workers HTTP (keep-alive de 30 segundos para os intervalos de 6/10 s),
+pool de 30 conexões retidas por engine (`DB_POOL_SIZE=30`, `DB_POOL_MAX_OVERFLOW=0`,
+mesmo máximo de 30 dos padrões 10+20, evitando reconexão do overflow a cada rajada),
 os workers Celery reais de extração/materialização e refresh periódico das
 materialized views. Cria 250 usuários sintéticos e 100 tokens de coleta, assina JWTs RS256
 com chave efêmera e serve o JWKS local. Não é o `mock_server.py` do smoke.

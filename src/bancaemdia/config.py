@@ -22,6 +22,10 @@ class Settings(BaseSettings):
     DATABASE_URL_REPLICA: str = Field(
         ..., description="Read-replica DSN; same as primary in local dev"
     )
+    DB_POOL_SIZE: int = Field(default=10, ge=1, description="Retained connections per API engine")
+    DB_POOL_MAX_OVERFLOW: int = Field(
+        default=20, ge=0, description="Temporary additional connections per API engine"
+    )
     REDIS_URL: str = Field(..., description="Redis connection URL")
     REDIS_CLUSTER_MODE: bool = Field(
         default=False, description="Use Redis Cluster for cache and Anthropic quota"
