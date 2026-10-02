@@ -33,6 +33,7 @@
 | 022 | Week 8 — Bookmaker Coverage Issues | Proposed in PR | 2026-09-21 |
 | 023 | Week 9 — Expansion Validation Issue | Proposed in PR | 2026-09-21 |
 | 024 | Extension Client — Centralized Responsibility Map | Proposed in PR | 2026-09-21 |
+| 025 | Line Calculator — Market/Data Decision | Proposed, No-Go pending evidence | 2026-09-28 |
 
 The Week 5–9 issue bodies and the extension responsibility map are review artifacts. Issues are created in the central GitHub tracker only after the administrator merges the proposal PR; ADR 024 creates no separate client backlog.
 
