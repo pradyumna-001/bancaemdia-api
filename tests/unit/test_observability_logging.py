@@ -322,7 +322,14 @@ async def test_unhandled_error_is_correlated_and_context_is_cleared() -> None:
             base_url="http://test",
         ) as client:
             response = await client.get(
-                "/failure", headers={REQUEST_ID_HEADER: request_id, "X-User-ID": "7"}
+                "/failure",
+                headers={
+                    REQUEST_ID_HEADER: request_id,
+                    "X-User-ID": "7",
+                    # A server extracts its parent from HTTP headers, including with an ASGI
+                    # transport that does not inject the caller's context automatically.
+                    "traceparent": f"00-{expected_span.trace_id:032x}-{expected_span.span_id:016x}-01",
+                },
             )
 
     assert response.status_code == 500

@@ -1,11 +1,12 @@
 from __future__ import annotations
 
 import json
-from collections.abc import Iterator
+from collections.abc import Generator, Iterator
 from contextlib import contextmanager
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any, cast
+from uuid import UUID
 
 import pytest
 import schemathesis
@@ -13,7 +14,6 @@ from fastapi.testclient import TestClient
 from hypothesis import given, settings
 from hypothesis import strategies as st
 from hypothesis.strategies import SearchStrategy
-from schemathesis.config import HealthCheck
 from starlette.types import ASGIApp, Message, Receive, Scope, Send
 
 from bancaemdia.api.contracts import ReadinessResponse
@@ -75,7 +75,7 @@ class _ContractSession:
 
 
 @contextmanager
-def _collection_backend() -> Iterator[CollectionContractBackend]:
+def _collection_backend() -> Generator[CollectionContractBackend, None, None]:
     backend = CollectionContractBackend()
     monkeypatch = pytest.MonkeyPatch()
 
@@ -545,7 +545,7 @@ def test_schemathesis_invalid_collection_requests_match_contract(
         assert collection_backend.queued == []
 
 
-negative_config = schemathesis.Config(suppress_health_check=[HealthCheck.filter_too_much])
+negative_config = schemathesis.Config()
 negative_config.projects.default.generation.update(
     modes=[schemathesis.GenerationMode.NEGATIVE],
     max_examples=5,
@@ -565,6 +565,32 @@ negative_schema = (
     # This authenticated stats operation has no request input to invalidate.
     .exclude(path="/api/v1/revisao/stats")
 )
+
+
+def invalid_uuid_strings() -> SearchStrategy[str]:
+    # Generate invalid UUIDs directly rather than filtering mostly-valid format examples.
+    # Every value remains serializable as a path segment and invalid for the declared UUID.
+    return st.one_of(
+        st.text(alphabet="ghijklmnopqrstuvwxyz", min_size=1, max_size=48),
+        st.uuids().map(lambda value: f"{value}-invalid"),
+    )
+
+
+@negative_schema.hook
+def before_generate_path_parameters(
+    context: schemathesis.HookContext, strategy: SearchStrategy[JsonObject]
+) -> SearchStrategy[JsonObject]:
+    operation = context.operation
+    if operation is not None and operation.path == "/api/v1/upload/{job_id}":
+        return st.fixed_dictionaries({"job_id": invalid_uuid_strings()})
+    return strategy
+
+
+@settings(max_examples=100, derandomize=True, deadline=None)
+@given(value=invalid_uuid_strings())
+def test_generated_negative_upload_ids_are_invalid_uuids(value: str) -> None:
+    with pytest.raises(ValueError):
+        UUID(value)
 
 
 @pytest.mark.contract

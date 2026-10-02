@@ -1,7 +1,9 @@
 from __future__ import annotations
 
+import asyncio
 import hashlib
 import hmac
+import threading
 import time
 from collections.abc import Awaitable, Callable, Iterator
 from types import SimpleNamespace
@@ -475,6 +477,50 @@ def test_unlimited_infrastructure_routes_have_no_rate_headers() -> None:
 
     assert [response.status_code for response in responses] == [200, 200, 200]
     assert all("X-RateLimit-Limit" not in response.headers for response in responses)
+
+
+@pytest.mark.parametrize("stage", ["check", "headers", "limited"])
+async def test_blocked_quota_storage_never_blocks_the_asgi_loop(
+    stage: str, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    limiter = API_POLICY.limiter
+    request = _request("/api/v1/one")
+    request.state.usuario_id = 7
+    if stage == "limited":
+        for _ in range(2):
+            limiter._check_request_limit(request, API_POLICY.scope, in_middleware=True)
+
+    name = "_check_request_limit" if stage == "check" else "_inject_headers"
+    original = getattr(limiter, name)
+    entered = threading.Event()
+    progressed = threading.Event()
+
+    def blocked_storage(*args: object, **kwargs: object):
+        entered.set()
+        # Only the ASGI loop can set this event. Inline synchronous I/O times out here;
+        # a thread releases the loop and lets the other request/heartbeat progress.
+        assert progressed.wait(timeout=2), "quota storage blocked the ASGI loop"
+        return original(*args, **kwargs)
+
+    monkeypatch.setattr(limiter, name, blocked_storage)
+
+    async def heartbeat() -> None:
+        while not entered.is_set():
+            await asyncio.sleep(0.001)
+        progressed.set()
+
+    async def call_next(_: Request) -> Response:
+        await asyncio.sleep(0)
+        return Response("ok")
+
+    task = asyncio.create_task(heartbeat())
+    try:
+        response = await rate_limit._apply_policies(request, call_next, (API_POLICY,))
+        assert response.status_code == (429 if stage == "limited" else 200)
+        _assert_rate_headers(response, limit=2, remaining=0 if stage == "limited" else 1)
+    finally:
+        task.cancel()
+        await asyncio.gather(task, return_exceptions=True)
 
 
 def test_production_middleware_authenticates_before_limiting_and_limits_before_body_read() -> None:

@@ -3,6 +3,7 @@ import hmac
 import json
 from dataclasses import replace
 from datetime import UTC, datetime
+from functools import partial
 
 from fastapi import APIRouter, Depends, Request, status
 from fastapi.concurrency import run_in_threadpool
@@ -37,6 +38,7 @@ from bancaemdia.repositories.casa_repo import CasaRepo
 from bancaemdia.repositories.coleta_casa_repo import ColetaCasaRepo
 from bancaemdia.repositories.coleta_token_repo import ColetaTokenRepo
 from bancaemdia.workers.celery_app import app as celery
+from bancaemdia.workers.publication import ignored_task_result
 
 TOKEN_HEADER = "X-Coleta-Token"
 CONTRATO = 1
@@ -190,8 +192,14 @@ async def registrar(
 
 
 def _enfileirar(usuario_id: int, fila: list[int]) -> None:
+    # O processamento fica registrado no PostgreSQL; esta rota não consome resultados RPC.
     for coleta_id in fila:
-        celery.send_task(TAREFA, kwargs={"usuario_id": usuario_id, "coleta_id": coleta_id})
+        celery.send_task(
+            TAREFA,
+            kwargs={"usuario_id": usuario_id, "coleta_id": coleta_id},
+            ignore_result=True,
+            result_cls=partial(ignored_task_result, app=celery),
+        )
 
 
 @router.post("/api/v1/coleta", response_model=CollectionResponse)

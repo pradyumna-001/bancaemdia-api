@@ -4,6 +4,7 @@ import { options as loadOptions } from './config.js';
 export { steadyState, spikeLoad, coletaBurst, painelRead, probeMetrics, handleSummary } from './load-test.js';
 
 export const options = {
+  tags: loadOptions.tags,
   thresholds: loadOptions.thresholds,
   scenarios: Object.fromEntries(
     ['steady', 'spike', 'coleta', 'painel'].map((name, index) => [name, {

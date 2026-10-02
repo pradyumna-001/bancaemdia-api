@@ -30,6 +30,10 @@ jobs:
           k6-version: '1.3.0'
       - name: Inspect load test
         run: k6 inspect k6/load-test.js
+      - name: Check collection cadence at fixed-window reset boundaries
+        run: k6 run --vus 1 --iterations 1 k6/tests/pacing.js
+      - name: Verify reports retain measurements and exclude credentials
+        run: k6 run --vus 1 --iterations 1 k6/tests/summary.js
       - name: Exercise all scenarios against local contract mock
         shell: bash
         run: |
@@ -46,7 +50,7 @@ jobs:
   staging:
     if: >-
       github.event_name != 'pull_request' ||
-      (github.event.pull_request.head.repo.full_name == github.repository && vars.STAGING_BASE_URL != '')
+      github.event.pull_request.head.repo.full_name == github.repository
     needs: validate
     runs-on: ubuntu-latest
     timeout-minutes: 90
@@ -62,11 +66,31 @@ jobs:
       JWT_TOKENS_JSON_5: ${{ secrets.STAGING_JWT_TOKENS_JSON_5 }}
       COLETA_TOKENS_JSON: ${{ secrets.STAGING_COLETA_TOKENS_JSON }}
       LOAD_PROFILE: ${{ github.event.inputs.profile || 'all' }}
+      TESTED_HEAD_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
     steps:
       - uses: actions/checkout@v4
       - uses: grafana/setup-k6-action@v1
         with:
           k6-version: '1.3.0'
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+          cache: pip
+      - name: Install backend for disposable Phase 0 staging
+        if: vars.STAGING_BASE_URL == ''
+        run: pip install -e ".[dev]"
+      - name: Reserve private runtime outside the checkout
+        if: vars.STAGING_BASE_URL == ''
+        run: echo "K6_STAGING_DIR=$RUNNER_TEMP/bancaemdia-k6-$GITHUB_RUN_ID-$GITHUB_RUN_ATTEMPT" >> "$GITHUB_ENV"
+      - name: Create isolated PostgreSQL, real standby, Redis and synthetic users
+        if: vars.STAGING_BASE_URL == ''
+        run: python scripts/k6_staging.py prepare
+      - name: Real standby routing, RLS, read-after-write and paused replay regressions
+        if: vars.STAGING_BASE_URL == ''
+        run: python scripts/k6_staging.py regressions
+      - name: Start real API, workers, JWKS and dashboard refresh
+        if: vars.STAGING_BASE_URL == ''
+        run: python scripts/k6_staging.py start
       - name: Check staging configuration
         shell: bash
         run: |
@@ -76,8 +100,22 @@ jobs:
           if [ "$LOAD_PROFILE" != 'cd-smoke' ]; then
             test -n "$COLETA_TOKENS_JSON" || { echo 'STAGING_COLETA_TOKENS_JSON is required'; exit 1; }
           fi
+          test -z "${K6_LOCAL_SMOKE:-}" || { echo 'Smoke mode is forbidden for staging load'; exit 1; }
+      - name: Authenticated preflight against the real API
+        run: LOAD_PROFILE=cd-smoke python k6/run.py
+      - name: Five-minute collection preflight with 100 simultaneous users
+        if: vars.STAGING_BASE_URL == '' && env.LOAD_PROFILE == 'all'
+        run: |
+          LOAD_PROFILE=coleta python k6/run.py
+          LOAD_PROFILE=coleta python scripts/k6_staging.py verify
+          mv load-test-summary.json k6-coleta-preflight-summary.json
+          mv load-test-report.html k6-coleta-preflight-report.html
+          mv k6-staging-evidence.json k6-coleta-preflight-evidence.json
       - name: Run staging load profile and enforce thresholds
-        run: k6 run k6/load-test.js
+        run: python k6/run.py
+      - name: Verify persisted uploads, bets, tenant isolation and real replication
+        if: vars.STAGING_BASE_URL == ''
+        run: python scripts/k6_staging.py verify
       - name: Upload HTML and JSON results
         if: always()
         uses: actions/upload-artifact@v4
@@ -86,4 +124,15 @@ jobs:
           path: |
             load-test-report.html
             load-test-summary.json
+            k6-staging-evidence.json
+            k6-router-test-results.xml
+            k6-coleta-preflight-summary.json
+            k6-coleta-preflight-report.html
+            k6-coleta-preflight-evidence.json
           if-no-files-found: warn
+      - name: Sanitized backend diagnostics on failure
+        if: failure() && vars.STAGING_BASE_URL == ''
+        run: python scripts/k6_staging.py diagnose
+      - name: Destroy this run's disposable infrastructure
+        if: always() && vars.STAGING_BASE_URL == ''
+        run: python scripts/k6_staging.py cleanup
