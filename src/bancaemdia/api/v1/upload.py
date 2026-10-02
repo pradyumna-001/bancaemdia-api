@@ -106,9 +106,11 @@ async def _esperar_intervalo(session: AsyncSession, usuario_id: int) -> int | No
 
 
 def _enfileirar(upload_id: int, usuario_id: int) -> None:
+    # A consulta pública usa uploads.status no PostgreSQL, sem assinatura de resultados RPC.
     celery.send_task(
         TAREFA,
         kwargs={"upload_id": upload_id, "usuario_id": usuario_id},
+        ignore_result=True,
         link_error=celery.signature(TAREFA_DE_FALHA, args=(upload_id, usuario_id), immutable=True),
     )
 

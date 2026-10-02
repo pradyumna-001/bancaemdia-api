@@ -190,8 +190,11 @@ async def registrar(
 
 
 def _enfileirar(usuario_id: int, fila: list[int]) -> None:
+    # O processamento fica registrado no PostgreSQL; esta rota não consome resultados RPC.
     for coleta_id in fila:
-        celery.send_task(TAREFA, kwargs={"usuario_id": usuario_id, "coleta_id": coleta_id})
+        celery.send_task(
+            TAREFA, kwargs={"usuario_id": usuario_id, "coleta_id": coleta_id}, ignore_result=True
+        )
 
 
 @router.post("/api/v1/coleta", response_model=CollectionResponse)
