@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import re
-from collections.abc import Iterable, Iterator, Mapping
+from collections.abc import Generator, Iterable, Mapping
 from contextlib import contextmanager
 from dataclasses import dataclass
 from threading import Lock
@@ -441,7 +441,7 @@ def set_custom_span_attributes(
 
 
 @contextmanager
-def custom_span(name: CustomSpanName, **attributes: SpanAttribute) -> Iterator[Span]:
+def custom_span(name: CustomSpanName, **attributes: SpanAttribute) -> Generator[Span]:
     """Start one of the approved business spans without accepting arbitrary PII fields."""
 
     with _tracer().start_as_current_span(
