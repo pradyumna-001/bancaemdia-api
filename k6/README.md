@@ -33,6 +33,8 @@ com chave efêmera e serve o JWKS local. Não é o `mock_server.py` do smoke.
 Os quatro perfis completos mantêm 55 minutos e todos os limiares originais. `K6_LOCAL_SMOKE`
 é recusada neste job. A verificação posterior exige uploads concluídos, apostas Telegram
 persistidas, apostas Casa materializadas, streaming ativo e RLS sem acesso entre tenants.
+Um preflight autenticado de 30 segundos usa a API real antes da carga; falha rapidamente
+se houver problemas de credenciais. Ele não substitui os quatro perfis completos.
 Os relatórios incluem `k6-staging-evidence.json` com SHA, contagens e fronteiras da prova.
 O mesmo cluster também executa `tests/integration/test_router_db.py` num banco separado,
 com `TEST_REPLICA_DATABASE_URL` real. O job exige JUnit sem skips/falhas para roteamento,

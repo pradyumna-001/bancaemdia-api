@@ -62,6 +62,7 @@ jobs:
       JWT_TOKENS_JSON_5: ${{ secrets.STAGING_JWT_TOKENS_JSON_5 }}
       COLETA_TOKENS_JSON: ${{ secrets.STAGING_COLETA_TOKENS_JSON }}
       LOAD_PROFILE: ${{ github.event.inputs.profile || 'all' }}
+      TESTED_HEAD_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
     steps:
       - uses: actions/checkout@v4
       - uses: grafana/setup-k6-action@v1
@@ -96,6 +97,8 @@ jobs:
             test -n "$COLETA_TOKENS_JSON" || { echo 'STAGING_COLETA_TOKENS_JSON is required'; exit 1; }
           fi
           test -z "${K6_LOCAL_SMOKE:-}" || { echo 'Smoke mode is forbidden for staging load'; exit 1; }
+      - name: Authenticated preflight against the real API
+        run: LOAD_PROFILE=cd-smoke python k6/run.py
       - name: Run staging load profile and enforce thresholds
         run: python k6/run.py
       - name: Verify persisted uploads, bets, tenant isolation and real replication

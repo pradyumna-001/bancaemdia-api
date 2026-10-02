@@ -599,7 +599,8 @@ async def verify(directory: Path) -> None:
         if any(not threshold["ok"] for threshold in metric.get("thresholds", {}).values()):
             raise RuntimeError("k6 thresholds failed")
     evidence = {
-        "sha": command(["git", "rev-parse", "HEAD"], cwd=ROOT),
+        "sha": os.environ["TESTED_HEAD_SHA"],
+        "checkout_sha": command(["git", "rev-parse", "HEAD"], cwd=ROOT),
         "profile": profile,
         "environment": "ephemeral-github-runner-phase-0",
         "counts": counts,
