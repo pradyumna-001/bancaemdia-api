@@ -5,6 +5,7 @@ from celery import Celery
 from kombu import Queue
 
 from bancaemdia.api.v1 import coleta, upload
+from bancaemdia.workers.publication import ignored_task_result
 
 
 @pytest.mark.parametrize("publication", ["coleta", "upload"])
@@ -18,7 +19,8 @@ def test_http_task_publication_preserves_payload_without_result_subscription(
     def unexpected_subscription(*args: object, **kwargs: object) -> None:
         raise AssertionError("HTTP publication must not subscribe to unused task results")
 
-    monkeypatch.setattr(publisher.backend, "on_task_call", unexpected_subscription)
+    # Fail both subscribing to results and the default AsyncResult factory's backend lookup.
+    monkeypatch.setattr(Celery, "backend", property(unexpected_subscription))
     module = coleta if publication == "coleta" else upload
     monkeypatch.setattr(module, "celery", publisher)
     expected = (
@@ -50,5 +52,20 @@ def test_http_task_publication_preserves_payload_without_result_subscription(
                 message.ack()
             assert queue.get() is None
             queue.delete()
+    finally:
+        publisher.close()
+
+
+def test_ignored_receipt_preserves_worker_result_backend_configuration() -> None:
+    publisher = Celery("receipt", broker="memory://", backend="cache+memory://")
+    try:
+        result = ignored_task_result("task-id", app=publisher)
+        result.ignored = True
+        assert result.id == "task-id"
+        assert result.app is publisher
+        assert result.ignored is True
+        assert result.backend.as_uri() == "disabled://"
+        assert publisher.conf.result_backend == "cache+memory://"
+        assert publisher.backend.as_uri() == "memory:///"
     finally:
         publisher.close()

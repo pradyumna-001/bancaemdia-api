@@ -35,7 +35,8 @@ O fluxo de upload usa `fixtures/telegram-small.zip`, um export sintético com um
 
 Sem `STAGING_BASE_URL`, o job `staging` cria seu próprio ambiente no runner Linux do
 GitHub Actions. Roda o backend do commit em teste, PostgreSQL 16 com streaming replica
-real, Redis, dois workers HTTP (keep-alive de 30 segundos para os intervalos de 6/10 s),
+real, Redis, até quatro workers HTTP conforme as CPUs do runner (keep-alive de 30 segundos
+para os intervalos de 6/10 s),
 pool de 30 conexões retidas por engine (`DB_POOL_SIZE=30`, `DB_POOL_MAX_OVERFLOW=0`,
 mesmo máximo de 30 dos padrões 10+20, evitando reconexão do overflow a cada rajada),
 os workers Celery reais de extração/materialização e refresh periódico das
