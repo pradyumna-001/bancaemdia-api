@@ -369,7 +369,7 @@ async def seed(directory: Path, info: dict, env: dict) -> None:
         raise RuntimeError("Extraction cache could not be seeded")
 
 
-def spawn(directory: Path, args: list[str], name: str, env: dict) -> None:
+def spawn(directory: Path, args: list[str], name: str, env: dict) -> int:
     info = state(directory)
     with (directory / f"{name}.log").open("w", encoding="utf-8") as log:
         process = subprocess.Popen(
@@ -382,6 +382,7 @@ def spawn(directory: Path, args: list[str], name: str, env: dict) -> None:
         )
     info["processes"].append(process.pid)
     write_private(directory / "state.json", info)
+    return process.pid
 
 
 async def regressions(directory: Path) -> None:
@@ -473,7 +474,7 @@ async def start(directory: Path) -> None:
             queue,
             env,
         )
-    spawn(
+    api_pid = spawn(
         directory,
         [
             sys.executable,
@@ -512,6 +513,31 @@ async def start(directory: Path) -> None:
             await asyncio.sleep(1)
         else:
             raise RuntimeError("Real API, workers and authenticated dashboard are not ready")
+    # Observe only this synthetic API and its children, with no locals/arguments captured.
+    # This sampler does not inject code or pause the API and finishes during the preflight.
+    spawn(
+        directory,
+        [
+            "sudo",
+            "--preserve-env=K6_STAGING_DIR",
+            command(["which", "py-spy"]),
+            "record",
+            "--pid",
+            str(api_pid),
+            "--subprocesses",
+            "--nonblocking",
+            "--rate",
+            "50",
+            "--duration",
+            "240",
+            "--format",
+            "speedscope",
+            "--output",
+            str(ROOT / "k6-staging-profile.json"),
+        ],
+        "profiler",
+        env,
+    )
     with Path(os.environ["GITHUB_ENV"]).open("a", encoding="utf-8") as handle:
         handle.write("BASE_URL=http://127.0.0.1:18000\nALLOW_HTTP_LOCAL=1\n")
         # Stay below both GitHub's secret limit and Linux's per-environment-string limit.

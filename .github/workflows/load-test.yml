@@ -76,7 +76,7 @@ jobs:
           cache: pip
       - name: Install backend for disposable Phase 0 staging
         if: vars.STAGING_BASE_URL == ''
-        run: pip install -e ".[dev]"
+        run: pip install -e ".[dev]" py-spy==0.4.2
       - name: Reserve private runtime outside the checkout
         if: vars.STAGING_BASE_URL == ''
         run: echo "K6_STAGING_DIR=$RUNNER_TEMP/bancaemdia-k6-$GITHUB_RUN_ID-$GITHUB_RUN_ATTEMPT" >> "$GITHUB_ENV"
@@ -127,6 +127,7 @@ jobs:
             k6-coleta-preflight-summary.json
             k6-coleta-preflight-report.html
             k6-coleta-preflight-evidence.json
+            k6-staging-profile.json
           if-no-files-found: warn
       - name: Sanitized backend diagnostics on failure
         if: failure() && vars.STAGING_BASE_URL == ''
