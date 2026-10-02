@@ -1,6 +1,5 @@
 import { options, selectedProfile } from './config.js';
-import exec from 'k6/execution';
-import { credentials, getPanel, pauseToInterval } from './scenarios/common.js';
+import { credentials, getPanel, pauseToInterval, tokenFor } from './scenarios/common.js';
 import { uploadJourney } from './scenarios/upload.js';
 import { sendColeta } from './scenarios/coleta.js';
 import { sampleMetrics } from './scenarios/telemetry.js';
@@ -13,21 +12,20 @@ export function setup() {
 }
 
 export function steadyState(data) {
-  uploadJourney(data.jwt[exec.vu.idInScenario - 1], uploadInterval);
+  uploadJourney(tokenFor(data, 'jwt'), uploadInterval);
 }
 
 export function spikeLoad(data) {
-  const offset = selectedProfile === 'all' ? 50 : 0;
-  uploadJourney(data.jwt[offset + exec.vu.idInScenario - 1], uploadInterval);
+  uploadJourney(tokenFor(data, 'jwt'), uploadInterval);
 }
 
 export function coletaBurst(data) {
-  sendColeta(data.coleta[exec.vu.idInScenario - 1]);
+  sendColeta(tokenFor(data, 'coleta'));
 }
 
 export function painelRead(data) {
   const started = Date.now();
-  getPanel(data.jwt[exec.vu.idInScenario - 1]);
+  getPanel(tokenFor(data, 'jwt'));
   pauseToInterval(started, uploadInterval);
 }
 

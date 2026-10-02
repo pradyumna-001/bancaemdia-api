@@ -43,8 +43,9 @@ if (profile !== 'all' && !profiles[profile]) {
 const durations = { all: '55m', steady: '30m', spike: '10m', coleta: '5m', painel: '10m', 'cd-smoke': '30s' };
 
 export const options = {
+  tags: { staging_api: 'true' },
   scenarios: {
-    ...(profile === 'all' ? profiles : { [profile]: profiles[profile] }),
+    ...(profile === 'all' ? { steady, spike, coleta, painel } : { [profile]: profiles[profile] }),
     ...(profile === 'cd-smoke' ? {} : { telemetry: {
       executor: 'constant-vus', exec: 'probeMetrics', vus: 1,
       duration: durations[profile], startTime: '0s', gracefulStop: '0s',
@@ -53,6 +54,8 @@ export const options = {
   thresholds: {
     http_req_duration: ['p(95)<1000', 'p(99)<2000'],
     http_req_failed: ['rate<0.01'],
+    'http_req_duration{staging_api:true}': ['p(95)<1000', 'p(99)<2000'],
+    'http_req_failed{staging_api:true}': ['rate<0.01'],
     checks_pass_rate: ['rate>0.99'],
     ...(profile === 'cd-smoke' ? {} : {
       extraction_queue_depth: ['max<100'],

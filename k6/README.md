@@ -1,6 +1,15 @@
 # Teste de carga de staging
 
-`k6 run k6/load-test.js` executa os quatro perfis em sequência (55 minutos). `LOAD_PROFILE=steady|spike|coleta|painel` executa um perfil isolado. Os limites em `config.js` fazem o k6 sair com erro quando p95 ≥ 1 s, p99 ≥ 2 s, falhas HTTP ≥ 1%, checks ≤ 99%, profundidade da fila de extração ≥ 100, atraso da réplica ≥ 30 s ou telemetria estiver ausente. O relatório HTML e o resumo JSON são gravados no diretório de execução.
+`python k6/run.py` executa o k6 com os quatro perfis em sequência (55 minutos). `LOAD_PROFILE=steady|spike|coleta|painel` executa um perfil isolado. Os limites em `config.js` fazem o k6 sair com erro quando p95 ≥ 1 s, p99 ≥ 2 s, falhas HTTP ≥ 1%, checks ≤ 99%, profundidade da fila de extração ≥ 100, atraso da réplica ≥ 30 s ou telemetria estiver ausente. O relatório HTML e o resumo JSON são gravados no diretório de execução.
+
+O launcher mantém um alocador de credenciais somente em loopback, durante o processo k6.
+Cada VU usa seu `idInTest` suportado para obter uma credencial estável e exclusiva por
+cenário, mesmo quando os IDs são esparsos ou os VUs são reutilizados. Steady usa os 50
+primeiros JWTs e spike os 200 seguintes. O campo antigo `idInScenario` não existe na API
+de execução do k6 e enviava `Bearer undefined`. O alocador nunca emite tokens nem muda
+a autenticação do backend; apenas distribui os tokens fornecidos. Não grava logs de
+acesso. Além dos limiares globais, limiares iguais exclusivos do tráfego da API impedem
+que as poucas requisições locais de alocação diluam as métricas de desempenho/falha.
 
 | Perfil | Carga | Fluxo |
 | --- | --- | --- |
@@ -13,11 +22,46 @@ O fluxo de upload usa `fixtures/telegram-small.zip`, um export sintético com um
 
 ## Preparação
 
+### Fase 0: ambiente descartável automático na CI
+
+Sem `STAGING_BASE_URL`, o job `staging` cria seu próprio ambiente no runner Linux do
+GitHub Actions. Roda o backend do commit em teste, PostgreSQL 16 com streaming replica
+real, Redis, os workers Celery reais de extração/materialização e refresh periódico das
+materialized views. Cria 250 usuários sintéticos e 100 tokens de coleta, assina JWTs RS256
+com chave efêmera e serve o JWKS local. Não é o `mock_server.py` do smoke.
+
+Os quatro perfis completos mantêm 55 minutos e todos os limiares originais. `K6_LOCAL_SMOKE`
+é recusada neste job. A verificação posterior exige uploads concluídos, apostas Telegram
+persistidas, apostas Casa materializadas, streaming ativo e RLS sem acesso entre tenants.
+Os relatórios incluem `k6-staging-evidence.json` com SHA, contagens e fronteiras da prova.
+
+O arquivo sintético já versionado `fixtures/telegram-small.zip` tem sua leitura sintética
+pré-carregada no cache real de extração. A IA aponta para uma porta local sem serviço;
+qualquer cache miss falha, sem chamada à IA paga. Isto mede o percurso com cache aquecido,
+não qualidade/latência da IA nem imagens inéditas. Não usa as fixtures pendentes de revisão
+da #114. HTTP é restrito ao loopback por `ALLOW_HTTP_LOCAL=1`, já suportado pelo k6.
+
+Senhas, JWTs e chaves HMAC são aleatórios, mascarados e escritos apenas em diretório privado
+do runner, fora do checkout. A API e os workers usam papel PostgreSQL sem SUPERUSER ou
+BYPASSRLS. Migração, seed e refresh usam a credencial administrativa só deste banco novo.
+O script recusa execução fora do GitHub Actions Linux e destinos fora de `RUNNER_TEMP` ou
+dentro do checkout. Cleanup remove somente containers/rede etiquetados por esta execução;
+nenhuma credencial ou log bruto é enviado como artefato.
+
+Isso corresponde à Fase 0 da [decisão AWS](../docs/decisions/aws-initial-budget.md).
+Não provisiona AWS nem substitui prova de TLS, capacidade/custos da Lightsail, backup,
+restauração ou sign-off de lançamento (#41/#44). Os recursos do ambiente terminam ao final
+de cada job. Após o merge desta configuração, PRs do repositório, agendamento semanal e
+execução manual funcionam sem cadastro de URL ou segredos externos. Forks continuam sem
+acesso ao job de staging.
+
+### Staging externo, quando provisionado
+
 1. Use um ambiente de staging isolado, com no mínimo 250 usuários e tokens JWT de teste válidos por mais de 55 minutos e 100 tokens de coleta. Os primeiros 50 JWTs são do steady state; os 200 seguintes são do spike, evitando deduplicação por usuário entre perfis. Evite dados ou credenciais de produção. Os arrays JSON são passados por `JWT_TOKENS_JSON` e `COLETA_TOKENS_JSON`, respectivamente. Se os JWTs excederem o limite de tamanho de um segredo do GitHub, divida a lista em até cinco arrays `JWT_TOKENS_JSON_1` a `_5`, mantendo a ordem.
 2. Defina `BASE_URL` como origem HTTPS do staging. `METRICS_URL` pode apontar para o endpoint Prometheus da API acessível ao executor; por padrão usa `${BASE_URL}/metrics`. Este endpoint precisa expor `celery_queue_depth{queue="extraction"}` e `pg_replication_lag_seconds{role="replica"}`. A ausência de qualquer série falha o teste.
 3. Para o perfil coleta, configure `COLETA_IP_RATE_LIMIT` do staging para ao menos `1200/minute`, pois o limite padrão de `60/minute` por IP rejeita o gerador único. Mantenha `COLETA_RATE_LIMIT=10/minute` por token. Aumente a capacidade somente no staging e isole os usuários do teste; respostas 429 fazem os checks falharem.
-4. Execute `k6 run k6/load-test.js`. Para um perfil isolado, defina `LOAD_PROFILE` antes do comando. HTTP sem TLS só é aceito para `localhost`/`127.0.0.1` com `ALLOW_HTTP_LOCAL=1`.
+4. Execute `python k6/run.py` (Python 3.12 e k6 no PATH). Para um perfil isolado, defina `LOAD_PROFILE` antes do comando. HTTP sem TLS só é aceito para `localhost`/`127.0.0.1` com `ALLOW_HTTP_LOCAL=1`. A chamada direta `k6 run k6/load-test.js` requer `K6_CREDENTIALS_URL` de um launcher ativo; prefira o comando Python para iniciar/encerrar esse alocador automaticamente.
 
-O workflow `load-test.yml` valida a sintaxe em todos os PRs. Para PRs do próprio repositório, executa o teste completo e barra o PR por limiares quando `STAGING_BASE_URL` está configurada como variável do repositório. PRs de forks executam somente a validação sem segredos. O agendamento semanal e a execução manual exigem `STAGING_BASE_URL`, `STAGING_METRICS_URL` opcional, os segredos `STAGING_JWT_TOKENS_JSON` (ou shards `_1` a `_5`) e `STAGING_COLETA_TOKENS_JSON` no ambiente `staging`; falham explicitamente se faltarem. O workflow envia os relatórios como artefatos mesmo se o teste falhar.
+O workflow `load-test.yml` valida a sintaxe em todos os PRs. PRs do próprio repositório executam o teste completo e são barrados pelos limiares. Sem URL externa, usam a Fase 0 acima. Para usar staging externo, configure `STAGING_BASE_URL` como variável do **repositório**, `STAGING_METRICS_URL` opcional, os segredos `STAGING_JWT_TOKENS_JSON` (ou shards `_1` a `_5`) e `STAGING_COLETA_TOKENS_JSON` no ambiente `staging`. URL externa configurada com tokens ausentes falha explicitamente, sem fallback para outro ambiente. PRs de forks executam somente a validação sem segredos. O workflow envia os relatórios como artefatos mesmo se o teste falhar.
 
 O job de validação também roda `k6/smoke.js` contra `k6/tests/mock_server.py` por 12 segundos com `K6_LOCAL_SMOKE=1`, cobrindo os quatro cenários e a interpretação das métricas, sem gerar carga externa. Essa variável só encurta os intervalos para o smoke local e não é definida no teste de staging.

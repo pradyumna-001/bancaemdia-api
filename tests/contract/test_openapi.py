@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import json
-from collections.abc import Iterator
+from collections.abc import Generator, Iterator
 from contextlib import contextmanager
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -75,7 +75,7 @@ class _ContractSession:
 
 
 @contextmanager
-def _collection_backend() -> Iterator[CollectionContractBackend]:
+def _collection_backend() -> Generator[CollectionContractBackend, None, None]:
     backend = CollectionContractBackend()
     monkeypatch = pytest.MonkeyPatch()
 

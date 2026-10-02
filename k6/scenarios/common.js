@@ -1,9 +1,30 @@
 import http from 'k6/http';
 import { check, sleep } from 'k6';
 import { Rate } from 'k6/metrics';
+import exec from 'k6/execution';
 
 export const checksPassRate = new Rate('checks_pass_rate');
 export const baseUrl = (__ENV.BASE_URL || '').replace(/\/$/, '');
+const leases = {};
+
+export function tokenFor(data, kind) {
+  if (__ENV.K6_LOCAL_SMOKE === '1') return data[kind][0];
+  const scenario = exec.scenario.name;
+  if (!leases[scenario]) {
+    const origin = __ENV.K6_CREDENTIALS_URL || '';
+    if (!/^http:\/\/127\.0\.0\.1:\d+$/.test(origin)) {
+      throw new Error('Run staging through python k6/run.py to allocate distinct credentials');
+    }
+    const response = http.get(`${origin}/${scenario}/${exec.vu.idInTest}`, {
+      tags: { name: 'local credential lease', staging_api: 'false' }, timeout: '5s',
+    });
+    if (response.status !== 200 || !response.json('token')) {
+      throw new Error('Could not allocate a distinct staging credential');
+    }
+    leases[scenario] = response.json('token');
+  }
+  return leases[scenario];
+}
 
 function parseTokens(name, minimum) {
   let tokens;
@@ -36,6 +57,7 @@ export function credentials(profile) {
 export function verify(response, name, expected, predicate = () => true) {
   const passed = check(response, { [name]: (r) => r.status === expected && predicate(r) });
   checksPassRate.add(passed);
+  if (!passed) console.warn(`${name}: HTTP ${response.status}, expected ${expected}`);
   return passed;
 }
 

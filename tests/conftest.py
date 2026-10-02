@@ -3,7 +3,7 @@ from __future__ import annotations
 import asyncio
 import os
 import sys
-from collections.abc import AsyncIterator, Awaitable, Callable, Iterator
+from collections.abc import AsyncGenerator, AsyncIterator, Awaitable, Callable, Iterator
 from concurrent.futures import ThreadPoolExecutor
 from contextlib import AbstractAsyncContextManager, asynccontextmanager
 from dataclasses import dataclass
@@ -178,7 +178,9 @@ Como = Callable[[AsyncEngine, int | None], AbstractAsyncContextManager[AsyncSess
 @pytest.fixture
 def como() -> Como:
     @asynccontextmanager
-    async def _como(engine: AsyncEngine, usuario_id: int | None) -> AsyncIterator[AsyncSession]:
+    async def _como(
+        engine: AsyncEngine, usuario_id: int | None
+    ) -> AsyncGenerator[AsyncSession, None]:
         async with AsyncSession(engine, expire_on_commit=False) as session:
             if usuario_id is not None:
                 await session.execute(
