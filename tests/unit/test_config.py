@@ -116,6 +116,7 @@ class TestApiRateLimitSettings:
             "COLETA_RATE_LIMIT",
             "COLETA_IP_RATE_LIMIT",
             "API_RATE_LIMIT",
+            "PANEL_EXPORT_RATE_LIMIT",
             "AUTH_RATE_LIMIT",
             "UPLOAD_RATE_LIMIT",
         ],

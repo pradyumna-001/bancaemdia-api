@@ -198,6 +198,17 @@ async def test_unsigned_malformed_or_kid_less_tokens_are_invalid(k1) -> None:
     assert servidor.buscas == 0
 
 
+async def test_invalid_header_decoder_value_error_is_unauthorized(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    def malformed(_token: str) -> None:
+        raise UnicodeDecodeError("utf-8", b"\xff", 0, 1, "invalid byte")
+
+    monkeypatch.setattr(auth_jwt.jwt, "get_unverified_header", malformed)
+    with pytest.raises(auth_jwt.InvalidTokenError, match="malformed"):
+        await auth_jwt.verify_token("malformed", auth_jwt.JWKSCache(None, "RS256"))
+
+
 @pytest.mark.parametrize(
     "estrago", [{"n": "não é base64"}, {"n": "!!!"}, {"n": 123}, {"e": ""}, {"n": None}]
 )
