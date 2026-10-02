@@ -486,6 +486,8 @@ async def start(directory: Path) -> None:
             "18000",
             "--workers",
             "2",
+            "--timeout-keep-alive",
+            "30",
             "--log-level",
             "warning",
             "--no-access-log",

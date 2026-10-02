@@ -14,6 +14,9 @@ O servidor local aceita o início simultâneo dos 100 VUs de coleta/painel. A co
 a cadência de seis segundos e, ao consumir as dez requisições da janela, aguarda o
 `X-RateLimit-Reset` informado pela API. Isso evita antecipar a renovação por variação de
 fila/recebimento no servidor. Respostas 429 continuam reprovando o teste.
+As consultas síncronas do SlowAPI/Redis, inclusive a leitura da janela para os cabeçalhos
+de sucesso/429, rodam no thread pool do backend. O loop ASGI continua atendendo outros
+pedidos enquanto o armazenamento aguarda I/O, preservando quotas, fallback e cabeçalhos.
 
 | Perfil | Carga | Fluxo |
 | --- | --- | --- |
@@ -30,7 +33,8 @@ O fluxo de upload usa `fixtures/telegram-small.zip`, um export sintético com um
 
 Sem `STAGING_BASE_URL`, o job `staging` cria seu próprio ambiente no runner Linux do
 GitHub Actions. Roda o backend do commit em teste, PostgreSQL 16 com streaming replica
-real, Redis, dois workers HTTP, os workers Celery reais de extração/materialização e refresh periódico das
+real, Redis, dois workers HTTP (keep-alive de 30 segundos para os intervalos de 6/10 s),
+os workers Celery reais de extração/materialização e refresh periódico das
 materialized views. Cria 250 usuários sintéticos e 100 tokens de coleta, assina JWTs RS256
 com chave efêmera e serve o JWKS local. Não é o `mock_server.py` do smoke.
 
