@@ -1,8 +1,12 @@
 from bancaemdia.db.models import Base
 from bancaemdia.models.apelido import Apelido
 from bancaemdia.models.aposta import Aposta
+from bancaemdia.models.assinatura import Assinatura
 from bancaemdia.models.audit_log import AuditLog
 from bancaemdia.models.banca import Banca
+from bancaemdia.models.billing_price import BillingPrice
+from bancaemdia.models.billing_price_audit import BillingPriceAudit
+from bancaemdia.models.billing_rollout import BillingRollout
 from bancaemdia.models.casa import Casa
 from bancaemdia.models.chamada_ia import ChamadaIA
 from bancaemdia.models.coleta_casa import ColetaCasa
@@ -57,3 +61,18 @@ __all__ = [
     "UploadBilhete",
     "Usuario",
 ]
+
+
+__all__ += ["Assinatura"]
+
+
+__all__ += ["AuditLog"]
+
+
+__all__ += ["BillingPrice"]
+
+
+__all__ += ["BillingPriceAudit"]
+
+
+__all__ += ["BillingRollout"]

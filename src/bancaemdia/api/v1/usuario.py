@@ -39,8 +39,14 @@ EXPORT_TABLES = (
     "coleta_token",
     "chamadas_ia",
     "audit_log",
+    "assinaturas",
 )
-EXCLUDED_COLUMNS = frozenset({"token_hash", "conteudo"})
+EXCLUDED_COLUMNS = frozenset({
+    "token_hash",
+    "conteudo",
+    "provider_customer_ref",
+    "provider_subscription_ref",
+})
 EXPORT_RESPONSE_SCHEMA: dict[str, Any] = {
     "type": "object",
     "required": ["usuario", *EXPORT_TABLES],
@@ -177,6 +183,13 @@ async def anonimizar_minha_conta(
     await session.execute(
         select(UsuarioModel.id).where(UsuarioModel.id == usuario.id).with_for_update()
     )
+    from bancaemdia.models.assinatura import Assinatura
+
+    billing = await session.get(Assinatura, usuario.id)
+    if billing and billing.provider_subscription_ref and billing.status != "CANCELED":
+        raise HTTPException(
+            409, "Cancele a assinatura e aguarde a confirmação antes de excluir a conta."
+        )
     raw_sources = (
         select(Upload.id).where(Upload.usuario_id == usuario.id, Upload.chat_id.is_not(None)),
         select(Aposta.id).where(
@@ -195,9 +208,26 @@ async def anonimizar_minha_conta(
                 detail="Há mensagens ou fotos importadas que exigem exclusão assistida.",
             )
     for table in reversed(Base.metadata.sorted_tables):
-        if table.name in {"usuarios", "eventos", "audit_log"} or "usuario_id" not in table.c:
+        if (
+            table.name in {"usuarios", "eventos", "audit_log", "assinaturas"}
+            or "usuario_id" not in table.c
+        ):
             continue
         await session.execute(delete(table).where(table.c.usuario_id == usuario.id))
+    await session.execute(
+        update(Base.metadata.tables["assinaturas"])
+        .where(Base.metadata.tables["assinaturas"].c.usuario_id == usuario.id)
+        .values(
+            status="EXPIRED",
+            current_period_started_at=None,
+            current_period_ends_at=None,
+            price_id=None,
+            provider=None,
+            provider_customer_ref=None,
+            provider_subscription_ref=None,
+            last_reconciled_at=None,
+        )
+    )
     await session.execute(
         update(Evento)
         .where(Evento.usuario_id == usuario.id)
