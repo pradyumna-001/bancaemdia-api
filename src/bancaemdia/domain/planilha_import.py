@@ -13,9 +13,10 @@ from zoneinfo import ZoneInfo
 
 from openpyxl import load_workbook
 
+from bancaemdia.core.body_limits import PLANILHA_MAX_BYTES
 from bancaemdia.domain.materializar import casa_canonica
 
-MAX_BYTES = 5_000_000
+MAX_BYTES = PLANILHA_MAX_BYTES
 MAX_ROWS = 1_000
 REQUIRED = ("casa", "data_aposta", "odd", "stake_unidades", "atualizada_em")
 OPTIONAL = ("evento", "descricao", "mercado_bruto", "freebet")
