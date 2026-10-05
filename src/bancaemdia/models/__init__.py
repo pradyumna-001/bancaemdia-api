@@ -15,6 +15,7 @@ from bancaemdia.models.extracao_cache import ExtracaoCache
 from bancaemdia.models.mensagem import Mensagem
 from bancaemdia.models.mensagem_versao import MensagemVersao
 from bancaemdia.models.mercado import Mercado
+from bancaemdia.models.meta_desempenho import MetaDesempenho
 from bancaemdia.models.midia import Midia
 from bancaemdia.models.midia_arquivo import MidiaArquivo
 from bancaemdia.models.movimento import Movimento
@@ -44,6 +45,7 @@ __all__ = [
     "Mensagem",
     "MensagemVersao",
     "Mercado",
+    "MetaDesempenho",
     "Midia",
     "MidiaArquivo",
     "Movimento",

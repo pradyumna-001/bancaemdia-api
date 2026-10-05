@@ -34,6 +34,7 @@ from bancaemdia.exportacao.painel_xlsx import (
     gerar_painel_xlsx_assincrono,
     remover_arquivo_temporario,
 )
+from bancaemdia.repositories.analytics_repo import AnalyticsRepo
 from bancaemdia.repositories.painel_repo import PainelRepo
 
 BIGINT_MAX = 2**63 - 1
@@ -84,6 +85,11 @@ class EvolucaoSaida(SaidaEstrita):
     lucro_periodo_centavos: int
     lucro_acumulado_centavos: int
     saldo_centavos: int | None
+    saldo_inicial_centavos: int | None = None
+    depositos_periodo_centavos: int = 0
+    saques_periodo_centavos: int = 0
+    depositos_acumulados_centavos: int = 0
+    saques_acumulados_centavos: int = 0
 
 
 class FrescorSaida(SaidaEstrita):
@@ -115,6 +121,44 @@ class MetricasGraficosSaida(FrescorSaida):
     granularidade: Literal["dia", "semana", "mes"]
     labels: list[str]
     datasets: list[DatasetSaida]
+
+
+class ResumoAnaliseSaida(SaidaEstrita):
+    total_apostas: int
+    pendentes: int
+    greens: int
+    reds: int
+    giro_centavos: int
+    base_roi_centavos: int
+    lucro_centavos: int
+    roi: str
+    hit_rate: str | None
+    resultado_nao_aplicavel: int
+
+
+class BucketAnaliseSaida(ResumoAnaliseSaida):
+    chave: str
+    nome: str | None = None
+    valor_face_min_centavos: int | None = None
+    valor_face_max_centavos: int | None = None
+    capital_banca_centavos: int | None = None
+    progressao: str | None = None
+    motivo_progressao: str | None = None
+
+
+class AnalisesSaida(FrescorSaida):
+    fonte_dados: Literal["visao_canonica_ao_vivo"]
+    fuso_horario: str
+    total_filtrado: ResumoAnaliseSaida
+    faixas_odds: list[BucketAnaliseSaida]
+    heatmap: list[BucketAnaliseSaida]
+    por_esporte: list[BucketAnaliseSaida]
+    quartis_stake: list[BucketAnaliseSaida]
+    por_banca_progressao: list[BucketAnaliseSaida]
+    odd_media: str | None
+    odds_desconhecidas: int
+    odds_nao_aplicaveis: int
+    profit_factor: str | None
 
 
 def _aplicar_cache_privado(response: Response) -> None:
@@ -166,6 +210,11 @@ def _evolucao_saida(ponto: PontoEvolucao) -> EvolucaoSaida:
         lucro_periodo_centavos=ponto.contribuicao_centavos,
         lucro_acumulado_centavos=ponto.acumulado_centavos,
         saldo_centavos=ponto.saldo_centavos,
+        saldo_inicial_centavos=ponto.saldo_inicial_centavos,
+        depositos_periodo_centavos=ponto.depositos_periodo_centavos,
+        saques_periodo_centavos=ponto.saques_periodo_centavos,
+        depositos_acumulados_centavos=ponto.depositos_acumulados_centavos,
+        saques_acumulados_centavos=ponto.saques_acumulados_centavos,
     )
 
 
@@ -302,6 +351,37 @@ async def consultar_metricas(
     graficos = await repositorio.consultar_metricas(session, usuario.id, filtros)
     frescor = await repositorio.frescor(session, usuario.id)
     return _graficos_saida(graficos, frescor)
+
+
+@router.get(
+    "/api/v1/painel/analises",
+    response_model=AnalisesSaida,
+    summary="Consultar análises adicionais do painel",
+    description=(
+        "Usa a visão canônica de apostas no snapshot da réplica. A hora de refresh "
+        "exposta pertence às séries materializadas do painel; esta análise é ao vivo."
+    ),
+)
+async def consultar_analises(
+    response: Response,
+    usuario: Annotated[Usuario, Depends(get_current_user_snapshot)],
+    session: Annotated[AsyncSession, Depends(get_db_snapshot)],
+    periodo: Annotated[
+        PeriodoPainel, Query(description="Mesma janela civil do painel, em America/Sao_Paulo")
+    ] = PeriodoPainel.TRINTA_DIAS,
+    casa_id: Annotated[int | None, Query(ge=1, le=BIGINT_MAX)] = None,
+    tipster_id: Annotated[int | None, Query(ge=1, le=BIGINT_MAX)] = None,
+    mercado_id: Annotated[int | None, Query(ge=1, le=BIGINT_MAX)] = None,
+) -> AnalisesSaida:
+    _aplicar_cache_privado(response)
+    filtros = _filtros(periodo, casa_id, tipster_id, mercado_id)
+    dados = await AnalyticsRepo().consultar(session, usuario.id, filtros, usuario.fuso_horario)
+    frescor = _frescor_saida(await PainelRepo().frescor(session, usuario.id))
+    return AnalisesSaida.model_validate({
+        **dados,
+        **frescor.model_dump(),
+        "fonte_dados": "visao_canonica_ao_vivo",
+    })
 
 
 def _valores_da_linha(
