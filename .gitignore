@@ -12,6 +12,10 @@ __pycache__/
 .mypy_cache/
 .ruff_cache/
 .coverage
+.coverage.*
+phase1-results.xml
+billing-integration.xml
+benchmark-results.xml
 coverage.xml
 test-results.xml
 load-test-report.html
