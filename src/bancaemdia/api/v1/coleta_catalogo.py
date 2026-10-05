@@ -25,6 +25,7 @@ router = APIRouter(
         **{
             code: {"model": ErrorResponse, "description": text}
             for code, text in {
+                400: "Invalid credential transport or catalog query",
                 403: "Invalid installation credential",
                 409: "Environment or catalog version conflict",
                 426: "Client version unsupported",

@@ -17,11 +17,13 @@ from bancaemdia.api.contracts import (
 )
 from bancaemdia.api.openapi import build_openapi
 from bancaemdia.api.v1 import (
+    admin_casas,
     apostas,
     billing,
     billing_webhook,
     caixa,
     coleta,
+    coleta_catalogo,
     coleta_pairing,
     coleta_sessoes,
     painel,
@@ -29,15 +31,13 @@ from bancaemdia.api.v1 import (
     titulares,
     upload,
     usuario,
-    admin_casas,
-    coleta_catalogo,
 )
 from bancaemdia.auth.middleware import JWTAuthMiddleware
 from bancaemdia.config import get_settings
 from bancaemdia.db.session import LAG_CHECK_SECONDS, engine, replica_engine, replica_lag_seconds
+from bancaemdia.domain.access import AccountReadOnlyError
 from bancaemdia.middleware.coleta_body import CollectionBodyLimit
 from bancaemdia.middleware.coleta_credentials import CollectionCredentialMiddleware
-from bancaemdia.domain.access import AccountReadOnlyError
 from bancaemdia.middleware.rate_limit import AuthRateLimitMiddleware, RateLimitMiddleware
 from bancaemdia.middleware.rls import RLSMiddleware
 from bancaemdia.middleware.router import RouterMiddleware

@@ -507,6 +507,7 @@ async def _gravar_coletada(
     nome_da_casa: str,
     *,
     conta_casa_id: int | None = None,
+    explicit_account: bool = True,
 ) -> Gravada:
     lidas = [replace(LEITORES[casa](coleta.bruto_json), casa=casa) for coleta in coletas]
     chave = chave_casa(casa, lidas[-1].identidade)
@@ -590,8 +591,12 @@ async def _gravar_coletada(
     if criada:
         assert captura_da_criacao is not None
         coleta_criacao, coletada_criacao = captura_da_criacao
-        jogo = _data(coletada_criacao.data_aposta)
-        explicit = coleta_criacao.bruto_json.get("conta_casa_id")
+        jogo = game_instant({"data_jogo": coletada_criacao.comeca_em})
+        explicit = (
+            (conta_casa_id if explicit_account else None)
+            if conta_casa_id is not None
+            else coleta_criacao.bruto_json.get("conta_casa_id")
+        )
         try:
             account_resolution = await attribute_account(
                 session,

@@ -76,10 +76,12 @@ Nesta versão não foi anunciada retirada do v1.
 
 ## Dependências de integração
 
-Base técnica: PR #163, HEAD a824c8e85638ebb3823990886e9514aa07f424cc; seu merge cabe
+Base técnica: PR #163, HEAD 85f4a3941ccb01ecf4af3b3823b402888146e458; seu merge cabe
 ao administrador. A #108 está preparada sobre ele e não copia outras cadeias.
 Na convergência com #134/#135, preservar a conta explícita validada pelo horário
 de colocação (nunca usar fallback para primeira conta). Com billing, preservar
 seu gate de escrita também na admissão e processamento da inbox. Com privacidade,
 incluir sessões e entregas nas regras de exclusão/retenção da conta. Esses PRs
 não estão na base desta entrega, e seus escopos não são declarados implementados.
+
+Na parte 4, h4review2026 converge as pontas publicadas. A CI valida diretamente a árvore de produto com pareamento, contas #177, catálogo e quarentena; sem patch externo ou revisão descartável.

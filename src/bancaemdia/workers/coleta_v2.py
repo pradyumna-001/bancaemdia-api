@@ -7,7 +7,7 @@ from uuid import UUID
 
 import structlog
 from prometheus_client import Counter
-from sqlalchemy import or_, select, text
+from sqlalchemy import select, text
 from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.ext.asyncio import AsyncEngine, AsyncSession
@@ -15,6 +15,13 @@ from sqlalchemy.ext.asyncio import AsyncEngine, AsyncSession
 from bancaemdia import models
 from bancaemdia.coleta.leitores import LEITORES
 from bancaemdia.coleta.leitura import ColetaInvalidaError
+from bancaemdia.domain.access import AccountReadOnlyError, require_write_access
+from bancaemdia.domain.account_attribution import ResolutionStatus
+from bancaemdia.domain.account_attribution_service import (
+    InvalidAccountReferenceError,
+    attribute_account,
+    game_instant,
+)
 from bancaemdia.domain.coleta_casa import ApostaInvalidaError, hash_do_conteudo
 from bancaemdia.domain.coleta_provenance import HOSTS, canonical_ticket, content_hash, source_times
 from bancaemdia.domain.materializar import casa_canonica
@@ -67,22 +74,30 @@ async def materialize(session: AsyncSession, row: ColetaEntrega) -> None:
         select(models.Casa.id).where(models.Casa.nome == casa_canonica(casa))
     )
     reference = envelope.get("conta_casa_ref")
-    if reference is None:
-        finish(row, "needs_review", "account_reference_required")
+    try:
+        resolution = await attribute_account(
+            session,
+            row.usuario_id,
+            casa,
+            game_instant({"data_jogo": parsed.comeca_em}),
+            reference,
+        )
+    except InvalidAccountReferenceError:
+        finish(row, "needs_review", "account_unavailable")
+        return
+    if resolution.status != ResolutionStatus.UNIQUE:
+        finish(
+            row,
+            "needs_review",
+            "account_reference_required" if reference is None else "account_unavailable",
+        )
         return
     account = await session.scalar(
         select(models.ContaCasa)
-        .where(
-            models.ContaCasa.id == reference,
-            models.ContaCasa.usuario_id == row.usuario_id,
-            models.ContaCasa.casa_id == casa_id,
-            or_(models.ContaCasa.desde.is_(None), models.ContaCasa.desde <= occurred),
-            or_(models.ContaCasa.ate.is_(None), models.ContaCasa.ate > occurred),
-        )
+        .where(models.ContaCasa.id == resolution.conta_casa_id)
         .with_for_update()
     )
-    # An inactive historical account is valid only inside its explicit closed interval.
-    if account is None or (not account.ativa and account.ate is None):
+    if account is None:
         finish(row, "needs_review", "account_unavailable")
         return
     # Insert before locking: ON CONFLICT serializes first deliveries of the same ticket,
@@ -144,6 +159,7 @@ async def materialize(session: AsyncSession, row: ColetaEntrega) -> None:
         casa,
         str(casa_canonica(casa)),
         conta_casa_id=account.id,
+        explicit_account=reference is not None,
     )
     current.v2_fonte_em, current.v2_hash = revised, canonical
     current.processado_em = datetime.now(UTC)
@@ -171,6 +187,7 @@ async def process_job(engine: AsyncEngine, usuario_id: int, job_id: UUID) -> str
         row.tentativas += 1
         try:
             async with session.begin_nested():
+                await require_write_access(session, usuario_id)
                 await materialize(session, row)
         except SQLAlchemyError:
             # The entire transaction rolls back; a future poll retries the persisted inbox.
@@ -178,6 +195,10 @@ async def process_job(engine: AsyncEngine, usuario_id: int, job_id: UUID) -> str
         except ApostaInvalidaError:
             await session.refresh(row)
             finish(row, "needs_review", "invalid_financial_values")
+        except AccountReadOnlyError:
+            await session.refresh(row)
+            row.reason = "account_read_only"
+            row.tentativas -= 1
         except Exception as error:
             await session.refresh(row)
             structlog.get_logger(__name__).warning(

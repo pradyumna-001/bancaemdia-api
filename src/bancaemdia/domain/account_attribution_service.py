@@ -50,6 +50,8 @@ async def attribute_account(
     instant: datetime | None,
     explicit_id: int | None = None,
 ) -> AccountResolution:
+    if explicit_id is None and instant is None:
+        return AccountResolution(ResolutionStatus.NONE)
     nome = None if casa is None else casa_canonica(casa) or casa
     casa_id = None if nome is None else await CasaRepo().get_id_by_nome(session, nome)
     if explicit_id is not None:

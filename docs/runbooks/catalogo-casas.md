@@ -7,14 +7,21 @@ ou confirmação de acesso transforma um leitor em suportado. Novos registros en
 
 ## Fronteira e pré-requisito
 
-O PR de produto parte diretamente da main. A autenticação de instalações, pareamento, rotação,
-expiração, inativação do proprietário e revogação pertencem à #107 / PR #163, SHA
-`a824c8e85638ebb3823990886e9514aa07f424cc`. O catálogo chama o mesmo repositório desse PR;
-ausência do módulo resulta em 503, sem aceitar tokens legados. A montagem obrigatória na CI
-usa `scripts/prepare_catalog_integration.py`, preserva as revisões publicadas e acrescenta somente
-uma revisão de merge descartável `c113integration2026` entre `c107pair2026` e `c113catalog2026`.
-O administrador deve integrar #163 e conciliar essas pontas antes do lançamento; não mergear
-a árvore descartável como produto. Se o SHA ou a interface mudar, repetir a composição e a CI.
+A parte 4 parte diretamente da main e incorpora o pareamento revisado #163
+(`85f4a3941ccb01ecf4af3b3823b402888146e458`) e o resolvedor temporal de contas #177
+(`8d727d2fd1acb941552b49d0d60829cf3df9c3ce`). A autenticação, rotação e revogação
+usam o repositório real de instalações. A CI testa esta mesma árvore de produto,
+sem overlays ou patches externos. `h4review2026` converge as migrations publicadas
+de pareamento, coleta v2, contas, catálogo e quarentena. Estes pré-requisitos não
+são alegados como integrados à main enquanto seus PRs permanecem abertos.
+
+A assinatura Ed25519 autentica uma publicação técnica global por ambiente, versão e
+host exato. Ela não contém `(issuer, sub, installation_id)`: essas identidades são
+validadas na requisição por credencial de instalação, inclusive antes de responder 304.
+O catálogo não concede acesso à casa, propriedade de conta ou permissão de navegador.
+Confirmações pessoais permanecem separadas e sob RLS. Instalação revogada não obtém
+a publicação, mesmo com ETag válido. As permissões por domínio pertencem ao cliente;
+não podem ser inferidas da assinatura do catálogo.
 
 Manifesto, verificações criptográficas no navegador, grants/revogações de permissões e UI são
 responsabilidade do novo backlog da extensão. Esta entrega não modifica aquele repositório.
@@ -175,17 +182,13 @@ de auditoria é recusado; rollback operacional é da aplicação, mantendo esque
 públicas para verificação histórica. Downgrade em banco vazio é possível. Concessões administrativas
 pertencem ao DBA; não adicionar concessões amplas para resolver falhas de RLS.
 
-O PR #163 exige ainda o ajuste revisável `scripts/catalogo/credential-middleware.patch`, aplicado
-obrigatoriamente na composição fixada em `a824c8e85638ebb3823990886e9514aa07f424cc`.
-Após integrar #107, o mantenedor deve incorporar esse ajuste: somente GET exato do catálogo aceita
-os três parâmetros documentados, sem duplicatas, com valores limitados; somente respostas assinadas
-200/304 com ETag conservam cache privado. HTTPS, proibição de redirects e no-store dos demais
-endpoints permanecem. A composição também executa os testes originais de pareamento e segurança
-de tokens. A aplicação direta em main retorna 503 enquanto #107 estiver ausente.
+O middleware da árvore de produto permite somente GET exato do catálogo com os três
+parâmetros documentados, sem duplicatas e com valores limitados. Cache privado somente
+para 200/304 autenticados com ETag; demais endpoints conservam HTTPS, proibição de
+redirects e no-store. A CI executa os testes do catálogo e ciclo real de instalações
+sobre `h4review2026`, além de coleta, contas, quarentena, gate de revisão humana,
+suíte completa, segurança, contratos e Docker.
 
-CI exige lint/formato, tipagem estrita, suíte completa com 80% de cobertura, contrato OpenAPI/oasdiff,
-segurança de dependências/código, Docker e duas aceitações PostgreSQL 16: main e montagem #107.
-As aceitações novas recusam banco ausente e JUnit com skips/falhas/casos obrigatórios ausentes.
 Há provas de dry run/persistência/rollback/idempotência/concorrência real, separação de fontes,
 RLS/autoelevação/confirmacões, auditoria append-only, assinatura/rotação, pareamento HTTP real,
 ETag, expiração, downgrade, ambientes e host revogado. Não se usa conta de bet, bot, IA paga,

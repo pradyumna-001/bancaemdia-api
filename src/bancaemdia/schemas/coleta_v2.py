@@ -29,7 +29,7 @@ class Capture(StrictModel):
     capturado_em: AwareDatetime
     payload: dict[str, JsonValue]
     content_hash: str = Field(pattern=r"^[0-9a-f]{64}$")
-    conta_casa_ref: int | None = Field(default=None, gt=0)
+    conta_casa_ref: int | None = Field(default=None, gt=0, le=2**63 - 1, strict=True)
 
     @field_validator("payload")
     @classmethod

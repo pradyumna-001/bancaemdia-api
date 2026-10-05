@@ -475,16 +475,14 @@ async def test_account_reference_is_never_a_first_active_fallback(api, kind):
         elif kind == "unknown":
             reference = 2**62
     ack = (await api.send([capture(reference)])).json()["items"][0]
-    assert await api.run(ack) == "needs_review"
+    expected = "materialized" if kind in {"before", "ended"} else "needs_review"
+    assert await api.run(ack) == expected
     async with api.admin.connect() as conn:
-        assert (
-            await conn.scalar(
-                select(func.count())
-                .select_from(models.Aposta)
-                .where(models.Aposta.usuario_id == api.user)
-            )
-            == 0
-        )
+        assert await conn.scalar(
+            select(func.count())
+            .select_from(models.Aposta)
+            .where(models.Aposta.usuario_id == api.user)
+        ) == (1 if expected == "materialized" else 0)
 
 
 @pytest.mark.parametrize("value", [None, "2026-08-02", "not-a-date", 99999999999999999999])
@@ -860,7 +858,7 @@ async def test_v2_migration_roundtrip_and_populated_downgrade_guard(banco_migrac
             await asyncio.to_thread(command.downgrade, config, "c107pair2026")
         async with engine.connect() as conn:
             assert (
-                await conn.scalar(text("SELECT version_num FROM alembic_version")) == "c108v22026"
+                await conn.scalar(text("SELECT version_num FROM alembic_version")) == "h4review2026"
             )
             assert await conn.scalar(select(func.count()).select_from(ColetaSessao)) == 1
     finally:

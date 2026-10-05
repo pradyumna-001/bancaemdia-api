@@ -1095,6 +1095,7 @@
             "anyOf": [
               {
                 "exclusiveMinimum": 0.0,
+                "maximum": 9.223372036854776e+18,
                 "type": "integer"
               },
               {
@@ -1135,6 +1136,203 @@
           "content_hash"
         ],
         "title": "Capture",
+        "type": "object"
+      },
+      "CatalogEntry": {
+        "additionalProperties": false,
+        "properties": {
+          "adapter": {
+            "anyOf": [
+              {
+                "pattern": "^[a-z0-9_-]{1,64}$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Adapter"
+          },
+          "adapter_version": {
+            "anyOf": [
+              {
+                "pattern": "^\\d+\\.\\d+\\.\\d+$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Adapter Version"
+          },
+          "aliases": {
+            "items": {
+              "type": "string"
+            },
+            "maxItems": 20,
+            "title": "Aliases",
+            "type": "array"
+          },
+          "brand": {
+            "maxLength": 120,
+            "minLength": 1,
+            "title": "Brand",
+            "type": "string"
+          },
+          "capture_evidence_sha256": {
+            "anyOf": [
+              {
+                "pattern": "^[0-9a-f]{64}$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Capture Evidence Sha256"
+          },
+          "hostname": {
+            "maxLength": 253,
+            "pattern": "^[a-z0-9.-]+$",
+            "title": "Hostname",
+            "type": "string"
+          },
+          "minimum_client_version": {
+            "default": "1.0.0",
+            "pattern": "^\\d+\\.\\d+\\.\\d+$",
+            "title": "Minimum Client Version",
+            "type": "string"
+          },
+          "redirect_chain": {
+            "items": {
+              "type": "string"
+            },
+            "maxItems": 10,
+            "title": "Redirect Chain",
+            "type": "array"
+          },
+          "rollout": {
+            "default": "disabled",
+            "enum": [
+              "disabled",
+              "canary",
+              "enabled",
+              "revoked"
+            ],
+            "title": "Rollout",
+            "type": "string"
+          },
+          "schema_version": {
+            "default": 1,
+            "maximum": 1000.0,
+            "minimum": 1.0,
+            "title": "Schema Version",
+            "type": "integer"
+          },
+          "support": {
+            "$ref": "#/components/schemas/Support",
+            "default": "nao_avaliado"
+          }
+        },
+        "required": [
+          "brand",
+          "hostname"
+        ],
+        "title": "CatalogEntry",
+        "type": "object"
+      },
+      "CatalogEnvelope": {
+        "additionalProperties": false,
+        "properties": {
+          "payload": {
+            "$ref": "#/components/schemas/CatalogPayload"
+          },
+          "signature": {
+            "title": "Signature",
+            "type": "string"
+          }
+        },
+        "required": [
+          "payload",
+          "signature"
+        ],
+        "title": "CatalogEnvelope",
+        "type": "object"
+      },
+      "CatalogPayload": {
+        "additionalProperties": false,
+        "properties": {
+          "algorithm": {
+            "const": "Ed25519",
+            "title": "Algorithm",
+            "type": "string"
+          },
+          "catalog_version": {
+            "maximum": 9007199254740991.0,
+            "minimum": 1.0,
+            "title": "Catalog Version",
+            "type": "integer"
+          },
+          "contract_version": {
+            "const": 1,
+            "title": "Contract Version",
+            "type": "integer"
+          },
+          "entries": {
+            "items": {
+              "$ref": "#/components/schemas/CatalogEntry"
+            },
+            "title": "Entries",
+            "type": "array"
+          },
+          "environment": {
+            "maxLength": 40,
+            "minLength": 1,
+            "title": "Environment",
+            "type": "string"
+          },
+          "expires_at": {
+            "format": "date-time",
+            "title": "Expires At",
+            "type": "string"
+          },
+          "issued_at": {
+            "format": "date-time",
+            "title": "Issued At",
+            "type": "string"
+          },
+          "key_id": {
+            "maxLength": 80,
+            "minLength": 1,
+            "title": "Key Id",
+            "type": "string"
+          },
+          "last_known_good": {
+            "$ref": "#/components/schemas/LastKnownGood"
+          },
+          "minimum_client_version": {
+            "pattern": "^\\d+\\.\\d+\\.\\d+$",
+            "title": "Minimum Client Version",
+            "type": "string"
+          },
+          "trust_roots": {
+            "$ref": "#/components/schemas/TrustRoots"
+          }
+        },
+        "required": [
+          "catalog_version",
+          "contract_version",
+          "environment",
+          "issued_at",
+          "expires_at",
+          "minimum_client_version",
+          "last_known_good",
+          "entries",
+          "key_id",
+          "algorithm",
+          "trust_roots"
+        ],
+        "title": "CatalogPayload",
         "type": "object"
       },
       "CollectionBatch": {
@@ -2289,6 +2487,20 @@
         "title": "GrupoSaida",
         "type": "object"
       },
+      "HTTPValidationError": {
+        "additionalProperties": false,
+        "properties": {
+          "detail": {
+            "items": {
+              "$ref": "#/components/schemas/ValidationError"
+            },
+            "title": "Detail",
+            "type": "array"
+          }
+        },
+        "title": "HTTPValidationError",
+        "type": "object"
+      },
       "HostedResponse": {
         "additionalProperties": false,
         "properties": {
@@ -2301,6 +2513,159 @@
           "url"
         ],
         "title": "HostedResponse",
+        "type": "object"
+      },
+      "InstallationResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "criado_em": {
+            "format": "date-time",
+            "title": "Criado Em",
+            "type": "string"
+          },
+          "expira_em": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Expira Em"
+          },
+          "id": {
+            "title": "Id",
+            "type": "integer"
+          },
+          "instalacao_publica_id": {
+            "format": "uuid",
+            "title": "Instalacao Publica Id",
+            "type": "string"
+          },
+          "nome_dispositivo": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Nome Dispositivo"
+          },
+          "pareado_em": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Pareado Em"
+          },
+          "revogado_em": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Revogado Em"
+          },
+          "rotacionado_em": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Rotacionado Em"
+          },
+          "token_prefixo": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Token Prefixo"
+          },
+          "ultimo_uso_em": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Ultimo Uso Em"
+          }
+        },
+        "required": [
+          "id",
+          "instalacao_publica_id",
+          "nome_dispositivo",
+          "token_prefixo",
+          "criado_em",
+          "pareado_em",
+          "ultimo_uso_em",
+          "rotacionado_em",
+          "revogado_em",
+          "expira_em"
+        ],
+        "title": "InstallationResponse",
+        "type": "object"
+      },
+      "InstallationStatusResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "instalacao_id": {
+            "title": "Instalacao Id",
+            "type": "integer"
+          },
+          "usuario_id": {
+            "title": "Usuario Id",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "usuario_id",
+          "instalacao_id"
+        ],
+        "title": "InstallationStatusResponse",
+        "type": "object"
+      },
+      "InstallationTokenResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "instalacao_id": {
+            "title": "Instalacao Id",
+            "type": "integer"
+          },
+          "token": {
+            "title": "Token",
+            "type": "string"
+          }
+        },
+        "required": [
+          "instalacao_id",
+          "token"
+        ],
+        "title": "InstallationTokenResponse",
         "type": "object"
       },
       "IntervaloSaida": {
@@ -2526,6 +2891,70 @@
           "status"
         ],
         "title": "LivenessResponse",
+        "type": "object"
+      },
+      "ManualCandidate": {
+        "additionalProperties": false,
+        "properties": {
+          "access_confirmed": {
+            "title": "Access Confirmed",
+            "type": "boolean"
+          },
+          "brand": {
+            "maxLength": 120,
+            "minLength": 1,
+            "title": "Brand",
+            "type": "string"
+          },
+          "confirmed_at": {
+            "format": "date-time",
+            "title": "Confirmed At",
+            "type": "string"
+          },
+          "evidence_sha256": {
+            "pattern": "^[0-9a-f]{64}$",
+            "title": "Evidence Sha256",
+            "type": "string"
+          },
+          "hostname": {
+            "maxLength": 253,
+            "minLength": 3,
+            "title": "Hostname",
+            "type": "string"
+          }
+        },
+        "required": [
+          "brand",
+          "hostname",
+          "access_confirmed",
+          "confirmed_at",
+          "evidence_sha256"
+        ],
+        "title": "ManualCandidate",
+        "type": "object"
+      },
+      "ManualReceipt": {
+        "additionalProperties": false,
+        "properties": {
+          "brand": {
+            "title": "Brand",
+            "type": "string"
+          },
+          "hostname": {
+            "title": "Hostname",
+            "type": "string"
+          },
+          "situation": {
+            "default": "acesso_confirmado",
+            "title": "Situation",
+            "type": "string"
+          }
+        },
+        "required": [
+          "brand",
+          "hostname"
+        ],
+        "title": "ManualReceipt",
         "type": "object"
       },
       "MatrizCasaSaida": {
@@ -4048,6 +4477,120 @@
         "title": "SaldoContaSaida",
         "type": "object"
       },
+      "SessionRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "coletar_desde": {
+            "format": "date-time",
+            "title": "Coletar Desde",
+            "type": "string"
+          },
+          "retomar_sessao_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Retomar Sessao Id"
+          }
+        },
+        "required": [
+          "coletar_desde"
+        ],
+        "title": "SessionRequest",
+        "type": "object"
+      },
+      "SessionResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "coletar_desde": {
+            "format": "date-time",
+            "title": "Coletar Desde",
+            "type": "string"
+          },
+          "encerrada_em": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Encerrada Em"
+          },
+          "sessao_id": {
+            "format": "uuid",
+            "title": "Sessao Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "sessao_id",
+          "coletar_desde",
+          "encerrada_em"
+        ],
+        "title": "SessionResponse",
+        "type": "object"
+      },
+      "SubmissionAck": {
+        "additionalProperties": false,
+        "properties": {
+          "ack": {
+            "enum": [
+              "accepted",
+              "duplicate",
+              "rejected"
+            ],
+            "title": "Ack",
+            "type": "string"
+          },
+          "client_event_id": {
+            "format": "uuid",
+            "title": "Client Event Id",
+            "type": "string"
+          },
+          "content_hash": {
+            "title": "Content Hash",
+            "type": "string"
+          },
+          "job_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Job Id"
+          },
+          "reason": {
+            "title": "Reason",
+            "type": "string"
+          },
+          "retryable": {
+            "title": "Retryable",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "client_event_id",
+          "content_hash",
+          "ack",
+          "reason",
+          "retryable",
+          "job_id"
+        ],
+        "title": "SubmissionAck",
+        "type": "object"
+      },
       "SubscribeRequest": {
         "additionalProperties": false,
         "properties": {
@@ -4064,6 +4607,17 @@
         },
         "title": "SubscribeRequest",
         "type": "object"
+      },
+      "Support": {
+        "enum": [
+          "nao_avaliado",
+          "precisa_captura",
+          "em_desenvolvimento",
+          "suportado",
+          "bloqueado_externo",
+          "regressao"
+        ],
+        "type": "string"
       },
       "TipoMovimentoConsulta": {
         "enum": [
@@ -4302,6 +4856,54 @@
           "aplicada"
         ],
         "title": "TrocaContaSaida",
+        "type": "object"
+      },
+      "TrustRoot": {
+        "additionalProperties": false,
+        "properties": {
+          "algorithm": {
+            "default": "Ed25519",
+            "title": "Algorithm",
+            "type": "string"
+          },
+          "key_id": {
+            "title": "Key Id",
+            "type": "string"
+          },
+          "public_key": {
+            "title": "Public Key",
+            "type": "string"
+          }
+        },
+        "required": [
+          "key_id",
+          "public_key"
+        ],
+        "title": "TrustRoot",
+        "type": "object"
+      },
+      "TrustRoots": {
+        "additionalProperties": false,
+        "properties": {
+          "current": {
+            "$ref": "#/components/schemas/TrustRoot"
+          },
+          "next": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/TrustRoot"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "required": [
+          "current",
+          "next"
+        ],
+        "title": "TrustRoots",
         "type": "object"
       },
       "UploadAcceptedResponse": {
@@ -4774,6 +5376,12 @@
         "scheme": "bearer",
         "type": "http"
       },
+      "InstallationToken": {
+        "description": "Credencial de instalação pareada (#107), sujeita a expiração, rotação e revogação; tokens legados não são aceitos.",
+        "in": "header",
+        "name": "X-Coleta-Token",
+        "type": "apiKey"
+      },
       "StripeSignature": {
         "description": "Stripe HMAC signature of the exact request bytes and timestamp.",
         "in": "header",
@@ -4827,6 +5435,16 @@
               }
             },
             "description": "Missing, expired, or invalid bearer token."
+          },
+          "402": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "account_read_only: writes require confirmed trial or paid access."
           },
           "403": {
             "content": {
@@ -4935,6 +5553,16 @@
               }
             },
             "description": "Missing, expired, or invalid bearer token."
+          },
+          "402": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "account_read_only: writes require confirmed trial or paid access."
           },
           "403": {
             "content": {
@@ -7562,6 +8190,16 @@
             },
             "description": "Missing, expired, or invalid bearer token."
           },
+          "402": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "account_read_only: writes require confirmed trial or paid access."
+          },
           "403": {
             "content": {
               "application/json": {
@@ -7591,7 +8229,7 @@
                 }
               }
             },
-            "description": "The request body exceeds the server-wide streaming limit."
+            "description": "The request body exceeds this endpoint's streaming limit."
           },
           "422": {
             "content": {
@@ -7869,6 +8507,16 @@
             },
             "description": "Missing, expired, or invalid bearer token."
           },
+          "402": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "account_read_only: retain the extension outbox."
+          },
           "403": {
             "content": {
               "application/json": {
@@ -7908,7 +8556,7 @@
                 }
               }
             },
-            "description": "The request body exceeds the server-wide streaming limit."
+            "description": "The request body exceeds this endpoint's streaming limit."
           },
           "422": {
             "content": {
@@ -7959,6 +8607,195 @@
         "summary": "Receber lote v2"
       }
     },
+    "/api/v1/coleta/catalogo": {
+      "get": {
+        "description": "Projeção técnica autenticada pela instalação, sem evidência regulatória ou permissões de navegador.",
+        "operationId": "catalog_api_v1_coleta_catalogo_get",
+        "parameters": [
+          {
+            "description": "Versão estável do cliente em três componentes.",
+            "in": "query",
+            "name": "client_version",
+            "required": true,
+            "schema": {
+              "pattern": "^\\d+\\.\\d+\\.\\d+$",
+              "title": "Client Version",
+              "type": "string"
+            }
+          },
+          {
+            "description": "Ambiente esperado, vinculado à assinatura.",
+            "in": "query",
+            "name": "environment",
+            "required": true,
+            "schema": {
+              "maxLength": 40,
+              "minLength": 1,
+              "title": "Environment",
+              "type": "string"
+            }
+          },
+          {
+            "description": "Maior versão já verificada; downgrade é recusado.",
+            "in": "query",
+            "name": "known_version",
+            "required": false,
+            "schema": {
+              "default": 0,
+              "maximum": 9007199254740991,
+              "minimum": 0,
+              "title": "Known Version",
+              "type": "integer"
+            }
+          },
+          {
+            "description": "Credencial opaca de instalação pareada, não token legado de usuário.",
+            "in": "header",
+            "name": "X-Coleta-Token",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Coleta-Token"
+            }
+          },
+          {
+            "description": "ETag previamente autenticado e verificado.",
+            "in": "header",
+            "name": "If-None-Match",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "If-None-Match"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CatalogEnvelope"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "304": {
+            "description": "Authenticated current catalog is unchanged."
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Invalid credential transport or catalog query"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Installation credential is invalid, expired or revoked."
+          },
+          "405": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Method not allowed"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Catalog environment or monotonic version differs."
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "426": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Client version is unsupported."
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Installation or IP quota exceeded"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unexpected internal failure with no sensitive exception details."
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "No unexpired signed publication or installation prerequisite."
+          }
+        },
+        "security": [
+          {
+            "InstallationToken": []
+          }
+        ],
+        "summary": "Consultar catálogo assinado"
+      }
+    },
     "/api/v1/coleta/contract": {
       "get": {
         "description": "Publica N/N-1, hashes, faixa de protocolo e política de depreciação.",
@@ -7993,6 +8830,16 @@
               }
             },
             "description": "Missing, expired, or invalid bearer token."
+          },
+          "402": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "account_read_only: retain the extension outbox."
           },
           "403": {
             "content": {
@@ -8107,6 +8954,16 @@
             },
             "description": "Missing, expired, or invalid bearer token."
           },
+          "402": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "account_read_only: retain the extension outbox."
+          },
           "403": {
             "content": {
               "application/json": {
@@ -8220,6 +9077,16 @@
             },
             "description": "Missing, expired, or invalid bearer token."
           },
+          "402": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "account_read_only: retain the extension outbox."
+          },
           "403": {
             "content": {
               "application/json": {
@@ -8328,6 +9195,16 @@
               }
             },
             "description": "Missing, expired, or invalid bearer token."
+          },
+          "402": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "account_read_only: retain the extension outbox."
           },
           "403": {
             "content": {
@@ -8444,6 +9321,16 @@
               }
             },
             "description": "Missing, expired, or invalid bearer token."
+          },
+          "402": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "account_read_only: retain the extension outbox."
           },
           "403": {
             "content": {
@@ -8562,6 +9449,16 @@
             },
             "description": "Missing, expired, or invalid bearer token."
           },
+          "402": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "account_read_only: retain the extension outbox."
+          },
           "403": {
             "content": {
               "application/json": {
@@ -8675,6 +9572,16 @@
               }
             },
             "description": "Missing, expired, or invalid bearer token."
+          },
+          "402": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "account_read_only: retain the extension outbox."
           },
           "403": {
             "content": {
@@ -8799,6 +9706,16 @@
               }
             },
             "description": "Missing, expired, or invalid bearer token."
+          },
+          "402": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "account_read_only: retain the extension outbox."
           },
           "403": {
             "content": {
@@ -8930,6 +9847,16 @@
             },
             "description": "Missing, expired, or invalid bearer token."
           },
+          "402": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "account_read_only: retain the extension outbox."
+          },
           "403": {
             "content": {
               "application/json": {
@@ -8969,7 +9896,7 @@
                 }
               }
             },
-            "description": "The request body exceeds the server-wide streaming limit."
+            "description": "The request body exceeds this endpoint's streaming limit."
           },
           "422": {
             "content": {
@@ -9060,6 +9987,16 @@
               }
             },
             "description": "Missing, expired, or invalid bearer token."
+          },
+          "402": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "account_read_only: retain the extension outbox."
           },
           "403": {
             "content": {
@@ -9186,6 +10123,16 @@
             },
             "description": "Missing, expired, or invalid bearer token."
           },
+          "402": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "account_read_only: retain the extension outbox."
+          },
           "403": {
             "content": {
               "application/json": {
@@ -9299,6 +10246,16 @@
               }
             },
             "description": "Missing, expired, or invalid bearer token."
+          },
+          "402": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "account_read_only: retain the extension outbox."
           },
           "403": {
             "content": {

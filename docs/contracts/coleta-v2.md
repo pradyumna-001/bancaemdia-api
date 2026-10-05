@@ -127,12 +127,16 @@ diferente com o mesmo relógio de origem exige revisão. Reabrir uma aposta liqu
 exige revisão explícita. Uma tarefa v1 atrasada também respeita a versão v2
 persistida e não desfaz sua liquidação.
 
-conta_casa_ref é validada por usuário, casa e intervalo [desde, ate) no horário de
-colocação. Uma conta histórica inativa só é válida dentro de um intervalo encerrado.
-Ausência de referência não escolhe a primeira conta ativa: needs_review. Referência
-alheia, inválida, fora do intervalo ou conflitante com uma aposta existente não
-atribui dinheiro. Esta entrega não implementa gestão de titulares nem habilita
-concorrência de contas como feature de produto.
+Sem referência explícita, a conta é resolvida pelo horário do jogo (`comeca_em`)
+e exatamente um uso temporal válido. Zero/múltiplos candidatos e jogo ausente ficam
+em needs_review. No multicontas, conta_casa_ref identifica a conta que efetivamente
+fez a bet: mesmo usuário e casa, mesmo fora do uso padrão ou arquivada. Referência
+inválida não cai no resolvedor automático. A referência permanece nos eventos/replay.
+O corte da sessão e as revisões usam o relógio da fonte; nunca selecionam a conta.
+
+Expiração de acesso pausa o worker em pending com razão account_read_only, sem
+consumir tentativas técnicas ou gravar finanças. O ACK original permanece igual e
+a inbox permite retomar após acesso válido. Falhas técnicas mantêm três tentativas.
 
 ## Matriz de compatibilidade
 

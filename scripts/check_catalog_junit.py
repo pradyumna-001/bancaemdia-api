@@ -5,11 +5,7 @@ from pathlib import Path
 from xml.etree import ElementTree
 
 mode = sys.argv[1]
-path = (
-    Path("catalog-main.xml")
-    if mode == "main"
-    else Path("/tmp/catalog-integration/catalog-installation.xml")
-)
+path = Path("catalog-main.xml") if mode == "main" else Path("catalog-installation.xml")
 cases = list(ElementTree.parse(path).iter("testcase"))
 required = {
     "test_dry_run_persists_nothing_and_apply_is_idempotent",
@@ -34,6 +30,7 @@ if mode == "installation":
         "test_revoked_exact_host_remains_signed_tombstone_and_preserves_old_catalog",
         "test_catalog_rejects_unknown_duplicate_or_unbounded_query_without_cache",
         "test_catalog_never_accepts_credentials_over_http",
+        "test_global_signed_catalog_is_authenticated_per_installation_without_tenant_identity",
     }
 assert required <= {c.attrib["name"].split("[", 1)[0] for c in cases}, "required acceptance missing"
 assert all(not list(c) for c in cases), "acceptance has skipped, failed or errored cases"

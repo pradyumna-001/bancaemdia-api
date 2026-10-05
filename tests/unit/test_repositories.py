@@ -793,19 +793,27 @@ async def test_aposta_upsert_materializada_only_lets_a_newer_write_in() -> None:
     assert await ApostaRepo().upsert_materializada(_Session(), dados) is None
 
 
-async def test_conta_casa_is_found_by_the_house_name_and_the_bet_date() -> None:
-    session = _Session(_conta())
+async def test_conta_casa_uses_game_usage_and_never_defaults_without_game_time() -> None:
+    class LookupSession(_Session):
+        def __init__(self, *results: list[Any]) -> None:
+            super().__init__()
+            self.results = list(results)
 
-    conta = await ContaCasaRepo().get_vigente_by_nome_da_casa(session, 1, "Betano")
+        async def execute(self, statement: Any, params: Any = None) -> _Result:
+            self.statements.append(statement)
+            return _Result(self.results.pop(0))
 
+    usage = models.UsoContaCasa(conta_casa_id=3, vigente_de=ONTEM, vigente_ate=None)
+    session = LookupSession([2], [usage], [_conta()])
+    repo = ContaCasaRepo()
+    assert await repo.get_vigente_by_nome_da_casa(session, 1, "Betano") is None
+    assert not session.statements
+    conta = await repo.get_vigente_by_nome_da_casa(session, 1, "Betano", AGORA)
     assert conta == registros.ContaCasa(3, 1, 2, "", ONTEM, None, True, estado=None)
-    sql = _sql(session.statements[0])
-    assert "JOIN casas ON casas.id = contas_casa.casa_id" in sql
-    assert "casas.nome = %(nome_1)s" in sql
-    assert "contas_casa.desde IS NULL" not in sql
-
-    await ContaCasaRepo().get_vigente_by_nome_da_casa(session, 1, "Betano", AGORA)
-    sql = _sql(session.statements[1])
-    assert "contas_casa.desde IS NULL OR contas_casa.desde <=" in sql
-    assert "contas_casa.ate IS NULL OR contas_casa.ate >=" in sql
-    assert await ContaCasaRepo().get_vigente_by_nome_da_casa(_Session(), 1, "Betano") is None
+    assert "usos_conta_casa" in _sql(session.statements[1])
+    assert "usuario_id" in _sql(session.statements[1])
+    before = LookupSession([2], [usage])
+    assert (
+        await repo.get_vigente_by_nome_da_casa(before, 1, "Betano", ONTEM - timedelta(seconds=1))
+        is None
+    )

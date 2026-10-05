@@ -218,7 +218,7 @@ def test_openapi_endpoint_matches_checked_in_snapshot(openapi_document: JsonObje
 @pytest.mark.contract
 def test_every_operation_has_human_documentation(openapi_document: JsonObject) -> None:
     operations = list(_operations(openapi_document))
-    assert len(operations) == 48
+    assert len(operations) == 65
     for method, path, operation in operations:
         location = f"{method.upper()} {path}"
         assert str(operation.get("summary", "")).strip(), location
@@ -243,7 +243,7 @@ def test_request_bodies_have_examples(openapi_document: JsonObject) -> None:
             assert media.get("example") is not None or media.get("examples"), (
                 f"{method.upper()} {path}: {media_type} lacks an example"
             )
-    assert bodies == 18
+    assert bodies == 22
 
 
 @pytest.mark.contract
@@ -597,6 +597,7 @@ negative_schema = (
     # These public operations authenticate a challenge/token, not a JWT; their negative cases have dedicated tests.
     .exclude(path="/api/v1/coleta/pairing-exchange")
     .exclude(path="/api/v1/coleta/status")
+    .exclude(path="/api/v1/coleta/catalogo")
     .exclude(path_regex=r"^/api/v1/coleta/(sessions|batches|jobs|contract)(/|$)")
     .exclude(
         # `chave` is an intentionally opaque, unconstrained string. There is no serializable
@@ -632,4 +633,10 @@ def invalid_upload_job_cases(
 @negative_schema.parametrize()
 def test_schemathesis_invalid_protected_requests(case: schemathesis.Case) -> None:
     response = case.call_and_validate(base_url="https://testserver")
+    from bancaemdia.auth.middleware import CATALOG_METHODS
+
+    if case.path in CATALOG_METHODS and case.method.upper() != CATALOG_METHODS[case.path]:
+        assert response.status_code == 405
+        assert response.headers["allow"][0] == CATALOG_METHODS[case.path]
+        return
     assert response.status_code == 401

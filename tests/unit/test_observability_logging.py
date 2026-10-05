@@ -321,7 +321,9 @@ async def test_unhandled_error_is_correlated_and_context_is_cleared() -> None:
             transport=httpx.ASGITransport(app=app, raise_app_exceptions=True),
             base_url="http://test",
         ) as client:
-            response = await client.get("/failure", headers=trace_headers)
+            response = await client.get(
+                "/failure", headers={REQUEST_ID_HEADER: request_id, "X-User-ID": "7"}
+            )
 
     assert response.status_code == 500
     assert response.headers[REQUEST_ID_HEADER] == request_id

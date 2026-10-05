@@ -47,6 +47,7 @@
             "anyOf": [
               {
                 "exclusiveMinimum": 0.0,
+                "maximum": 9.223372036854776e+18,
                 "type": "integer"
               },
               {
@@ -736,6 +737,16 @@
             },
             "description": "Malformed collection payload."
           },
+          "402": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "account_read_only: retain the extension outbox."
+          },
           "403": {
             "content": {
               "application/json": {
@@ -755,7 +766,7 @@
                 }
               }
             },
-            "description": "The request body exceeds the server-wide streaming limit."
+            "description": "The request body exceeds this endpoint's streaming limit."
           },
           "429": {
             "content": {
@@ -871,6 +882,16 @@
             },
             "description": "Missing, expired, or invalid bearer token."
           },
+          "402": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "account_read_only: retain the extension outbox."
+          },
           "403": {
             "content": {
               "application/json": {
@@ -910,7 +931,7 @@
                 }
               }
             },
-            "description": "The request body exceeds the server-wide streaming limit."
+            "description": "The request body exceeds this endpoint's streaming limit."
           },
           "422": {
             "content": {
@@ -1008,6 +1029,16 @@
               }
             },
             "description": "Missing, expired, or invalid bearer token."
+          },
+          "402": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "account_read_only: retain the extension outbox."
           },
           "403": {
             "content": {
@@ -1142,6 +1173,16 @@
             },
             "description": "Missing, expired, or invalid bearer token."
           },
+          "402": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "account_read_only: retain the extension outbox."
+          },
           "403": {
             "content": {
               "application/json": {
@@ -1181,7 +1222,7 @@
                 }
               }
             },
-            "description": "The request body exceeds the server-wide streaming limit."
+            "description": "The request body exceeds this endpoint's streaming limit."
           },
           "422": {
             "content": {
@@ -1272,6 +1313,16 @@
               }
             },
             "description": "Missing, expired, or invalid bearer token."
+          },
+          "402": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "account_read_only: retain the extension outbox."
           },
           "403": {
             "content": {
@@ -1397,6 +1448,16 @@
               }
             },
             "description": "Missing, expired, or invalid bearer token."
+          },
+          "402": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "account_read_only: retain the extension outbox."
           },
           "403": {
             "content": {
@@ -1559,6 +1620,16 @@
             },
             "description": "Malformed collection payload."
           },
+          "402": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "account_read_only: retain the extension outbox."
+          },
           "403": {
             "content": {
               "application/json": {
@@ -1578,7 +1649,7 @@
                 }
               }
             },
-            "description": "The request body exceeds the server-wide streaming limit."
+            "description": "The request body exceeds this endpoint's streaming limit."
           },
           "429": {
             "content": {

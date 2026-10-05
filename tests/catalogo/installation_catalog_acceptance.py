@@ -194,6 +194,40 @@ async def test_retrieval_uses_installation_credentials_not_bearer_or_legacy_toke
     ).status_code == 403
 
 
+async def test_global_signed_catalog_is_authenticated_per_installation_without_tenant_identity(
+    installation_system,
+):
+    s = installation_system
+    first, other = await s.pair(), await s.pair(s.other)
+    await publication(s)
+    one = await s.http.get(PATH, params=params(s), headers={"X-Coleta-Token": first["token"]})
+    two = await s.http.get(PATH, params=params(s), headers={"X-Coleta-Token": other["token"]})
+    assert one.status_code == two.status_code == 200
+    assert one.content == two.content
+    assert (
+        not {"issuer", "sub", "installation_id", "usuario_id", "instalacao_id"}
+        & one.json()["payload"].keys()
+    )
+    forbidden = await s.http.delete(
+        f"/api/v1/coleta/installations/{other['instalacao_id']}", headers=s.headers()
+    )
+    assert forbidden.status_code == 404
+    revoked = await s.http.delete(
+        f"/api/v1/coleta/installations/{first['instalacao_id']}", headers=s.headers()
+    )
+    assert revoked.status_code == 204
+    for token, expected in ((first["token"], 403), (other["token"], 304)):
+        response = await s.http.get(
+            PATH,
+            params=params(s),
+            headers={
+                "X-Coleta-Token": token,
+                "If-None-Match": one.headers["ETag"],
+            },
+        )
+        assert response.status_code == expected
+
+
 async def test_revoked_exact_host_remains_signed_tombstone_and_preserves_old_catalog(
     installation_system,
 ):
