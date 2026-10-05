@@ -23,6 +23,14 @@ TO bancaemdia_app;
 Do not grant that role `USAGE` on schema `painel`. The integration suite verifies both the public
 tenant filter and denial of direct materialized-view access.
 
+Migration 012 replaces `painel.mv_painel_resumo` with a corrected definition. A bet dated before
+its account's first recorded cash movement makes that account's balance unknown, because the
+opening balance cannot be reconstructed. The known partial balance excludes that account; the
+other accounts remain known when their histories are complete. The migration retains the previous
+materialized view as `painel.mv_painel_resumo_legacy` for rollback. Keep it private and do not add
+it to the refresh schedule. The migration creates and populates the corrected view in one
+transaction, then repoints `public.painel_resumo`; its downgrade restores the previous definition.
+
 ## Schedule
 
 Migration 008 registers the named job `bancaemdia_painel_refresh` every 15 seconds when

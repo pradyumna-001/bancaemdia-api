@@ -1,0 +1,86 @@
+# Contract scenarios for the billing alert rules; no external notifications.
+rule_files:
+  - billing.rules.yml
+evaluation_interval: 1m
+tests:
+  - name: dead-letter persists and then clears
+    input_series:
+      - series: billing_inbox_events{state="dead"}
+        values: '1x2 0x10'
+    alert_rule_test:
+      - eval_time: 0m
+        alertname: BillingDeadLetter
+        exp_alerts: []
+      - eval_time: 1m
+        alertname: BillingDeadLetter
+        exp_alerts:
+          - exp_labels: {severity: critical}
+            exp_annotations: {summary: Billing notifications require operator recovery.}
+      - eval_time: 4m
+        alertname: BillingDeadLetter
+        exp_alerts: []
+  - name: delivery delay and scan backlog respect the sustained threshold
+    input_series:
+      - series: billing_oldest_pending_seconds
+        values: '301x6 0x10'
+      - series: billing_oldest_scan_seconds
+        values: '301x6 0x10'
+    alert_rule_test:
+      - eval_time: 4m
+        alertname: BillingPendingDelivery
+        exp_alerts: []
+      - eval_time: 5m
+        alertname: BillingPendingDelivery
+        exp_alerts:
+          - exp_labels: {severity: warning}
+            exp_annotations: {summary: A billing notification has not converged within five minutes.}
+      - eval_time: 7m
+        alertname: BillingPendingDelivery
+        exp_alerts: []
+      - eval_time: 4m
+        alertname: BillingScanBacklog
+        exp_alerts: []
+      - eval_time: 5m
+        alertname: BillingScanBacklog
+        exp_alerts:
+          - exp_labels: {severity: warning}
+            exp_annotations: {summary: Billing scan capacity is below the five-minute freshness target.}
+      - eval_time: 7m
+        alertname: BillingScanBacklog
+        exp_alerts: []
+  - name: sustained provider errors
+    input_series:
+      - series: billing_reconciliations_total{outcome="failed"}
+        values: '0+1x10'
+    alert_rule_test:
+      - eval_time: 5m
+        alertname: BillingProviderFailures
+        exp_alerts: []
+      - eval_time: 6m
+        alertname: BillingProviderFailures
+        exp_alerts:
+          - exp_labels: {severity: warning}
+            exp_annotations: {summary: Billing reconciliation cannot read the provider reliably.}
+  - name: stalled scan is detected and resumes
+    input_series:
+      - series: billing_scan_timestamp_seconds
+        values: '0+60x3 180x6 660+60x3'
+    alert_rule_test:
+      - eval_time: 8m
+        alertname: BillingScanStopped
+        exp_alerts: []
+      - eval_time: 10m
+        alertname: BillingScanStopped
+        exp_alerts:
+          - exp_labels: {severity: critical}
+            exp_annotations: {summary: No completed billing scan in five minutes; check beat and worker.}
+      - eval_time: 11m
+        alertname: BillingScanStopped
+        exp_alerts: []
+  - name: missing metrics cannot masquerade as healthy
+    alert_rule_test:
+      - eval_time: 2m
+        alertname: BillingScanStopped
+        exp_alerts:
+          - exp_labels: {severity: critical}
+            exp_annotations: {summary: No completed billing scan in five minutes; check beat and worker.}

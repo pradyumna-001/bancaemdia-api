@@ -117,7 +117,7 @@ async def verified_claims(token: str, cache: JWKSCache) -> dict[str, Any]:
     settings = get_settings()
     try:
         header = jwt.get_unverified_header(token)
-    except jwt.PyJWTError as error:
+    except (jwt.PyJWTError, ValueError) as error:
         raise InvalidTokenError("the token is malformed") from error
     kid = header.get("kid")
     if header.get("alg") != settings.JWT_ALGORITHM or not isinstance(kid, str):
@@ -155,5 +155,7 @@ async def verify_token(token: str, cache: JWKSCache) -> int:
 
 @lru_cache
 def get_jwks_cache() -> JWKSCache:
+    # Settings changes in tests require get_jwks_cache.cache_clear(); a running process keeps
+    # its configured issuer/JWKS URL until restart.
     settings = get_settings()
     return JWKSCache(settings.JWT_JWKS_URL, settings.JWT_ALGORITHM)

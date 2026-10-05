@@ -2,7 +2,7 @@ import mmap
 import os
 import platform
 import time
-from collections.abc import Callable, Iterator, Sequence
+from collections.abc import Callable, Generator, Iterator, Sequence
 from contextlib import contextmanager
 from dataclasses import dataclass
 from pathlib import Path
@@ -322,7 +322,7 @@ def instrument_http_metrics(app: FastAPI, metrics: HttpMetrics | None = None) ->
 
 
 @contextmanager
-def observe_stage(stage: str) -> Iterator[None]:
+def observe_stage(stage: str) -> Generator[None, None, None]:
     started = time.perf_counter()
     status = "failed"
     try:
@@ -336,7 +336,7 @@ def observe_stage(stage: str) -> Iterator[None]:
 
 
 @contextmanager
-def observe_anthropic_request(model: str) -> Iterator[None]:
+def observe_anthropic_request(model: str) -> Generator[None, None, None]:
     started = time.perf_counter()
     status = "error"
     try:

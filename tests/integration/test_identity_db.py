@@ -80,15 +80,24 @@ async def test_repeated_concurrent_provision_has_one_proven_numeric_user(
             )
             == 1
         )
-        # This delivery has no billing schema, trial write or subscription side effect.
-        assert (
-            await conn.scalar(
-                text(
-                    "SELECT count(*) FROM information_schema.tables WHERE table_name IN ('assinaturas','subscriptions','trials')"
+        # The main billing trigger reserves identity without confirming a trial or
+        # granting write access. Provisioning must not start its 168-hour clock.
+        reserved = (
+            (
+                await conn.execute(
+                    text(
+                        "SELECT status,trial_confirmed,trial_started_at,trial_ends_at FROM assinaturas WHERE usuario_id=:id"
+                    ),
+                    {"id": user},
                 )
             )
-            == 0
+            .mappings()
+            .one()
         )
+        assert reserved["status"] == "RESERVED"
+        assert reserved["trial_confirmed"] is False
+        assert reserved["trial_started_at"] is None
+        assert reserved["trial_ends_at"] is None
 
 
 async def test_email_collision_never_links_another_external_subject(identity_service_db):

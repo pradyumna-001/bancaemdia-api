@@ -1,0 +1,40 @@
+# Install only with the billing worker/beat deployment. No production deployment
+# is performed by this file. Add deployment-specific service/environment labels.
+groups:
+  - name: billing
+    rules:
+      - alert: BillingDeadLetter
+        expr: max(billing_inbox_events{state="dead"}) > 0
+        for: 1m
+        labels:
+          severity: critical
+        annotations:
+          summary: Billing notifications require operator recovery.
+      - alert: BillingPendingDelivery
+        expr: max(billing_oldest_pending_seconds) > 300
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: A billing notification has not converged within five minutes.
+      - alert: BillingProviderFailures
+        expr: sum(increase(billing_reconciliations_total{outcome="failed"}[5m])) > 0
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: Billing reconciliation cannot read the provider reliably.
+      - alert: BillingScanStopped
+        expr: (time() - max(billing_scan_timestamp_seconds) > 300) or absent_over_time(billing_scan_timestamp_seconds[5m])
+        for: 1m
+        labels:
+          severity: critical
+        annotations:
+          summary: No completed billing scan in five minutes; check beat and worker.
+      - alert: BillingScanBacklog
+        expr: max(billing_oldest_scan_seconds) > 300
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: Billing scan capacity is below the five-minute freshness target.

@@ -14,7 +14,6 @@ from fastapi.responses import JSONResponse
 from fastapi.testclient import TestClient
 from prometheus_client import REGISTRY
 from starlette.middleware.base import BaseHTTPMiddleware
-from starlette.middleware.body_limit import RequestBodyLimitMiddleware
 from starlette.responses import Response
 
 from bancaemdia import main
@@ -29,6 +28,7 @@ from bancaemdia.middleware.rate_limit import (
     API_POLICY,
     AUTH_POLICY,
     COLETA_POLICY,
+    PANEL_EXPORT_POLICY,
     UPLOAD_POLICY,
     AuthRateLimitMiddleware,
     RateLimitMiddleware,
@@ -38,6 +38,7 @@ from bancaemdia.middleware.rate_limit import (
     user_key,
 )
 from bancaemdia.observability.logging import UserLogContextMiddleware
+from bancaemdia.security.http import EndpointBodyLimitMiddleware
 
 
 class _TestIdentityMiddleware(BaseHTTPMiddleware):
@@ -69,6 +70,10 @@ def _app() -> FastAPI:
     def api_upload() -> dict[str, bool]:
         return {"ok": True}
 
+    @app.get("/api/v1/painel/export")
+    def panel_export() -> dict[str, bool]:
+        return {"ok": True}
+
     @app.post("/api/v1/coleta")
     @app.post("/coleta")
     async def api_coleta() -> dict[str, bool]:
@@ -97,6 +102,7 @@ def _app() -> FastAPI:
 @pytest.fixture(autouse=True)
 def _isolated_limits(monkeypatch: pytest.MonkeyPatch):
     monkeypatch.setenv("API_RATE_LIMIT", "2/minute")
+    monkeypatch.setenv("PANEL_EXPORT_RATE_LIMIT", "1/minute")
     monkeypatch.setenv("AUTH_RATE_LIMIT", "2/minute")
     monkeypatch.setenv("UPLOAD_RATE_LIMIT", "1/minute")
     monkeypatch.setenv("COLETA_RATE_LIMIT", "2/minute")
@@ -280,6 +286,7 @@ def test_extension_keys_are_stable_isolated_hashes_without_the_raw_token() -> No
         ("/api/v1/coleta", "OPTIONS", None),
         ("/api/v1/upload", "POST", UPLOAD_POLICY),
         ("/api/v1/upload", "GET", API_POLICY),
+        ("/api/v1/painel/export", "GET", PANEL_EXPORT_POLICY),
         ("/api/v1", "GET", API_POLICY),
         ("/api/v1/apostas", "GET", API_POLICY),
         ("/auth", "POST", AUTH_POLICY),
@@ -409,6 +416,27 @@ def test_upload_post_uses_its_own_stricter_bucket_and_does_not_spend_api_quota()
     _assert_rate_headers(api_after_upload, limit=2, remaining=1)
 
 
+def test_panel_export_uses_stricter_bucket_and_spends_general_api_quota(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setenv("API_RATE_LIMIT", "3/minute")
+    get_settings.cache_clear()
+    reset_rate_limiters()
+    client = TestClient(_app())
+    headers = {"X-Test-User": "7"}
+
+    first = client.get("/api/v1/painel/export", headers=headers)
+    second = client.get("/api/v1/painel/export", headers=headers)
+    regular = client.get("/api/v1/one", headers=headers)
+
+    assert [first.status_code, second.status_code, regular.status_code] == [200, 429, 200]
+    _assert_rate_headers(first, limit=1, remaining=0)
+    _assert_rate_headers(second, limit=1, remaining=0)
+    # Both export attempts consume the general API budget; the ordinary route keeps its own
+    # eligibility until the next request.
+    assert client.get("/api/v1/two", headers=headers).status_code == 429
+
+
 def test_upload_default_window_returns_a_bounded_five_minute_retry(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
@@ -485,18 +513,13 @@ def test_production_middleware_authenticates_before_limiting_and_limits_before_b
         < layers.index(JWTAuthMiddleware)
         < layers.index(UserLogContextMiddleware)
         < layers.index(RateLimitMiddleware)
-        < layers.index(RequestBodyLimitMiddleware)
+        < layers.index(EndpointBodyLimitMiddleware)
     )
 
 
 def test_production_body_limit_keeps_the_upload_envelope_margin() -> None:
-    body_layer = next(
-        layer for layer in main.app.user_middleware if layer.cls is RequestBodyLimitMiddleware
-    )
-
-    assert body_layer.kwargs["max_body_size"] == (
-        get_settings().UPLOAD_MAX_BYTES + upload.MARGEM_DO_FORMULARIO
-    )
+    assert EndpointBodyLimitMiddleware in [layer.cls for layer in main.app.user_middleware]
+    assert upload.MARGEM_DO_FORMULARIO == 64 * 1024
 
 
 def test_production_upload_stack_rate_limits_before_reading_an_oversized_body(

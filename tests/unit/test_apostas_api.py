@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 import time
 from datetime import UTC, datetime, timedelta
 
@@ -11,8 +12,6 @@ from cryptography.hazmat.primitives.serialization import (
     Encoding,
     NoEncryption,
     PrivateFormat,
-    PublicFormat,
-    load_pem_public_key,
 )
 from fastapi.testclient import TestClient
 
@@ -51,9 +50,8 @@ CRIACAO = {
 def chave_rsa():
     par = rsa.generate_private_key(public_exponent=65537, key_size=2048)
     privada = par.private_bytes(Encoding.PEM, PrivateFormat.PKCS8, NoEncryption()).decode()
-    publica = par.public_key().public_bytes(Encoding.PEM, PublicFormat.SubjectPublicKeyInfo)
     return privada, {
-        **jwt.algorithms.RSAAlgorithm.to_jwk(load_pem_public_key(publica), as_dict=True),
+        **json.loads(jwt.algorithms.RSAAlgorithm.to_jwk(par.public_key())),
         "kid": "k1",
     }
 

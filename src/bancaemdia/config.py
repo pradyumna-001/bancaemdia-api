@@ -2,7 +2,7 @@ import re
 from functools import lru_cache
 from ipaddress import ip_network
 
-from pydantic import Field, field_validator
+from pydantic import Field, SecretStr, field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 _RATE_LIMIT_PATTERN = re.compile(
@@ -17,6 +17,14 @@ class Settings(BaseSettings):
         env_file_encoding="utf-8",
         extra="ignore",
     )
+
+    STRIPE_SECRET_KEY: SecretStr | None = None
+    STRIPE_WEBHOOK_SECRET: SecretStr | None = None
+    BILLING_ENABLED: bool = False
+    BILLING_CURRENCIES: str = "BRL"
+    BILLING_RETURN_URL: str = "http://localhost:5173/assinatura"
+    STRIPE_PORTAL_CONFIGURATION: str | None = None
+    STRIPE_TEST_AUTOMATIC_TAX: bool = False
 
     DATABASE_URL: str = Field(..., description="Async DSN, e.g. postgresql+asyncpg://")
     DATABASE_URL_REPLICA: str = Field(
@@ -80,7 +88,9 @@ class Settings(BaseSettings):
     API_INTERNAL_URL: str | None = Field(
         default=None, description="Base URL a worker uses to call this API back"
     )
-    JWT_SECRET_KEY: str = Field(..., description="JWT signing secret key")
+    # Reserved for an issuer that does not exist yet. RS256 verification uses JWT_JWKS_URL,
+    # never this secret; do not wire it into the verifier as a fallback.
+    JWT_SECRET_KEY: str = Field(..., description="Reserved issuer signing key, not a verifier key")
     JWT_ALGORITHM: str = Field(default="RS256", description="JWT signing algorithm")
     JWT_JWKS_URL: str | None = Field(
         default=None, description="JWKS endpoint for key rotation (RS256)"
@@ -117,6 +127,9 @@ class Settings(BaseSettings):
     API_RATE_LIMIT: str = Field(
         default="100/minute", description="Requests allowed across API v1 per authenticated user"
     )
+    PANEL_EXPORT_RATE_LIMIT: str = Field(
+        default="5/minute", description="Dashboard XLSX exports allowed per authenticated user"
+    )
     AUTH_RATE_LIMIT: str = Field(
         default="20/minute", description="Requests allowed across authentication endpoints"
     )
@@ -137,6 +150,7 @@ class Settings(BaseSettings):
     @field_validator(
         "COLETA_RATE_LIMIT",
         "API_RATE_LIMIT",
+        "PANEL_EXPORT_RATE_LIMIT",
         "AUTH_RATE_LIMIT",
         "UPLOAD_RATE_LIMIT",
         "COLETA_IP_RATE_LIMIT",

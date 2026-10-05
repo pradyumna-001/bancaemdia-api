@@ -1,6 +1,8 @@
 from __future__ import annotations
 
+import json
 import time
+from contextlib import asynccontextmanager
 from decimal import Decimal
 
 import asyncpg
@@ -13,8 +15,6 @@ from cryptography.hazmat.primitives.serialization import (
     Encoding,
     NoEncryption,
     PrivateFormat,
-    PublicFormat,
-    load_pem_public_key,
 )
 from fastapi import Depends, FastAPI, Request
 from fastapi.routing import APIRoute
@@ -75,6 +75,27 @@ def _pedido(metodo="GET", caminho="/api/v1/apostas", consulta=b"", cabecalhos=()
 )
 def test_writes_go_to_the_primary_and_safe_reads_to_the_replica(metodo, esperado) -> None:
     assert router.needs_primary(_pedido(metodo), 7, router.RecentWrites()) is esperado
+
+
+@pytest.mark.asyncio
+async def test_privacy_export_uses_primary_snapshot_even_when_router_chose_replica(
+    monkeypatch,
+) -> None:
+    opened = []
+
+    @asynccontextmanager
+    async def fake_open(replica, *, snapshot=False):
+        opened.append((replica, snapshot))
+        yield object()
+
+    monkeypatch.setattr(db_session, "_open", fake_open)
+    token = use_primary.set(False)
+    try:
+        async for _ in db_session.get_db_primary_snapshot():
+            pass
+    finally:
+        use_primary.reset(token)
+    assert opened == [(False, True)]
 
 
 @pytest.mark.parametrize(
@@ -327,9 +348,8 @@ async def test_sessions_without_an_engine_skip_the_lag_check() -> None:
 def chave():
     par = rsa.generate_private_key(public_exponent=65537, key_size=2048)
     privada = par.private_bytes(Encoding.PEM, PrivateFormat.PKCS8, NoEncryption()).decode()
-    publica = par.public_key().public_bytes(Encoding.PEM, PublicFormat.SubjectPublicKeyInfo)
     return privada, {
-        **jwt.algorithms.RSAAlgorithm.to_jwk(load_pem_public_key(publica), as_dict=True),
+        **json.loads(jwt.algorithms.RSAAlgorithm.to_jwk(par.public_key())),
         "kid": "k1",
     }
 

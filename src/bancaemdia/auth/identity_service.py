@@ -438,6 +438,11 @@ class IdentityService:
                 ),
                 {"id": sid, "encrypted": row["encrypted"]},
             )
+            # Keep issuer credentials only in the durable retry queue until acknowledgement.
+            await session.execute(
+                text("UPDATE auth_private.sessions SET encrypted=:encrypted WHERE id=:id"),
+                {"id": sid, "encrypted": self.keys.seal("{}", "session:" + sid)},
+            )
             await self._audit(session, None, sid, action)
 
     async def logout(self, cookie: str, all_sessions: bool) -> None:

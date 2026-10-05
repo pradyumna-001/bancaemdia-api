@@ -21,6 +21,7 @@ PUBLIC_PATHS = frozenset({
     "/auth/refresh",
     "/auth/logout",
     "/auth/jwks",
+    "/api/v1/billing/webhook",
     "/health",
     "/ready",
     "/metrics",

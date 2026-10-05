@@ -16,7 +16,6 @@ from cryptography.hazmat.primitives.serialization import (
     NoEncryption,
     PrivateFormat,
     PublicFormat,
-    load_pem_public_key,
 )
 
 from bancaemdia.auth import jwt as auth_jwt
@@ -33,7 +32,7 @@ def _par(kid="k1"):
         privada,
         publica.decode(),
         {
-            **jwt.algorithms.RSAAlgorithm.to_jwk(load_pem_public_key(publica), as_dict=True),
+            **json.loads(jwt.algorithms.RSAAlgorithm.to_jwk(chave.public_key())),
             "kid": kid,
         },
     )
@@ -199,6 +198,17 @@ async def test_unsigned_malformed_or_kid_less_tokens_are_invalid(k1) -> None:
     assert servidor.buscas == 0
 
 
+async def test_invalid_header_decoder_value_error_is_unauthorized(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    def malformed(_token: str) -> None:
+        raise UnicodeDecodeError("utf-8", b"\xff", 0, 1, "invalid byte")
+
+    monkeypatch.setattr(auth_jwt.jwt, "get_unverified_header", malformed)
+    with pytest.raises(auth_jwt.InvalidTokenError, match="malformed"):
+        await auth_jwt.verify_token("malformed", auth_jwt.JWKSCache(None, "RS256"))
+
+
 @pytest.mark.parametrize(
     "estrago", [{"n": "não é base64"}, {"n": "!!!"}, {"n": 123}, {"e": ""}, {"n": None}]
 )
@@ -220,7 +230,7 @@ async def test_malformed_published_keys_are_skipped_instead_of_crashing(k1, k2, 
 async def test_only_rsa_signing_keys_for_the_configured_algorithm_are_used(k1) -> None:
     privada, _, chave = k1
     curva = ec.generate_private_key(ec.SECP256R1()).public_key()
-    outra = jwt.algorithms.ECAlgorithm.to_jwk(curva, as_dict=True)
+    outra = json.loads(jwt.algorithms.ECAlgorithm.to_jwk(curva))
     servidor = _servidor(
         {**outra, "kid": "k1"},
         {**chave, "use": "enc", "kid": "k8"},
@@ -376,6 +386,25 @@ def test_the_process_cache_reads_the_jwks_url_from_the_settings(monkeypatch) -> 
         cache = auth_jwt.get_jwks_cache()
         assert (cache.url, cache.algorithm) == (URL, "RS256")
         assert auth_jwt.get_jwks_cache() is cache
+    finally:
+        get_settings.cache_clear()
+        auth_jwt.get_jwks_cache.cache_clear()
+
+
+def test_clearing_configuration_and_jwks_cache_drops_previous_issuer_keys(monkeypatch) -> None:
+    monkeypatch.setenv("JWT_JWKS_URL", URL)
+    get_settings.cache_clear()
+    auth_jwt.get_jwks_cache.cache_clear()
+    try:
+        previous = auth_jwt.get_jwks_cache()
+        previous.keys = {"previous-issuer": {"kid": "previous-issuer"}}
+        monkeypatch.setenv("JWT_JWKS_URL", "https://next-issuer.test/jwks")
+        get_settings.cache_clear()
+        auth_jwt.get_jwks_cache.cache_clear()
+        current = auth_jwt.get_jwks_cache()
+        assert current is not previous
+        assert current.url == "https://next-issuer.test/jwks"
+        assert current.keys == {}
     finally:
         get_settings.cache_clear()
         auth_jwt.get_jwks_cache.cache_clear()

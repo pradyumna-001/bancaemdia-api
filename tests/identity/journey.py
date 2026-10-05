@@ -559,6 +559,28 @@ async def test_real_registration_refresh_recovery_isolation_and_revocation(harne
             pr, "/auth/logout?all_sessions=true", method="POST", csrf=sr["csrf_token"]
         )
         assert logout["status"] == 200 and logout["data"] == {"logged_out": True}
+        async with engine_admin.connect() as conn:
+            revoked = (
+                (
+                    await conn.execute(
+                        text(
+                            "SELECT s.id,s.encrypted,r.session_id FROM auth_private.sessions s "
+                            "JOIN auth_private.revocations r ON r.session_id=s.id "
+                            "WHERE s.revoked_at IS NOT NULL"
+                        )
+                    )
+                )
+                .mappings()
+                .all()
+            )
+            assert revoked
+            for row in revoked:
+                assert (
+                    json.loads(
+                        harness.service.keys.open(row["encrypted"], "session:" + str(row["id"]))
+                    )
+                    == {}
+                )
         async with httpx.AsyncClient() as client:
             assert (
                 await client.get(
@@ -574,6 +596,10 @@ async def test_real_registration_refresh_recovery_isolation_and_revocation(harne
         async with engine_admin.begin() as conn:
             await conn.execute(text("UPDATE auth_private.revocations SET retry_at=now()"))
         await harness.service.drain_revocations()
+        async with engine_admin.connect() as conn:
+            assert (
+                await conn.execute(text("SELECT count(*) FROM auth_private.revocations"))
+            ).scalar_one() == 0
         async with httpx.AsyncClient() as client:
             rejected = await client.post(
                 ISSUER + "/protocol/openid-connect/token",
