@@ -44,17 +44,16 @@ The extension is a requested capture client, not part of the website frontend. I
 
 ### Calculators
 
-The first calculator set contains exactly:
+The first calculator set contains exactly four public operations, revised with the product owner
+on 2026-09-28:
 
-1. implied probability;
-2. fair/no-vig market probability;
-3. RTP;
-4. surebet;
-5. dutching;
-6. stake splitter;
-7. live hedge;
-8. target profit;
-9. bankroll percentage.
+1. fair/no-vig market probability, including raw implied probabilities and overround;
+2. distribution across mutually exclusive outcomes, combining dutching and surebet detection;
+3. two-way live hedge that equalizes net results;
+4. bankroll percentage in direct and inverse modes.
+
+Standalone implied probability, RTP, stake splitting and target-profit operations are omitted.
+The ambiguous `protect_stake` hedge objective is omitted.
 
 All money/odds arithmetic uses `Decimal`, explicit validation, and deterministic cent allocation.
 

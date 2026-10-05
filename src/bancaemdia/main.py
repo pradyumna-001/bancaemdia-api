@@ -15,6 +15,7 @@ from bancaemdia.api.contracts import (
     LivenessResponse,
     ReadinessResponse,
 )
+from bancaemdia.api.v1 import calculators
 from bancaemdia.api.openapi import build_openapi
 from bancaemdia.api.v1 import (
     admin_casas,
@@ -116,6 +117,7 @@ app.include_router(apostas.router)
 app.include_router(caixa.router)
 app.include_router(painel.router)
 app.include_router(revisao.router)
+app.include_router(calculators.router)
 app.include_router(billing_webhook.router)
 app.include_router(billing.router)
 app.include_router(titulares.router)
