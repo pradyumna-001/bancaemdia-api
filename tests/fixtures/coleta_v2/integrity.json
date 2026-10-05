@@ -1,0 +1,8 @@
+{
+  "stake_centavos": 10000,
+  "open": {"state": null, "return": 0, "exposure": 10000},
+  "win": {"state": "Win", "return": 20000, "exposure": 0},
+  "cancelled": {"state": "Void", "return": 10000, "exposure": 0},
+  "cashout": {"state": "Cashout", "return": 12500, "exposure": 0},
+  "seeds": [7, 31, 83, 101, 211, 307, 401, 503]
+}

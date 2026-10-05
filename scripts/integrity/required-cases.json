@@ -1,0 +1,622 @@
+[
+  {
+    "module": "test_contract_v2",
+    "name": "test_mixed_batch_stable_ack_and_lossless_raw_replay"
+  },
+  {
+    "module": "test_contract_v2",
+    "name": "test_concurrent_timeout_retries_have_one_delivery_and_one_financial_fact"
+  },
+  {
+    "module": "test_contract_v2",
+    "name": "test_two_installations_converge_to_one_financial_fact"
+  },
+  {
+    "module": "test_contract_v2",
+    "name": "test_invalid_source_revision_is_not_replaced_by_placement[invalid]"
+  },
+  {
+    "module": "test_contract_v2",
+    "name": "test_invalid_source_revision_is_not_replaced_by_placement[2026-08-02]"
+  },
+  {
+    "module": "test_contract_v2",
+    "name": "test_invalid_source_revision_is_not_replaced_by_placement[99999999999999999999]"
+  },
+  {
+    "module": "test_contract_v2",
+    "name": "test_duplicate_content_new_event_and_lifecycle_out_of_order"
+  },
+  {
+    "module": "test_contract_v2",
+    "name": "test_same_financial_content_advances_source_clock_without_new_events[1]"
+  },
+  {
+    "module": "test_contract_v2",
+    "name": "test_same_financial_content_advances_source_clock_without_new_events[2]"
+  },
+  {
+    "module": "test_contract_v2",
+    "name": "test_session_resume_is_explicit_immutable_and_owned_by_installation"
+  },
+  {
+    "module": "test_contract_v2",
+    "name": "test_account_reference_is_never_a_first_active_fallback[foreign]"
+  },
+  {
+    "module": "test_contract_v2",
+    "name": "test_account_reference_is_never_a_first_active_fallback[wrong_house]"
+  },
+  {
+    "module": "test_contract_v2",
+    "name": "test_account_reference_is_never_a_first_active_fallback[before]"
+  },
+  {
+    "module": "test_contract_v2",
+    "name": "test_account_reference_is_never_a_first_active_fallback[ended]"
+  },
+  {
+    "module": "test_contract_v2",
+    "name": "test_account_reference_is_never_a_first_active_fallback[missing]"
+  },
+  {
+    "module": "test_contract_v2",
+    "name": "test_account_reference_is_never_a_first_active_fallback[unknown]"
+  },
+  {
+    "module": "test_contract_v2",
+    "name": "test_capture_clock_cannot_replace_missing_or_untrusted_ticket_time[None]"
+  },
+  {
+    "module": "test_contract_v2",
+    "name": "test_capture_clock_cannot_replace_missing_or_untrusted_ticket_time[2026-08-02]"
+  },
+  {
+    "module": "test_contract_v2",
+    "name": "test_capture_clock_cannot_replace_missing_or_untrusted_ticket_time[not-a-date]"
+  },
+  {
+    "module": "test_contract_v2",
+    "name": "test_capture_clock_cannot_replace_missing_or_untrusted_ticket_time[99999999999999999999]"
+  },
+  {
+    "module": "test_contract_v2",
+    "name": "test_rls_jobs_and_transport_ids_do_not_cross_tenants_or_installations"
+  },
+  {
+    "module": "test_contract_v2",
+    "name": "test_broker_loss_and_a_fresh_worker_process_recover_persisted_inbox"
+  },
+  {
+    "module": "test_contract_v2",
+    "name": "test_worker_failure_rolls_back_financial_fact_and_retry_materializes_once"
+  },
+  {
+    "module": "test_contract_v2",
+    "name": "test_401_429_unknown_version_and_no_admission_on_failures"
+  },
+  {
+    "module": "test_contract_v2",
+    "name": "test_daily_limit_rolls_back_batch_and_preserves_original_ack"
+  },
+  {
+    "module": "test_contract_v2",
+    "name": "test_daily_limit_is_shared_across_concurrent_installations"
+  },
+  {
+    "module": "test_contract_v2",
+    "name": "test_hash_tamper_is_terminal_and_never_materializes"
+  },
+  {
+    "module": "test_contract_v2",
+    "name": "test_http_500_after_commit_retries_without_losing_or_duplicating_capture"
+  },
+  {
+    "module": "test_contract_v2",
+    "name": "test_authenticated_malformed_and_item_size_rejections_have_no_financial_effect"
+  },
+  {
+    "module": "test_contract_v2",
+    "name": "test_timeout_after_server_commit_repeats_the_original_ack"
+  },
+  {
+    "module": "test_contract_v2",
+    "name": "test_unexpected_worker_failures_reach_failed_without_partial_financial_writes"
+  },
+  {
+    "module": "test_contract_v2",
+    "name": "test_exact_boundary_and_negative_zero_payload_remain_hash_verifiable"
+  },
+  {
+    "module": "test_contract_v2",
+    "name": "test_v2_migration_roundtrip_and_populated_downgrade_guard"
+  },
+  {
+    "module": "test_pairing",
+    "name": "test_two_installations_rotate_revoke_and_reconnect_independently"
+  },
+  {
+    "module": "test_pairing",
+    "name": "test_unavailable_codes_are_neutral_and_never_issue_a_second_credential[wrong]"
+  },
+  {
+    "module": "test_pairing",
+    "name": "test_unavailable_codes_are_neutral_and_never_issue_a_second_credential[expired]"
+  },
+  {
+    "module": "test_pairing",
+    "name": "test_unavailable_codes_are_neutral_and_never_issue_a_second_credential[reused]"
+  },
+  {
+    "module": "test_pairing",
+    "name": "test_unavailable_codes_are_neutral_and_never_issue_a_second_credential[inactive]"
+  },
+  {
+    "module": "test_pairing",
+    "name": "test_concurrent_exchange_consumes_one_code_once"
+  },
+  {
+    "module": "test_pairing",
+    "name": "test_cross_tenant_rls_and_least_privilege"
+  },
+  {
+    "module": "test_pairing",
+    "name": "test_shared_quota_concurrency_expiry_and_isolation[create]"
+  },
+  {
+    "module": "test_pairing",
+    "name": "test_shared_quota_concurrency_expiry_and_isolation[exchange]"
+  },
+  {
+    "module": "test_pairing",
+    "name": "test_quota_outage_never_fails_open"
+  },
+  {
+    "module": "test_pairing",
+    "name": "test_rotation_waits_for_inflight_authenticated_transaction[False]"
+  },
+  {
+    "module": "test_pairing",
+    "name": "test_rotation_waits_for_inflight_authenticated_transaction[True]"
+  },
+  {
+    "module": "test_pairing",
+    "name": "test_only_hashes_and_minimal_identity_persist"
+  },
+  {
+    "module": "test_pairing",
+    "name": "test_expired_inactive_or_legacy_credentials_cannot_collect[expired]"
+  },
+  {
+    "module": "test_pairing",
+    "name": "test_expired_inactive_or_legacy_credentials_cannot_collect[inactive]"
+  },
+  {
+    "module": "test_pairing",
+    "name": "test_expired_inactive_or_legacy_credentials_cannot_collect[legacy]"
+  },
+  {
+    "module": "test_pairing",
+    "name": "test_global_quota_is_shared_by_distinct_clients"
+  },
+  {
+    "module": "test_pairing",
+    "name": "test_lost_exchange_transaction_preserves_code_for_retry"
+  },
+  {
+    "module": "test_pairing",
+    "name": "test_concurrent_reconnect_keeps_one_installation_and_one_current_token"
+  },
+  {
+    "module": "test_pairing",
+    "name": "test_legacy_upgrade_requires_repair_and_roundtrip_never_reactivates"
+  },
+  {
+    "module": "test_troca_titular",
+    "name": "test_attribution_uses_game_time_and_validates_explicit_account"
+  },
+  {
+    "module": "test_troca_titular",
+    "name": "test_preview_apply_retry_and_event_time_resolution"
+  },
+  {
+    "module": "test_troca_titular",
+    "name": "test_usage_constraint_and_new_table_rls"
+  },
+  {
+    "module": "financial_acceptance",
+    "name": "test_composed_temporal_switch_uses_game_and_consolidates_replays_both_orders[house-first]"
+  },
+  {
+    "module": "financial_acceptance",
+    "name": "test_composed_temporal_switch_uses_game_and_consolidates_replays_both_orders[telegram-first]"
+  },
+  {
+    "module": "financial_acceptance",
+    "name": "test_composed_v2_explicit_historical_account_wins_even_outside_placement_interval"
+  },
+  {
+    "module": "financial_acceptance",
+    "name": "test_holder_switch_preview_uses_game_and_preserves_explicit_multicontas"
+  },
+  {
+    "module": "test_reconciliar_casa_telegram",
+    "name": "test_hash_has_independent_canonical_byte_oracle"
+  },
+  {
+    "module": "test_reconciliar_casa_telegram",
+    "name": "test_any_reviewed_field_tampering_is_refused[filters]"
+  },
+  {
+    "module": "test_reconciliar_casa_telegram",
+    "name": "test_any_reviewed_field_tampering_is_refused[candidates]"
+  },
+  {
+    "module": "test_reconciliar_casa_telegram",
+    "name": "test_any_reviewed_field_tampering_is_refused[generated_at]"
+  },
+  {
+    "module": "test_reconciliar_casa_telegram",
+    "name": "test_any_reviewed_field_tampering_is_refused[current_totals]"
+  },
+  {
+    "module": "test_reconciliar_casa_telegram",
+    "name": "test_any_reviewed_field_tampering_is_refused[projected_totals]"
+  },
+  {
+    "module": "test_reconciliar_casa_telegram",
+    "name": "test_any_reviewed_field_tampering_is_refused[source_high_water_mark]"
+  },
+  {
+    "module": "test_reconciliar_casa_telegram",
+    "name": "test_any_reviewed_field_tampering_is_refused[batch_size]"
+  },
+  {
+    "module": "test_reconciliar_casa_telegram",
+    "name": "test_rehash_does_not_replace_explicitly_approved_hash"
+  },
+  {
+    "module": "test_reconciliar_casa_telegram",
+    "name": "test_unknown_report_versions_are_rejected[patch0]"
+  },
+  {
+    "module": "test_reconciliar_casa_telegram",
+    "name": "test_unknown_report_versions_are_rejected[patch1]"
+  },
+  {
+    "module": "test_reconciliar_casa_telegram",
+    "name": "test_candidate_identity_is_stable_and_tenant_and_algorithm_scoped"
+  },
+  {
+    "module": "test_reconciliar_casa_telegram",
+    "name": "test_report_roundtrip_never_overwrites_reviewed_file"
+  },
+  {
+    "module": "test_reconciliar_casa_telegram",
+    "name": "test_ambiguous_or_invalid_json_is_refused[{\"sha256\":\"a\",\"sha256\":\"b\"}]"
+  },
+  {
+    "module": "test_reconciliar_casa_telegram",
+    "name": "test_ambiguous_or_invalid_json_is_refused[[]]"
+  },
+  {
+    "module": "test_reconciliar_casa_telegram",
+    "name": "test_ambiguous_or_invalid_json_is_refused[{]"
+  },
+  {
+    "module": "test_reconciliar_casa_telegram",
+    "name": "test_ambiguous_or_invalid_json_is_refused[{\"candidates\":[{\"id\":1,\"id\":2}]}]"
+  },
+  {
+    "module": "test_reconciliar_casa_telegram",
+    "name": "test_csv_contains_review_metadata_and_defuses_spreadsheet_formulas"
+  },
+  {
+    "module": "test_reconciliar_casa_telegram",
+    "name": "test_nonfinite_json_is_not_hashable[nan]"
+  },
+  {
+    "module": "test_reconciliar_casa_telegram",
+    "name": "test_nonfinite_json_is_not_hashable[inf]"
+  },
+  {
+    "module": "test_reconciliar_casa_telegram",
+    "name": "test_nonfinite_json_is_not_hashable[-inf]"
+  },
+  {
+    "module": "test_reconciliar_casa_telegram",
+    "name": "test_invalid_user_never_reaches_database[0]"
+  },
+  {
+    "module": "test_reconciliar_casa_telegram",
+    "name": "test_invalid_user_never_reaches_database[-1]"
+  },
+  {
+    "module": "test_reconciliar_casa_telegram",
+    "name": "test_invalid_user_never_reaches_database[9223372036854775808]"
+  },
+  {
+    "module": "test_reconciliar_casa_telegram",
+    "name": "test_range_uses_game_date_and_local_inclusive_calendar_end"
+  },
+  {
+    "module": "test_reconciliar_casa_telegram",
+    "name": "test_invalid_filters[filters0]"
+  },
+  {
+    "module": "test_reconciliar_casa_telegram",
+    "name": "test_invalid_filters[filters1]"
+  },
+  {
+    "module": "test_reconciliar_casa_telegram",
+    "name": "test_invalid_filters[filters2]"
+  },
+  {
+    "module": "test_reconciliar_casa_telegram",
+    "name": "test_invalid_filters[filters3]"
+  },
+  {
+    "module": "test_reconciliar_casa_telegram",
+    "name": "test_unbounded_batch_refused_before_opening_connection[0]"
+  },
+  {
+    "module": "test_reconciliar_casa_telegram",
+    "name": "test_unbounded_batch_refused_before_opening_connection[-1]"
+  },
+  {
+    "module": "test_reconciliar_casa_telegram",
+    "name": "test_unbounded_batch_refused_before_opening_connection[201]"
+  },
+  {
+    "module": "test_reconciliar_casa_telegram",
+    "name": "test_dry_run_is_default_and_apply_is_explicit"
+  },
+  {
+    "module": "test_reconciliar_casa_telegram",
+    "name": "test_terminal_summary_has_only_counts_and_hash"
+  },
+  {
+    "module": "test_reconciliar_casa_telegram",
+    "name": "test_integrity_projection_preserves_source_count_and_only_subtracts_approved_exact"
+  },
+  {
+    "module": "test_reconciliar_casa_telegram",
+    "name": "test_unresolved_profit_is_not_an_invented_loss"
+  },
+  {
+    "module": "test_reconciliar_casa_telegram",
+    "name": "test_missing_prerequisite_fails_closed_without_legacy_fallback"
+  },
+  {
+    "module": "test_reconciliar_casa_telegram",
+    "name": "test_operational_exception_never_prints_driver_secrets_or_payloads"
+  },
+  {
+    "module": "test_reconciliar_casa_telegram",
+    "name": "test_inconsistent_write_flags_refused_before_connecting[options0]"
+  },
+  {
+    "module": "test_reconciliar_casa_telegram",
+    "name": "test_inconsistent_write_flags_refused_before_connecting[options1]"
+  },
+  {
+    "module": "test_reconciliar_casa_telegram",
+    "name": "test_inconsistent_write_flags_refused_before_connecting[options2]"
+  },
+  {
+    "module": "test_reconciliar_casa_telegram",
+    "name": "test_inconsistent_write_flags_refused_before_connecting[options3]"
+  },
+  {
+    "module": "test_reconciliar_casa_telegram",
+    "name": "test_inconsistent_write_flags_refused_before_connecting[options4]"
+  },
+  {
+    "module": "test_reconciliar_casa_telegram",
+    "name": "test_inconsistent_write_flags_refused_before_connecting[options5]"
+  },
+  {
+    "module": "collection_acceptance",
+    "name": "test_ten_duplicate_deliveries_one_lineage_one_pair_and_full_replay[house]"
+  },
+  {
+    "module": "collection_acceptance",
+    "name": "test_ten_duplicate_deliveries_one_lineage_one_pair_and_full_replay[telegram]"
+  },
+  {
+    "module": "collection_acceptance",
+    "name": "test_ten_duplicate_deliveries_one_lineage_one_pair_and_full_replay[simultaneous]"
+  },
+  {
+    "module": "collection_acceptance",
+    "name": "test_lifecycle_stale_open_duplicate_settled_and_consolidation_race[open-first-win]"
+  },
+  {
+    "module": "collection_acceptance",
+    "name": "test_lifecycle_stale_open_duplicate_settled_and_consolidation_race[open-first-cancelled]"
+  },
+  {
+    "module": "collection_acceptance",
+    "name": "test_lifecycle_stale_open_duplicate_settled_and_consolidation_race[open-first-cashout]"
+  },
+  {
+    "module": "collection_acceptance",
+    "name": "test_lifecycle_stale_open_duplicate_settled_and_consolidation_race[settled-first-win]"
+  },
+  {
+    "module": "collection_acceptance",
+    "name": "test_lifecycle_stale_open_duplicate_settled_and_consolidation_race[settled-first-cancelled]"
+  },
+  {
+    "module": "collection_acceptance",
+    "name": "test_lifecycle_stale_open_duplicate_settled_and_consolidation_race[settled-first-cashout]"
+  },
+  {
+    "module": "collection_acceptance",
+    "name": "test_lifecycle_stale_open_duplicate_settled_and_consolidation_race[racing-win]"
+  },
+  {
+    "module": "collection_acceptance",
+    "name": "test_lifecycle_stale_open_duplicate_settled_and_consolidation_race[racing-cancelled]"
+  },
+  {
+    "module": "collection_acceptance",
+    "name": "test_lifecycle_stale_open_duplicate_settled_and_consolidation_race[racing-cashout]"
+  },
+  {
+    "module": "collection_acceptance",
+    "name": "test_occurrence_boundary_capture_today_does_not_override_cutoff[-1]"
+  },
+  {
+    "module": "collection_acceptance",
+    "name": "test_occurrence_boundary_capture_today_does_not_override_cutoff[0]"
+  },
+  {
+    "module": "collection_acceptance",
+    "name": "test_occurrence_boundary_capture_today_does_not_override_cutoff[1]"
+  },
+  {
+    "module": "collection_acceptance",
+    "name": "test_untrusted_occurrence_review_has_no_financial_fact[None]"
+  },
+  {
+    "module": "collection_acceptance",
+    "name": "test_untrusted_occurrence_review_has_no_financial_fact[2026-09-20]"
+  },
+  {
+    "module": "collection_acceptance",
+    "name": "test_untrusted_occurrence_review_has_no_financial_fact[invalid]"
+  },
+  {
+    "module": "collection_acceptance",
+    "name": "test_mixed_ack_retry_only_unacknowledged_preserves_success_subset"
+  },
+  {
+    "module": "collection_acceptance",
+    "name": "test_entire_malformed_or_oversized_batch_cannot_commit_prefix[json]"
+  },
+  {
+    "module": "collection_acceptance",
+    "name": "test_entire_malformed_or_oversized_batch_cannot_commit_prefix[items]"
+  },
+  {
+    "module": "collection_acceptance",
+    "name": "test_entire_malformed_or_oversized_batch_cannot_commit_prefix[body]"
+  },
+  {
+    "module": "collection_acceptance",
+    "name": "test_fault_between_stages_rolls_back_then_retry_and_replay_converge[collection]"
+  },
+  {
+    "module": "collection_acceptance",
+    "name": "test_fault_between_stages_rolls_back_then_retry_and_replay_converge[candidate]"
+  },
+  {
+    "module": "collection_acceptance",
+    "name": "test_fault_between_stages_rolls_back_then_retry_and_replay_converge[consolidation]"
+  },
+  {
+    "module": "collection_acceptance",
+    "name": "test_seeded_duplicate_update_arrival_interleavings[7]"
+  },
+  {
+    "module": "collection_acceptance",
+    "name": "test_seeded_duplicate_update_arrival_interleavings[31]"
+  },
+  {
+    "module": "collection_acceptance",
+    "name": "test_seeded_duplicate_update_arrival_interleavings[83]"
+  },
+  {
+    "module": "collection_acceptance",
+    "name": "test_seeded_duplicate_update_arrival_interleavings[101]"
+  },
+  {
+    "module": "collection_acceptance",
+    "name": "test_seeded_duplicate_update_arrival_interleavings[211]"
+  },
+  {
+    "module": "collection_acceptance",
+    "name": "test_seeded_duplicate_update_arrival_interleavings[307]"
+  },
+  {
+    "module": "collection_acceptance",
+    "name": "test_seeded_duplicate_update_arrival_interleavings[401]"
+  },
+  {
+    "module": "collection_acceptance",
+    "name": "test_seeded_duplicate_update_arrival_interleavings[503]"
+  },
+  {
+    "module": "collection_acceptance",
+    "name": "test_redis_broker_hint_and_redelivery_use_durable_database_inbox"
+  },
+  {
+    "module": "collection_acceptance",
+    "name": "test_historical_cli_reuses_online_pair_and_does_not_duplicate_audit"
+  },
+  {
+    "module": "accounts_races_acceptance",
+    "name": "test_optional_account_reference_game_day_default_and_historical_actual[default]"
+  },
+  {
+    "module": "accounts_races_acceptance",
+    "name": "test_optional_account_reference_game_day_default_and_historical_actual[actual]"
+  },
+  {
+    "module": "accounts_races_acceptance",
+    "name": "test_absent_reference_without_valid_game_usage_never_chooses_first[1]"
+  },
+  {
+    "module": "accounts_races_acceptance",
+    "name": "test_absent_reference_without_valid_game_usage_never_chooses_first[2]"
+  },
+  {
+    "module": "accounts_races_acceptance",
+    "name": "test_database_refuses_overlapping_default_usages_and_resolver_refuses_ambiguous_input"
+  },
+  {
+    "module": "accounts_races_acceptance",
+    "name": "test_competing_sources_stay_reviewed_and_two_workers_cannot_claim_same_endpoint[house]"
+  },
+  {
+    "module": "accounts_races_acceptance",
+    "name": "test_competing_sources_stay_reviewed_and_two_workers_cannot_claim_same_endpoint[telegram]"
+  },
+  {
+    "module": "accounts_races_acceptance",
+    "name": "test_two_review_workers_same_pair_commit_one_relation_and_two_audit_events"
+  },
+  {
+    "module": "security_acceptance",
+    "name": "test_rotation_or_revocation_wins_before_collection_commit[False]"
+  },
+  {
+    "module": "security_acceptance",
+    "name": "test_rotation_or_revocation_wins_before_collection_commit[True]"
+  },
+  {
+    "module": "security_acceptance",
+    "name": "test_accepted_transaction_commits_before_revocation_returns[False]"
+  },
+  {
+    "module": "security_acceptance",
+    "name": "test_accepted_transaction_commits_before_revocation_returns[True]"
+  },
+  {
+    "module": "security_acceptance",
+    "name": "test_invalid_explicit_account_never_falls_back_to_a_valid_account[foreign]"
+  },
+  {
+    "module": "security_acceptance",
+    "name": "test_invalid_explicit_account_never_falls_back_to_a_valid_account[wrong_house]"
+  },
+  {
+    "module": "security_acceptance",
+    "name": "test_invalid_explicit_account_never_falls_back_to_a_valid_account[unknown]"
+  },
+  {
+    "module": "security_acceptance",
+    "name": "test_collection_credentials_cannot_read_mutate_replay_or_own_foreign_rows"
+  }
+]
