@@ -161,6 +161,10 @@
   },
   {
     "module": "test_pairing",
+    "name": "test_account_anonymization_removes_owned_credentials_and_preserves_other_installation"
+  },
+  {
+    "module": "test_pairing",
     "name": "test_shared_quota_concurrency_expiry_and_isolation[create]"
   },
   {
@@ -210,6 +214,26 @@
   {
     "module": "test_pairing",
     "name": "test_legacy_upgrade_requires_repair_and_roundtrip_never_reactivates"
+  },
+  {
+    "module": "test_review_part4",
+    "name": "test_v2_game_clock_and_actual_multiconta_are_distinct[False-False]"
+  },
+  {
+    "module": "test_review_part4",
+    "name": "test_v2_game_clock_and_actual_multiconta_are_distinct[False-True]"
+  },
+  {
+    "module": "test_review_part4",
+    "name": "test_v2_game_clock_and_actual_multiconta_are_distinct[True-False]"
+  },
+  {
+    "module": "test_review_part4",
+    "name": "test_v2_game_clock_and_actual_multiconta_are_distinct[True-True]"
+  },
+  {
+    "module": "test_review_part4",
+    "name": "test_expired_collection_access_pauses_ack_and_resumes_once_after_paid_grant"
   },
   {
     "module": "test_troca_titular",

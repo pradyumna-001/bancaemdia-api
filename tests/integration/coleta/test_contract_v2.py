@@ -858,7 +858,7 @@ async def test_v2_migration_roundtrip_and_populated_downgrade_guard(banco_migrac
             await asyncio.to_thread(command.downgrade, config, "c107pair2026")
         async with engine.connect() as conn:
             assert (
-                await conn.scalar(text("SELECT version_num FROM alembic_version")) == "h4review2026"
+                await conn.scalar(text("SELECT version_num FROM alembic_version")) == "h5review2026"
             )
             assert await conn.scalar(select(func.count()).select_from(ColetaSessao)) == 1
     finally:

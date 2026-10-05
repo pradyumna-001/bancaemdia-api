@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import asyncio
 from collections.abc import Awaitable, Callable
-from datetime import datetime
+from datetime import UTC, datetime
 from uuid import uuid4
 
 import pytest
@@ -12,6 +12,7 @@ from sqlalchemy.ext.asyncio import AsyncEngine, AsyncSession
 from bancaemdia import models
 from bancaemdia.repositories.aposta_repo import ApostaRepo
 from bancaemdia.repositories.evento_repo import EventoRepo
+from bancaemdia.repositories.uso_conta_casa_repo import UsoContaCasaRepo
 from bancaemdia.workers.pairing import confirmar_par, parear_criacao
 
 pytestmark = pytest.mark.xdist_group("postgres")
@@ -121,8 +122,13 @@ async def test_manual_confirmation_of_an_uncertain_pair_keeps_the_house_bet(
             session.add(house_row)
             await session.flush()
             house_id = house_row.id
-        session.add(
-            models.ContaCasa(usuario_id=usuario, casa_id=house_id, apelido="synthetic-default")
+        account = models.ContaCasa(
+            usuario_id=usuario, casa_id=house_id, apelido="synthetic-default"
+        )
+        session.add(account)
+        await session.flush()
+        await UsoContaCasaRepo().open(
+            session, usuario, house_id, account.id, datetime(2020, 1, 1, tzinfo=UTC)
         )
 
     payload = {

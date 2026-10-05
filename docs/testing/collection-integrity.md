@@ -26,7 +26,7 @@ pytest tests/integration/coleta/ tests/integration/test_troca_titular.py \
 python scripts/check_integrity_junit.py integrity-results.xml
 ```
 
-O inventário exige todos os 155 casos originais, incluindo parâmetros. Falha,
+O inventário exige 161 casos (todos os 155 originais e seis regressões herdadas da parte 4), incluindo parâmetros. Falha,
 erro, skip, ausência, duplicação ou caso inesperado reprovam o gate. Cada um dos
 três jobs usa seus próprios PostgreSQL/Redis; Docker Build depende dos três.
 Além da matriz, os gates de CLI histórica, matching/consolidação, contas/billing,

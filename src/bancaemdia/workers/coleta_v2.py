@@ -43,6 +43,11 @@ def finish(row: ColetaEntrega, status: str, reason: str) -> None:
 
 
 async def materialize(session: AsyncSession, row: ColetaEntrega) -> None:
+    from bancaemdia.repositories.cruzamento_candidato import CruzamentoCandidatoRepo
+
+    # All source/usage writers acquire the matching advisory before account or
+    # collection rows. Otherwise a Telegram FK lock can form a cycle with v2.
+    await CruzamentoCandidatoRepo().lock(session, row.usuario_id)
     envelope = row.envelope
     if envelope is None:
         finish(row, "failed", "payload_unavailable")

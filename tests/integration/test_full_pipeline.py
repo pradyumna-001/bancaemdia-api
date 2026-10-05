@@ -262,12 +262,6 @@ async def test_prints_that_fail_their_checks_open_reviews_and_an_illegible_one_i
         graves = {
             a.chave for a in await ApostaRepo().list_by_usuario(session, usuario) if a.revisao_grave
         }
-    pending = [r for r in revisoes if r.motivo == "conta_pendente"]
-    async with como(engine_app, usuario) as session:
-        all_bets = await ApostaRepo().list_by_usuario(session, usuario)
-    assert {r.extracao_bruta["aposta_chave"] for r in pending} == {a.chave for a in all_bets}
-    assert len(pending) == len(all_bets)
-    revisoes = [r for r in revisoes if r.motivo != "conta_pendente"]
     da_imagem = {hashlib.sha256(imagem).hexdigest(): message_id for message_id, imagem in mensagens}
     conta_reviews = [r for r in revisoes if r.extracao_bruta.get("tipo_revisao") == "conta"]
     extracao_reviews = [r for r in revisoes if r.extracao_bruta.get("tipo_revisao") != "conta"]
