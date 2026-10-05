@@ -598,7 +598,9 @@ async def test_trust_boundaries_have_no_financial_or_draft_effect(bot, kind):
 
 
 @pytest.mark.parametrize(
-    "content", [b"not an image", b"\x89PNG\r\n\x1a\ninvalid", b"", b"x" * (20 * 1024 * 1024 + 1)]
+    "content",
+    [b"not an image", b"\x89PNG\r\n\x1a\ninvalid", b"", b"x" * (20 * 1024 * 1024 + 1)],
+    ids=["text", "corrupt-image", "empty", "over-20-mib"],
 )
 async def test_invalid_media_cannot_be_confirmed(bot, content):
     bot.provider.image = content
@@ -794,15 +796,14 @@ async def test_expired_photo_pauses_without_provider_and_resumes_after_payment(b
     original_fields = draft.fields_json
     reference = draft.media_reference_ciphertext
     async with engine_admin.begin() as conn:
-        await conn.execute(
-            text("UPDATE billing_rollout SET activated_at=clock_timestamp() WHERE id=1")
-        )
-        await conn.execute(
+        await conn.execute(text("SELECT billing_activate_rollout()"))
+        expired = await conn.execute(
             text(
                 "UPDATE assinaturas SET trial_confirmed=false, status='EXPIRED' WHERE usuario_id=:uid"
             ),
             {"uid": bot.user},
         )
+        assert expired.rowcount == 1
     try:
         assert not await telegram_extraction.process_photo_once(
             bot.engine, bot.client, draft_id=draft.id
@@ -815,11 +816,17 @@ async def test_expired_photo_pauses_without_provider_and_resumes_after_payment(b
         assert paused.extraction_lease_token is None and paused.extraction_lease_until is None
         assert bot.provider.reads == 0 and not await bot.bets()
         async with engine_admin.begin() as conn:
+            price = await conn.scalar(
+                text("""INSERT INTO billing_prices
+                (amount_cents,currency,frequency,valid_from,published)
+                VALUES (12345,'BRL','MONTHLY',clock_timestamp(),false) RETURNING id""")
+            )
             await conn.execute(
                 text("""UPDATE assinaturas SET status='ACTIVE',
+                    price_id=:price,
                     current_period_started_at=clock_timestamp()-interval '1 hour',
                     current_period_ends_at=clock_timestamp()+interval '1 day' WHERE usuario_id=:uid"""),
-                {"uid": bot.user},
+                {"uid": bot.user, "price": price},
             )
             await conn.execute(
                 update(models.RascunhoAposta)
