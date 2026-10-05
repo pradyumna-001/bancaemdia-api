@@ -10,6 +10,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.sql.elements import ColumnElement
 
 from bancaemdia import models
+from bancaemdia.repositories.aposta_consolidacao import financial_predicate
 
 
 class AccountFinancialsRepo:
@@ -58,6 +59,7 @@ class AccountFinancialsRepo:
             )
             .where(
                 bet.usuario_id == usuario_id,
+                financial_predicate(),
                 bet.selecionada.is_(True),
                 bet.revisao_grave.is_(False),
             )

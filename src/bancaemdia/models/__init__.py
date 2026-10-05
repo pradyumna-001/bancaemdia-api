@@ -1,6 +1,7 @@
 from bancaemdia.db.models import Base
 from bancaemdia.models.apelido import Apelido
 from bancaemdia.models.aposta import Aposta
+from bancaemdia.models.aposta_consolidacao import ApostaConsolidacao
 from bancaemdia.models.assinatura import Assinatura
 from bancaemdia.models.audit_log import AuditLog
 from bancaemdia.models.banca import Banca
@@ -30,6 +31,7 @@ from bancaemdia.models.coleta_sessao import ColetaEntrega, ColetaSessao
 from bancaemdia.models.coleta_token import ColetaToken
 from bancaemdia.models.competicao import Competicao
 from bancaemdia.models.conta_casa import ContaCasa
+from bancaemdia.models.cruzamento_candidato import CruzamentoCandidato, CruzamentoEntrada
 from bancaemdia.models.esporte import Esporte
 from bancaemdia.models.evento import Evento
 from bancaemdia.models.extracao_cache import ExtracaoCache
@@ -54,6 +56,7 @@ from bancaemdia.models.usuario import Usuario
 __all__ = [
     "Apelido",
     "Aposta",
+    "ApostaConsolidacao",
     "Assinatura",
     "AuditLog",
     "Banca",
@@ -79,6 +82,8 @@ __all__ = [
     "ColetaToken",
     "Competicao",
     "ContaCasa",
+    "CruzamentoCandidato",
+    "CruzamentoEntrada",
     "Esporte",
     "Evento",
     "ExtracaoCache",

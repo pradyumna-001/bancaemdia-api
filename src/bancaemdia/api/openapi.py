@@ -108,6 +108,14 @@ OPERATION_DOCUMENTATION: dict[OperationKey, tuple[str, str]] = {
         "Confirmar acesso a domínio exato",
         "Registra confirmação de acesso do usuário, sem afirmar autorização ou suporte técnico.",
     ),
+    ("post", "/api/v1/consolidacoes"): (
+        "Consolidar fontes após revisão",
+        "Vincula Casa e Telegram em uma transação: Casa fornece as finanças e Telegram preserva o contexto. Revalida usuário, conta e disponibilidade das fontes.",
+    ),
+    ("post", "/api/v1/consolidacoes/{relacao_id}/desvincular"): (
+        "Desvincular fontes após revisão",
+        "Desfaz a relação financeira sem apagar fontes ou decisões anteriores. Exige motivo e impede nova consolidação automática do mesmo par.",
+    ),
     ("post", "/coleta"): (
         "Receber coleta da extensão",
         "Recebe um lote bruto capturado pela extensão e agenda a materialização idempotente.",
@@ -291,6 +299,7 @@ PARAMETER_DESCRIPTIONS = {
     "known_version": "Maior versão já verificada; downgrade é recusado.",
     "X-Coleta-Token": "Credencial opaca de instalação pareada, não token legado de usuário.",
     "If-None-Match": "ETag previamente autenticado e verificado.",
+    "relacao_id": "Identificador da decisão de consolidação pertencente ao usuário.",
     "Idempotency-Key": (
         "Chave opaca obrigatória do cliente; reutilizá-la com o mesmo corpo reproduz a resposta "
         "original sem repetir a operação."
@@ -391,6 +400,14 @@ REQUEST_EXAMPLES: dict[OperationKey, tuple[str, JsonObject]] = {
             "confirmed_at": "2026-09-29T12:00:00+00:00",
             "evidence_sha256": "a" * 64,
         },
+    ),
+    ("post", "/api/v1/consolidacoes"): (
+        "Confirmar duas fontes",
+        {"casa_aposta_id": 10, "telegram_aposta_id": 11},
+    ),
+    ("post", "/api/v1/consolidacoes/{relacao_id}/desvincular"): (
+        "Corrigir associação",
+        {"motivo": "As fontes representam bilhetes diferentes"},
     ),
     ("patch", "/api/v1/caixa/contas/{conta_casa_id}/banca"): (
         "Vincular conta à banca",

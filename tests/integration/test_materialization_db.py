@@ -187,6 +187,8 @@ async def test_bet_goes_to_the_users_account_at_the_house_it_was_read_from(
     engine_admin: AsyncEngine, engine_app: AsyncEngine, como: Como, novo_usuario: NovoUsuario
 ) -> None:
     usuario = await novo_usuario()
+    dated = _extracao()
+    dated["bilhete"]["quando"] = "2026-07-26T18:00:00-03:00"
     async with engine_admin.begin() as conn:
         await conn.execute(
             insert(models.Casa)

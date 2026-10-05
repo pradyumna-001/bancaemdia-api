@@ -20,6 +20,9 @@ TIPOS_DE_EVENTO = (
     "MOVIMENTO_REGISTRADO",
     "CLV_REGISTRADO",
     "REVISAO_RESOLVIDA",
+    "APOSTAS_CONSOLIDADAS",
+    "CONSOLIDACAO_DESVINCULADA",
+    "CONSOLIDACAO_REJEITADA",
 )
 FONTES = ("export", "ia", "manual", "liquidacao", "planilha", "casa")
 

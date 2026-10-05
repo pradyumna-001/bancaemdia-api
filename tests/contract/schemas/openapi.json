@@ -459,12 +459,27 @@
           "aposta": {
             "$ref": "#/components/schemas/BetResponse"
           },
+          "consolidacoes": {
+            "items": {
+              "additionalProperties": {
+                "$ref": "#/components/schemas/JsonValue"
+              },
+              "type": "object"
+            },
+            "title": "Consolidacoes",
+            "type": "array"
+          },
           "eventos": {
             "items": {
               "$ref": "#/components/schemas/BetEventResponse"
             },
             "title": "Eventos",
             "type": "array"
+          },
+          "fonte_contextual": {
+            "default": false,
+            "title": "Fonte Contextual",
+            "type": "boolean"
           },
           "revisao_pendente": {
             "anyOf": [
@@ -2132,6 +2147,22 @@
           "data"
         ],
         "title": "DatasetSaida",
+        "type": "object"
+      },
+      "DesvinculacaoPedido": {
+        "additionalProperties": false,
+        "properties": {
+          "motivo": {
+            "maxLength": 500,
+            "minLength": 1,
+            "title": "Motivo",
+            "type": "string"
+          }
+        },
+        "required": [
+          "motivo"
+        ],
+        "title": "DesvinculacaoPedido",
         "type": "object"
       },
       "ErroSaida": {

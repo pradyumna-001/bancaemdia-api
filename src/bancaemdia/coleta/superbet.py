@@ -193,6 +193,7 @@ def ler(bruto: object) -> Coletada:
 
     return Coletada(
         identidade=identidade,
+        ocorrido_em=colocada_em,
         casa="superbet",
         tipo=tipo_da_aposta(escolhas),
         odd=float(odd),

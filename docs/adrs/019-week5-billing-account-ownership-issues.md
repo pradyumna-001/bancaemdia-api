@@ -13,7 +13,7 @@
 - [ ] Price remains configurable and unpublished until the owner decides it
 - [ ] Holders and their bookmaker accounts have stable identities and temporal usage history
 - [ ] Version 1 permits one account in use per bookmaker without blocking future concurrency
-- [ ] Bets are assigned by occurrence time or sent to review; no “first active account” fallback remains
+- [ ] Default accounts are assigned by game date; an explicit multi-account reference keeps the account that actually placed the bet; unresolved bets go to review; no “first active account” fallback remains
 - [ ] Profit, turnover, ROI, and exposure reconcile by account and holder
 
 ---
@@ -185,9 +185,9 @@
 - [ ] Require the user to choose X's resulting state (`DISPONIVEL`, `LIMITADA`, or `ENCERRADA`); never infer “limited”
 - [ ] Reject gaps/overlaps that contradict version-1 policy and normalize timezone boundaries
 - [ ] Persist an append-only audit event and idempotency key for preview/apply retries
-- [ ] Keep bets placed before `T`, including still-open bets, attached to X
+- [ ] Resolve default accounts by the game date relative to `T`; explicit multi-account bets remain attached to the account that placed them
 
-**Acceptance**: Migration preserves every existing bet/movement/account ID; two concurrent current usages are rejected today; multiple stable accounts and future explicit resolution require no schema redesign; concurrent/retried switches produce one audited interval transition, before-`T` bets stay with X, after-`T` defaults to Y, and no account state is guessed
+**Acceptance**: Migration preserves every existing bet/movement/account ID; two concurrent current usages are rejected today; multiple stable accounts and future explicit resolution require no schema redesign; concurrent/retried switches produce one audited interval transition, games before `T` default to X, games at/after `T` default to Y; explicit multi-account identity wins, and no account state is guessed
 
 ---
 
@@ -203,7 +203,7 @@
 - `tests/unit/test_account_attribution.py`
 
 **Tasks**:
-- [ ] Resolve by bet occurrence time (`data_aposta`), never ingestion/capture time
+- [ ] Resolve the default account by game date (`data_jogo` / `comeca_em`), never placement, posting, ingestion or capture time; in multi-account use an explicit validated reference to the account that placed the bet
 - [ ] Precedence: explicit validated account reference → exactly one temporal usage → unresolved review
 - [ ] Validate explicit account belongs to the same user and bookmaker under RLS
 - [ ] Replace `order_by(id).limit(1)`/first-active behavior with `NONE|UNIQUE|AMBIGUOUS`
@@ -211,7 +211,7 @@
 - [ ] Apply the same pure resolver to manual, export, photo, private bot, house collection, and deterministic replay
 - [ ] Reserve optional account reference in collection contracts for future multi-account support without reading bookmaker login names
 
-**Acceptance**: Historical capture resolves to the account valid when the bet happened; ambiguous data is visible for review and never silently attributed to an arbitrary holder
+**Acceptance**: Historical capture resolves to the default account valid at game time; explicit multi-account references preserve the actual placing account; ambiguous data is visible for review and never silently attributed to an arbitrary holder
 
 ---
 
@@ -242,7 +242,10 @@
 - [ ] Keep deposits, withdrawals, bonuses, and transfers separate from betting profit; expose cash balance independently
 - [ ] Include `UNASSIGNED` as an explicit reconciliation bucket rather than dropping ambiguous historical bets
 - [ ] Ensure account totals + unassigned reconcile to the user's canonical total at the centavo
-- [ ] Support period/bookmaker/holder/account filters using bet occurrence time and current financial rules
+- [ ] Support period/bookmaker/holder/account filters using the game-date default attribution and explicit multi-account identity under current financial rules
 - [ ] Keep queries available in post-trial read-only mode and protected by RLS
 
 **Acceptance**: API answers both “X already used Betano and Betfair” and “Betfair has Y and Z available, with A in use,” with no cross-user data or bookmaker credentials; known fixtures reconcile exactly from bet → account → holder → user, with cash flow distinct from P&L and no historical result changing after a holder switch
+
+
+Policy correction confirmed by the owner on 29/09/2026: default account attribution follows game date throughout the repository. Only explicit multi-account identity follows the account that placed the bet. Earlier issue bodies that said placement/occurrence time for default account attribution are superseded; source occurrence remains relevant to matching and collection boundaries.

@@ -190,6 +190,9 @@ async def _historico(
 ) -> list[tuple[str, str, dict[str, Any]]]:
     # Entrega "pelo menos uma vez": duas cópias da mesma aposta não podem decidir juntas que
     # ela é nova.
+    from bancaemdia.repositories.cruzamento_candidato import CruzamentoCandidatoRepo
+
+    await CruzamentoCandidatoRepo().lock(session, usuario_id)
     await session.execute(
         text("SELECT pg_advisory_xact_lock(hashtextextended(:chave, 0))"),
         {"chave": f"{usuario_id}:{chave}"},
@@ -340,7 +343,7 @@ async def _gravar(
         aposta = await ApostaRepo().upsert_materializada(session, dados)
     if aposta is None:
         raise GravacaoConcorrenteError(f"outra gravação mais nova de {nova.chave} chegou antes")
-    if criada and getattr(aposta, "id", None) is not None:
+    if getattr(aposta, "id", None) is not None:
         await parear_criacao(session, usuario_id, aposta, estado)
 
     revisao = await _revisar(
@@ -595,7 +598,7 @@ async def _gravar_coletada(
         explicit = (
             (conta_casa_id if explicit_account else None)
             if conta_casa_id is not None
-            else coleta_criacao.bruto_json.get("conta_casa_id")
+            else coleta_criacao.bruto_json.get("conta_casa_ref", coleta_criacao.bruto_json.get("conta_casa_id"))
         )
         try:
             account_resolution = await attribute_account(
@@ -678,7 +681,7 @@ async def _gravar_coletada(
         aposta = await ApostaRepo().upsert_materializada(session, dados)
     if aposta is None:
         raise GravacaoConcorrenteError(f"outra gravação mais nova de {chave} chegou antes")
-    if criada and getattr(aposta, "id", None) is not None:
+    if getattr(aposta, "id", None) is not None:
         await parear_criacao(session, usuario_id, aposta, estado)
 
     revisao = await _revisar(
@@ -724,6 +727,9 @@ async def gravar_coletas(
     ):
         async with session.begin():
             await _set_current_user(session, usuario_id)
+            from bancaemdia.repositories.cruzamento_candidato import CruzamentoCandidatoRepo
+
+            await CruzamentoCandidatoRepo().lock(session, usuario_id)
             repo = ColetaCasaRepo()
             # As linhas são travadas antes de serem lidas: uma tarefa atrasada lê o conteúdo atual de
             # cada uma, e a rota só grava outra captura nelas depois deste commit.

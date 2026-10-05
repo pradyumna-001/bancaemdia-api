@@ -115,18 +115,26 @@ jobs:
         id: openapi_baseline
         if: github.event_name == 'pull_request'
         shell: bash
+        env:
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
         run: |
           set -euo pipefail
           baseline="$GITHUB_WORKSPACE/.openapi-main.json"
-          git fetch --no-tags --depth=1 origin main:refs/remotes/origin/main
+          git fetch --no-tags --depth=1 origin "$BASE_SHA"
 
-          if git show origin/main:tests/contract/schemas/openapi.json > "$baseline" 2>/dev/null; then
-            echo "Using the checked-in origin/main OpenAPI snapshot."
+          if git show "$BASE_SHA:tests/contract/schemas/openapi.json" > "$baseline" 2>/dev/null; then
+            echo "Using the checked-in pull request base OpenAPI snapshot."
             echo "available=true" >> "$GITHUB_OUTPUT"
           else
-            rm -f "$baseline"
-            echo "available=false" >> "$GITHUB_OUTPUT"
-            echo "::notice::origin/main has no checked-in OpenAPI snapshot; this PR establishes the initial baseline."
+            baseline_dir="$(mktemp -d)"
+            git archive "$BASE_SHA" | tar -x -C "$baseline_dir"
+            # The legacy base imports python-jose. Keep it outside the product environment.
+            python -m venv --system-site-packages "$baseline_dir/.venv"
+            "$baseline_dir/.venv/bin/pip" install 'python-jose[cryptography]==3.5.0'
+            "$baseline_dir/.venv/bin/python" scripts/generate_openapi.py \
+              --source-root "$baseline_dir/src" --schema-only --schema-output "$baseline"
+            echo "Generated the OpenAPI baseline from the exact pull request base source."
+            echo "available=true" >> "$GITHUB_OUTPUT"
           fi
       - name: Reject breaking API changes
         if: >-

@@ -1,12 +1,12 @@
 import asyncio
 from collections.abc import Callable
 from datetime import datetime
-from typing import Annotated, Any
+from typing import Annotated, Any, Literal
 from uuid import uuid4
 
-from fastapi import APIRouter, Depends, File, Form, Query, UploadFile, status
+from fastapi import APIRouter, Depends, File, Form, Path, Query, UploadFile, status
 from fastapi.responses import JSONResponse
-from pydantic import BaseModel, ConfigDict, StrictInt
+from pydantic import BaseModel, ConfigDict, Field, StrictInt, field_validator
 from sqlalchemy import select, text
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -98,8 +98,17 @@ class ApostaManual(BaseModel):
     descricao: str | None = None
     mercado_bruto: str | None = None
     freebet: bool = False
+
+    @field_validator("data_jogo")
+    @classmethod
+    def game_date(cls, value: str | None) -> str | None:
+        if value is not None:
+            datetime.fromisoformat(value)
+        return value
+
     comissao_centavos: int | None = None
     conta_casa_id: StrictInt | None = None
+    conta_casa_ref: int | None = Field(default=None, gt=0, le=2**63 - 1, strict=True)
 
 
 class PlanilhaImportada(BaseModel):
@@ -166,6 +175,9 @@ async def _travar(session: AsyncSession, usuario_id: int, chave: str) -> bool:
     # A mesma chave que o trabalhador toma ao gravar uma leitura: sem ela, a releitura e a
     # correção leem o mesmo histórico e uma das duas some. Não espera, porque o primário corta
     # qualquer consulta em 5 s.
+    from bancaemdia.repositories.cruzamento_candidato import CruzamentoCandidatoRepo
+
+    await CruzamentoCandidatoRepo().lock(session, usuario_id)
     livre = await session.scalar(
         text("SELECT pg_try_advisory_xact_lock(hashtextextended(:chave, 0))"),
         {"chave": f"{usuario_id}:{chave}"},
@@ -355,7 +367,15 @@ async def ver_aposta(
     eventos = await EventoRepo().list_by_aposta_chave(session, usuario.id, chave)
     revisoes = await RevisaoPendenteRepo().list_abertas_by_aposta_chave(session, usuario.id, chave)
     atual, _ = projetar([(e.tipo, e.fonte, e.payload_json) for e in eventos])
+    from bancaemdia.repositories.aposta_consolidacao import ApostaConsolidacaoRepo
+
+    relations = await ApostaConsolidacaoRepo().history(session, usuario.id, aposta.id)
     return JSONResponse({
+        "consolidacoes": [relation_response(relation) for relation in relations],
+        "fonte_contextual": any(
+            relation.estado == "active" and relation.telegram_aposta_id == aposta.id
+            for relation in relations
+        ),
         "aposta": linha_da_aposta(aposta, atual),
         # `selecoes` não é tabela: o que o motor guardou das pernas do bilhete é o texto da
         # descrição e o mercado. Vem do histórico dobrado, não do evento de criação, senão a
@@ -438,7 +458,7 @@ async def _escrever(
         ):
             novos.append(
                 EventoNovo(
-                    "CORRECAO_MANUAL", "manual", {"conta_casa_id": account_resolution.conta_casa_id}
+                    "CORRECAO_MANUAL", "manual", {"conta_casa_id": account_resolution.conta_casa_id, "conta_referencia_explicita": explicit_reference(depois) is not None}
                 )
             )
     gravada = await _aplicar(session, usuario, chave, novos, depois)
@@ -616,6 +636,9 @@ async def criar_aposta(
     # A chave manual não vem de mensagem nenhuma; os prefixos `t:` e `c:` já dizem de onde as
     # outras vieram.
     chave = f"m:{uuid4().hex}"
+    from bancaemdia.repositories.cruzamento_candidato import CruzamentoCandidatoRepo
+
+    await CruzamentoCandidatoRepo().lock(session, usuario.id)
     data_aposta = _data_do_estado(manual.data_aposta) or datetime.now(FUSO_DO_BRASIL)
     unidade = await UnidadeRepo().get_vigente(session, usuario.id, data_aposta)
     valor_unidade = VALOR_UNIDADE_PADRAO_CENTAVOS if unidade is None else unidade.valor_centavos
@@ -624,9 +647,11 @@ async def criar_aposta(
         erro_id := erro_de_id("conta_casa_id", manual.conta_casa_id)
     ):
         return erro(status.HTTP_422_UNPROCESSABLE_ENTITY, erro_id)
+    if manual.conta_casa_ref is not None and manual.conta_casa_id is not None and manual.conta_casa_ref != manual.conta_casa_id:
+        return erro(status.HTTP_422_UNPROCESSABLE_ENTITY, "referências de conta conflitantes")
     try:
         account = await attribute_account(
-            session, usuario.id, nome, _data_do_estado(manual.data_jogo), manual.conta_casa_id
+            session, usuario.id, nome, _data_do_estado(manual.data_jogo), (manual.conta_casa_ref if manual.conta_casa_ref is not None else manual.conta_casa_id)
         )
     except InvalidAccountReferenceError as invalid:
         return erro(status.HTTP_422_UNPROCESSABLE_ENTITY, str(invalid))
@@ -644,7 +669,8 @@ async def criar_aposta(
         "data_aposta": data_aposta.isoformat(),
         "data_jogo": _quando(_data_do_estado(manual.data_jogo)),
         "revisao_grave": False,
-        "conta_referencia_explicita": manual.conta_casa_id is not None,
+        "conta_referencia_explicita": manual.conta_casa_ref is not None or manual.conta_casa_id is not None,
+        "conta_casa_ref": manual.conta_casa_ref if manual.conta_casa_ref is not None else manual.conta_casa_id,
     }
     if manual.comissao_centavos is not None:
         payload["comissao_centavos"] = manual.comissao_centavos
@@ -666,7 +692,11 @@ async def criar_aposta(
 
     novos = [EventoNovo("APOSTA_CRIADA", "manual", payload)]
     depois, _ = projetar([(e.tipo, e.fonte, e.payload) for e in novos])
-    gravada = await _aplicar(session, usuario, chave, novos, depois)
+    try:
+        gravada = await _aplicar(session, usuario, chave, novos, depois)
+    except InvalidAccountReferenceError as error:
+        await session.rollback()
+        return erro(status.HTTP_422_UNPROCESSABLE_ENTITY, str(error))
     if gravada is None:
         await session.rollback()
         return erro(status.HTTP_409_CONFLICT, OCUPADA)
@@ -724,13 +754,13 @@ async def importar_planilha(
                 VALOR_UNIDADE_PADRAO_CENTAVOS if unidade is None else unidade.valor_centavos
             )
             try:
-                explicit_id = explicit_reference(antes)
+                explicit_id = linha.conta_casa_ref if linha.conta_casa_ref is not None else explicit_reference(antes)
                 account = await attribute_account(
                     session, usuario.id, linha.casa, linha.data_jogo, explicit_id
                 )
-            except InvalidAccountReferenceError:
-                explicit_id = None
-                account = AccountResolution(ResolutionStatus.NONE)
+            except InvalidAccountReferenceError as invalid:
+                await session.rollback()
+                return erro(status.HTTP_422_UNPROCESSABLE_ENTITY, str(invalid))
             payload: dict[str, Any] = {
                 "origem": "planilha",
                 "linha_hash": linha.chave[2:],
@@ -742,8 +772,8 @@ async def importar_planilha(
                 "stake_unidades": linha.stake_unidades,
                 "valor_unidade_centavos": valor_unidade,
                 "conta_casa_id": account.conta_casa_id,
-                "conta_referencia_explicita": explicit_id is not None
-                and account.conta_casa_id is not None,
+                "conta_referencia_explicita": explicit_id is not None,
+                "conta_casa_ref": explicit_id,
                 **({"evento": linha.evento} if "evento" in linha.presentes else {}),
                 **({"descricao": linha.descricao} if "descricao" in linha.presentes else {}),
                 **(
@@ -786,9 +816,98 @@ async def importar_planilha(
                 session, usuario.id, linha.chave, account, context={"linha": linha.numero}
             )
         await session.commit()
+    except InvalidAccountReferenceError as error:
+        await session.rollback()
+        return erro(status.HTTP_422_UNPROCESSABLE_ENTITY, str(error))
     except Exception:
         await session.rollback()
         raise
     for _ in range(criadas):
         apostas_created_total.labels(origem="planilha", estado="PENDENTE").inc()
     return JSONResponse({"criadas": criadas, "atualizadas": atualizadas, "ignoradas": ignoradas})
+
+
+class ConsolidacaoPedido(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    casa_aposta_id: int = Field(ge=1, le=2**63 - 1)
+    telegram_aposta_id: int = Field(ge=1, le=2**63 - 1)
+    tipster_choice: Literal["casa", "telegram"] | None = None
+
+
+class DesvinculacaoPedido(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    motivo: str = Field(min_length=1, max_length=500)
+
+
+class ConsolidacaoResposta(BaseModel):
+    id: int
+    estado: str
+    decisao: str
+    casa_aposta_id: int
+    telegram_aposta_id: int
+    contexto: dict[str, Any]
+    evidencia: dict[str, Any]
+
+
+def relation_response(relation: Any) -> dict[str, Any]:
+    return {
+        field: getattr(relation, field)
+        for field in (
+            "id",
+            "estado",
+            "decisao",
+            "casa_aposta_id",
+            "telegram_aposta_id",
+            "contexto",
+            "evidencia",
+        )
+    }
+
+
+@router.post("/api/v1/consolidacoes", response_model=ConsolidacaoResposta)
+async def consolidar_revisada(
+    pedido: ConsolidacaoPedido,
+    usuario: Annotated[Usuario, Depends(get_current_user)],
+    session: Annotated[AsyncSession, Depends(get_db)],
+) -> JSONResponse:
+    from bancaemdia.domain.consolidacao_aposta import ConsolidacaoRecusadaError, consolidate
+
+    if pedido.tipster_choice not in {None, "casa", "telegram"}:
+        return erro(status.HTTP_422_UNPROCESSABLE_ENTITY, "escolha de tipster inválida")
+    try:
+        relation = await consolidate(
+            session,
+            usuario.id,
+            pedido.casa_aposta_id,
+            pedido.telegram_aposta_id,
+            decision="reviewed",
+            actor_id=usuario.id,
+            tipster_choice=pedido.tipster_choice,
+        )
+        response = relation_response(relation)
+        await session.commit()
+        return JSONResponse(response)
+    except ConsolidacaoRecusadaError as error:
+        await session.rollback()
+        return erro(status.HTTP_409_CONFLICT, str(error))
+
+
+@router.post("/api/v1/consolidacoes/{relacao_id}/desvincular", response_model=ConsolidacaoResposta)
+async def desvincular_revisada(
+    relacao_id: Annotated[int, Path(ge=1, le=2**63 - 1)],
+    pedido: DesvinculacaoPedido,
+    usuario: Annotated[Usuario, Depends(get_current_user)],
+    session: Annotated[AsyncSession, Depends(get_db)],
+) -> JSONResponse:
+    from bancaemdia.domain.consolidacao_aposta import ConsolidacaoRecusadaError, unlink
+
+    try:
+        relation = await unlink(
+            session, usuario.id, relacao_id, actor_id=usuario.id, reason=pedido.motivo
+        )
+        response = relation_response(relation)
+        await session.commit()
+        return JSONResponse(response)
+    except ConsolidacaoRecusadaError as error:
+        await session.rollback()
+        return erro(status.HTTP_409_CONFLICT, str(error))

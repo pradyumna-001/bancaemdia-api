@@ -7,6 +7,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from bancaemdia import models
 from bancaemdia.domain.registros import Movimento
 from bancaemdia.domain.temporal import SaldoDaCasa
+from bancaemdia.repositories.aposta_consolidacao import financial_predicate
 from bancaemdia.repositories.base import colunas
 
 FUSO_DO_BRASIL = ZoneInfo("America/Sao_Paulo")
@@ -199,6 +200,7 @@ class MovimentoRepo:
                 models.Aposta.usuario_id == usuario_id,
                 models.Aposta.conta_casa_id.is_not(None),
                 models.Aposta.selecionada.is_(True),
+                financial_predicate(),
             )
         )
         if limite_exclusivo is not None:

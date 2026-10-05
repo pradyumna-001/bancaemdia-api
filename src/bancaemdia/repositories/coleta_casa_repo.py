@@ -16,6 +16,23 @@ class ColetaCasaRepo:
             {"resource": f"collection-daily:{usuario_id}"},
         )
 
+    async def matching_counts(
+        self, session: AsyncSession, usuario_id: int, chave: str
+    ) -> dict[str, int]:
+        from bancaemdia.repositories.cruzamento_candidato import CruzamentoCandidatoRepo
+
+        bet_id = await session.scalar(
+            select(models.Aposta.id).where(
+                models.Aposta.usuario_id == usuario_id,
+                models.Aposta.chave == chave,
+            )
+        )
+        return (
+            {}
+            if bet_id is None
+            else await CruzamentoCandidatoRepo().counts(session, usuario_id, bet_id)
+        )
+
     async def get_by_identidade(
         self, session: AsyncSession, usuario_id: int, casa_id: int, identidade: str
     ) -> ColetaCasa | None:

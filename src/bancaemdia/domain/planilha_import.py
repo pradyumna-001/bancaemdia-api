@@ -19,7 +19,7 @@ from bancaemdia.domain.materializar import casa_canonica
 MAX_BYTES = PLANILHA_MAX_BYTES
 MAX_ROWS = 1_000
 REQUIRED = ("casa", "data_aposta", "odd", "stake_unidades", "atualizada_em")
-OPTIONAL = ("evento", "descricao", "mercado_bruto", "freebet", "data_jogo")
+OPTIONAL = ("evento", "descricao", "mercado_bruto", "freebet", "data_jogo", "conta_casa_ref")
 FUSO_DO_BRASIL = ZoneInfo("America/Sao_Paulo")
 
 
@@ -42,6 +42,7 @@ class LinhaPlanilha:
     freebet: bool
     presentes: frozenset[str]
     data_jogo: datetime | None = None
+    conta_casa_ref: int | None = None
 
 
 def _data(valor: object, numero: int, campo: str) -> datetime:
@@ -85,6 +86,18 @@ def _booleano(valor: object, numero: int) -> bool:
         if valor.strip().lower() in {"não", "nao", "false", "0"}:
             return False
     raise PlanilhaInvalidaError(f"linha {numero}: freebet inválida")
+
+
+def _account(value: object, row: int) -> int | None:
+    if value is None:
+        return None
+    try:
+        ident = int(str(value))
+    except (ValueError, TypeError):
+        raise PlanilhaInvalidaError(f"linha {row}: conta_casa_ref inválida") from None
+    if not 1 <= ident <= 2**63 - 1:
+        raise PlanilhaInvalidaError(f"linha {row}: conta_casa_ref inválida")
+    return ident
 
 
 def _campo(colunas: dict[str, int], valores: tuple[object, ...], nome: str) -> object:
@@ -160,6 +173,7 @@ def ler_planilha(conteudo: bytes, origem_id: str) -> list[LinhaPlanilha]:
                         data_jogo=_data(_campo(colunas, valores, "data_jogo"), numero, "data_jogo")
                         if _campo(colunas, valores, "data_jogo") is not None
                         else None,
+                        conta_casa_ref=_account(_campo(colunas, valores, "conta_casa_ref"), numero),
                     )
                 )
     finally:

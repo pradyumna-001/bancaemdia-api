@@ -7,6 +7,7 @@ from sqlalchemy.sql.ddl import DDLElement
 from bancaemdia.db.models import Base
 from bancaemdia.models.apelido import ENTIDADES, Apelido
 from bancaemdia.models.aposta import Aposta
+from bancaemdia.models.aposta_consolidacao import ApostaConsolidacao
 from bancaemdia.models.assinatura import Assinatura
 from bancaemdia.models.audit_log import AuditLog
 from bancaemdia.models.banca import Banca
@@ -36,6 +37,7 @@ from bancaemdia.models.coleta_sessao import ColetaEntrega, ColetaSessao
 from bancaemdia.models.coleta_token import ColetaToken
 from bancaemdia.models.competicao import Competicao
 from bancaemdia.models.conta_casa import ContaCasa
+from bancaemdia.models.cruzamento_candidato import CruzamentoCandidato, CruzamentoEntrada
 from bancaemdia.models.esporte import Esporte
 from bancaemdia.models.evento import Evento
 from bancaemdia.models.extracao_cache import ExtracaoCache
@@ -60,6 +62,9 @@ from bancaemdia.models.usuario import Usuario
 NUCLEO = (Usuario, Banca, ContaCasa, Unidade, Movimento, Aposta, Evento)
 CANONICOS = (Casa, Esporte, Competicao, Time, Mercado, Tipster, Apelido)
 SUPORTE = (
+    ApostaConsolidacao,
+    CruzamentoCandidato,
+    CruzamentoEntrada,
     Mensagem,
     MensagemVersao,
     Midia,
@@ -156,6 +161,9 @@ def test_all_thirty_eight_tables_are_registered() -> None:
         "apelidos",
     }
     assert {m.__tablename__ for m in SUPORTE} == {
+        "aposta_consolidacoes",
+        "cruzamento_candidatos",
+        "cruzamento_entradas",
         "mensagens",
         "mensagem_versoes",
         "midias",

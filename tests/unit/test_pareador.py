@@ -17,13 +17,13 @@ DICA = {
 }
 
 
-def test_confirmed_bet_matches_in_both_directions() -> None:
-    assert comparar(CASA, DICA).resultado == "igual"
-    assert comparar(DICA, CASA).resultado == "igual"
+def test_legacy_inputs_without_user_and_stake_never_auto_match() -> None:
+    assert comparar(CASA, DICA).resultado == "nova"
+    assert comparar(DICA, CASA).resultado == "nova"
 
 
-def test_different_line_remains_under_review() -> None:
-    assert comparar(CASA, {**DICA, "descricao": "Mais de 3.5 gols"}).resultado == "duvida"
+def test_unknown_owner_and_different_line_cannot_match() -> None:
+    assert comparar(CASA, {**DICA, "descricao": "Mais de 3.5 gols"}).resultado == "nova"
 
 
 def test_different_house_or_rematch_a_month_later_is_new() -> None:
@@ -31,5 +31,5 @@ def test_different_house_or_rematch_a_month_later_is_new() -> None:
     assert comparar(CASA, {**DICA, "comeca_em": "2026-09-02T19:30:00-03:00"}).resultado == "nova"
 
 
-def test_unknown_game_date_cannot_confirm_or_count_as_a_distinct_bet() -> None:
-    assert comparar(CASA, {**DICA, "comeca_em": None, "data_aposta": None}).resultado == "duvida"
+def test_unknown_owner_and_game_date_cannot_match() -> None:
+    assert comparar(CASA, {**DICA, "comeca_em": None, "data_aposta": None}).resultado == "nova"

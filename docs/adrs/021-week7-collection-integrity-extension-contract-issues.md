@@ -217,7 +217,7 @@
 - [ ] Send `probable`, competing, and many-to-one/one-to-many cases to `RevisaoPendente`; no automatic financial mutation in those cases
 - [ ] Respect account assignment precedence:
   - Explicit valid `conta_casa_ref`
-  - Otherwise one unambiguous temporal account at the bet occurrence time
+  - Otherwise one unambiguous default account at game time (`data_jogo` / `comeca_em`); an explicit multi-account reference preserves the actual placing account
   - Otherwise review; never select an arbitrary account
 - [ ] Make the operation idempotent under worker retry and concurrent Casa/Telegram arrival
 - [ ] Update settlement/open→settled handling so later Casa state updates the same canonical financial fact without re-enabling the Telegram duplicate
@@ -295,7 +295,7 @@
   - Reconnect cannot silently alter the boundary
 - [ ] Test account-reference safety:
   - Valid optional `conta_casa_ref`
-  - Wrong user, wrong bookmaker, expired interval, absent reference with one valid account, and absent reference with multiple valid accounts
+  - Wrong user, wrong bookmaker, explicit placing account differing from the game-date default, absent reference with one valid game-date account, and absent reference with multiple valid accounts
   - Ambiguity never falls back to “first active account”
 - [ ] Test matching/consolidation races:
   - Casa and Telegram arrive simultaneously
