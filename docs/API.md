@@ -39,8 +39,19 @@ python scripts/generate_openapi.py
 | `GET` | `/api/v1/revisao/{revisao_id}` | Consultar revisão | `200`, `401`, `404`, `422`, `429`, `500`, `503` | — |
 | `GET` | `/api/v1/revisao/{revisao_id}/foto` | Consultar foto da revisão | `200`, `401`, `404`, `422`, `429`, `500`, `503` | — |
 | `POST` | `/api/v1/revisao/{revisao_id}/resolver` | Resolver revisão | `200`, `401`, `404`, `409`, `413`, `422`, `429`, `500`, `503` | — |
+| `GET` | `/api/v1/titulares` | Listar titulares | `200`, `401`, `422`, `429`, `500`, `503` | — |
+| `POST` | `/api/v1/titulares` | Criar titular | `201`, `401`, `413`, `422`, `429`, `500`, `503` | — |
+| `GET` | `/api/v1/titulares/casas/{casa_id}/matriz` | Consultar titulares por casa | `200`, `401`, `422`, `429`, `500`, `503` | — |
+| `GET` | `/api/v1/titulares/financeiro` | Consultar financeiro por titular e conta | `200`, `401`, `422`, `429`, `500`, `503` | — |
 | `POST` | `/api/v1/titulares/trocas` | Trocar conta da casa | `200`, `401`, `413`, `422`, `429`, `500`, `503` | — |
 | `POST` | `/api/v1/titulares/trocas/preview` | Prévia de troca de conta | `200`, `401`, `413`, `422`, `429`, `500`, `503` | — |
+| `GET` | `/api/v1/titulares/{titular_id}` | Consultar titular | `200`, `401`, `422`, `429`, `500`, `503` | — |
+| `PATCH` | `/api/v1/titulares/{titular_id}` | Editar titular | `200`, `401`, `413`, `422`, `429`, `500`, `503` | — |
+| `DELETE` | `/api/v1/titulares/{titular_id}` | Arquivar titular | `200`, `401`, `422`, `429`, `500`, `503` | — |
+| `POST` | `/api/v1/titulares/{titular_id}/contas` | Criar conta da casa | `201`, `401`, `413`, `422`, `429`, `500`, `503` | — |
+| `PATCH` | `/api/v1/titulares/{titular_id}/contas/{conta_id}` | Editar conta da casa | `200`, `401`, `413`, `422`, `429`, `500`, `503` | — |
+| `POST` | `/api/v1/titulares/{titular_id}/contas/{conta_id}/ativar` | Ativar primeira conta da casa | `200`, `401`, `422`, `429`, `500`, `503` | — |
+| `GET` | `/api/v1/titulares/{titular_id}/matriz` | Consultar casas do titular | `200`, `401`, `422`, `429`, `500`, `503` | — |
 | `POST` | `/api/v1/upload` | Enviar exportação do Telegram | `202`, `400`, `401`, `413`, `422`, `429`, `500`, `503` | — |
 | `GET` | `/api/v1/upload/{job_id}` | Consultar processamento do upload | `200`, `401`, `404`, `422`, `429`, `500`, `503` | — |
 | `DELETE` | `/api/v1/usuario/me` | Desativar e anonimizar minha conta | `200`, `401`, `409`, `422`, `429`, `500`, `503` | — |
