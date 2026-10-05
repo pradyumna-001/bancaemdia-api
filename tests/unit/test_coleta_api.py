@@ -179,6 +179,34 @@ def test_send_without_the_token_of_an_account_is_refused(monkeypatch, token) -> 
     assert (banco.linhas, banco.commits, banco.enfileiradas) == ({}, 0, [])
 
 
+@pytest.mark.parametrize("path", ["/coleta", "/api/v1/coleta"])
+def test_read_only_collection_returns_stable_402_without_ack_or_writes(monkeypatch, path):
+    from unittest.mock import AsyncMock
+
+    from bancaemdia.domain.billing import AccessMode, BillingReadModel
+
+    banco = _banco()
+    client = _cliente(monkeypatch, banco)
+    read_status = AsyncMock(
+        return_value=BillingReadModel(None, AccessMode.READ_ONLY, None, None, None, None)
+    )
+    monkeypatch.setattr(
+        "bancaemdia.repositories.assinatura_repo.AssinaturaRepo.read_status", read_status
+    )
+    denied = _enviar(client, [_bilhete()], caminho=path)
+    assert denied.status_code == 402
+    assert denied.json() == {"detail": "account_read_only"}
+    assert read_status.await_args.args[1] == 7
+    assert (banco.linhas, banco.commits, banco.enfileiradas) == ({}, 0, [])
+    assert ("SELECT set_config('app.current_user_id', :uid, true)", {"uid": "7"}) in banco.sql
+
+    # The identical retained client batch is accepted after access recovers.
+    read_status.return_value = BillingReadModel(None, AccessMode.FULL_WRITE, None, None, None, None)
+    recovered = _enviar(client, [_bilhete()], caminho=path)
+    assert recovered.status_code == 200
+    assert len(banco.linhas) == 1 and banco.commits == 1 and len(banco.enfileiradas) == 1
+
+
 def test_daily_limit_is_checked_before_the_send_is_read(monkeypatch) -> None:
     banco = _banco(recebidas_hoje=5000)
     cliente = _cliente(monkeypatch, banco)

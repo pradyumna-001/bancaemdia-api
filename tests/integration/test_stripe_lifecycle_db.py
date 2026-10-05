@@ -1,0 +1,416 @@
+"""Billing slice of #118. Real PostgreSQL/RLS, deterministic Stripe contract stub.
+
+No network requests, card data or production credentials are used.
+"""
+
+from datetime import UTC, datetime, timedelta
+from uuid import uuid4
+
+import pytest
+from sqlalchemy import select, text
+from sqlalchemy.exc import DBAPIError
+from sqlalchemy.ext.asyncio import AsyncSession
+
+from bancaemdia.api.v1.usuario import collect_user_data
+from bancaemdia.domain.access import AccountReadOnlyError, require_write_access
+from bancaemdia.domain.billing_catalog import BillingFrequency
+from bancaemdia.domain.billing_service import reconcile, subscribe, tenant
+from bancaemdia.domain.registros import Usuario
+from bancaemdia.integrations.billing.stripe import BillingUnavailableError
+from bancaemdia.models.assinatura import Assinatura
+from bancaemdia.models.billing_checkout import BillingCheckout
+from bancaemdia.models.billing_event import BillingEvent
+from bancaemdia.repositories.assinatura_repo import AssinaturaRepo
+
+pytestmark = [pytest.mark.integration, pytest.mark.xdist_group("postgres")]
+
+
+class StripeStub:
+    def __init__(self, price, customer):
+        from bancaemdia.config import get_settings
+
+        self.settings = get_settings().model_copy(update={"BILLING_CURRENCIES": "BRL"})
+        self.price, self.customer_ref = price, customer
+        self.remote = None
+        self.creations = {}
+        self.timeout_once = False
+        self.calls = []
+
+    async def subscriptions(self, customer):
+        return [self.remote] if self.remote else []
+
+    async def subscription(self, ref):
+        return self.remote
+
+    async def checkout_status(self, ref):
+        return await self.request("GET", "checkout/sessions/" + ref)
+
+    async def validate_price(self, ref, **terms):
+        assert ref == self.price
+        assert terms == {"amount": 12345, "currency": "BRL", "frequency": "MONTHLY"}
+
+    async def customer(self, operation):
+        self.creations.setdefault("customer-" + operation, self.customer_ref)
+        return self.customer_ref
+
+    async def checkout(self, customer, price, operation, *, trial, currency):
+        assert currency == "BRL"
+        self.calls.append((operation, trial))
+        response = self.creations.setdefault(
+            operation,
+            {
+                "id": "cs_test_" + operation,
+                "url": "https://checkout.stripe.com/c/pay/contract-fixture",
+                "status": "open",
+            },
+        )
+        if self.timeout_once:
+            self.timeout_once = False
+            raise BillingUnavailableError("billing_provider_unavailable")
+        return response
+
+    async def request(self, method, path, *args, **kwargs):
+        return next(
+            v
+            for v in self.creations.values()
+            if isinstance(v, dict) and v["id"] == path.split("/")[-1]
+        )
+
+    def confirm(self, operation, *, start=None):
+        start = int(datetime.now(UTC).timestamp()) if start is None else start
+        self.remote = {
+            "id": "sub_" + operation,
+            "livemode": False,
+            "customer": self.customer_ref,
+            "metadata": {"billing_operation": operation},
+            "status": "trialing",
+            "trial_start": start,
+            "trial_end": start + 604800,
+            "default_payment_method": {"type": "card", "customer": self.customer_ref},
+            "pending_setup_intent": None,
+            "items": {"data": [{"quantity": 1, "price": {"id": self.price}}]},
+            "latest_invoice": None,
+            "cancel_at_period_end": False,
+        }
+        self.creations[operation].update(
+            status="complete",
+            livemode=False,
+            customer=self.customer_ref,
+            subscription=self.remote["id"],
+        )
+
+
+async def setup(session):
+    uid = uuid4().int % 2**60
+    await tenant(session, uid)
+    await session.execute(
+        text("INSERT INTO usuarios (id,email,nome) VALUES (:id,:email,'Billing fixture')"),
+        {"id": uid, "email": f"{uid}@test.invalid"},
+    )
+    await session.execute(text("SELECT billing_activate_rollout()"))
+    # Isolated parent transaction, so no public price escapes this fixture.
+    await session.execute(text("UPDATE billing_prices SET published=false WHERE published"))
+    ref = "price_fixture_" + str(uid)
+    await session.execute(
+        text(
+            "INSERT INTO billing_prices (amount_cents,currency,frequency,valid_from,provider_plan_ref,published) VALUES (12345,'BRL','MONTHLY',now() - interval '1 minute',:ref,true)"
+        ),
+        {"ref": ref},
+    )
+    return uid, StripeStub(ref, "cus_fixture_" + str(uid))
+
+
+async def test_timeout_retry_card_confirmation_and_no_repeat_trial(engine_admin):
+    async with engine_admin.connect() as conn:
+        transaction = await conn.begin()
+        try:
+            async with AsyncSession(
+                conn, expire_on_commit=False, join_transaction_mode="create_savepoint"
+            ) as session:
+                uid, provider = await setup(session)
+                assert (await AssinaturaRepo().read_status(session, uid)).access == "READ_ONLY"
+                with pytest.raises(AccountReadOnlyError):
+                    await require_write_access(session, uid)
+                provider.timeout_once = True
+                with pytest.raises(BillingUnavailableError):
+                    await subscribe(
+                        session,
+                        uid,
+                        provider,
+                        currency="BRL",
+                        frequency=BillingFrequency.MONTHLY,
+                        request_key="fixture-operation",
+                    )
+                await session.rollback()
+                url = await subscribe(
+                    session,
+                    uid,
+                    provider,
+                    currency="BRL",
+                    frequency=BillingFrequency.MONTHLY,
+                    request_key="fixture-operation",
+                )
+                assert url.startswith("https://checkout.stripe.com/")
+                assert len(provider.creations) == 2  # one customer, one checkout
+                assert provider.calls[0] == provider.calls[1]
+                await tenant(session, uid)
+                op = await session.get(BillingCheckout, uid)
+                # URL alone never grants access.
+                assert (await AssinaturaRepo().read_status(session, uid)).access == "READ_ONLY"
+                provider.confirm(op.operation)
+                # A linked card is not proof that bank authentication completed.
+                for pending in (
+                    "seti_pending",
+                    {"status": "requires_action"},
+                    {"status": "requires_payment_method"},
+                ):
+                    provider.remote["pending_setup_intent"] = pending
+                    with pytest.raises(BillingUnavailableError, match="card_confirmation_pending"):
+                        await reconcile(session, uid, provider)
+                    assert (await AssinaturaRepo().read_status(session, uid)).access == "READ_ONLY"
+                provider.remote["pending_setup_intent"] = None
+                checkout = provider.creations[op.operation]
+                for field, invalid in (
+                    ("status", "open"),
+                    ("customer", "cus_other"),
+                    ("subscription", "sub_other"),
+                    ("livemode", True),
+                ):
+                    original_value = checkout[field]
+                    checkout[field] = invalid
+                    with pytest.raises(
+                        BillingUnavailableError, match="checkout_confirmation_pending"
+                    ):
+                        await reconcile(session, uid, provider)
+                    assert (await AssinaturaRepo().read_status(session, uid)).access == "READ_ONLY"
+                    checkout[field] = original_value
+                await reconcile(session, uid, provider)
+                await session.commit()
+                await tenant(session, uid)
+                row = await session.get(Assinatura, uid, populate_existing=True)
+                original = row.trial_started_at, row.trial_ends_at
+                assert row.trial_confirmed
+                assert original[1] - original[0] == timedelta(days=7)
+                assert (await AssinaturaRepo().read_status(session, uid)).access == "FULL_WRITE"
+                # Replayed/deleted/old events all re-fetch the same latest remote state.
+                provider.remote["status"] = "canceled"
+                await reconcile(session, uid, provider)
+                await reconcile(session, uid, provider)
+                assert (row.trial_started_at, row.trial_ends_at) == original
+                with pytest.raises(BillingUnavailableError):
+                    await subscribe(
+                        session,
+                        uid,
+                        provider,
+                        currency="BRL",
+                        frequency=BillingFrequency.MONTHLY,
+                        request_key="second-operation",
+                    )
+                assert len(provider.creations) == 2
+        finally:
+            await transaction.rollback()
+
+
+async def test_expired_account_db_guard_export_and_rls(engine_admin):
+    async with engine_admin.connect() as conn:
+        trans = await conn.begin()
+        try:
+            async with AsyncSession(
+                conn, expire_on_commit=False, join_transaction_mode="create_savepoint"
+            ) as session:
+                uid, provider = await setup(session)
+                await subscribe(
+                    session,
+                    uid,
+                    provider,
+                    currency="BRL",
+                    frequency=BillingFrequency.MONTHLY,
+                    request_key="expired-fixture",
+                )
+                await tenant(session, uid)
+                op = await session.get(BillingCheckout, uid)
+                provider.confirm(op.operation, start=int(datetime.now(UTC).timestamp()) - 8 * 86400)
+                provider.remote["status"] = "canceled"
+                await reconcile(session, uid, provider)
+                await session.flush()
+                await session.execute(text("SET LOCAL ROLE bancaemdia_app"))
+                for sql in [
+                    "INSERT INTO bancas(usuario_id,nome) VALUES (:id,'blocked')",
+                    "INSERT INTO eventos(usuario_id,tipo,payload_json) VALUES (:id,'APOSTA_CRIADA','{}')",
+                ]:
+                    nested = await session.begin_nested()
+                    with pytest.raises(DBAPIError) as error:
+                        await session.execute(text(sql), {"id": uid})
+                    assert error.value.orig.sqlstate == "P0402"
+                    await nested.rollback()
+                assert (await AssinaturaRepo().read_status(session, uid)).access == "READ_ONLY"
+                data = await collect_user_data(
+                    session,
+                    Usuario(
+                        id=uid,
+                        email="fixture@test.invalid",
+                        nome="Fixture",
+                        criado_em=datetime.now(UTC),
+                        ativo=True,
+                    ),
+                )
+                assert len(data["assinaturas"]) == 1
+                assert provider.customer_ref not in str(data)
+                assert "provider_customer_ref" not in data["assinaturas"][0]
+                await tenant(session, uid + 1)
+                assert (await session.scalars(select(Assinatura))).all() == []
+        finally:
+            await trans.rollback()
+
+
+async def test_inbox_deduplicates_at_database_constraint(engine_admin):
+    from sqlalchemy.dialects.postgresql import insert
+
+    async with engine_admin.begin() as conn:
+        event_id = "evt_fixture_" + uuid4().hex
+        stmt = (
+            insert(BillingEvent)
+            .values(id=event_id, customer_ref="cus_contract", event_type="invoice.paid")
+            .on_conflict_do_nothing(index_elements=[BillingEvent.id])
+        )
+        assert (await conn.execute(stmt)).rowcount == 1
+        assert (await conn.execute(stmt)).rowcount == 0
+        await conn.execute(text("DELETE FROM billing_events WHERE id=:id"), {"id": event_id})
+
+
+async def test_worker_retries_dead_letters_and_repairs_missed_event(engine_admin, monkeypatch):
+    from bancaemdia.workers import billing
+
+    async with engine_admin.connect() as conn:
+        transaction = await conn.begin()
+        try:
+
+            def session_factory(*args, **kwargs):
+                return AsyncSession(
+                    conn, expire_on_commit=False, join_transaction_mode="create_savepoint"
+                )
+
+            monkeypatch.setattr(billing, "AsyncSession", session_factory)
+            async with session_factory() as session:
+                uid, provider = await setup(session)
+                await subscribe(
+                    session,
+                    uid,
+                    provider,
+                    currency="BRL",
+                    frequency=BillingFrequency.MONTHLY,
+                    request_key="worker-fixture",
+                )
+                await tenant(session, uid)
+                operation = await session.get(BillingCheckout, uid)
+                provider.confirm(operation.operation)
+                event_id = "evt_" + uuid4().hex
+                session.add(
+                    BillingEvent(
+                        id=event_id,
+                        customer_ref=provider.customer_ref,
+                        event_type="invoice.payment_failed",
+                    )
+                )
+                await session.commit()
+
+            successful_reconcile = billing.reconcile
+
+            async def unavailable(*args):  # ruff: ignore[unused-async] - async provider failure
+                raise BillingUnavailableError("safe_fixture")
+
+            monkeypatch.setattr(billing, "reconcile", unavailable)
+            for attempt in range(1, 9):
+                result = await billing.reconcile_batch(engine_admin, provider)
+                # The shared PostgreSQL fixture may contain other mapped users;
+                # assert this delivery's exact attempt count below, not scan size.
+                assert result["failed"] >= 1
+                async with session_factory() as session:
+                    event = await session.get(BillingEvent, event_id)
+                    assert event.attempts == attempt
+                    assert event.last_error == "provider_reconciliation_failed"
+                    now = await session.scalar(text("SELECT clock_timestamp()"))
+                    assert event.next_attempt_at > now
+                    assert event.state == ("dead" if attempt == 8 else "pending")
+                    event.next_attempt_at = now
+                    await session.commit()
+            monkeypatch.setattr(billing, "reconcile", successful_reconcile)
+            # The ordinary worker role can inspect aggregate health without
+            # requiring a tenant or exporting provider/customer identities.
+            async with session_factory() as session:
+                await session.execute(text("SET LOCAL ROLE bancaemdia_app"))
+                await session.execute(text("SELECT set_config('app.current_user_id', '', true)"))
+                health = (
+                    (await session.execute(text("SELECT * FROM billing_reconciliation_health()")))
+                    .mappings()
+                    .one()
+                )
+                assert set(health) == {"pending", "dead", "pending_age", "scan_age", "measured_at"}
+                assert health["dead"] >= 1
+                assert billing.metrics.inbox.labels(state="dead")._value.get() >= 1
+                assert billing.metrics.heartbeat._value.get() > 0
+                await session.rollback()
+            # Dead/missed notifications do not prevent the independent full scan.
+            result = await billing.reconcile_batch(engine_admin, provider)
+            assert result["reconciled"] >= 1
+            async with session_factory() as session:
+                await tenant(session, uid)
+                assert (await AssinaturaRepo().read_status(session, uid)).access == "FULL_WRITE"
+                assert (await session.get(BillingEvent, event_id)).state == "dead"
+        finally:
+            await transaction.rollback()
+
+
+async def test_all_business_tables_have_database_write_guards(engine_admin):
+    expected = {
+        "bancas",
+        "contas_casa",
+        "unidades",
+        "movimentos",
+        "movimento_requisicoes",
+        "apostas",
+        "eventos",
+        "revisao_pendente",
+        "coletas_casa",
+        "coleta_token",
+        "chamadas_ia",
+        "uploads",
+        "upload_bilhetes",
+        "upload_arquivos",
+    }
+    async with engine_admin.connect() as conn:
+        tenant_tables = set(
+            (
+                await conn.execute(
+                    text(
+                        "SELECT c.table_name FROM information_schema.columns c "
+                        "JOIN information_schema.tables t USING (table_schema, table_name) "
+                        "WHERE c.table_schema='public' AND c.column_name='usuario_id' "
+                        "AND t.table_type='BASE TABLE'"
+                    )
+                )
+            ).scalars()
+        )
+        # New holder/bot tables must fail this gate until their migration installs
+        # the guard. Only billing control state and append-only audit are exempt.
+        expected |= tenant_tables - {
+            "assinaturas",
+            "billing_checkouts",
+            "audit_log",
+            # Transport acknowledgements, denial replies and identity revocation
+            # must remain writable while business content is read-only.
+            "telegram_links",
+            "telegram_link_codes",
+            "telegram_link_attempt_events",
+            "telegram_outbox",
+        }
+        guarded = set(
+            (
+                await conn.execute(
+                    text(
+                        "SELECT c.relname FROM pg_trigger t JOIN pg_class c ON c.oid=t.tgrelid WHERE t.tgname='billing_write_guard' AND NOT t.tgisinternal"
+                    )
+                )
+            ).scalars()
+        )
+        assert expected <= guarded
