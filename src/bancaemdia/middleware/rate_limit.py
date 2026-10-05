@@ -11,6 +11,7 @@ from typing import Any, cast
 from urllib.parse import urlsplit
 
 import structlog
+from fastapi.concurrency import run_in_threadpool
 from slowapi import Limiter
 from slowapi.errors import RateLimitExceeded
 from starlette.middleware.base import BaseHTTPMiddleware
@@ -312,9 +313,13 @@ async def _apply_policies(
             # SlowAPI's stock middleware is tied to app.state.limiter and therefore cannot host
             # independent token/user buckets. Its own check/header routines are used here with
             # the selected limiter; uv.lock pins the exercised SlowAPI version.
-            policy.limiter._check_request_limit(request, policy.scope, in_middleware=True)
+            # SlowAPI and its Redis storage are synchronous. Never hold the ASGI loop while
+            # checking shared quotas (or waiting for Redis's bounded outage timeout).
+            await run_in_threadpool(
+                policy.limiter._check_request_limit, request, policy.scope, in_middleware=True
+            )
         except RateLimitExceeded as exc:
-            return _limited_response(request, policy, exc)
+            return await run_in_threadpool(_limited_response, request, policy, exc)
         current_limit = getattr(request.state, "view_rate_limit", None)
         if current_limit is not None:
             active = (policy, current_limit)
@@ -322,7 +327,8 @@ async def _apply_policies(
     response = await call_next(request)
     if active is not None:
         policy, current_limit = active
-        policy.limiter._inject_headers(response, current_limit)
+        # Header injection also reads the quota window from Redis.
+        await run_in_threadpool(policy.limiter._inject_headers, response, current_limit)
     return response
 
 

@@ -40,7 +40,6 @@ from bancaemdia.auth import jwt as auth_jwt
 from bancaemdia.auth import middleware as auth_middleware
 from bancaemdia.cache.extracao_cache import ExtracaoCache
 from bancaemdia.cli.refresh_painel import refresh_painel
-from bancaemdia.cli.replay import reconstruir_usuario
 from bancaemdia.config import get_settings
 from bancaemdia.db.seed import seed_canonical
 from bancaemdia.db.session import get_db
@@ -666,9 +665,6 @@ async def test_painel_totals_match_the_conferir_numeros_logic(isolated_banco, mo
     from runpy import run_path
 
     from bancaemdia.cli import replay
-    from bancaemdia.cli.refresh_painel import refresh_painel
-    from bancaemdia.domain.painel import FiltrosPainel
-    from bancaemdia.repositories.painel_repo import PainelRepo
     from bancaemdia.repositories.usuario_repo import UsuarioRepo
 
     # This case crosses the Redis and replay boundaries. Its own migrated database

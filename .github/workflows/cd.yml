@@ -134,7 +134,7 @@ jobs:
         run: |
           set -euo pipefail
           export JWT_TOKENS_JSON="$(jq -nc --arg token "$DEPLOY_SMOKE_TOKEN" '[$token]')"
-          BASE_URL="$BASE_URL" LOAD_PROFILE=cd-smoke k6 run k6/load-test.js
+            BASE_URL="$BASE_URL" LOAD_PROFILE=cd-smoke python k6/run.py
       - name: Notify staging ready
         if: success()
         env:

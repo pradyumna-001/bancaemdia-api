@@ -2,6 +2,7 @@ import hmac
 import io
 from datetime import UTC, datetime, timedelta
 from decimal import Decimal
+from functools import partial
 from typing import Annotated
 from uuid import UUID
 
@@ -39,6 +40,7 @@ from bancaemdia.observability.tracing import custom_span, set_custom_span_attrib
 from bancaemdia.repositories.upload_repo import UploadArquivoRepo, UploadBilheteRepo, UploadRepo
 from bancaemdia.workers.celery_app import app as celery
 from bancaemdia.workers.materialization import FUSO_DO_BRASIL
+from bancaemdia.workers.publication import ignored_task_result
 
 TAREFA = "materialization.processar_upload"
 TAREFA_DE_FALHA = "materialization.falhar_upload"
@@ -107,9 +109,12 @@ async def _esperar_intervalo(session: AsyncSession, usuario_id: int) -> int | No
 
 
 def _enfileirar(upload_id: int, usuario_id: int) -> None:
+    # A consulta pública usa uploads.status no PostgreSQL, sem assinatura de resultados RPC.
     celery.send_task(
         TAREFA,
         kwargs={"upload_id": upload_id, "usuario_id": usuario_id},
+        ignore_result=True,
+        result_cls=partial(ignored_task_result, app=celery),
         link_error=celery.signature(TAREFA_DE_FALHA, args=(upload_id, usuario_id), immutable=True),
     )
 

@@ -14,6 +14,7 @@ import pytest
 import structlog
 from fastapi import FastAPI, Request
 from opentelemetry.context import Context
+from opentelemetry.instrumentation.fastapi import FastAPIInstrumentor
 from opentelemetry.sdk.trace import TracerProvider
 from starlette.middleware.base import BaseHTTPMiddleware
 

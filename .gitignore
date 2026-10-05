@@ -17,6 +17,10 @@ test-results.xml
 load-test-report.html
 load-test-summary.json
 validation-evidence/
+k6-staging-evidence.json
+k6-router-test-results.xml
+k6-coleta-preflight-*.json
+k6-coleta-preflight-*.html
 *.cover
 .hypothesis/
 .tox/

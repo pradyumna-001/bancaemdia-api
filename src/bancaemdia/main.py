@@ -15,7 +15,6 @@ from bancaemdia.api.contracts import (
     LivenessResponse,
     ReadinessResponse,
 )
-from bancaemdia.api.v1 import calculators
 from bancaemdia.api.openapi import build_openapi
 from bancaemdia.api.v1 import (
     admin_casas,
@@ -23,6 +22,7 @@ from bancaemdia.api.v1 import (
     billing,
     billing_webhook,
     caixa,
+    calculators,
     coleta,
     coleta_catalogo,
     coleta_pairing,
@@ -36,7 +36,13 @@ from bancaemdia.api.v1 import (
 )
 from bancaemdia.auth.middleware import JWTAuthMiddleware
 from bancaemdia.config import get_settings
-from bancaemdia.db.session import LAG_CHECK_SECONDS, engine, replica_engine, replica_lag_seconds
+from bancaemdia.db.session import (
+    LAG_CHECK_SECONDS,
+    engine,
+    prewarm_pool,
+    replica_engine,
+    replica_lag_seconds,
+)
 from bancaemdia.domain.access import AccountReadOnlyError
 from bancaemdia.integrations.telegram import webhook as telegram_webhook
 from bancaemdia.middleware.coleta_body import CollectionBodyLimit
@@ -80,18 +86,23 @@ replica_lag_monitor = ReplicaLagMonitor(
 
 @asynccontextmanager
 async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
-    async with engine.begin() as conn:
-        await conn.execute(text("SELECT 1"))
-    replica_lag_task = asyncio.create_task(
-        replica_lag_monitor.run(),
-        name="replica-lag-monitor",
-    )
+    replica_lag_task: asyncio.Task[None] | None = None
     try:
+        async with engine.begin() as conn:
+            await conn.execute(text("SELECT 1"))
+        if settings.DB_POOL_PREWARM:
+            await prewarm_pool(engine, settings.DB_POOL_SIZE)
+            await prewarm_pool(replica_engine, settings.DB_POOL_SIZE)
+        replica_lag_task = asyncio.create_task(
+            replica_lag_monitor.run(),
+            name="replica-lag-monitor",
+        )
         yield
     finally:
-        replica_lag_task.cancel()
-        with suppress(asyncio.CancelledError):
-            await replica_lag_task
+        if replica_lag_task is not None:
+            replica_lag_task.cancel()
+            with suppress(asyncio.CancelledError):
+                await replica_lag_task
         await engine.dispose()
         await replica_engine.dispose()
 

@@ -50,6 +50,7 @@ EXPORT_TABLES = (
     "chamadas_ia",
     "audit_log",
     "assinaturas",
+    "metas_desempenho",
 )
 EXCLUDED_COLUMNS = frozenset({
     "token_hash",

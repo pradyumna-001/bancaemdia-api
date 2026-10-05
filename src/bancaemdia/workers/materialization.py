@@ -69,6 +69,7 @@ from bancaemdia.repositories.revisao_pendente_repo import RevisaoPendenteRepo
 from bancaemdia.repositories.unidade_repo import UnidadeRepo
 from bancaemdia.repositories.upload_repo import UploadBilheteRepo, UploadRepo
 from bancaemdia.workers.celery_app import MATERIALIZATION_QUEUE, app
+from bancaemdia.workers.coleta_runtime import get_collection_runtime
 from bancaemdia.workers.pairing import parear_criacao
 
 MOTIVO_GRAVE_PADRAO = "conferência grave"
@@ -779,7 +780,12 @@ async def gravar_coleta(engine: AsyncEngine, usuario_id: int, coleta_id: int) ->
 
 def _materializar_coletas(usuario_id: int, coleta_ids: list[int]) -> dict[str, object]:
     with observe_stage(MATERIALIZATION_QUEUE):
-        gravada = asyncio.run(gravar_coletas(get_engine(), usuario_id, coleta_ids))
+        runtime = get_collection_runtime()
+        gravada = (
+            asyncio.run(gravar_coletas(get_engine(), usuario_id, coleta_ids))
+            if runtime is None
+            else runtime.run(gravar_coletas(runtime.engine, usuario_id, coleta_ids))
+        )
         if gravada is not None:
             batch_bets_processed.labels(stage=MATERIALIZATION_QUEUE).inc()
     return {
