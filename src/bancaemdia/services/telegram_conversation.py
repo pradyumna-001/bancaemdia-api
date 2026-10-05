@@ -7,6 +7,7 @@ from typing import Any, cast
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from bancaemdia.domain.access import require_write_access
 from bancaemdia.domain.account_attribution import ResolutionStatus
 from bancaemdia.domain.account_attribution_service import (
     InvalidAccountReferenceError,
@@ -33,6 +34,7 @@ EXTRACTED_FIELDS = frozenset({
     "odd",
     "stake_unidades",
     "data_aposta",
+    "data_jogo",
     "evento",
     "descricao",
     "mercado_bruto",
@@ -51,6 +53,15 @@ class DraftReply:
 async def _draft_summary(session: AsyncSession, draft: RascunhoAposta) -> str:
     message = summary(draft.fields_json, draft.missing_fields_json, draft.status)
     if "conta_casa_id" not in draft.missing_fields_json:
+        account_id = draft.fields_json.get("conta_casa_id")
+        if type(account_id) is int:
+            account = await ContaCasaRepo().get_by_id(session, draft.usuario_id, account_id)
+            if account is not None:
+                label = account.apelido or "sem apelido"
+                message = message.replace(
+                    f"• conta da casa: {account_id}",
+                    f"• conta da casa: {account_id} ({label})",
+                )
         return message
     house = draft.fields_json.get("casa")
     house_id = await CasaRepo().get_id_by_nome(session, str(house)) if house else None
@@ -157,6 +168,7 @@ async def open_draft(
     existing = await REPO.active(session, user_id, chat_id, lock=True)
     if existing is not None:
         return existing, False
+    await require_write_access(session, user_id)
     fields = _normalized_fields(extracted or {})
     meta = {
         key: {"source": "extraction", "confidence": _confidence(confidence, key)} for key in fields
@@ -199,6 +211,7 @@ async def apply_extraction(
     media_hash: str | None = None,
 ) -> RascunhoAposta:
     """Future photo reader fills fields without replacing user corrections."""
+    await require_write_access(session, draft.usuario_id)
     fields = dict(draft.fields_json)
     meta = dict(draft.field_meta_json)
     changes: dict[str, Any] = {}
@@ -261,11 +274,17 @@ async def new_photo_reply(
 async def draft_summary(session: AsyncSession, draft: RascunhoAposta) -> str:
     if draft.coupon_candidates_json:
         return (
-            f"A foto parece conter {len(draft.coupon_candidates_json)} apostas. "
+            f"Rascunho v{draft.version}. A foto parece conter {len(draft.coupon_candidates_json)} apostas. "
             "Qual única aposta você quer registrar? Responda cupom=1, cupom=2, etc. "
             "A foto já está guardada. Use /cancelar para desistir."
         )
-    return await _draft_summary(session, draft)
+    message = await _draft_summary(session, draft)
+    if draft.extraction_completed_at is None and draft.status == "AWAITING_CONFIRMATION":
+        message = message.replace(
+            "Use /confirmar para registrar, ",
+            "A leitura da foto ainda está pendente. Use ",
+        )
+    return message + f"\nVersão do rascunho: {draft.version}."
 
 
 async def handle_text(
@@ -278,7 +297,7 @@ async def handle_text(
 ) -> DraftReply | None:
     draft = await REPO.active(session, user_id, chat_id, lock=True)
     if draft is None:
-        if text.strip().lower().startswith(("/continuar", "/corrigir", "/cancelar")):
+        if text.strip().lower().startswith(("/continuar", "/corrigir", "/cancelar", "/confirmar")):
             return DraftReply("Não há rascunho ativo. Envie uma foto de uma aposta para começar.")
         return None
     command = text.strip().lower()
@@ -287,6 +306,7 @@ async def handle_text(
     if command == "/cancelar":
         await REPO.close(session, draft, "CANCELLED")
         return DraftReply("Rascunho cancelado. Você pode enviar outra foto.", draft)
+    await require_write_access(session, user_id)
     if draft.coupon_candidates_json:
         if command.startswith("cupom="):
             try:
@@ -323,14 +343,14 @@ async def handle_text(
             meta.pop("conta_casa_id", None)
         changes = {key: value for key, value in patch.items() if fields.get(key) != value}
         if not changes:
-            return DraftReply(await _draft_summary(session, draft), draft)
+            return DraftReply(await draft_summary(session, draft), draft)
         fields.update(changes)
         for key in changes:
             meta[key] = {"source": "user", "confidence": 1.0}
         fields, meta, missing, status = await _assess(session, user_id, fields, meta)
     except DraftInputError as exc:
         return DraftReply(
-            f"{exc}\n" + await _draft_summary(session, draft),
+            f"{exc}\n" + await draft_summary(session, draft),
             draft,
         )
     saved = await REPO.save(
@@ -344,4 +364,4 @@ async def handle_text(
         changes=changes,
         update_id=update_id,
     )
-    return DraftReply(await _draft_summary(session, saved), saved)
+    return DraftReply(await draft_summary(session, saved), saved)
