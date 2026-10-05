@@ -137,7 +137,9 @@ run "preserves_prometheus_semantics_and_windows" {
     condition = (
       strcontains(one(one(aws_cloudwatch_metric_alarm.this["Anthropic_Daily_Cost"].evaluation_criteria).promql_criteria).query, "increase(anthropic_cost_usd_total") &&
       strcontains(one(one(aws_cloudwatch_metric_alarm.this["Anthropic_Daily_Cost"].evaluation_criteria).promql_criteria).query, "[24h]") &&
-      strcontains(one(one(aws_cloudwatch_metric_alarm.this["Anthropic_Daily_Cost"].evaluation_criteria).promql_criteria).query, "> 100") &&
+      strcontains(one(one(aws_cloudwatch_metric_alarm.this["Anthropic_Daily_Cost"].evaluation_criteria).promql_criteria).query, ">= 100") &&
+      strcontains(one(one(aws_cloudwatch_metric_alarm.this["Anthropic_Daily_Cost_Limit"].evaluation_criteria).promql_criteria).query, ">= 125") &&
+      one(one(aws_cloudwatch_metric_alarm.this["Anthropic_Daily_Cost_Limit"].evaluation_criteria).promql_criteria).pending_period == 0 &&
       strcontains(one(one(aws_cloudwatch_metric_alarm.this["Revisao_Pendente_Spike"].evaluation_criteria).promql_criteria).query, "increase(revisao_pendente_created_total") &&
       strcontains(one(one(aws_cloudwatch_metric_alarm.this["Revisao_Pendente_Spike"].evaluation_criteria).promql_criteria).query, "[1h]") &&
       strcontains(one(one(aws_cloudwatch_metric_alarm.this["Revisao_Pendente_Spike"].evaluation_criteria).promql_criteria).query, "> 100")

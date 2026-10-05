@@ -144,7 +144,15 @@ corrigida de ecdsa). A validação JWT usa PyJWT com as mesmas claims obrigatór
 algoritmo RS256 fixo e seleção por `kid`; os testes de JWT/JWKS permanecem exigidos.
 Essa troca converge com a já proposta no #130, sem importar sua cadeia de produto.
 
-Na convergência com os PRs de billing/privacidade, preservar o gate de escrita da coleta depois
-de resolver o usuário e incluir instalações/códigos na exclusão da conta. Não
-restaurar a autenticação pelo token legado ao resolver conflitos. Esta entrega
-não implementa nem declara concluídos billing, exclusão de conta ou contrato v2.
+A base inclui o billing/privacidade integrado na main. A exclusão de conta remove
+instalações e códigos pela mesma transação de exclusão dos registros do usuário;
+o teste HTTP/PostgreSQL exige credenciais recusadas depois da exclusão e preserva
+as instalações de outro tenant. As quotas guardam apenas HMACs e expiram pela
+limpeza limitada documentada, sem identificadores de usuários recuperáveis.
+
+`f107main2026` concilia `c107pair2026` e `f153events2026` sem renomear revisões
+publicadas. O roundtrip específico da migration de pareamento usa sua revisão
+publicada em banco isolado; a suíte também valida upgrade da árvore completa.
+Não restaurar autenticação por token legado ao resolver conflitos. O contrato
+v2 da #108 foi separado do diff desta entrega e permanece preservado no histórico
+do PR #164 para sua própria revisão/integração.

@@ -44,6 +44,26 @@ OPERATION_DOCUMENTATION: dict[OperationKey, tuple[str, str]] = {
         "Consultar credencial da instalação",
         "Autentica X-Coleta-Token no primário e retorna somente a identidade validada.",
     ),
+    ("post", "/api/v1/billing/webhook"): (
+        "Receive Stripe events",
+        "Verify the raw body signature and persist a minimal deduplicated test-mode inbox; worker fetches current state.",
+    ),
+    ("get", "/api/v1/billing/status"): (
+        "Subscription status",
+        "Read server access, card-confirmed trial bounds and configured prices; redirects never grant access.",
+    ),
+    ("post", "/api/v1/billing/subscribe"): (
+        "Start hosted Checkout",
+        "Create or resume one durable Stripe test Checkout. Card confirmation starts one seven-day trial. No commercial default price.",
+    ),
+    ("post", "/api/v1/billing/portal"): (
+        "Manage subscription",
+        "Open the authenticated customer's Stripe portal with no plan changes and cancellation at period end.",
+    ),
+    ("post", "/api/v1/billing/cancel"): (
+        "Cancel renewal",
+        "Idempotently schedule cancellation while preserving the remainder of the trial or paid period.",
+    ),
     ("post", "/coleta"): (
         "Receber coleta da extensão",
         "Recebe um lote bruto capturado pela extensão e agenda a materialização idempotente.",
@@ -140,6 +160,14 @@ OPERATION_DOCUMENTATION: dict[OperationKey, tuple[str, str]] = {
         "Consultar revisão",
         "Retorna os dados auditáveis de uma revisão pertencente ao usuário.",
     ),
+    ("get", "/api/v1/usuario/me/export"): (
+        "Exportar meus registros",
+        "Baixa perfil e registros vinculados à conta em JSON ou Excel, sem arquivos binários.",
+    ),
+    ("delete", "/api/v1/usuario/me"): (
+        "Desativar e anonimizar minha conta",
+        "Remove registros vinculados e desativa a conta; dados brutos sem dono exclusivo exigem atendimento separado.",
+    ),
     ("post", "/api/v1/revisao/{revisao_id}/resolver"): (
         "Resolver revisão",
         "Corrige ou descarta uma revisão sob trava transacional e registra os eventos resultantes.",
@@ -174,6 +202,7 @@ PARAMETER_DESCRIPTIONS = {
     "desde": "Limite inicial inclusivo do intervalo, em ISO 8601.",
     "estado": "Estado de liquidação da aposta usado como filtro.",
     "fresh": "Lê no primário quando verdadeiro, sem forçar refresh das materialized views.",
+    "formato": "Formato da exportação dos dados da conta: JSON ou Excel.",
     "incluir_apagadas": "Inclui apostas retiradas da apuração quando verdadeiro.",
     "job_id": "UUID público retornado quando o upload foi aceito.",
     "mercado_id": "Identificador canônico do mercado usado como filtro.",
@@ -197,6 +226,10 @@ REQUEST_EXAMPLES: dict[OperationKey, tuple[str, JsonObject]] = {
             "instalacao_publica_id": "91b643c0-46e6-4b1b-b488-6254247128fd",
             "nome_dispositivo": "Meu dispositivo",
         },
+    ),
+    ("post", "/api/v1/billing/subscribe"): (
+        "Configured currency and cadence",
+        {"currency": "BRL", "frequency": "MONTHLY"},
     ),
     ("patch", "/api/v1/caixa/contas/{conta_casa_id}/banca"): (
         "Vincular conta à banca",
@@ -490,7 +523,7 @@ def _install_manual_request_bodies(document: JsonObject) -> None:
 
 
 def _install_body_limit_responses(document: JsonObject) -> None:
-    """Document the global streaming body limit on every operation that accepts a body."""
+    """Document the endpoint streaming body limit on every operation that accepts a body."""
     for method, path, operation in _operations(document):
         if not isinstance(operation.get("requestBody"), dict):
             continue
@@ -499,7 +532,7 @@ def _install_body_limit_responses(document: JsonObject) -> None:
         )
         response_413 = responses.setdefault(
             "413",
-            {"description": "The request body exceeds the server-wide streaming limit."},
+            {"description": "The request body exceeds this endpoint's streaming limit."},
         )
         response = _object(response_413, context=f"413 response for {method.upper()} {path}")
         content = response.setdefault("content", {})
@@ -511,7 +544,7 @@ def _install_body_limit_responses(document: JsonObject) -> None:
         if path == "/api/v1/upload":
             response["description"] = (
                 "The upload exceeds either the declared application limit (JSON) or the "
-                "server-wide streaming limit (plain text)."
+                "endpoint streaming limit (plain text)."
             )
 
 
@@ -565,6 +598,12 @@ def _document_operations(document: JsonObject) -> None:
 def _install_collection_security(document: JsonObject) -> None:
     components = _object(document.setdefault("components", {}), context="components")
     schemes = _object(components.setdefault("securitySchemes", {}), context="securitySchemes")
+    schemes["StripeSignature"] = {
+        "type": "apiKey",
+        "in": "header",
+        "name": "Stripe-Signature",
+        "description": "Stripe HMAC signature of the exact request bytes and timestamp.",
+    }
     schemes["CollectionToken"] = {
         "type": "apiKey",
         "in": "header",

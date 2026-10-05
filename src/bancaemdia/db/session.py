@@ -1,5 +1,5 @@
 import time
-from collections.abc import AsyncGenerator, AsyncIterator, Callable
+from collections.abc import AsyncGenerator, Callable
 from contextlib import asynccontextmanager
 
 import structlog
@@ -114,7 +114,7 @@ replica_lag = ReplicaLagCheck()
 
 
 @asynccontextmanager
-async def _open(replica: bool, *, snapshot: bool = False) -> AsyncIterator[AsyncSession]:
+async def _open(replica: bool, *, snapshot: bool = False) -> AsyncGenerator[AsyncSession, None]:
     if snapshot:
         fabrica = SnapshotReplicaSession if replica else SnapshotSessionLocal
     else:
@@ -139,6 +139,12 @@ async def get_db() -> AsyncGenerator[AsyncSession, None]:
 
 async def get_db_snapshot() -> AsyncGenerator[AsyncSession, None]:
     async with _open(replica=not use_primary.get(), snapshot=True) as session:
+        yield session
+
+
+async def get_db_primary_snapshot() -> AsyncGenerator[AsyncSession, None]:
+    """Use a coherent, up-to-date primary snapshot for privacy exports."""
+    async with _open(replica=False, snapshot=True) as session:
         yield session
 
 

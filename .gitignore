@@ -16,6 +16,7 @@ coverage.xml
 test-results.xml
 load-test-report.html
 load-test-summary.json
+validation-evidence/
 *.cover
 .hypothesis/
 .tox/

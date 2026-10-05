@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import json
-from collections.abc import Iterator
+from collections.abc import Generator, Iterator
 from contextlib import contextmanager
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -76,7 +76,7 @@ class _ContractSession:
 
 
 @contextmanager
-def _collection_backend() -> Iterator[CollectionContractBackend]:
+def _collection_backend() -> Generator[CollectionContractBackend]:
     backend = CollectionContractBackend()
     monkeypatch = pytest.MonkeyPatch()
 
@@ -202,7 +202,7 @@ def test_openapi_endpoint_matches_checked_in_snapshot(openapi_document: JsonObje
 @pytest.mark.contract
 def test_every_operation_has_human_documentation(openapi_document: JsonObject) -> None:
     operations = list(_operations(openapi_document))
-    assert len(operations) == 34
+    assert len(operations) == 41
     for method, path, operation in operations:
         location = f"{method.upper()} {path}"
         assert str(operation.get("summary", "")).strip(), location
@@ -227,7 +227,7 @@ def test_request_bodies_have_examples(openapi_document: JsonObject) -> None:
             assert media.get("example") is not None or media.get("examples"), (
                 f"{method.upper()} {path}: {media_type} lacks an example"
             )
-    assert bodies == 11
+    assert bodies == 13
 
 
 @pytest.mark.contract
@@ -573,7 +573,27 @@ negative_schema = (
     )
     # This authenticated stats operation has no request input to invalidate.
     .exclude(path="/api/v1/revisao/stats")
+    # Stripe uses an HMAC over raw bytes, not the bearer-token contract below.
+    # Its HTTP failure contracts are exercised in test_billing_webhook_contract.py.
+    .exclude(path="/api/v1/billing/webhook")
 )
+
+
+@negative_schema.hook("before_generate_case")
+def invalid_upload_job_cases(
+    context: schemathesis.HookContext,
+    _strategy: SearchStrategy[schemathesis.Case],
+) -> SearchStrategy[schemathesis.Case]:
+    # Negating a UUID schema often changes its JSON type, but path serialization
+    # turns the value back into a string. Generate wire-invalid UUIDs directly
+    # instead of filtering most of the generated examples or skipping the route.
+    assert context.operation is not None
+    operation = context.operation
+    if operation.path != "/api/v1/upload/{job_id}" or operation.method.upper() != "GET":
+        return _strategy
+    return st.text(alphabet="ghijklmnopqrstuvwxyz", min_size=1, max_size=40).map(
+        lambda value: operation.Case(path_parameters={"job_id": value})
+    )
 
 
 @pytest.mark.contract

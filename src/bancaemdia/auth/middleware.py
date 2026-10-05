@@ -15,6 +15,7 @@ from bancaemdia.auth.jwt import (
 # são lidos pela infraestrutura, sem usuário. O aviso de fim de upload vem do trabalhador, que tem
 # o segredo do webhook e nenhum token de pessoa.
 PUBLIC_PATHS = frozenset({
+    "/api/v1/billing/webhook",
     "/health",
     "/ready",
     "/metrics",

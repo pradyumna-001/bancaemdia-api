@@ -237,7 +237,9 @@ def test_sem_ilegiveis_keeps_the_first_when_all_are_illegible() -> None:
 
 def test_cached_reading_that_checks_costs_nothing() -> None:
     cache = _cache()
-    cache.guardar(chave_de_imagem(b"foto", "1u"), Leitura((_bom(),), "claude-haiku-4-5"))
+    cache.guardar(
+        chave_de_imagem(b"foto", "1u", postada_em=QUANDO), Leitura((_bom(),), "claude-haiku-4-5")
+    )
     leitor = _leitor([_bom()])
 
     saida = _extrair(leitor, cache=cache)
@@ -273,7 +275,9 @@ def test_other_caption_is_another_reading() -> None:
 
 def test_cached_reading_that_does_not_check_escalates_without_paying_the_cheap_model() -> None:
     cache = _cache()
-    cache.guardar(chave_de_imagem(b"foto", "1u"), Leitura((_ruim(),), "claude-haiku-4-5"))
+    cache.guardar(
+        chave_de_imagem(b"foto", "1u", postada_em=QUANDO), Leitura((_ruim(),), "claude-haiku-4-5")
+    )
     leitor = _leitor([_ruim()], [_bom()])
 
     saida = _extrair(leitor, cache=cache)
@@ -288,7 +292,9 @@ def test_cached_reading_that_does_not_check_escalates_without_paying_the_cheap_m
 
 def test_cached_reading_from_the_escalation_model_is_final() -> None:
     cache = _cache()
-    cache.guardar(chave_de_imagem(b"foto", "1u"), Leitura((_ruim(),), "claude-sonnet-5"))
+    cache.guardar(
+        chave_de_imagem(b"foto", "1u", postada_em=QUANDO), Leitura((_ruim(),), "claude-sonnet-5")
+    )
     leitor = _leitor([_bom()])
 
     saida = _extrair(leitor, cache=cache)
@@ -312,7 +318,7 @@ def test_cheap_reading_survives_a_failed_escalation() -> None:
 
 def test_cheap_reading_never_replaces_a_reading_stored_meanwhile() -> None:
     cache = _cache()
-    chave = chave_de_imagem(b"foto", "1u")
+    chave = chave_de_imagem(b"foto", "1u", postada_em=QUANDO)
 
     class Leitor:
         modelo_escalonamento = "claude-sonnet-5"
@@ -326,7 +332,7 @@ def test_cheap_reading_never_replaces_a_reading_stored_meanwhile() -> None:
     assert cache.buscar(chave).modelo == "claude-sonnet-5"
 
 
-def test_same_print_forwarded_on_another_day_reuses_the_reading() -> None:
+def test_same_print_forwarded_on_another_day_is_read_again() -> None:
     cache = _cache()
     leitor = _leitor([_bom()])
 
@@ -335,5 +341,5 @@ def test_same_print_forwarded_on_another_day_reuses_the_reading() -> None:
         leitor, b"foto", "image/png", legenda="1u", postada_em=datetime(2026, 7, 26, 9), cache=cache
     )
 
-    assert saida.degrau is escada.Degrau.CACHE
-    assert len(leitor.chamadas) == 1
+    assert saida.degrau is escada.Degrau.BARATO
+    assert len(leitor.chamadas) == 2

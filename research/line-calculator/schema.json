@@ -1,0 +1,57 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://bancaemdia.example/research/line-calculator/schema/v1",
+  "title": "Sanitized line-quote observation v1",
+  "description": "One side of one market line in one provider snapshot. No user/account identity or credential is allowed.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "source", "source_dataset_version", "license_reference", "source_event_id",
+    "snapshot_id", "observed_at", "sport", "league", "bookmaker",
+    "market_family", "metric", "period", "participant_scope", "selection_id",
+    "is_live", "line", "side", "decimal_odds", "market_status", "settlement_rule"
+  ],
+  "properties": {
+    "source": {"type": "string", "minLength": 1},
+    "source_dataset_version": {"type": "string", "minLength": 1},
+    "license_reference": {"type": "string", "minLength": 1},
+    "source_event_id": {"type": "string", "minLength": 1},
+    "snapshot_id": {"type": "string", "minLength": 1},
+    "observed_at": {"type": "string", "format": "date-time"},
+    "scheduled_start_at": {"type": ["string", "null"], "format": "date-time"},
+    "sport": {"type": "string", "minLength": 1},
+    "league": {"type": "string", "minLength": 1},
+    "bookmaker": {"type": "string", "minLength": 1},
+    "market_family": {"type": "string", "minLength": 1},
+    "metric": {"type": "string", "minLength": 1},
+    "period": {"type": "string", "minLength": 1},
+    "participant_scope": {"enum": ["match", "team", "player"]},
+    "selection_id": {"type": "string", "minLength": 1},
+    "is_live": {"type": "boolean"},
+    "live_clock_seconds": {"type": ["integer", "null"], "minimum": 0},
+    "live_score_home": {"type": ["integer", "null"], "minimum": 0},
+    "live_score_away": {"type": ["integer", "null"], "minimum": 0},
+    "live_metric_so_far": {"type": ["integer", "null"], "minimum": 0},
+    "line": {"type": "number", "minimum": 0, "multipleOf": 0.25},
+    "line_unit": {"type": "string", "minLength": 1},
+    "side": {"enum": ["over", "under"]},
+    "decimal_odds": {"type": "number", "exclusiveMinimum": 1},
+    "market_status": {"enum": ["open", "suspended", "closed"]},
+    "settlement_rule": {"enum": ["half", "integer_push", "asian_quarter_split"]},
+    "final_metric_count": {"type": ["integer", "null"], "minimum": 0},
+    "result_verified_at": {"type": ["string", "null"], "format": "date-time"}
+  },
+  "allOf": [
+    {
+      "if": {"properties": {"is_live": {"const": true}}},
+      "then": {
+        "required": ["live_clock_seconds", "live_score_home", "live_score_away"],
+        "properties": {
+          "live_clock_seconds": {"type": "integer"},
+          "live_score_home": {"type": "integer"},
+          "live_score_away": {"type": "integer"}
+        }
+      }
+    }
+  ]
+}

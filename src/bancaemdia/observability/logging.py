@@ -2,7 +2,7 @@ import json
 import logging
 import re
 import sys
-from collections.abc import Iterator, Mapping
+from collections.abc import Generator, Mapping
 from contextlib import contextmanager
 from contextvars import Token
 from datetime import UTC, datetime
@@ -256,7 +256,9 @@ def clear_request_context() -> None:
 
 
 @contextmanager
-def logging_context(*, request_id: str, usuario_id: int | str | None = None) -> Iterator[None]:
+def logging_context(
+    *, request_id: str, usuario_id: int | str | None = None
+) -> Generator[None, None, None]:
     """Temporarily bind correlation values for workers and command-line jobs."""
 
     with bound_contextvars(request_id=request_id, usuario_id=usuario_id):

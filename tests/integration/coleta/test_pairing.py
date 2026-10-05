@@ -326,6 +326,35 @@ async def test_cross_tenant_rls_and_least_privilege(system):
     )  # Collection identity comes only from its credential.
 
 
+async def test_account_anonymization_removes_owned_credentials_and_preserves_other_installation(
+    system,
+):
+    paired = await system.pair()
+    other = await system.pair(system.other)
+    unused_code = await system.code()
+    response = await system.http.delete("/api/v1/usuario/me", headers=system.headers())
+    assert response.status_code == 200, response.text
+    async with system.admin.connect() as conn:
+        for table in (ColetaInstalacao, ColetaPairingCode):
+            assert (
+                await conn.scalar(
+                    select(func.count()).select_from(table).where(table.usuario_id == system.user)
+                )
+                == 0
+            )
+    assert (
+        await system.http.get(PREFIX + "/status", headers=token_headers(paired))
+    ).status_code == 403
+    assert (
+        await system.http.get(PREFIX + "/status", headers=token_headers(other))
+    ).status_code == 200
+    replay = await system.http.post(
+        PREFIX + "/pairing-exchange",
+        json={"codigo": unused_code, "instalacao_publica_id": str(uuid4())},
+    )
+    assert replay.status_code == 400
+
+
 @pytest.mark.parametrize("action", ["create", "exchange"])
 async def test_shared_quota_concurrency_expiry_and_isolation(system, monkeypatch, action):
     settings = get_settings().model_copy(
@@ -547,7 +576,8 @@ async def test_legacy_upgrade_requires_repair_and_roundtrip_never_reactivates(ba
                 text("INSERT INTO coleta_token(usuario_id,token_hash) VALUES (:u,:hash)"),
                 {"u": uid, "hash": "f" * 64},
             )
-        await asyncio.to_thread(command.upgrade, config, "head")
+        # Pairing's published migration is exercised independently of billing rollback.
+        await asyncio.to_thread(command.upgrade, config, "c107pair2026")
         async with engine.connect() as conn:
             assert (
                 await conn.scalar(
@@ -561,7 +591,7 @@ async def test_legacy_upgrade_requires_repair_and_roundtrip_never_reactivates(ba
         await asyncio.to_thread(command.downgrade, config, "a9d6e3f1c210")
         async with engine.connect() as conn:
             assert await conn.scalar(text("SELECT ativo FROM coleta_token")) is False
-        await asyncio.to_thread(command.upgrade, config, "head")
+        await asyncio.to_thread(command.upgrade, config, "c107pair2026")
         async with engine.begin() as conn:
             await conn.execute(
                 text("UPDATE coleta_instalacoes SET pareado_em=now() WHERE usuario_id=:u"),

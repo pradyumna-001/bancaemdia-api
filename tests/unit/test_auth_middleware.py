@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 import time
 from datetime import UTC, datetime
 from types import SimpleNamespace
@@ -12,8 +13,6 @@ from cryptography.hazmat.primitives.serialization import (
     Encoding,
     NoEncryption,
     PrivateFormat,
-    PublicFormat,
-    load_pem_public_key,
 )
 from fastapi import Depends, FastAPI, Request
 from fastapi.routing import APIRoute
@@ -36,9 +35,8 @@ from bancaemdia.middleware.rls import RLSMiddleware
 def chave():
     par = rsa.generate_private_key(public_exponent=65537, key_size=2048)
     privada = par.private_bytes(Encoding.PEM, PrivateFormat.PKCS8, NoEncryption()).decode()
-    publica = par.public_key().public_bytes(Encoding.PEM, PublicFormat.SubjectPublicKeyInfo)
     return privada, {
-        **jwt.algorithms.RSAAlgorithm.to_jwk(load_pem_public_key(publica), as_dict=True),
+        **json.loads(jwt.algorithms.RSAAlgorithm.to_jwk(par.public_key())),
         "kid": "k1",
     }
 
@@ -89,7 +87,7 @@ def _cliente(monkeypatch, cache, usuarios=()):
     monkeypatch.setattr(auth_middleware, "get_jwks_cache", lambda: cache)
     monkeypatch.setattr(deps, "UsuarioRepo", UsuarioRepo)
     monkeypatch.setitem(main.app.dependency_overrides, get_db, Sessoes().abrir)
-    return TestClient(main.app, base_url="https://testserver")
+    return TestClient(main.app)
 
 
 def _chaves(jwk_publica):

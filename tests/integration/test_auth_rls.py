@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import asyncio
+import json
 import time
 from uuid import uuid4
 
@@ -12,8 +13,6 @@ from cryptography.hazmat.primitives.serialization import (
     Encoding,
     NoEncryption,
     PrivateFormat,
-    PublicFormat,
-    load_pem_public_key,
 )
 from fastapi import Depends
 from fastapi.routing import APIRoute
@@ -40,9 +39,8 @@ pytestmark = pytest.mark.xdist_group("postgres")
 def chave():
     par = rsa.generate_private_key(public_exponent=65537, key_size=2048)
     privada = par.private_bytes(Encoding.PEM, PrivateFormat.PKCS8, NoEncryption()).decode()
-    publica = par.public_key().public_bytes(Encoding.PEM, PublicFormat.SubjectPublicKeyInfo)
     return privada, {
-        **jwt.algorithms.RSAAlgorithm.to_jwk(load_pem_public_key(publica), as_dict=True),
+        **json.loads(jwt.algorithms.RSAAlgorithm.to_jwk(par.public_key())),
         "kid": "k1",
     }
 

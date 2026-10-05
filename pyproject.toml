@@ -54,7 +54,8 @@ dev = [
     "pytest-asyncio>=0.24.0",
     "pytest-xdist>=3.6.1",
     "pytest-cov>=6.0.0",
-    "ruff>=0.8.0",
+    # Pinned: preview=true makes every new ruff release a CI-breaking change; bump deliberately.
+    "ruff==0.16.10",
     "mypy>=1.13.0",
     "pre-commit>=3.8.0",
     "schemathesis==4.27.5",
@@ -122,7 +123,7 @@ warn_redundant_casts = true
 warn_unused_ignores = true
 warn_no_return = true
 warn_unreachable = true
-plugins = ["pydantic.mypy", "sqlalchemy.ext.mypy.plugin"]
+plugins = ["pydantic.mypy"]
 
 [[tool.mypy.overrides]]
 module = ["pydantic.*", "sqlalchemy.*"]
@@ -147,6 +148,7 @@ disallow_subclassing_any = false
 
 [tool.pytest.ini_options]
 asyncio_mode = "auto"
+pythonpath = ["."]
 testpaths = ["tests"]
 python_files = ["test_*.py"]
 python_classes = ["Test*"]
