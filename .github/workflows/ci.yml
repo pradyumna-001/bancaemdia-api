@@ -9,6 +9,22 @@ permissions:
   contents: read
 
 jobs:
+  phase1-config:
+    name: Phase 1 Compose config
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Validate isolated Lightsail stack
+        run: |
+          set -euo pipefail
+          cd deploy/lightsail
+          cp compose.env.example compose.env
+          cp runtime.env.example runtime.env
+          cp runtime.env.example maintenance.env
+          mkdir -p secrets
+          printf 'placeholder-for-config-validation\n' > secrets/postgres_admin_password
+          docker compose --env-file compose.env -f compose.yml --profile ops config --quiet
+
   lint:
     name: Lint (ruff)
     runs-on: ubuntu-latest

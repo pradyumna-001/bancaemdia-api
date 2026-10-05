@@ -1,0 +1,36 @@
+name: Lightsail weekly snapshot
+
+on:
+  schedule:
+    - cron: "0 3 * * 0"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  id-token: write
+
+jobs:
+  snapshot:
+    if: vars.LIGHTSAIL_SNAPSHOT_ENABLED == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check configuration
+        env:
+          REGION: ${{ vars.LIGHTSAIL_REGION }}
+          INSTANCE: ${{ vars.LIGHTSAIL_INSTANCE_NAME }}
+          ROLE: ${{ vars.LIGHTSAIL_SNAPSHOT_ROLE_ARN }}
+        run: |
+          set -euo pipefail
+          test -n "$REGION" && test -n "$INSTANCE" && test -n "$ROLE"
+      - uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ vars.LIGHTSAIL_SNAPSHOT_ROLE_ARN }}
+          aws-region: ${{ vars.LIGHTSAIL_REGION }}
+      - name: Create weekly snapshot
+        env:
+          INSTANCE: ${{ vars.LIGHTSAIL_INSTANCE_NAME }}
+        run: |
+          set -euo pipefail
+          name="bancaemdia-weekly-$(date -u +%Y%m%d)"
+          aws lightsail create-instance-snapshot \
+            --instance-name "$INSTANCE" --instance-snapshot-name "$name"

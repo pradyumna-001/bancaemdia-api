@@ -1,0 +1,11 @@
+[Unit]
+Description=Check BancaEmDia stuck uploads every five minutes
+
+[Timer]
+OnBootSec=5m
+OnUnitActiveSec=5m
+Persistent=true
+Unit=bancaemdia-upload-watchdog.service
+
+[Install]
+WantedBy=timers.target
