@@ -39,10 +39,13 @@ from bancaemdia.api.v1 import coleta
 from bancaemdia.auth import jwt as auth_jwt
 from bancaemdia.auth import middleware as auth_middleware
 from bancaemdia.cache.extracao_cache import ExtracaoCache
+from bancaemdia.cli.refresh_painel import refresh_painel
+from bancaemdia.cli.replay import reconstruir_usuario
 from bancaemdia.config import get_settings
 from bancaemdia.db.seed import seed_canonical
 from bancaemdia.db.session import get_db
 from bancaemdia.domain.materializar import casa_canonica
+from bancaemdia.domain.painel import FiltrosPainel
 from bancaemdia.extracao.cliente import LeitorDeBilhetes, calcular_custo
 from bancaemdia.extracao.precos import USD_POR_BILHETE_REFERENCIA
 from bancaemdia.rate_limit.anthropic_limiter import AnthropicLimiter
@@ -50,6 +53,7 @@ from bancaemdia.repositories.aposta_repo import ApostaRepo
 from bancaemdia.repositories.casa_repo import CasaRepo
 from bancaemdia.repositories.coleta_casa_repo import ColetaCasaRepo
 from bancaemdia.repositories.evento_repo import EventoRepo
+from bancaemdia.repositories.painel_repo import PainelRepo
 from bancaemdia.repositories.revisao_pendente_repo import RevisaoPendenteRepo
 from bancaemdia.resilience.circuit_breaker import new_anthropic_breaker
 from bancaemdia.workers import celery_app, extraction, materialization

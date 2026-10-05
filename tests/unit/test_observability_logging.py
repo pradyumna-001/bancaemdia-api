@@ -315,6 +315,7 @@ async def test_unhandled_error_is_correlated_and_context_is_cleared() -> None:
     app = _application(stream)
     request_id = "37086c30-6fa6-4f59-b525-3ca244bf2ee2"
     provider = TracerProvider()
+    FastAPIInstrumentor.instrument_app(app, tracer_provider=provider)
     tracer = provider.get_tracer("test")
     with tracer.start_as_current_span("server", context=Context()):
         async with httpx.AsyncClient(
@@ -322,7 +323,16 @@ async def test_unhandled_error_is_correlated_and_context_is_cleared() -> None:
             base_url="http://test",
         ) as client:
             response = await client.get(
-                "/failure", headers={REQUEST_ID_HEADER: request_id, "X-User-ID": "7"}
+                "/failure",
+                headers={
+                    REQUEST_ID_HEADER: request_id,
+                    "X-User-ID": "7",
+                    # Cross the HTTP boundary explicitly. Ambient HTTPX instrumentation
+                    # depends on test order and cannot be the propagation fixture.
+                    "traceparent": (
+                        f"00-{expected_span.trace_id:032x}-{expected_span.span_id:016x}-01"
+                    ),
+                },
             )
 
     assert response.status_code == 500
@@ -340,6 +350,7 @@ async def test_unhandled_error_is_correlated_and_context_is_cleared() -> None:
     assert failure["error_code"] is None
     assert "failure" not in failure.values()
     assert structlog.contextvars.get_contextvars() == {}
+    FastAPIInstrumentor.uninstrument_app(app)
     provider.shutdown()
 
 
