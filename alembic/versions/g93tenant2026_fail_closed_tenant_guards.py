@@ -62,7 +62,7 @@ def upgrade() -> None:
                 IF NOT EXISTS (
                     SELECT 1 FROM pg_attribute WHERE attrelid=target
                     AND attname=item.tenant_column AND NOT attisdropped
-                    AND atttypid='bigint'::regtype AND attnotnull
+                    AND atttypid='bigint'::regtype
                 ) THEN
                     RAISE EXCEPTION 'billing tenant column invalid: %.%', item.table_name,
                         item.tenant_column USING ERRCODE='P0402';
