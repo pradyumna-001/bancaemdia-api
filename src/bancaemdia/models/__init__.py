@@ -23,6 +23,7 @@ from bancaemdia.models.midia import Midia
 from bancaemdia.models.midia_arquivo import MidiaArquivo
 from bancaemdia.models.movimento import Movimento
 from bancaemdia.models.movimento_requisicao import MovimentoRequisicao
+from bancaemdia.models.rascunho_aposta import RascunhoAposta, RascunhoCorrecao
 from bancaemdia.models.revisao_pendente import RevisaoPendente
 from bancaemdia.models.telegram_link import (
     TelegramLink,
@@ -66,6 +67,8 @@ __all__ = [
     "MidiaArquivo",
     "Movimento",
     "MovimentoRequisicao",
+    "RascunhoAposta",
+    "RascunhoCorrecao",
     "RevisaoPendente",
     "TelegramInbox",
     "TelegramLink",
