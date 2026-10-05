@@ -92,6 +92,22 @@ OPERATION_DOCUMENTATION: dict[OperationKey, tuple[str, str]] = {
         "Cancel renewal",
         "Idempotently schedule cancellation while preserving the remainder of the trial or paid period.",
     ),
+    ("get", "/api/v1/coleta/catalogo"): (
+        "Consultar catálogo assinado",
+        "Projeção técnica autenticada pela instalação, sem evidência regulatória ou permissões de navegador.",
+    ),
+    ("get", "/api/v1/admin/casas"): (
+        "Consultar catálogo administrativo",
+        "Leitura auditada com autorização explícita de operador e RLS.",
+    ),
+    ("get", "/api/v1/admin/casas/export"): (
+        "Exportar catálogo administrativo",
+        "Exportação JSON auditada da campanha e matriz das 27 jurisdições.",
+    ),
+    ("post", "/api/v1/catalogo/candidatos"): (
+        "Confirmar acesso a domínio exato",
+        "Registra confirmação de acesso do usuário, sem afirmar autorização ou suporte técnico.",
+    ),
     ("post", "/coleta"): (
         "Receber coleta da extensão",
         "Recebe um lote bruto capturado pela extensão e agenda a materialização idempotente.",
@@ -270,6 +286,11 @@ OPERATION_DOCUMENTATION: dict[OperationKey, tuple[str, str]] = {
 PARAMETER_DESCRIPTIONS = {
     "sessao_id": "UUID opaco da sessão pertencente à instalação autenticada.",
     "instalacao_id": "ID interno da instalação do usuário autenticado.",
+    "client_version": "Versão estável do cliente em três componentes.",
+    "environment": "Ambiente esperado, vinculado à assinatura.",
+    "known_version": "Maior versão já verificada; downgrade é recusado.",
+    "X-Coleta-Token": "Credencial opaca de instalação pareada, não token legado de usuário.",
+    "If-None-Match": "ETag previamente autenticado e verificado.",
     "Idempotency-Key": (
         "Chave opaca obrigatória do cliente; reutilizá-la com o mesmo corpo reproduz a resposta "
         "original sem repetir a operação."
@@ -360,6 +381,16 @@ REQUEST_EXAMPLES: dict[OperationKey, tuple[str, JsonObject]] = {
     ("patch", "/api/v1/titulares/{titular_id}/contas/{conta_id}"): (
         "Limitar conta",
         {"estado": "LIMITADA"},
+    ),
+    ("post", "/api/v1/catalogo/candidatos"): (
+        "Confirmação sem credenciais",
+        {
+            "brand": "EXEMPLO",
+            "hostname": "exemplo.bet.br",
+            "access_confirmed": True,
+            "confirmed_at": "2026-09-29T12:00:00+00:00",
+            "evidence_sha256": "a" * 64,
+        },
     ),
     ("patch", "/api/v1/caixa/contas/{conta_casa_id}/banca"): (
         "Vincular conta à banca",
@@ -783,6 +814,28 @@ def _install_collection_security(document: JsonObject) -> None:
         _object(paths["/api/v1/coleta/pairing-exchange"], context="exchange")["post"],
         context="exchange operation",
     )["security"] = []
+    _install_catalog_security(document)
+
+
+def _install_catalog_security(document: JsonObject) -> None:
+    components = _object(document.setdefault("components", {}), context="components")
+    schemes = _object(components.setdefault("securitySchemes", {}), context="securitySchemes")
+    schemes["InstallationToken"] = {
+        "type": "apiKey",
+        "in": "header",
+        "name": "X-Coleta-Token",
+        "description": "Credencial de instalação pareada (#107), sujeita a expiração, rotação e revogação; tokens legados não são aceitos.",
+    }
+    schemes["BearerAuth"] = {"type": "http", "scheme": "bearer", "bearerFormat": "JWT"}
+    paths = _object(document["paths"], context="paths")
+    for method, path, scheme in (
+        ("get", "/api/v1/coleta/catalogo", "InstallationToken"),
+        ("get", "/api/v1/admin/casas", "BearerAuth"),
+        ("get", "/api/v1/admin/casas/export", "BearerAuth"),
+        ("post", "/api/v1/catalogo/candidatos", "BearerAuth"),
+    ):
+        operation = _object(_object(paths[path], context=path)[method], context="catalog operation")
+        operation["security"] = [{scheme: []}]
 
 
 def _strictify_schema(schema: JsonObject) -> None:

@@ -10,6 +10,15 @@ from bancaemdia.models.billing_price import BillingPrice
 from bancaemdia.models.billing_price_audit import BillingPriceAudit
 from bancaemdia.models.billing_rollout import BillingRollout
 from bancaemdia.models.casa import Casa
+from bancaemdia.models.casa_dominio import (
+    CasaDominio,
+    CatalogoAuditoria,
+    CatalogoConfirmacao,
+    CatalogoFonte,
+    CatalogoOperador,
+    CatalogoPublicacao,
+    CatalogoSnapshot,
+)
 from bancaemdia.models.chamada_ia import ChamadaIA
 from bancaemdia.models.coleta_casa import ColetaCasa
 from bancaemdia.models.coleta_instalacao import (
@@ -52,6 +61,13 @@ __all__ = [
     "BillingPriceAudit",
     "BillingRollout",
     "Casa",
+    "CasaDominio",
+    "CatalogoAuditoria",
+    "CatalogoConfirmacao",
+    "CatalogoFonte",
+    "CatalogoOperador",
+    "CatalogoPublicacao",
+    "CatalogoSnapshot",
     "ChamadaIA",
     "ColetaCasa",
     "ColetaEntrega",

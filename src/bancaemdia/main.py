@@ -29,6 +29,8 @@ from bancaemdia.api.v1 import (
     titulares,
     upload,
     usuario,
+    admin_casas,
+    coleta_catalogo,
 )
 from bancaemdia.auth.middleware import JWTAuthMiddleware
 from bancaemdia.config import get_settings
@@ -105,6 +107,8 @@ app = BancaemdiaAPI(
 app.include_router(coleta.router)
 app.include_router(coleta_pairing.router)
 app.include_router(coleta_sessoes.router)
+app.include_router(coleta_catalogo.router)
+app.include_router(admin_casas.router)
 app.include_router(upload.router)
 app.include_router(apostas.router)
 app.include_router(caixa.router)

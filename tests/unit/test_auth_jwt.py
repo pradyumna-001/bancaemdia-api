@@ -16,6 +16,7 @@ from cryptography.hazmat.primitives.serialization import (
     NoEncryption,
     PrivateFormat,
     PublicFormat,
+    load_pem_public_key,
 )
 
 from bancaemdia.auth import jwt as auth_jwt
