@@ -51,13 +51,14 @@ def upgrade() -> None:
             IF uid = NULLIF(current_setting('app.erase_user_data', true), '')::bigint
                AND uid = NULLIF(current_setting('app.current_user_id', true), '')::bigint THEN
                 IF TG_OP='DELETE' THEN RETURN OLD; END IF;
-                IF TG_TABLE_NAME='eventos' AND TG_OP='UPDATE'
-                   AND NEW.payload_json='{}'::jsonb AND NEW.chat_id IS NULL
+                IF TG_TABLE_NAME='eventos' AND TG_OP='UPDATE' THEN
+                  IF NEW.payload_json='{}'::jsonb AND NEW.chat_id IS NULL
                    AND NEW.message_id IS NULL AND NEW.aposta_chave IS NULL
                    AND NEW.confianca IS NULL
                    AND (to_jsonb(NEW)-ARRAY['payload_json','chat_id','message_id','aposta_chave','confianca'])
                        = (to_jsonb(OLD)-ARRAY['payload_json','chat_id','message_id','aposta_chave','confianca']) THEN
-                    RETURN NEW;
+                      RETURN NEW;
+                  END IF;
                 END IF;
             END IF;
             -- Cancellation and deferred-queue metadata
