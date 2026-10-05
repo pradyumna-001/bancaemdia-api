@@ -44,6 +44,7 @@ from bancaemdia.models.extracao_cache import ExtracaoCache
 from bancaemdia.models.mensagem import Mensagem
 from bancaemdia.models.mensagem_versao import MensagemVersao
 from bancaemdia.models.mercado import FAMILIAS, Mercado
+from bancaemdia.models.meta_desempenho import MetaDesempenho
 from bancaemdia.models.midia import Midia
 from bancaemdia.models.midia_arquivo import MidiaArquivo
 from bancaemdia.models.movimento import Movimento
@@ -83,6 +84,7 @@ SUPORTE = (
     RevisaoPendente,
     MidiaArquivo,
     MovimentoRequisicao,
+    MetaDesempenho,
 )
 UPLOAD = (Upload, UploadBilhete, UploadArquivo)
 BILLING = (
@@ -106,6 +108,7 @@ POR_USUARIO = (
     UploadBilhete,
     UploadArquivo,
     MovimentoRequisicao,
+    MetaDesempenho,
 )
 
 
@@ -189,6 +192,7 @@ def test_all_forty_eight_tables_are_registered() -> None:
         "revisao_pendente",
         "midia_arquivos",
         "movimento_requisicoes",
+        "metas_desempenho",
     }
     assert {m.__tablename__ for m in UPLOAD} == {"uploads", "upload_bilhetes", "upload_arquivos"}
 
