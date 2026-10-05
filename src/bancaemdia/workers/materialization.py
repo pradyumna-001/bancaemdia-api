@@ -582,6 +582,7 @@ async def _gravar_coletada(
             "message_id": None,
             "ordem_na_mensagem": 0,
             "data_aposta": atual.get("data_aposta"),
+            "data_jogo": atual.get("data_jogo"),
             "freebet": financeira_criacao.freebet,
         }
         for indice, evento in enumerate(novos):
