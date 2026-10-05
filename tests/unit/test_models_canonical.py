@@ -29,6 +29,7 @@ from bancaemdia.models.midia import Midia
 from bancaemdia.models.midia_arquivo import MidiaArquivo
 from bancaemdia.models.movimento import Movimento
 from bancaemdia.models.movimento_requisicao import MovimentoRequisicao
+from bancaemdia.models.rascunho_aposta import RascunhoAposta, RascunhoCorrecao
 from bancaemdia.models.revisao_pendente import RevisaoPendente
 from bancaemdia.models.telegram_link import (
     TelegramLink,
@@ -36,6 +37,7 @@ from bancaemdia.models.telegram_link import (
     TelegramLinkAttemptEvent,
     TelegramLinkCode,
 )
+from bancaemdia.models.telegram_message import TelegramInbox, TelegramOutbox
 from bancaemdia.models.time import Time
 from bancaemdia.models.tipster import Tipster
 from bancaemdia.models.titular import Titular
@@ -63,6 +65,8 @@ UPLOAD = (Upload, UploadBilhete, UploadArquivo)
 BILLING = (Assinatura, BillingPrice, BillingPriceAudit, BillingRollout)
 HOLDERS = (Titular, UsoContaCasa, TrocaTitularEvento, TrocaTitularRequisicao)
 TELEGRAM_LINKING = (TelegramLink, TelegramLinkCode, TelegramLinkAttempt, TelegramLinkAttemptEvent)
+TELEGRAM_TRANSPORT = (TelegramInbox, TelegramOutbox)
+TELEGRAM_DRAFTS = (RascunhoAposta, RascunhoCorrecao)
 POR_USUARIO = (
     ChamadaIA,
     ColetaCasa,
@@ -100,7 +104,7 @@ def _indexes(modelo: type[Base]) -> dict[str, list[str]]:
     return {i.name: [c.name for c in i.columns] for i in modelo.__table__.indexes}
 
 
-def test_all_forty_tables_are_registered() -> None:
+def test_all_forty_four_tables_are_registered() -> None:
     esperadas = {
         m.__tablename__
         for m in NUCLEO
@@ -110,9 +114,11 @@ def test_all_forty_tables_are_registered() -> None:
         + BILLING
         + HOLDERS
         + TELEGRAM_LINKING
+        + TELEGRAM_TRANSPORT
+        + TELEGRAM_DRAFTS
         + (AuditLog,)
     }
-    assert len(esperadas) == 40
+    assert len(esperadas) == 44
     assert set(Base.metadata.tables) == esperadas
     assert {m.__tablename__ for m in CANONICOS} == {
         "casas",
@@ -298,5 +304,6 @@ def test_bigserial_except_composite_and_billing_owner_keys() -> None:
         "assinaturas",
         "billing_rollout",
         "telegram_link_attempts",
+        "rascunhos_aposta",
     }:
         assert "id BIGSERIAL NOT NULL" in _create_table(nome)
