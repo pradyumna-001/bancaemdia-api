@@ -1,4 +1,4 @@
-from sqlalchemy import func, insert, select, update
+from sqlalchemy import func, insert, or_, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from bancaemdia import models
@@ -128,13 +128,22 @@ class RevisaoPendenteRepo:
         return FotoRevisao(conteudo=linhas[0][0], tipo=linhas[0][1])
 
     async def resolve_superseded(
-        self, session: AsyncSession, usuario_id: int, aposta_chave: str, motivo: str | None
+        self,
+        session: AsyncSession,
+        usuario_id: int,
+        aposta_chave: str,
+        motivo: str | None,
+        *,
+        include_account: bool = False,
     ) -> int:
         stmt = update(models.RevisaoPendente).where(
             models.RevisaoPendente.usuario_id == usuario_id,
             models.RevisaoPendente.extracao_bruta["aposta_chave"].astext == aposta_chave,
             models.RevisaoPendente.resolvido_em.is_(None),
         )
+        if not include_account:
+            category = models.RevisaoPendente.extracao_bruta["tipo_revisao"].astext
+            stmt = stmt.where(or_(category.is_(None), category != "conta"))
         if motivo is not None:
             stmt = stmt.where(models.RevisaoPendente.motivo != motivo)
         stmt = stmt.values(resolvido_em=func.now()).returning(models.RevisaoPendente.id)

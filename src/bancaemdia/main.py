@@ -24,6 +24,7 @@ from bancaemdia.api.v1 import (
     coleta,
     painel,
     revisao,
+    titulares,
     upload,
     usuario,
 )
@@ -105,6 +106,7 @@ app.include_router(painel.router)
 app.include_router(revisao.router)
 app.include_router(billing_webhook.router)
 app.include_router(billing.router)
+app.include_router(titulares.router)
 app.include_router(usuario.router)
 
 

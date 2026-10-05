@@ -206,6 +206,8 @@ def test_event_and_ledger_indexes() -> None:
     assert contas == {
         "idx_contas_casa_usuario": ["usuario_id", "ativa"],
         "idx_contas_casa_banca": ["usuario_id", "banca_id"],
+        "idx_contas_casa_titular": ["usuario_id", "titular_id"],
+        "uq_contas_casa_titular_casa": ["usuario_id", "casa_id", "titular_id"],
     }
 
 

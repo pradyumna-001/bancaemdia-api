@@ -264,8 +264,11 @@ async def test_prints_that_fail_their_checks_open_reviews_and_an_illegible_one_i
             a.chave for a in await ApostaRepo().list_by_usuario(session, usuario) if a.revisao_grave
         }
     da_imagem = {hashlib.sha256(imagem).hexdigest(): message_id for message_id, imagem in mensagens}
+    conta_reviews = [r for r in revisoes if r.extracao_bruta.get("tipo_revisao") == "conta"]
+    extracao_reviews = [r for r in revisoes if r.extracao_bruta.get("tipo_revisao") != "conta"]
     motivos = {
-        (da_imagem[r.midia_hash], r.extracao_bruta["aposta_chave"]): r.motivo for r in revisoes
+        (da_imagem[r.midia_hash], r.extracao_bruta["aposta_chave"]): r.motivo
+        for r in extracao_reviews
     }
     assert [extracao["degrau"] for extracao, _ in lidas] == [
         *["BARATO"] * 7,
@@ -279,7 +282,8 @@ async def test_prints_that_fail_their_checks_open_reviews_and_an_illegible_one_i
         (8, f"t:{CHAT}:8:0"),
         (9, f"t:{CHAT}:9:0"),
     ]
-    assert len(revisoes) == len(motivos)
+    assert len(extracao_reviews) == len(motivos)
+    assert len(conta_reviews) == 10
     assert motivos[7, f"t:{CHAT}:7:0"].startswith("a foto tem 2 cupons")
     assert motivos[8, f"t:{CHAT}:8:0"].startswith("coerência das odds")
     assert motivos[9, f"t:{CHAT}:9:0"].startswith("a leitura falhou")

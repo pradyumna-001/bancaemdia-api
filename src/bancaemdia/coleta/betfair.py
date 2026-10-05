@@ -216,6 +216,8 @@ def ler(bruto: object) -> Coletada:
         odd=odd,
         stake_centavos=stake,
         data_aposta=comeca,
+        # This reader has no verified placement timestamp. Leave attribution for review.
+        colocada_em=None,
         escolhas=tuple(escolhas),
         evento=primeiro_evento(escolhas),
         mercado_bruto=primeiro_mercado(escolhas),

@@ -88,12 +88,31 @@ async def test_guard_installer_rejects_missing_tenant_column(engine_admin):
     async with engine_admin.connect() as conn:
         transaction = await conn.begin()
         try:
-            # This optional table is absent in the standalone access schema.
-            await conn.execute(
-                text("CREATE TABLE public.rascunho_correcoes(id bigint, owner_id bigint)")
-            )
+            if await conn.scalar(text("SELECT to_regclass('public.rascunho_correcoes')")) is None:
+                await conn.execute(
+                    text("CREATE TABLE public.rascunho_correcoes(id bigint, owner_id bigint)")
+                )
+            else:
+                await conn.execute(
+                    text(
+                        "ALTER TABLE public.rascunho_correcoes RENAME COLUMN usuario_id TO owner_id"
+                    )
+                )
             with pytest.raises(DBAPIError, match="billing tenant column invalid") as error:
                 await conn.execute(text("SELECT billing_install_write_guards()"))
+            assert error.value.orig.sqlstate == "P0402"
+        finally:
+            await transaction.rollback()
+
+
+async def test_missing_owner_is_denied_even_before_rollout(engine_admin):
+    async with engine_admin.connect() as conn:
+        transaction = await conn.begin()
+        try:
+            with pytest.raises(DBAPIError) as error:
+                await conn.execute(
+                    text("INSERT INTO bancas(usuario_id,nome) VALUES(NULL,'Missing tenant')")
+                )
             assert error.value.orig.sqlstate == "P0402"
         finally:
             await transaction.rollback()
