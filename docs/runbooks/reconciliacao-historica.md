@@ -7,32 +7,22 @@ a referência explícita válida de multicontas conserva a conta que realizou a 
 
 ## Pré-requisito e integração
 
-Este PR tem base direta em main, sem os commits do #166. A execução exige o serviço compartilhado
-da #110, entregue no [PR #166](https://github.com/pradyumna-001/bancaemdia-api/pull/166), e suas
-migrations. A referência testada é `db7f63eccd03635bac20235270bffa30351e41a9`.
-Main isolada recusa a operação antes de conectar ao banco: não existe fallback para o pareador legado.
-O administrador deve integrar o pré-requisito antes de habilitar esta operação.
+A parte 5 tem base main e inclui os serviços das #109/#110, a CLI #111 e a
+matriz #112 na própria árvore. As partes 1/2/4 entram como pré-requisitos
+intrínsecos pelo PR #179; não há dependência de checkout temporário da CI.
 
-A migration `r111journal2026` descende da main `a9d6e3f1c210`, adiciona apenas o journal operacional
-e preserva todos os IDs publicados. Integrar também #166 cria dois heads (`c110fact2026` e
-`r111journal2026`); o administrador deve publicar uma migration Alembic de merge dessas pontas
-antes do upgrade no ambiente final. Não renumerar ou substituir revisões existentes.
-O ensaio abaixo já executa essa convergência em montagem descartável, sem alterar as branches:
+A ponta `h5review2026` reúne `h4review2026`, `c110fact2026` e `r111journal2026`.
+Os IDs e relações de ancestralidade publicados permanecem intactos. Atualizar
+até essa ponta antes de executar a CLI; preservar journal/evidência no rollback.
 
 ```bash
-git fetch --no-tags origin db7f63eccd03635bac20235270bffa30351e41a9
-python scripts/prepare_reconciliation_integration.py /tmp/reconciliation
-pip install -e '/tmp/reconciliation[dev]'
-cd /tmp/reconciliation
+pip install -e '.[dev]'
 TEST_DATABASE_URL=postgresql+asyncpg://... pytest \
   tests/cli/reconciliation_acceptance.py tests/integration/cruzamento/ -n 0
 ```
 
-O destino precisa ser novo. `reconciliation-heads.json` registra o HEAD atual da CLI, o SHA do
-pré-requisito, os arquivos sobrepostos e o merge temporário. A CI obrigatória executa essa composição
-em PostgreSQL 16 com papel sem bypass de RLS; não é prova de código integrado/deployado em main.
-A suíte independente da main testa contrato, serialização e filtros; o job dependente invoca
-explicitamente `reconciliation_acceptance.py`, recusa falta de banco e exige cenários sem skips.
+A CI seleciona explicitamente a aceitação da CLI com PostgreSQL 16 e papel sem
+bypass de RLS. Ausência de banco, falha ou skip são recusados pelo gate obrigatório.
 
 ## Preparar e revisar
 
@@ -189,6 +179,6 @@ da CLI substituto dessa conferência. Reativar escritores depois da validação 
 | Tenant/audit/replay | RLS forçada, FK, trigger, eventos do domínio | leitura/insert cruzado e UPDATE/DELETE recusados; relação reconstruída pelos eventos |
 | CLI utilizável | script + JSON/CSV + exit codes | subprocesso real de dry-run → apply → rerun idempotente |
 
-A CI publica JUnit e SHAs exatos da composição e também executa a aceitação da #110 para conferir
+A CI publica JUnit associado ao HEAD exato do PR e também executa a aceitação da #110 para conferir
 o caminho online compartilhado. Nenhum teste dessa matriz depende de credenciais produtivas,
 reconcilia usuários reais ou é substituído por mock de persistência.

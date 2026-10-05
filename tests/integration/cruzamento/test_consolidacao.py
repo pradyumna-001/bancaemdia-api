@@ -66,6 +66,14 @@ async def accounts(engine_admin, engine_app, user, *, count=1):
             session.add(account)
             await session.flush()
             rows.append(account.id)
+        # Multiple account identities alone are not a default assignment. Usage
+        # windows live in the authoritative table introduced by the reviewed #94.
+        if count == 1:
+            from bancaemdia.repositories.uso_conta_casa_repo import UsoContaCasaRepo
+
+            await UsoContaCasaRepo().open(
+                session, user, house, rows[0], PLACEMENT - timedelta(days=1)
+            )
         return house, rows
 
 
@@ -271,6 +279,14 @@ async def test_default_account_follows_game_day_while_explicit_multiaccount_keep
         await session.execute(
             update(models.ContaCasa).where(models.ContaCasa.id == ids[1]).values(desde=switch)
         )
+        from bancaemdia.repositories.uso_conta_casa_repo import UsoContaCasaRepo
+
+        usage = await UsoContaCasaRepo().open(
+            session, user, house, ids[0], PLACEMENT - timedelta(days=1)
+        )
+        await UsoContaCasaRepo().close(session, usage.id, switch)
+        await UsoContaCasaRepo().open(session, user, house, ids[1], switch)
+
         default = await attribute_account(session, user, "Betano", GAME)
         actual = await attribute_account(session, user, "Betano", GAME, ids[0])
         assert default.conta_casa_id == ids[1]
@@ -503,6 +519,13 @@ async def test_lifecycle_keeps_one_fact_with_independent_paid_value(
         balances = await MovimentoRepo().aggregate_saldos_by_usuario(session, user)
         assert balances[ids[0]].apostado_centavos == 10000
         assert balances[ids[0]].retornado_centavos == paid * 100
+        from bancaemdia.repositories.account_financials_repo import AccountFinancialsRepo
+
+        metrics = await AccountFinancialsRepo().bets(
+            session, user, desde=None, ate=None, casa_id=None, titular_id=None, conta_casa_id=ids[0]
+        )
+        assert len(metrics) == 1 and metrics[0]["apostas"] == 1
+        assert metrics[0]["retorno_centavos"] == (0 if expected == "ANULADA" else paid * 100)
     await reconstruir_usuario(user, engine=engine_app)
     assert (await financial(engine_app, user))[0] == totals
 
@@ -713,7 +736,7 @@ async def test_manual_account_game_date_and_explicit_reference_survive_api_and_r
     import httpx
 
     user = await novo_usuario()
-    _, ids = await accounts(engine_admin, engine_app, user, count=2)
+    house, ids = await accounts(engine_admin, engine_app, user, count=2)
     boundary = PLACEMENT + timedelta(days=1)
     async with AsyncSession(engine_app) as session, session.begin():
         await owner(session, user)
@@ -725,6 +748,14 @@ async def test_manual_account_game_date_and_explicit_reference_survive_api_and_r
         await session.execute(
             update(models.ContaCasa).where(models.ContaCasa.id == ids[1]).values(desde=boundary)
         )
+        from bancaemdia.repositories.uso_conta_casa_repo import UsoContaCasaRepo
+
+        usage = await UsoContaCasaRepo().open(
+            session, user, house, ids[0], PLACEMENT - timedelta(days=1)
+        )
+        await UsoContaCasaRepo().close(session, usage.id, boundary)
+        await UsoContaCasaRepo().open(session, user, house, ids[1], boundary)
+
     async with httpx.AsyncClient(
         transport=httpx.ASGITransport(app=application(engine_app, user)), base_url="http://test"
     ) as client:
@@ -1045,7 +1076,7 @@ async def test_excel_import_and_update_use_game_date_with_explicit_multiaccount_
     from openpyxl import Workbook
 
     user = await novo_usuario()
-    _, ids = await accounts(engine_admin, engine_app, user, count=2)
+    house, ids = await accounts(engine_admin, engine_app, user, count=2)
     boundary = PLACEMENT + timedelta(days=1)
     async with AsyncSession(engine_app) as session, session.begin():
         await owner(session, user)
@@ -1057,6 +1088,13 @@ async def test_excel_import_and_update_use_game_date_with_explicit_multiaccount_
         await session.execute(
             update(models.ContaCasa).where(models.ContaCasa.id == ids[1]).values(desde=boundary)
         )
+        from bancaemdia.repositories.uso_conta_casa_repo import UsoContaCasaRepo
+
+        usage = await UsoContaCasaRepo().open(
+            session, user, house, ids[0], PLACEMENT - timedelta(days=1)
+        )
+        await UsoContaCasaRepo().close(session, usage.id, boundary)
+        await UsoContaCasaRepo().open(session, user, house, ids[1], boundary)
 
     def content(revised):
         book = Workbook()
@@ -1115,4 +1153,4 @@ async def test_excel_import_and_update_use_game_date_with_explicit_multiaccount_
         from bancaemdia.domain.consolidacao_aposta import _state
 
         states = [await _state(session, user, row.chave) for row in rows]
-        assert [state["conta_atribuicao"] for state in states] == ["game", "explicit"]
+        assert [state["conta_referencia_explicita"] for state in states] == [False, True]

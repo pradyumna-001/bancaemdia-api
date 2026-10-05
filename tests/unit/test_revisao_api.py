@@ -238,8 +238,8 @@ def _cliente(monkeypatch, banco) -> TestClient:
         await asyncio.sleep(0)
         return None
 
-    monkeypatch.setattr(apostas_api, "account_for_state", account)
-    monkeypatch.setattr(apostas_api, "account_review", no_account_review)
+    monkeypatch.setattr(apostas_api, "attribute_account", account)
+    monkeypatch.setattr(apostas_api, "sync_account_review", no_account_review)
     app = FastAPI()
     app.include_router(rota.router)
     app.dependency_overrides[get_current_user] = usuario

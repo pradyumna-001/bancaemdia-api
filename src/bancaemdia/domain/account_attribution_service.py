@@ -36,7 +36,9 @@ def game_instant(state: dict[str, object]) -> datetime | None:
 
 def explicit_reference(state: dict[str, object]) -> int | None:
     value = state.get("conta_casa_ref")
-    if value is None and (state.get("conta_referencia_explicita") or state.get("conta_atribuicao") == "explicit"):
+    if value is None and (
+        state.get("conta_referencia_explicita") or state.get("conta_atribuicao") == "explicit"
+    ):
         value = state.get("conta_casa_id")
     if value is None:
         return None
@@ -60,6 +62,14 @@ async def attribute_account(
     casa_id = None if nome is None else await CasaRepo().get_id_by_nome(session, nome)
     if explicit_id is not None:
         explicit_reference({"conta_casa_ref": explicit_id})
+        if lock:
+            await session.execute(
+                select(models.ContaCasa.id)
+                .where(
+                    models.ContaCasa.usuario_id == usuario_id, models.ContaCasa.id == explicit_id
+                )
+                .with_for_update(read=True)
+            )
         account = await ContaCasaRepo().get_by_id(session, usuario_id, explicit_id)
         if account is None or account.casa_id != casa_id:
             raise InvalidAccountReferenceError("conta_casa_id não pertence a você nesta casa")
@@ -68,12 +78,25 @@ async def attribute_account(
         return AccountResolution(ResolutionStatus.NONE)
     if lock:
         # Caller holds tenant/key/bet locks first; account identity and usages follow by ID.
-        await session.execute(select(models.ContaCasa.id).where(
-            models.ContaCasa.usuario_id == usuario_id, models.ContaCasa.casa_id == casa_id
-        ).order_by(models.ContaCasa.id).with_for_update(read=True))
-        usages = list((await session.execute(select(models.UsoContaCasa).where(
-            models.UsoContaCasa.usuario_id == usuario_id, models.UsoContaCasa.casa_id == casa_id
-        ).order_by(models.UsoContaCasa.id).with_for_update(read=True))).scalars())
+        await session.execute(
+            select(models.ContaCasa.id)
+            .where(models.ContaCasa.usuario_id == usuario_id, models.ContaCasa.casa_id == casa_id)
+            .order_by(models.ContaCasa.id)
+            .with_for_update(read=True)
+        )
+        usages = list(
+            (
+                await session.execute(
+                    select(models.UsoContaCasa)
+                    .where(
+                        models.UsoContaCasa.usuario_id == usuario_id,
+                        models.UsoContaCasa.casa_id == casa_id,
+                    )
+                    .order_by(models.UsoContaCasa.id)
+                    .with_for_update(read=True)
+                )
+            ).scalars()
+        )
     else:
         usages = await UsoContaCasaRepo().list_by_house(session, usuario_id, casa_id)
     return resolve_account(
@@ -85,10 +108,16 @@ async def attribute_account(
 async def account_for_state(
     session: AsyncSession, user: int, state: dict[str, object], *, lock: bool = True
 ) -> AccountResolution:
+    if state.get("conta_atribuicao") == "unassigned":
+        return AccountResolution(ResolutionStatus.NONE)
     casa = state.get("casa")
     return await attribute_account(
-        session, user, casa if isinstance(casa, str) else None,
-        game_instant(state), explicit_reference(state), lock=lock,
+        session,
+        user,
+        casa if isinstance(casa, str) else None,
+        game_instant(state),
+        explicit_reference(state),
+        lock=lock,
     )
 
 
@@ -97,5 +126,6 @@ async def account_review(
 ) -> None:
     from bancaemdia.domain.account_review import sync_account_review
 
-    await sync_account_review(session, user, key, result,
-        context={"referencia_invalida": True} if invalid else None)
+    await sync_account_review(
+        session, user, key, result, context={"referencia_invalida": True} if invalid else None
+    )

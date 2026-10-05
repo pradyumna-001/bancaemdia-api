@@ -8,74 +8,34 @@ Isso evita interferência entre fixtures sem eliminar nenhuma corrida do produto
 
 ## Base e reprodução
 
-O PR da #112 nasce diretamente da main `bd055417459f796fed960b5b37efb33a9744419f`.
-Ela ainda não possui os serviços das #107–#111. A CI constrói uma composição
-descartável, sem incorporar a cadeia de commits ao diff do PR:
-
-| Pré-requisito | SHA fixado |
-| --- | --- |
-| #107/#108, PR #164 (inclui #163) | `9210cef7e1b64664ac8ad347afa69ad02c056cef` |
-| #94/#95, PR #135 (inclui #134 e sua base) | `427e6af8d6664bd2076bfe6518be754b5934d77b` |
-| #109/#110, PR #166 | `db7f63eccd03635bac20235270bffa30351e41a9` |
-| #111, PR #169 | `0dfd5a6cfe70a94bb813d47dac50b2f64ed3b073` |
-
-`scripts/prepare_integrity_integration.py` reutiliza o preparador e a resolução
-revisável de conflitos do #166. Acrescenta apenas os seis arquivos da CLI/journal/testes
-da #111, a matriz da #112, a correção explícita descrita abaixo e uma revisão Alembic
-de merge exclusiva do ensaio. Os IDs publicados dos pré-requisitos permanecem intactos;
-o preparador original do #166 religa sua própria migration ainda não integrada ao merge
-de dependências. Os dois testes herdados que verificam a ponta Alembic mantêm todas as
-asserções; o valor esperado passa a ser a ponta completa `r112integration`.
-
-Destinos existentes são recusados. Nenhum checkout de produto é mesclado ou substituído.
-`integrity-heads.json` registra todos os SHAs, a ponta da matriz e o hash SHA-256 da
-correção. Isso prova essa composição específica; mudanças nos pré-requisitos exigem
-atualizar os pins, conciliar e repetir todos os gates antes de declarar a base integrada.
-
-Com os quatro objetos Git disponíveis e PostgreSQL/Redis descartáveis já ativos:
+A parte 5 testa o próprio código de produto entregue diretamente à main.
+Ela incorpora as partes 1/2/4 do PR #179 e as origens #165/#166/#169/#170.
+Não há montagem de código fora da branch, correção aplicada só em ensaio nem
+necessidade de aplicar patches depois do merge. `h5review2026` é a ponta completa.
 
 ```sh
-python scripts/prepare_integrity_integration.py /tmp/issue112-integration
-pip install -e '/tmp/issue112-integration[dev]'
-cd /tmp/issue112-integration
-export TEST_DATABASE_URL=postgresql+asyncpg://bancaemdia:test-password@localhost:5432/bancaemdia
+pip install -e '.[dev]'
+export TEST_DATABASE_URL=postgresql+asyncpg://.../banco_descartavel
 export REDIS_URL=redis://localhost:6379/0
-export CELERY_BROKER_URL=redis://localhost:6379/0
+export CELERY_BROKER_URL=$REDIS_URL
 export CELERY_RESULT_BACKEND=redis://localhost:6379/1
 pytest tests/integration/coleta/ tests/integration/test_troca_titular.py \
   tests/convergence/financial_acceptance.py tests/cli/test_reconciliar_casa_telegram.py \
   tests/integrity/collection_acceptance.py tests/integrity/accounts_races_acceptance.py \
   tests/integrity/security_acceptance.py -n 0 --show-capture=no --junitxml=integrity-results.xml
+python scripts/check_integrity_junit.py integrity-results.xml
 ```
 
-Depois, execute `scripts/check_integrity_junit.py` do checkout da #112 apontando para
-o XML gerado. O inventário `scripts/integrity/required-cases.json` exige os **155 nomes
-exatos**, inclusive parâmetros: 104 casos herdados e 51 novos. Erro, falha, skip,
-nome ausente, inesperado ou duplicado fazem o gate falhar. A suíte dependente usa
-nomes `*_acceptance.py` e é selecionada explicitamente no job obrigatório; a suíte
-normal da main continua executando integralmente. Ausência de serviço ou módulo
-pré-requisito é erro, nunca skip. Docker Build depende das três execuções da matriz.
+O inventário exige todos os 155 casos originais, incluindo parâmetros. Falha,
+erro, skip, ausência, duplicação ou caso inesperado reprovam o gate. Cada um dos
+três jobs usa seus próprios PostgreSQL/Redis; Docker Build depende dos três.
+Além da matriz, os gates de CLI histórica, matching/consolidação, contas/billing,
+catálogo, contratos de coleta e segurança rodam sobre o mesmo HEAD.
 
-## Correção executável de integração
-
-`scripts/integrity/fixes.patch` corrige `workers/coleta_v2.py` após a composição do #166.
-O worker exigia referência explícita mesmo quando a data do jogo tinha um único uso
-válido. Agora utiliza `account_for_state`, o resolver compartilhado, com
-`parsed.comeca_em`. Referência inválida não recebe fallback. Zero/ambiguidade permanecem
-`needs_review`; uma conta default inferida não é gravada como referência explícita.
-
-A referência explícita válida identifica a conta que realmente fez a bet no multicontas,
-inclusive fora de seu intervalo padrão ou já limitada/inativa. Atribuição default usa
-a **data do jogo**, nunca colocação/captura. Ocorrência continua determinando o corte de
-sessão e a ordem da fonte; esses relógios têm funções diferentes. Isso aplica a instrução
-do proprietário e substitui o texto antigo de validade temporal explícita da #108/#112.
-
-O arquivo de produção não existe na main atual. Por isso a correção está apresentada
-como patch obrigatório, auditado no diff e aplicado automaticamente pelo preparador.
-Na integração dos PRs, o administrador deve aplicar a mesma correção ao arquivo já
-integrado (`git apply --check scripts/integrity/fixes.patch`, depois `git apply`),
-conciliar a ponta Alembic e reexecutar a matriz na base resultante. Não é uma correção
-oculta do ambiente nem evidência de código já entregue em produção.
+O resolver compartilhado usa `parsed.comeca_em`/`data_jogo` e `usos_conta_casa`.
+Referência explícita validada identifica a conta que realmente fez a bet,
+mesmo histórica/inativa; referência inválida não recebe fallback. Ocorrência
+continua determinando matching e cortes da sessão, nunca a conta padrão.
 
 ## Requisitos e provas
 
@@ -118,7 +78,8 @@ PostgreSQL, locks/RLS/constraints, HTTP ASGI e o transporte Redis são reais. Is
 comprova extensão instalada, provedor produtivo, staging, réplica hot standby ou deploy.
 Não provisiona serviços, não reconcilia usuários reais e não faz merge dos PRs.
 
-A entrega técnica da #112 ficará `Esperando lançamento` enquanto esses pré-requisitos
-continuarem abertos. Responsável pela integração: administrador do repositório.
-Próximo passo: integrar dependências e a correção explícita, repetir gates na base
-integrada e só então adotar a matriz diretamente sobre essa base.
+A integração de código desta parte fica **Esperando revisão** depois que todos
+os checks aplicáveis do HEAD estiverem verdes. Ativação de produção depende do
+lançamento e não é simulada por esta evidência. O pacote humano de fixtures da
+#114 continua fora do Git e aguardando o administrador; esta matriz usa apenas
+contratos sintéticos independentes já publicados, sem aprovar leitores produtivos.

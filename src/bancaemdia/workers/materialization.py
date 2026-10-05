@@ -598,7 +598,9 @@ async def _gravar_coletada(
         explicit = (
             (conta_casa_id if explicit_account else None)
             if conta_casa_id is not None
-            else coleta_criacao.bruto_json.get("conta_casa_ref", coleta_criacao.bruto_json.get("conta_casa_id"))
+            else coleta_criacao.bruto_json.get(
+                "conta_casa_ref", coleta_criacao.bruto_json.get("conta_casa_id")
+            )
         )
         try:
             account_resolution = await attribute_account(

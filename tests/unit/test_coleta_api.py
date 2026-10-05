@@ -70,6 +70,9 @@ def _banco(recebidas_hoje=0):
             )
 
     class ColetaCasaRepo:
+        async def matching_counts(self, session, usuario_id, chave):
+            return {}
+
         async def lock_daily_admission(self, session, usuario_id):
             pass
 

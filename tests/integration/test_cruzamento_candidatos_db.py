@@ -231,8 +231,13 @@ async def test_financial_manual_confirmation_invalidates_candidates_and_reviews(
             session.add(house_row)
             await session.flush()
             house_id = house_row.id
-        session.add(
-            models.ContaCasa(usuario_id=user, casa_id=house_id, apelido="synthetic-default")
+        account = models.ContaCasa(usuario_id=user, casa_id=house_id, apelido="synthetic-default")
+        session.add(account)
+        await session.flush()
+        from bancaemdia.repositories.uso_conta_casa_repo import UsoContaCasaRepo
+
+        await UsoContaCasaRepo().open(
+            session, user, house_id, account.id, datetime(2020, 1, 1, tzinfo=UTC)
         )
 
     house, _, _ = await create(engine_app, user, "casa")
@@ -278,7 +283,6 @@ async def test_real_collection_http_response_reports_persisted_candidate_counts(
     from bancaemdia.api.v1 import coleta
     from bancaemdia.db.seed import seed_canonical
     from bancaemdia.db.session import get_db
-    from bancaemdia.repositories.coleta_token_repo import ColetaTokenRepo
 
     async with engine_admin.begin() as conn:
         await seed_canonical(conn)
@@ -293,7 +297,15 @@ async def test_real_collection_http_response_reports_persisted_candidate_counts(
     token = "synthetic-" + uuid4().hex
     async with AsyncSession(engine_app) as session, session.begin():
         await owner(session, user)
-        await ColetaTokenRepo().create(session, user, coleta.hash_do_token(token))
+        session.add(
+            models.ColetaInstalacao(
+                usuario_id=user,
+                instalacao_publica_id=uuid4(),
+                token_hash=coleta.hash_do_token(token),
+                token_prefixo=token[:12],
+                pareado_em=datetime.now(UTC),
+            )
+        )
 
     async def database():
         async with AsyncSession(engine_app) as session:

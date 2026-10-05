@@ -290,7 +290,7 @@ def test_resend_keeps_the_account_and_the_image_it_cannot_see(monkeypatch) -> No
 
     primeira, segunda = banco.upserts
     assert (primeira["conta_casa_id"], primeira["midia_hash"]) == (3, "hash-da-foto")
-    assert segunda["conta_casa_id"] is None
+    assert "conta_casa_id" not in segunda  # unchanged projection retains its original account
     assert "midia_hash" not in segunda
 
 
@@ -775,7 +775,7 @@ def test_open_house_bet_that_settles_gets_the_result_the_house_paid(monkeypatch)
     assert [e["tipo"] for e in banco.eventos] == ["APOSTA_CRIADA", "RESULTADO_REGISTRADO"]
     assert banco.eventos[1]["payload_json"]["retorno_centavos"] == 30400
     assert (banco.upserts[-1]["estado"], banco.upserts[-1]["retorno_centavos"]) == ("GREEN", 30400)
-    assert banco.upserts[-1]["conta_casa_id"] is None
+    assert "conta_casa_id" not in banco.upserts[-1]  # settlement retains the existing account
     assert len(banco.publicados) == 1
 
 

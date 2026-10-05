@@ -116,8 +116,23 @@ rollback de aplicação mantendo tabelas, sem reativar o pareador antigo que alt
 totais. Um ensaio de downgrade vazio/upgrade e recusa com dados roda em banco
 descartável separado, nunca no banco compartilhado dos outros testes.
 
-Esta entrega parte de main. Na futura convergência com #163/#164, preservar a
-admissão/autenticação e o corte v2, a chamada de geração após materialização, e
-conciliar as novas pontas de Alembic sem reescrever revisões publicadas. A #110
-deverá revalidar sob lock fontes, elegibilidade e versão antes de consolidar.
-Não foi implementada nem autorizada consolidação automática nesta issue.
+A parte 5 integra coleta, matching e consolidação no próprio código, com base
+main e ponta `h5review2026`. A consolidação relê fontes e reavalia versão,
+concorrentes e saturação sob locks antes de criar um fato financeiro.
+
+## Privacidade e evidência
+
+Explicações usam nomes de sinais e motivos fixos, sem valores de tickets,
+identificadores pessoais ou conteúdo bruto interpolado. Revisão visível contém
+apenas IDs internos do par do usuário, status e explicação; candidatos
+incompatíveis não criam uma revisão visível. Originais são entradas permitidas
+do matching, com allowlist também nas seleções; campos arbitrários de autenticação,
+sessão e notas não são copiados. Não há payload bruto em métricas/logs.
+
+Ticket e seleções necessários à comparação continuam sendo dados privados do
+tenant, protegidos por RLS e FKs compostas. A evidência financeira preserva fontes
+e contexto auditáveis em vez de apagar dados necessários ao replay. Criptografia
+do armazenamento depende da infraestrutura do banco/backup; o aplicativo não
+declara ter provisionado esse controle e não o substitui por hashes dos tickets.
+Uma mesma fotografia usa configuração/versão fixa e resultados determinísticos;
+alterar score/status persistido não substitui revalidação das fontes no serviço.

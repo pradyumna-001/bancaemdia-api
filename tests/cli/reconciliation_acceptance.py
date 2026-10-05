@@ -76,7 +76,9 @@ async def owner(session, user):
     )
 
 
-async def account(engine_admin, engine_app, user, *, desde=PLACED - timedelta(days=1), ate=None):
+async def account(
+    engine_admin, engine_app, user, *, desde=PLACED - timedelta(days=1), ate=None, usage=True
+):
     async with engine_admin.begin() as conn:
         await conn.execute(
             pg_insert(models.Casa)
@@ -95,6 +97,12 @@ async def account(engine_admin, engine_app, user, *, desde=PLACED - timedelta(da
         )
         session.add(row)
         await session.flush()
+        if usage:
+            from bancaemdia.repositories.uso_conta_casa_repo import UsoContaCasaRepo
+
+            window = await UsoContaCasaRepo().open(session, user, house_id, row.id, desde)
+            if ate is not None:
+                await UsoContaCasaRepo().close(session, window.id, ate)
         return row.id
 
 
@@ -457,10 +465,13 @@ async def test_account_or_prior_decision_blocked_exact_stays_in_visible_review(
     engine_admin, engine_app, novo_usuario, kind
 ):
     user, _, _, _aid = await fixture_pair(
-        engine_admin, engine_app, novo_usuario, accounts=kind != "missing"
+        engine_admin, engine_app, novo_usuario, accounts=kind not in {"missing", "ambiguous"}
     )
     if kind == "ambiguous":
-        await account(engine_admin, engine_app, user)
+        # Two identities without a usage cannot establish a default. PostgreSQL
+        # forbids overlapping usages; the pure resolver separately tests ambiguity.
+        await account(engine_admin, engine_app, user, usage=False)
+        await account(engine_admin, engine_app, user, usage=False)
     if kind == "invalid_explicit":
         async with AsyncSession(engine_app) as session, session.begin():
             await owner(session, user)

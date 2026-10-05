@@ -458,7 +458,12 @@ async def _escrever(
         ):
             novos.append(
                 EventoNovo(
-                    "CORRECAO_MANUAL", "manual", {"conta_casa_id": account_resolution.conta_casa_id, "conta_referencia_explicita": explicit_reference(depois) is not None}
+                    "CORRECAO_MANUAL",
+                    "manual",
+                    {
+                        "conta_casa_id": account_resolution.conta_casa_id,
+                        "conta_referencia_explicita": explicit_reference(depois) is not None,
+                    },
                 )
             )
     gravada = await _aplicar(session, usuario, chave, novos, depois)
@@ -514,6 +519,9 @@ async def corrigir_aposta(
                     "manual",
                     {
                         "conta_referencia_explicita": pedido["conta_casa_id"] is not None,
+                        "conta_atribuicao": "explicit"
+                        if pedido["conta_casa_id"] is not None
+                        else "unassigned",
                         "conta_casa_ref": pedido["conta_casa_id"],
                     },
                 )
@@ -647,11 +655,19 @@ async def criar_aposta(
         erro_id := erro_de_id("conta_casa_id", manual.conta_casa_id)
     ):
         return erro(status.HTTP_422_UNPROCESSABLE_ENTITY, erro_id)
-    if manual.conta_casa_ref is not None and manual.conta_casa_id is not None and manual.conta_casa_ref != manual.conta_casa_id:
+    if (
+        manual.conta_casa_ref is not None
+        and manual.conta_casa_id is not None
+        and manual.conta_casa_ref != manual.conta_casa_id
+    ):
         return erro(status.HTTP_422_UNPROCESSABLE_ENTITY, "referências de conta conflitantes")
     try:
         account = await attribute_account(
-            session, usuario.id, nome, _data_do_estado(manual.data_jogo), (manual.conta_casa_ref if manual.conta_casa_ref is not None else manual.conta_casa_id)
+            session,
+            usuario.id,
+            nome,
+            _data_do_estado(manual.data_jogo),
+            (manual.conta_casa_ref if manual.conta_casa_ref is not None else manual.conta_casa_id),
         )
     except InvalidAccountReferenceError as invalid:
         return erro(status.HTTP_422_UNPROCESSABLE_ENTITY, str(invalid))
@@ -669,8 +685,11 @@ async def criar_aposta(
         "data_aposta": data_aposta.isoformat(),
         "data_jogo": _quando(_data_do_estado(manual.data_jogo)),
         "revisao_grave": False,
-        "conta_referencia_explicita": manual.conta_casa_ref is not None or manual.conta_casa_id is not None,
-        "conta_casa_ref": manual.conta_casa_ref if manual.conta_casa_ref is not None else manual.conta_casa_id,
+        "conta_referencia_explicita": manual.conta_casa_ref is not None
+        or manual.conta_casa_id is not None,
+        "conta_casa_ref": manual.conta_casa_ref
+        if manual.conta_casa_ref is not None
+        else manual.conta_casa_id,
     }
     if manual.comissao_centavos is not None:
         payload["comissao_centavos"] = manual.comissao_centavos
@@ -754,7 +773,11 @@ async def importar_planilha(
                 VALOR_UNIDADE_PADRAO_CENTAVOS if unidade is None else unidade.valor_centavos
             )
             try:
-                explicit_id = linha.conta_casa_ref if linha.conta_casa_ref is not None else explicit_reference(antes)
+                explicit_id = (
+                    linha.conta_casa_ref
+                    if linha.conta_casa_ref is not None
+                    else explicit_reference(antes)
+                )
                 account = await attribute_account(
                     session, usuario.id, linha.casa, linha.data_jogo, explicit_id
                 )

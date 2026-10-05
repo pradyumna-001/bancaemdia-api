@@ -149,7 +149,7 @@ def test_all_thirty_eight_tables_are_registered() -> None:
             ColetaEntrega,
         )
     }
-    assert len(esperadas) == 51
+    assert len(esperadas) == 54
     assert set(Base.metadata.tables) == esperadas
     assert {m.__tablename__ for m in CANONICOS} == {
         "casas",
@@ -334,6 +334,7 @@ def test_revisao_pendente_indexes() -> None:
 
 def test_bigserial_except_composite_and_billing_owner_keys() -> None:
     for nome in set(Base.metadata.tables) - {
+        "cruzamento_entradas",
         "extracoes_cache",
         "assinaturas",
         "billing_rollout",

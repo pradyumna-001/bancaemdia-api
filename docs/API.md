@@ -53,6 +53,8 @@ python scripts/generate_openapi.py
 | `GET` | `/api/v1/coleta/sessions/{sessao_id}` | Consultar sessão | `200`, `400`, `401`, `402`, `403`, `404`, `409`, `422`, `429`, `500`, `503` | — |
 | `DELETE` | `/api/v1/coleta/sessions/{sessao_id}` | Encerrar sessão | `204`, `400`, `401`, `402`, `403`, `404`, `409`, `422`, `429`, `500`, `503` | — |
 | `GET` | `/api/v1/coleta/status` | Consultar credencial da instalação | `200`, `400`, `401`, `402`, `403`, `404`, `422`, `429`, `500`, `503` | — |
+| `POST` | `/api/v1/consolidacoes` | Consolidar fontes após revisão | `200`, `401`, `402`, `413`, `422`, `429`, `500`, `503` | — |
+| `POST` | `/api/v1/consolidacoes/{relacao_id}/desvincular` | Desvincular fontes após revisão | `200`, `401`, `402`, `413`, `422`, `429`, `500`, `503` | — |
 | `GET` | `/api/v1/painel` | Consultar painel financeiro | `200`, `401`, `402`, `422`, `429`, `500`, `503` | — |
 | `GET` | `/api/v1/painel/export` | Exportar painel em Excel | `200`, `401`, `402`, `422`, `429`, `500`, `503` | — |
 | `GET` | `/api/v1/painel/metricas` | Consultar séries para gráficos | `200`, `401`, `402`, `422`, `429`, `500`, `503` | — |

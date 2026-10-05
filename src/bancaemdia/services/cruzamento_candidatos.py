@@ -32,6 +32,28 @@ FIELDS = (
 )
 
 
+def matching_originals(state: dict[str, Any]) -> dict[str, Any]:
+    """Retain matching inputs, excluding arbitrary nested payload/auth fields.
+
+    Keep an over-budget list over budget: minimization must not convert incomplete
+    evidence into a complete multiple ticket or authorize an automatic fact.
+    """
+    raw = {key: state.get(key) for key in FIELDS}
+    legs = raw.get("selecoes")
+    if isinstance(legs, list) and all(isinstance(leg, dict) for leg in legs):
+        raw["selecoes"] = [
+            {
+                key: leg[key]
+                for key in ("evento", "mercado", "escolha", "linha", "odd")
+                if key in leg
+            }
+            for leg in legs[:33]
+        ]
+    else:
+        raw["selecoes"] = None
+    return raw
+
+
 async def dictionary_for(session: AsyncSession, raw: dict[str, Any]) -> dict[str, str]:
     legs = raw.get("selecoes") or []
     if not isinstance(legs, list) or not all(isinstance(leg, dict) for leg in legs):
@@ -97,7 +119,7 @@ async def generate(session: AsyncSession, user: int, bet: Any, state: dict[str, 
         return "nova"
     if not bet.selecionada or bet.parceira_chave or bet.duplicada_de:
         return "nova"
-    raw = {key: state.get(key) for key in FIELDS}
+    raw = matching_originals(state)
     raw.update(
         usuario_id=user,
         stake_centavos=bet.stake_centavos,

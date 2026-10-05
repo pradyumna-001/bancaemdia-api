@@ -10,7 +10,7 @@ Uma fonte contextual selecionada permanece consultável, mas não soma dinheiro.
 
 O padrão usa **a data do jogo**, `data_jogo`/`comeca_em`. Horário de aposta,
 publicação, captura e ingestão não substituem o jogo ausente. Os intervalos são
-`[desde, ate)`; contas históricas fechadas podem ser válidas na data do jogo.
+`[vigente_de, vigente_ate)`; contas históricas fechadas podem ser válidas na data do jogo.
 Exatamente uma conta deve corresponder ao usuário/casa e ao intervalo. Ausência,
 data ausente ou sobreposição deixam a aposta UNASSIGNED e abrem revisão; a aposta
 continua nos totais gerais. Consolidação automática exige conta resolvida.
@@ -20,8 +20,8 @@ A referência explícita validada tem precedência, mesmo quando outra conta ser
 o padrão na data do jogo. ID inválido ou de outro usuário/casa não recebe fallback.
 Correção manual de `conta_casa_id` é uma decisão explícita auditada. O mesmo
 resolver serve materialização Casa/Telegram, CRUD, importação e replay. A tabela
-de usos publicada na #94, quando presente, substitui os intervalos legados, sem
-alterar esta regra. A ocorrência real continua relevante para matching e cortes
+`usos_conta_casa` é a autoridade temporal; os campos legados da identidade da conta
+não recebem fallback. A ocorrência real continua relevante para matching e cortes
 de coleta; essas operações não são atribuição de conta.
 
 ## Transação e decisões
@@ -95,25 +95,23 @@ permite downgrade e novo upgrade. Métrica `aposta_consolidation_total` usa some
 decisão e resultado de baixa cardinalidade; a auditoria persistida comprova os
 commits, enquanto o contador mede tentativas do serviço, inclusive rollback.
 
-A #111 poderá chamar o serviço compartilhado dentro de transação e usar as mesmas
-revalidações. Nenhuma CLI histórica/backfill produtivo é implementada aqui.
+A CLI histórica da #111 chama este mesmo serviço. A parte 5 integra os serviços,
+os testes e as migrations diretamente na árvore entregue, com base em main.
+`h5review2026` converge `h4review2026`, `c110fact2026` e `r111journal2026`, recompõe
+as views canônicas depois de todas as branches e instala os guards de billing
+nas novas tabelas. Nenhum ID publicado foi reescrito.
 
-## Ensaio de convergência executável
+## Validação da integração
 
-`python scripts/prepare_convergence.py DIRETORIO_NOVO` cria uma composição
-isolada dos HEADs fixados de #164/#163 e #135/#134, incluindo suas bases reais.
-Não modifica a branch de produto nem qualquer PR dependente. O arquivo
-`scripts/convergence/resolution.patch` preserva os dois protocolos de coleta,
-ordenação da origem, limitações HTTP, grants e modelos; adapta a referência
-explícita v2 e a prévia de troca de titular à regra pela data do jogo.
-As rotas, projeção, replay e resolver atuais da #110 prevalecem sobre o código
-mais antigo da #95. Revisões Alembic publicadas conservam seus IDs: uma junção
-somente no ensaio antecede a nova c110fact2026, garantindo que suas views sejam
-criadas depois das migrations das dependências.
+As partes 1, 2 e 4 são pré-requisitos intrínsecos incluídos a partir do PR #179.
+Os PRs #165/#166/#169/#170 permanecem como referências históricas de origem;
+a CI testa o código do HEAD desta entrega, sem preparadores ou patches externos.
+Somatórios por conta e titular também usam o anti-join financeiro canônico.
+PostgreSQL verifica migração, rollback protegido, RLS, ambas as ordens de chegada,
+liquidação, multicontas, CRUD/planilha, replay e CLI histórica. A matriz de integridade
+repete as corridas três vezes com PostgreSQL 16 e Redis 7 exclusivos por job.
 
-O job obrigatório de convergência executa tipagem/lint de todo o código composto,
-os cenários PostgreSQL de pairing/coleta v2 e troca de titular, além da aceitação
-financeira de ambas as ordens, troca temporal real, multicontas histórico e
-replay. Isso comprova essa composição e esse escopo; não substitui a CI completa
-dos PRs de billing nem autoriza seus merges. Se algum HEAD mudar, o ensaio e o
-patch devem ser regenerados/revalidados antes da integração final.
+O relógio da casa recebido da extensão não é uma assinatura do bookmaker. Alterações
+legítimas são auditadas; autenticação da instalação, validação de propriedade,
+revalidação de fonte/conta sob locks e detecção de mudanças impedem usar uma aprovação
+obsoleta. Esta entrega não promete atestação criptográfica do horário de um site.

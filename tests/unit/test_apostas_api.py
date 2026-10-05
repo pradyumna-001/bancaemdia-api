@@ -775,7 +775,7 @@ def test_a_bet_created_by_hand_is_born_from_its_own_creation_event(monkeypatch, 
     assert corpo["conta_casa_id"] == 42
     assert corpo["conta_atribuicao"] == "ASSIGNED"
     assert resposta.json()["casa_id"] == 1
-    assert "aviso" in resposta.json()
+    assert "aviso" not in resposta.json()
 
 
 def test_manual_account_reference_is_saved_and_cross_house_is_rejected(

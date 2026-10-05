@@ -768,7 +768,7 @@ async def test_revisao_pendente_superseded_reviews_of_a_bet_are_resolved() -> No
     assert sql.startswith("UPDATE revisao_pendente SET resolvido_em=now()")
     assert "revisao_pendente.extracao_bruta ->>" in sql
     assert "revisao_pendente.resolvido_em IS NULL" in sql
-    assert "revisao_pendente.motivo != %(motivo_1)s" in sql
+    assert "revisao_pendente.motivo != %(motivo_2)s" in sql
     assert "tipo_revisao" in _params(session.statements[0]).values()
 
     await RevisaoPendenteRepo().resolve_superseded(session, 1, "t:1:1:0", None)

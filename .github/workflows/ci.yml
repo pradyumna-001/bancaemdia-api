@@ -320,7 +320,7 @@ jobs:
   docker-build:
     name: Docker Build
     runs-on: ubuntu-latest
-    needs: [lint, format, typecheck, security, test, contract, accounts-billing-db, pairing-db, catalog, reader-fixtures, reader-postgres]
+    needs: [lint, format, typecheck, security, test, contract, accounts-billing-db, pairing-db, catalog, reader-fixtures, reader-postgres, integrity, reconciliation]
     steps:
       - uses: actions/checkout@v4
       - name: Build Docker image
@@ -369,3 +369,85 @@ jobs:
       - name: Remove disposable catalog database
         if: always()
         run: docker rm --force catalog-postgres
+
+  integrity:
+    name: Collection integrity (PostgreSQL + Redis, repeat ${{ matrix.repeat }})
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        repeat: [1, 2, 3]
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_DB: bancaemdia
+          POSTGRES_USER: bancaemdia
+          POSTGRES_PASSWORD: test-password
+        ports: ["5432:5432"]
+        options: --health-cmd "pg_isready -U bancaemdia -d bancaemdia" --health-interval 5s --health-timeout 3s --health-retries 5
+      redis:
+        image: redis:7
+        ports: ["6379:6379"]
+        options: --health-cmd "redis-cli ping" --health-interval 5s --health-timeout 3s --health-retries 5
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+      - run: pip install -e ".[dev]"
+      - name: Repeated complete matrix with real concurrent requests and workers
+        run: >
+          pytest tests/integration/coleta/ tests/integration/test_troca_titular.py
+          tests/convergence/financial_acceptance.py tests/cli/test_reconciliar_casa_telegram.py
+          tests/integrity/collection_acceptance.py tests/integrity/accounts_races_acceptance.py
+          tests/integrity/security_acceptance.py -n 0 --show-capture=no
+          --junitxml=integrity-results.xml
+        env:
+          TEST_DATABASE_URL: postgresql+asyncpg://bancaemdia:test-password@localhost:5432/bancaemdia
+          REDIS_URL: redis://localhost:6379/0
+          INTEGRITY_SEED: ${{ matrix.repeat }}
+          CELERY_BROKER_URL: redis://localhost:6379/0
+          CELERY_RESULT_BACKEND: redis://localhost:6379/1
+      - name: Reject missing, skipped, failed or duplicated acceptance cases
+        run: python scripts/check_integrity_junit.py integrity-results.xml
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: integrity-repeat-${{ matrix.repeat }}
+          path: |
+            integrity-results.xml
+            integrity-diagnostics/
+
+  reconciliation:
+    name: Historical reconciliation (PostgreSQL)
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_DB: bancaemdia
+          POSTGRES_USER: bancaemdia
+          POSTGRES_PASSWORD: test-password
+        ports: ["5432:5432"]
+        options: --health-cmd "pg_isready -U bancaemdia -d bancaemdia" --health-interval 5s --health-timeout 3s --health-retries 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+      - run: pip install -e ".[dev]"
+      - run: pytest tests/cli/reconciliation_acceptance.py -n 0 --show-capture=no --junitxml=reconciliation-results.xml
+        env:
+          TEST_DATABASE_URL: postgresql+asyncpg://bancaemdia:test-password@localhost:5432/bancaemdia
+      - run: python scripts/check_review_acceptance.py reconciliation-results.xml
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: historical-reconciliation
+          path: reconciliation-results.xml
