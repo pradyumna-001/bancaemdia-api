@@ -15,6 +15,7 @@ def test_only_missing_or_ambiguous_fields_are_requested() -> None:
         "odd": 1.82,
         "evento": "Corinthians x Santos",
         "data_aposta": "2026-09-20T21:00:00-03:00",
+        "data_jogo": "2026-09-21T21:00:00-03:00",
     }
     missing = missing_fields(values, {"odd": {"source": "extraction", "confidence": 0.95}})
     assert missing == ["casa", "stake_unidades"]
@@ -31,6 +32,7 @@ def test_low_confidence_and_invalid_extraction_are_not_trusted() -> None:
         "odd": 1.01,
         "stake_unidades": 0,
         "data_aposta": "2026-09-20T21:00:00-03:00",
+        "data_jogo": "2026-09-21T21:00:00-03:00",
     }
     metadata = {"odd": {"source": "extraction", "confidence": 0.3}}
     assert missing_fields(values, metadata) == ["odd", "stake_unidades"]

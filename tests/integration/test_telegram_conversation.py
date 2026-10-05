@@ -59,6 +59,7 @@ async def test_missing_house_and_stake_resume_without_photo_or_financial_bet(
                 "odd": 1.82,
                 "evento": "Corinthians x Santos",
                 "data_aposta": "2026-09-20T21:00:00-03:00",
+                "data_jogo": "2026-09-21T21:00:00-03:00",
             },
             confidence={"odd": 0.96},
         )
@@ -197,6 +198,7 @@ async def test_missing_usage_offers_account_choice_without_guessing(
                 "odd": 1.8,
                 "stake_unidades": 2,
                 "data_aposta": "2026-09-20T21:00:00-03:00",
+                "data_jogo": "2026-09-21T21:00:00-03:00",
             },
         )
         assert created and draft.missing_fields_json == ["conta_casa_id"]

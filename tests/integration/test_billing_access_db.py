@@ -1,5 +1,6 @@
 """Exercise the access decision and database guard against real PostgreSQL."""
 
+from datetime import UTC, datetime
 from uuid import uuid4
 
 import pytest
@@ -43,7 +44,7 @@ async def test_trial_and_paid_boundaries_agree_in_service_and_sql(
             if confirmed:
                 await conn.execute(
                     text(
-                        "WITH bounds AS (SELECT clock_timestamp()+CAST(:trial_end AS interval) AS finish) "
+                        "WITH bounds AS (SELECT clock_timestamp()+CAST(CAST(:trial_end AS text) AS interval) AS finish) "
                         "UPDATE assinaturas SET trial_confirmed=true, trial_ends_at=bounds.finish, "
                         "trial_started_at=bounds.finish-interval '168 hours' FROM bounds WHERE usuario_id=:uid"
                     ),
@@ -59,7 +60,7 @@ async def test_trial_and_paid_boundaries_agree_in_service_and_sql(
                 text(
                     "UPDATE assinaturas SET status=:status, price_id=:price, "
                     "current_period_started_at=clock_timestamp()-interval '2 days', "
-                    "current_period_ends_at=clock_timestamp()+CAST(:paid_end AS interval) WHERE usuario_id=:uid"
+                    "current_period_ends_at=clock_timestamp()+CAST(CAST(:paid_end AS text) AS interval) WHERE usuario_id=:uid"
                 ),
                 {"uid": uid, "status": status, "paid_end": paid_end, "price": price},
             )
@@ -112,6 +113,117 @@ async def test_missing_owner_is_denied_even_before_rollout(engine_admin):
             with pytest.raises(DBAPIError) as error:
                 await conn.execute(
                     text("INSERT INTO bancas(usuario_id,nome) VALUES(NULL,'Missing tenant')")
+                )
+            assert error.value.orig.sqlstate == "P0402"
+        finally:
+            await transaction.rollback()
+
+
+async def test_expired_account_erasure_keeps_business_writes_denied(engine_admin):
+    from bancaemdia.api.v1.usuario import anonimizar_minha_conta
+    from bancaemdia.domain.registros import Usuario
+
+    uid = uuid4().int % 2**60
+    async with engine_admin.connect() as conn:
+        transaction = await conn.begin()
+        try:
+            await conn.execute(
+                text("SELECT set_config('app.current_user_id', :uid, true)"), {"uid": str(uid)}
+            )
+            await conn.execute(
+                text("INSERT INTO usuarios(id,email,nome) VALUES (:uid,:email,'Erasure fixture')"),
+                {"uid": uid, "email": f"{uid}@test.invalid"},
+            )
+            await conn.execute(
+                text("INSERT INTO bancas(usuario_id,nome) VALUES (:uid,'Existing bank')"),
+                {"uid": uid},
+            )
+            await conn.execute(
+                text(
+                    "WITH bounds AS (SELECT clock_timestamp()-interval '1 day' AS finish) "
+                    "INSERT INTO assinaturas(usuario_id,status,trial_started_at,trial_ends_at) "
+                    "SELECT :uid,'TRIALING',finish-interval '168 hours',finish FROM bounds"
+                ),
+                {"uid": uid},
+            )
+            await conn.execute(text("SELECT billing_activate_rollout()"))
+            await conn.execute(text("SET LOCAL ROLE bancaemdia_app"))
+            await conn.execute(
+                text("SELECT set_config('app.erase_user_data', :uid, true)"),
+                {"uid": str(uid + 1)},
+            )
+            nested = await conn.begin_nested()
+            try:
+                with pytest.raises(DBAPIError) as error:
+                    await conn.execute(
+                        text("DELETE FROM bancas WHERE usuario_id=:uid"), {"uid": uid}
+                    )
+                assert error.value.orig.sqlstate == "P0402"
+            finally:
+                await nested.rollback()
+            await conn.execute(
+                text("SELECT set_config('app.erase_user_data', :uid, true)"), {"uid": str(uid)}
+            )
+            for statement in (
+                "INSERT INTO bancas(usuario_id,nome) VALUES (:uid,'Forbidden bank')",
+                "UPDATE bancas SET nome='Forbidden edit' WHERE usuario_id=:uid",
+            ):
+                nested = await conn.begin_nested()
+                try:
+                    with pytest.raises(DBAPIError) as error:
+                        await conn.execute(text(statement), {"uid": uid})
+                    assert error.value.orig.sqlstate == "P0402"
+                finally:
+                    await nested.rollback()
+            await conn.execute(text("SELECT set_config('app.erase_user_data', '', true)"))
+            async with AsyncSession(bind=conn, join_transaction_mode="create_savepoint") as session:
+                with pytest.raises(AccountReadOnlyError):
+                    await require_write_access(session, uid)
+                response = await anonimizar_minha_conta(
+                    Usuario(
+                        id=uid,
+                        email=f"{uid}@test.invalid",
+                        nome="Erasure fixture",
+                        criado_em=datetime.now(UTC),
+                        ativo=True,
+                    ),
+                    session,
+                )
+                assert response.status_code == 200
+            assert (
+                await conn.scalar(text("SELECT ativo FROM usuarios WHERE id=:uid"), {"uid": uid})
+                is False
+            )
+            assert (
+                await conn.scalar(
+                    text("SELECT count(*) FROM bancas WHERE usuario_id=:uid"), {"uid": uid}
+                )
+                == 0
+            )
+        finally:
+            await transaction.rollback()
+
+
+async def test_nullable_owner_cannot_be_removed_using_the_old_row(engine_admin):
+    uid = uuid4().int % 2**60
+    async with engine_admin.connect() as conn:
+        transaction = await conn.begin()
+        try:
+            await conn.execute(
+                text("INSERT INTO usuarios(id,email,nome) VALUES (:uid,:email,'Owner fixture')"),
+                {"uid": uid, "email": f"{uid}@test.invalid"},
+            )
+            await conn.execute(
+                text(
+                    "INSERT INTO chamadas_ia(usuario_id,modelo,tokens_entrada,tokens_saida,custo_usd) "
+                    "VALUES (:uid,'synthetic',1,1,0)"
+                ),
+                {"uid": uid},
+            )
+            with pytest.raises(DBAPIError) as error:
+                await conn.execute(
+                    text("UPDATE chamadas_ia SET usuario_id=NULL WHERE usuario_id=:uid"),
+                    {"uid": uid},
                 )
             assert error.value.orig.sqlstate == "P0402"
         finally:

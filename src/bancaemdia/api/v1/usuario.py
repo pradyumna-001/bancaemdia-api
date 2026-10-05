@@ -8,7 +8,7 @@ from fastapi.encoders import jsonable_encoder
 from fastapi.responses import JSONResponse, Response
 from openpyxl import Workbook
 from pydantic import BaseModel, ConfigDict
-from sqlalchemy import delete, select, update
+from sqlalchemy import delete, select, text, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from bancaemdia.api.contracts import AUTHENTICATED_ERROR_RESPONSES, ErrorResponse
@@ -220,6 +220,9 @@ async def anonimizar_minha_conta(
                 status_code=409,
                 detail="Há mensagens ou fotos importadas que exigem exclusão assistida.",
             )
+    await session.execute(
+        text("SELECT set_config('app.erase_user_data', :uid, true)"), {"uid": str(usuario.id)}
+    )
     from bancaemdia.services.telegram_privacy import forget_pending_content
 
     await forget_pending_content(session, usuario.id)

@@ -24,6 +24,7 @@ def fields_from_coupon(
         ("odd", coupon.odd_total),
         ("stake_unidades", coupon.stake_unidades),
         ("data_aposta", coupon.quando),
+        ("data_jogo", coupon.quando),
         ("evento", coupon.evento),
     ):
         if value is not None:

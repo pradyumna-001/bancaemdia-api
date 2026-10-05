@@ -51,6 +51,7 @@ EXAMPLE = {
     "odd": "odd=1,90",
     "conta_casa_id": "conta=123",
     "data_aposta": "data=23/09/2026",
+    "data_jogo": "jogo=24/09/2026",
 }
 EDITABLE = frozenset(ALIAS.values()) & CAMPOS_CORRIGIVEIS
 _FIELD = re.compile(
@@ -86,7 +87,7 @@ def valid_value(field: str, value: object) -> bool:
         return False
     if field == "casa":
         return isinstance(value, str) and casa_canonica(value) is not None
-    if field == "data_aposta":
+    if field in {"data_aposta", "data_jogo"}:
         return _date(value) is not None
     try:
         validar_correcao({field: value}, {})
@@ -118,6 +119,17 @@ def missing_fields(
             result.append(field)
     if not valid_value("data_aposta", fields.get("data_aposta")):
         result.append("data_aposta")
+    account_meta = metadata.get("conta_casa_id")
+    explicit = isinstance(account_meta, dict) and account_meta.get("source") == "user"
+    game_meta = metadata.get("data_jogo")
+    uncertain_game = (
+        isinstance(game_meta, dict)
+        and game_meta.get("source") not in {"user", "resolver"}
+        and isinstance(game_meta.get("confidence"), (int, float))
+        and (not isfinite(game_meta["confidence"]) or game_meta["confidence"] < MIN_CONFIDENCE)
+    )
+    if not explicit and (not valid_value("data_jogo", fields.get("data_jogo")) or uncertain_game):
+        result.append("data_jogo")
     if account_needs_choice and "casa" not in result and "data_aposta" not in result:
         result.append("conta_casa_id")
     return result

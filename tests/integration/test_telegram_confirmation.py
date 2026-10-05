@@ -75,6 +75,7 @@ async def _draft(
                 "mercado_bruto": "Resultado final",
                 "stake_unidades": 2.0 if complete else None,
                 "data_aposta": "2026-09-20T21:00:00-03:00",
+                "data_jogo": "2026-09-21T21:00:00-03:00",
             },
             confidence={"casa": 0.99, "odd": 0.99},
         )

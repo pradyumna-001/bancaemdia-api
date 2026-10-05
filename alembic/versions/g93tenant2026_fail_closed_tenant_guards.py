@@ -44,8 +44,33 @@ def upgrade() -> None:
             SELECT pg_get_functiondef('public.billing_require_write()'::regprocedure)
                 INTO definition;
             definition := replace(definition,
+                'uid := COALESCE(to_jsonb(NEW)->>''usuario_id'', to_jsonb(OLD)->>''usuario_id'')::bigint;',
+                'uid := CASE WHEN TG_OP=''DELETE'' THEN (to_jsonb(OLD)->>''usuario_id'')::bigint ELSE (to_jsonb(NEW)->>''usuario_id'')::bigint END;');
+            definition := replace(definition,
                 'IF uid IS NULL OR NOT EXISTS',
                 'IF uid IS NULL THEN RAISE EXCEPTION ''billing tenant missing'' USING ERRCODE=''P0402''; END IF; IF NOT EXISTS');
+            IF strpos(definition, '-- Cancellation and deferred-queue metadata are control operations.') = 0 THEN
+                RAISE EXCEPTION 'unknown billing guard contract';
+            END IF;
+            IF strpos(definition, '-- Authenticated account erasure') = 0 THEN
+              definition := replace(definition, '-- Cancellation and deferred-queue metadata are control operations.', $erasure$
+            -- Authenticated account erasure cannot create or edit business data.
+            IF uid = NULLIF(current_setting('app.erase_user_data', true), '')::bigint
+               AND uid = NULLIF(current_setting('app.current_user_id', true), '')::bigint THEN
+                IF TG_OP='DELETE' THEN RETURN OLD; END IF;
+                IF TG_TABLE_NAME='eventos' AND TG_OP='UPDATE' THEN
+                  IF NEW.payload_json='{}'::jsonb AND NEW.chat_id IS NULL
+                   AND NEW.message_id IS NULL AND NEW.aposta_chave IS NULL
+                   AND NEW.confianca IS NULL
+                   AND (to_jsonb(NEW)-ARRAY['payload_json','chat_id','message_id','aposta_chave','confianca'])
+                       = (to_jsonb(OLD)-ARRAY['payload_json','chat_id','message_id','aposta_chave','confianca']) THEN
+                      RETURN NEW;
+                  END IF;
+                END IF;
+            END IF;
+            -- Cancellation and deferred-queue metadata are control operations.
+            $erasure$);
+            END IF;
             EXECUTE definition;
         END $fix$
     """)
@@ -62,7 +87,7 @@ def upgrade() -> None:
                 IF NOT EXISTS (
                     SELECT 1 FROM pg_attribute WHERE attrelid=target
                     AND attname=item.tenant_column AND NOT attisdropped
-                    AND atttypid='bigint'::regtype AND attnotnull
+                    AND atttypid='bigint'::regtype
                 ) THEN
                     RAISE EXCEPTION 'billing tenant column invalid: %.%', item.table_name,
                         item.tenant_column USING ERRCODE='P0402';

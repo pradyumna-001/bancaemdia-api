@@ -197,20 +197,27 @@ async def test_bet_goes_to_the_users_account_at_the_house_it_was_read_from(
     async with como(engine_app, usuario) as session:
         conta = await ContaCasaRepo().create(session, {"usuario_id": usuario, "casa_id": casa_id})
         await UsoContaCasaRepo().open(
-            session, usuario, casa_id, conta.id, datetime(2026, 7, 1, tzinfo=UTC)
+            session, usuario, casa_id, conta.id, datetime(2026, 7, 25, tzinfo=UTC)
         )
         await session.commit()
 
-    await _materializar(engine_app, usuario, _extracao())
+    bilhete = ExtracaoBilhete.model_validate(_extracao()["bilhete"])
+    leitura = _extracao(
+        bilhete=bilhete.model_copy(update={"quando": "2026-07-26T12:00:00-03:00"}).model_dump(
+            mode="json"
+        )
+    )
+    await _materializar(engine_app, usuario, leitura)
     aposta = await _aposta(engine_app, como, usuario)
     async with engine_admin.begin() as conn:
         await conn.execute(
             update(models.ContaCasa).where(models.ContaCasa.id == conta.id).values(ativa=False)
         )
-    await _materializar(engine_app, usuario, _extracao())
+    await _materializar(engine_app, usuario, leitura)
     reenviada = await _aposta(engine_app, como, usuario)
 
     assert aposta is not None and aposta.conta_casa_id == conta.id
+    assert aposta.data_jogo == datetime(2026, 7, 26, 15, tzinfo=UTC)
     assert reenviada is not None and reenviada.conta_casa_id == conta.id
 
 

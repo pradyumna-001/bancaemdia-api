@@ -772,17 +772,16 @@ async def test_subscription_denial_preserves_cancellation_and_purge(bot, engine_
         async with bot.como(bot.engine, bot.user) as session:
             stored = await session.get(models.RascunhoAposta, draft.id)
             assert stored.fields_json == {} and stored.purged_at
-        if True:  # Both production migration chains are installed in this suite.
-            from sqlalchemy.exc import DBAPIError
+        from sqlalchemy.exc import DBAPIError
 
-            with pytest.raises(DBAPIError) as error:
-                async with bot.como(bot.engine, bot.user) as session:
-                    await session.execute(
-                        update(models.RascunhoAposta)
-                        .where(models.RascunhoAposta.id == draft.id)
-                        .values(fields_json={"stake_unidades": 999})
-                    )
-            assert getattr(error.value.orig, "sqlstate", None) == "P0402"
+        with pytest.raises(DBAPIError) as error:
+            async with bot.como(bot.engine, bot.user) as session:
+                await session.execute(
+                    update(models.RascunhoAposta)
+                    .where(models.RascunhoAposta.id == draft.id)
+                    .values(fields_json={"stake_unidades": 999})
+                )
+        assert getattr(error.value.orig, "sqlstate", None) == "P0402"
     finally:
         async with engine_admin.begin() as conn:
             await conn.execute(text("UPDATE billing_rollout SET activated_at=NULL WHERE id=1"))

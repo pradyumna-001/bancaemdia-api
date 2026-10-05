@@ -12,12 +12,12 @@ from bancaemdia.domain.account_attribution import ResolutionStatus
 from bancaemdia.domain.account_attribution_service import (
     InvalidAccountReferenceError,
     attribute_account,
+    game_instant,
 )
 from bancaemdia.domain.materializar import casa_canonica
 from bancaemdia.domain.rascunho_aposta import (
     DraftInputError,
     missing_fields,
-    occurrence,
     parse_reply,
     summary,
     valid_value,
@@ -112,15 +112,17 @@ async def _assess(
     values = dict(fields)
     meta = dict(metadata)
     house = values.get("casa")
-    instant = occurrence(values)
+    instant = game_instant(values)
     account_needs_choice = False
-    if valid_value("casa", house) and instant is not None:
-        explicit = (
-            values.get("conta_casa_id")
-            if isinstance(meta.get("conta_casa_id"), dict)
-            and meta["conta_casa_id"].get("source") == "user"
-            else None
-        )
+    explicit = (
+        values.get("conta_casa_id")
+        if isinstance(meta.get("conta_casa_id"), dict)
+        and meta["conta_casa_id"].get("source") == "user"
+        else None
+    )
+    if explicit is not None and (type(explicit) is not int or explicit <= 0):
+        raise DraftInputError("Informe uma referência válida da conta que fez a aposta.")
+    if valid_value("casa", house) and (instant is not None or explicit is not None):
         try:
             resolution = await attribute_account(
                 session,
