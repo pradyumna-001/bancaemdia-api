@@ -19,6 +19,22 @@ async def _current_user(request: Request, session: AsyncSession) -> Usuario:
             detail="Invalid token",
             headers={"WWW-Authenticate": 'Bearer error="invalid_token"'},
         )
+    from bancaemdia.auth.middleware import route_path
+
+    path = route_path(request)
+    control_operation = (request.method, path) in {
+        ("POST", "/api/v1/telegram/link-codes"),
+        ("DELETE", "/api/v1/telegram/link"),
+        ("DELETE", "/api/v1/usuario/me"),
+    }
+    if (
+        not control_operation
+        and request.method not in {"GET", "HEAD", "OPTIONS"}
+        and not path.startswith("/api/v1/billing/")
+    ):
+        from bancaemdia.domain.access import require_write_access
+
+        await require_write_access(session, usuario.id)
     return usuario
 
 
