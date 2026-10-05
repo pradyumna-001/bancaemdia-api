@@ -44,9 +44,16 @@ def upgrade() -> None:
             SELECT pg_get_functiondef('public.billing_require_write()'::regprocedure)
                 INTO definition;
             definition := replace(definition,
+                'uid := COALESCE(to_jsonb(NEW)->>''usuario_id'', to_jsonb(OLD)->>''usuario_id'')::bigint;',
+                'uid := CASE WHEN TG_OP=''DELETE'' THEN (to_jsonb(OLD)->>''usuario_id'')::bigint ELSE (to_jsonb(NEW)->>''usuario_id'')::bigint END;');
+            definition := replace(definition,
                 'IF uid IS NULL OR NOT EXISTS',
                 'IF uid IS NULL THEN RAISE EXCEPTION ''billing tenant missing'' USING ERRCODE=''P0402''; END IF; IF NOT EXISTS');
-            definition := replace(definition, '-- Cancellation and deferred-queue metadata', $erasure$
+            IF strpos(definition, '-- Cancellation and deferred-queue metadata are control operations.') = 0 THEN
+                RAISE EXCEPTION 'unknown billing guard contract';
+            END IF;
+            IF strpos(definition, '-- Authenticated account erasure') = 0 THEN
+              definition := replace(definition, '-- Cancellation and deferred-queue metadata are control operations.', $erasure$
             -- Authenticated account erasure cannot create or edit business data.
             IF uid = NULLIF(current_setting('app.erase_user_data', true), '')::bigint
                AND uid = NULLIF(current_setting('app.current_user_id', true), '')::bigint THEN
@@ -61,8 +68,9 @@ def upgrade() -> None:
                   END IF;
                 END IF;
             END IF;
-            -- Cancellation and deferred-queue metadata
+            -- Cancellation and deferred-queue metadata are control operations.
             $erasure$);
+            END IF;
             EXECUTE definition;
         END $fix$
     """)
