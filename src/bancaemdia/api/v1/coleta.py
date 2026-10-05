@@ -218,6 +218,7 @@ async def receber_coleta(request: Request, session: AsyncSession = Depends(get_d
 
     # O teto vem antes de ler o corpo: quem já passou dele não custa nem a memória do envio.
     hoje = datetime.now(UTC).replace(hour=0, minute=0, second=0, microsecond=0)
+    await ColetaCasaRepo().lock_daily_admission(session, usuario_id)
     quantas = await ColetaCasaRepo().count_received_since(session, usuario_id, hoje)
     recado = recado_de_teto(quantas, get_settings().COLETA_DAILY_LIMIT)
     if recado is not None:
@@ -233,7 +234,11 @@ async def receber_coleta(request: Request, session: AsyncSession = Depends(get_d
         envio = json.loads(corpo.decode("utf-8", "replace"))
     except ValueError:
         return erro(status.HTTP_400_BAD_REQUEST, "não entendi o que a extensão mandou")
-    if not isinstance(envio, dict) or envio.get("contrato") != CONTRATO:
+    if (
+        not isinstance(envio, dict)
+        or isinstance(envio.get("contrato"), bool)
+        or envio.get("contrato") != CONTRATO
+    ):
         return erro(
             status.HTTP_400_BAD_REQUEST,
             "esta versão do planilhador não conhece o formato que a extensão mandou — atualize"

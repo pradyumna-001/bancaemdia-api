@@ -34,6 +34,7 @@ app = Celery(
         "bancaemdia.workers.extraction",
         "bancaemdia.workers.materialization",
         "bancaemdia.workers.upload",
+        "bancaemdia.workers.coleta_v2",
     ],
 )
 app.conf.update(
@@ -55,6 +56,12 @@ app.conf.update(
         Queue(MATERIALIZATION_QUEUE, routing_key=MATERIALIZATION_QUEUE),
     ),
 )
+
+app.conf.beat_schedule = {
+    **(app.conf.beat_schedule or {}),
+    "collection-v2-inbox": {"task": "materialization.collection_v2", "schedule": 10.0},
+}
+
 
 dead_letter_queue = Queue(DEAD_LETTER_QUEUE, routing_key=DEAD_LETTER_QUEUE)
 

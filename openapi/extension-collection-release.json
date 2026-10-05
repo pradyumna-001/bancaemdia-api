@@ -1,0 +1,14 @@
+{
+  "artifact": "/api/v1/coleta/contract/schema",
+  "artifact_sha256": "efaba996df981e884cd774347ba3e160350101fca2cd33ec5ba79b5512fedcc4",
+  "client_protocol_max": 2,
+  "client_protocol_min": 1,
+  "current_contract": 2,
+  "deprecation_date": null,
+  "minimum_deprecation_days": 90,
+  "schema_sha256": "22d0e2968e2ca29d19037db8f73ef654697238a76cd87c9f23c94a7b7498c64a",
+  "supported_contracts": [
+    1,
+    2
+  ]
+}
