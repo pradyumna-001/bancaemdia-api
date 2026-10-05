@@ -25,5 +25,3 @@ class ColetaCasa(Base):
         DateTime(timezone=True), server_default=func.now()
     )
     processado_em: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
-    v2_fonte_em: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
-    v2_hash: Mapped[str | None] = mapped_column(String(64))

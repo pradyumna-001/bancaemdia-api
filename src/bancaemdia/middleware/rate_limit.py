@@ -237,7 +237,7 @@ def request_path(request: Request) -> str:
 
 def policy_for(request: Request) -> RateLimitPolicy | None:
     path = request_path(request)
-    if path in {"/coleta", "/api/v1/coleta", "/api/v1/coleta/batches", "/api/v1/coleta/sessions"}:
+    if path in {"/coleta", "/api/v1/coleta"}:
         return COLETA_POLICY if request.method == "POST" else None
     if path == "/api/v1/upload" and request.method == "POST":
         return UPLOAD_POLICY

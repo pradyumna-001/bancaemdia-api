@@ -21,7 +21,6 @@ from bancaemdia.db.models import Base
 class ColetaInstalacao(Base):
     __tablename__ = "coleta_instalacoes"
     __table_args__ = (
-        UniqueConstraint("id", "usuario_id", name="uq_coleta_instalacao_identity"),
         UniqueConstraint(
             "usuario_id", "instalacao_publica_id", name="uq_coleta_instalacao_owner_public"
         ),

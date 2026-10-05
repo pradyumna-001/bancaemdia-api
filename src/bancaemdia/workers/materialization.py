@@ -10,12 +10,11 @@ from typing import Any
 
 import asyncpg.exceptions
 from pydantic import BaseModel, Field, ValidationError, field_validator
-from sqlalchemy import text, update
+from sqlalchemy import text
 from sqlalchemy.exc import InterfaceError, OperationalError
 from sqlalchemy.ext.asyncio import AsyncEngine, AsyncSession, create_async_engine
 from sqlalchemy.pool import NullPool
 
-from bancaemdia import models
 from bancaemdia.coleta.leitores import LEITORES
 from bancaemdia.config import get_settings
 from bancaemdia.domain.coleta_casa import (
@@ -27,7 +26,6 @@ from bancaemdia.domain.coleta_casa import (
     eventos_do_resultado,
     validar,
 )
-from bancaemdia.domain.coleta_provenance import canonical_ticket, source_times
 from bancaemdia.domain.conferencias import GRAVES, Bilhete, Origem, conferir
 from bancaemdia.domain.event_bus import ApostaCriada, get_event_bus
 from bancaemdia.domain.financeiro import Aposta as ApostaFinanceira
@@ -459,44 +457,11 @@ async def _gravar_coletada(
     coletas: Sequence[ColetaCasa],
     casa: str,
     nome_da_casa: str,
-    *,
-    conta_casa_id: int | None = None,
 ) -> Gravada:
     lidas = [replace(LEITORES[casa](coleta.bruto_json), casa=casa) for coleta in coletas]
     chave = chave_casa(casa, lidas[-1].identidade)
     historico = await _historico(session, usuario_id, chave)
     existia = any(tipo == "APOSTA_CRIADA" for tipo, _, _ in historico)
-    if coletas[-1].v2_fonte_em is not None and existia:
-        _, revision = source_times(casa, coletas[-1].bruto_json)
-        current_state, _ = projetar(historico)
-        same_content = canonical_ticket(lidas[-1]) == coletas[-1].v2_hash
-        if same_content and revision is not None and revision > coletas[-1].v2_fonte_em:
-            await session.execute(
-                update(models.ColetaCasa)
-                .where(models.ColetaCasa.id == coletas[-1].id)
-                .values(v2_fonte_em=revision)
-            )
-        if (
-            same_content
-            or revision is None
-            or revision <= coletas[-1].v2_fonte_em
-            or (current_state.get("estado") != "PENDENTE" and lidas[-1].estado == "PENDENTE")
-        ):
-            # A delayed v1 task cannot bypass v2 source ordering after client downgrade.
-            return Gravada(
-                chave,
-                "casa",
-                False,
-                0,
-                None,
-                bool(current_state.get("revisao_grave")),
-                str(current_state.get("estado")),
-            )
-        await session.execute(
-            update(models.ColetaCasa)
-            .where(models.ColetaCasa.id == coletas[-1].id)
-            .values(v2_fonte_em=revision, v2_hash=canonical_ticket(lidas[-1]))
-        )
     capturas = list(zip(coletas, lidas, strict=True))
     novos: list[EventoNovo] = []
     data_aposta = None
@@ -540,12 +505,8 @@ async def _gravar_coletada(
         coleta_da_revisao = aviso[0].id
     conta_criacao = None
     if criada:
-        conta_criacao = (
-            await ContaCasaRepo().get_by_id(session, usuario_id, conta_casa_id)
-            if conta_casa_id is not None
-            else await ContaCasaRepo().get_vigente_by_nome_da_casa(
-                session, usuario_id, nome_da_casa, data_aposta
-            )
+        conta_criacao = await ContaCasaRepo().get_vigente_by_nome_da_casa(
+            session, usuario_id, nome_da_casa, data_aposta
         )
         financeira_criacao = _financeira(atual)
         snapshot = {

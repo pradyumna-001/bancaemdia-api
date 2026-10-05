@@ -96,9 +96,6 @@ async def _preparar_papel(url_admin: str) -> None:
                 await conn.execute(text(f"CREATE ROLE {PAPEL} LOGIN PASSWORD '{SENHA}'"))
             await conn.execute(text(f"GRANT USAGE ON SCHEMA public TO {PAPEL}"))
             await conn.execute(
-                text(f"GRANT EXECUTE ON FUNCTION coleta_pending_deliveries(integer) TO {PAPEL}")
-            )
-            await conn.execute(
                 text(
                     f"GRANT EXECUTE ON FUNCTION coleta_pairing_limit(text,integer,integer) TO {PAPEL}"
                 )

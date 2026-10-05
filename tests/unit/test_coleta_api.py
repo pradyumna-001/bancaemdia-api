@@ -70,9 +70,6 @@ def _banco(recebidas_hoje=0):
             )
 
     class ColetaCasaRepo:
-        async def lock_daily_admission(self, session, usuario_id):
-            pass
-
         async def count_received_since(self, session, usuario_id, desde):
             banco.desde = desde
             return recebidas_hoje

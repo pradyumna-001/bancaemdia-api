@@ -16,20 +16,10 @@ from bancaemdia.api.contracts import (
     ReadinessResponse,
 )
 from bancaemdia.api.openapi import build_openapi
-from bancaemdia.api.v1 import (
-    apostas,
-    caixa,
-    coleta,
-    coleta_pairing,
-    coleta_sessoes,
-    painel,
-    revisao,
-    upload,
-)
+from bancaemdia.api.v1 import apostas, caixa, coleta, coleta_pairing, painel, revisao, upload
 from bancaemdia.auth.middleware import JWTAuthMiddleware
 from bancaemdia.config import get_settings
 from bancaemdia.db.session import LAG_CHECK_SECONDS, engine, replica_engine, replica_lag_seconds
-from bancaemdia.middleware.coleta_body import CollectionBodyLimit
 from bancaemdia.middleware.coleta_credentials import CollectionCredentialMiddleware
 from bancaemdia.middleware.rate_limit import AuthRateLimitMiddleware, RateLimitMiddleware
 from bancaemdia.middleware.rls import RLSMiddleware
@@ -96,7 +86,6 @@ app = BancaemdiaAPI(
 )
 app.include_router(coleta.router)
 app.include_router(coleta_pairing.router)
-app.include_router(coleta_sessoes.router)
 app.include_router(upload.router)
 app.include_router(apostas.router)
 app.include_router(caixa.router)
@@ -106,7 +95,6 @@ app.include_router(revisao.router)
 
 # O teto de tamanho é registrado primeiro para rodar por DENTRO dos outros: por fora de um
 # BaseHTTPMiddleware o 413 dele vira 500 (medido).
-app.add_middleware(CollectionBodyLimit)
 app.add_middleware(
     RequestBodyLimitMiddleware,
     max_body_size=get_settings().UPLOAD_MAX_BYTES + upload.MARGEM_DO_FORMULARIO,
