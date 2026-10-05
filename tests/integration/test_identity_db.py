@@ -80,24 +80,14 @@ async def test_repeated_concurrent_provision_has_one_proven_numeric_user(
             )
             == 1
         )
-        # The main billing trigger reserves identity without confirming a trial or
-        # granting write access. Provisioning must not start its 168-hour clock.
-        reserved = (
-            (
-                await conn.execute(
-                    text(
-                        "SELECT status,trial_confirmed,trial_started_at,trial_ends_at FROM assinaturas WHERE usuario_id=:id"
-                    ),
-                    {"id": user},
-                )
+        # Billing exists on main, but its rollout has not been activated. Provisioning
+        # must not create or confirm a trial as a side effect of verified registration.
+        assert (
+            await conn.scalar(
+                text("SELECT count(*) FROM assinaturas WHERE usuario_id=:id"), {"id": user}
             )
-            .mappings()
-            .one()
+            == 0
         )
-        assert reserved["status"] == "RESERVED"
-        assert reserved["trial_confirmed"] is False
-        assert reserved["trial_started_at"] is None
-        assert reserved["trial_ends_at"] is None
 
 
 async def test_email_collision_never_links_another_external_subject(identity_service_db):
