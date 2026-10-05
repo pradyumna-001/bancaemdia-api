@@ -4,7 +4,7 @@ from datetime import UTC, datetime
 from typing import Any, cast
 from uuid import UUID, uuid4
 
-from sqlalchemy import select, update
+from sqlalchemy import or_, select, update
 from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -13,6 +13,7 @@ from bancaemdia.models.rascunho_aposta import (
     RascunhoAposta,
     RascunhoCorrecao,
 )
+from bancaemdia.services.telegram_link import _digest
 
 
 class DraftVersionConflictError(Exception):
@@ -40,8 +41,12 @@ class RascunhoApostaRepo:
             await session.scalar(
                 select(RascunhoAposta).where(
                     RascunhoAposta.usuario_id == user_id,
-                    RascunhoAposta.telegram_chat_id == chat_id,
-                    RascunhoAposta.telegram_message_id == message_id,
+                    or_(
+                        (RascunhoAposta.telegram_chat_id == chat_id)
+                        & (RascunhoAposta.telegram_message_id == message_id),
+                        RascunhoAposta.origin_digest
+                        == _digest("origin", f"{user_id}:{chat_id}:{message_id}"),
+                    ),
                 )
             ),
         )
@@ -70,6 +75,7 @@ class RascunhoApostaRepo:
                 telegram_chat_id=chat_id,
                 telegram_message_id=message_id,
                 telegram_update_id=update_id,
+                origin_digest=_digest("origin", f"{user_id}:{chat_id}:{message_id}"),
                 media_reference_ciphertext=media_reference_ciphertext,
                 media_hash=media_hash,
                 fields_json=fields,

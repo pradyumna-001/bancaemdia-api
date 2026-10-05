@@ -59,14 +59,15 @@ class TelegramClient:
                 raise TelegramApiError("client", retryable=False)
             try:
                 body = response.json()
-            except ValueError as exc:
-                raise TelegramApiError("invalid_response", retryable=True) from exc
+            except ValueError:
+                raise TelegramApiError("invalid_response", retryable=True) from None
             if not isinstance(body, dict) or body.get("ok") is not True:
                 raise TelegramApiError("invalid_response", retryable=True)
             outcome = "success"
             return body.get("result")
-        except (httpx.TimeoutException, httpx.NetworkError) as exc:
-            raise TelegramApiError("network", retryable=True) from exc
+        except (httpx.TimeoutException, httpx.NetworkError):
+            telegram_api_errors_total.labels(method=method, reason="network").inc()
+            raise TelegramApiError("network", retryable=True) from None
         except TelegramApiError as exc:
             telegram_api_errors_total.labels(method=method, reason=exc.reason).inc()
             raise
@@ -127,8 +128,9 @@ class TelegramClient:
                         parts.extend(chunk)
             outcome = "success"
             return bytes(parts)
-        except (httpx.TimeoutException, httpx.NetworkError) as exc:
-            raise TelegramApiError("network", retryable=True) from exc
+        except (httpx.TimeoutException, httpx.NetworkError):
+            telegram_api_errors_total.labels(method="downloadFile", reason="network").inc()
+            raise TelegramApiError("network", retryable=True) from None
         except TelegramApiError as exc:
             telegram_api_errors_total.labels(method="downloadFile", reason=exc.reason).inc()
             raise

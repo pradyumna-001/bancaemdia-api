@@ -73,8 +73,6 @@ async def materialize_draft(
         "telegram_draft_id": str(draft.id),
         "telegram_update_id": draft.telegram_update_id,
         "telegram_confirmation_update_id": confirmation_update_id,
-        "telegram_chat_id": draft.telegram_chat_id,
-        "telegram_message_id": draft.telegram_message_id,
         "casa": house,
         "conta_casa_id": account_id,
         "conta_referencia_explicita": explicit,
@@ -116,7 +114,7 @@ async def materialize_draft(
         confianca=1.0,
         payload=payload,
     )
-    await _gravar(session, draft.usuario_id, nova, {}, draft.media_hash)
+    await _gravar(session, draft.usuario_id, nova, {}, None)
     saved = await read_saved_bet(session, user_id=draft.usuario_id, draft_id=draft.id)
     if saved is None or saved.bet.conta_casa_id != account_id:
         raise ConfirmationMaterializationError("account changed while materializing draft")

@@ -114,6 +114,9 @@ async def revoke_link(session: AsyncSession, user_id: int) -> bool:
     link = await REPO.active_link(session, user_id)
     if link is None:
         return False
+    from bancaemdia.services.telegram_privacy import forget_pending_content
+
+    await forget_pending_content(session, user_id)
     link.revoked_at = now
     await session.flush()
     return True

@@ -62,6 +62,8 @@ class RascunhoAposta(Base):
     telegram_chat_id: Mapped[int] = mapped_column(BigInteger)
     telegram_message_id: Mapped[int] = mapped_column(BigInteger)
     telegram_update_id: Mapped[int] = mapped_column(BigInteger)
+    origin_digest: Mapped[str | None] = mapped_column(String(64))
+    purged_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     media_reference_ciphertext: Mapped[bytes | None] = mapped_column(LargeBinary)
     media_hash: Mapped[str | None] = mapped_column(String(64))
     source_metadata_json: Mapped[dict[str, object]] = mapped_column(JSONB, default=dict)

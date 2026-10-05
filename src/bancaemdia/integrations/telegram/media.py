@@ -1,7 +1,11 @@
 """Bounded Telegram photo download and byte-based image validation."""
 
+import warnings
 from dataclasses import dataclass
+from io import BytesIO
 from typing import Any
+
+from PIL import Image, UnidentifiedImageError
 
 from bancaemdia.integrations.telegram.client import TelegramApiError, TelegramClient
 
@@ -53,4 +57,18 @@ async def download_photo(client: TelegramClient, file_id: str) -> tuple[bytes, s
     content = await client.download_file(file_id, max_bytes=MAX_PHOTO_BYTES)
     if not content:
         raise TelegramApiError("empty_image", retryable=False)
-    return content, image_mime(content)
+    mime = image_mime(content)
+    try:
+        with warnings.catch_warnings():
+            warnings.simplefilter("error", Image.DecompressionBombWarning)
+            with Image.open(BytesIO(content)) as image:
+                image.verify()
+    except (
+        OSError,
+        ValueError,
+        UnidentifiedImageError,
+        Image.DecompressionBombError,
+        Image.DecompressionBombWarning,
+    ):
+        raise TelegramApiError("invalid_image", retryable=False) from None
+    return content, mime

@@ -450,3 +450,11 @@ def metrics_registry(*collectors: Collector) -> CollectorRegistry:
     else:
         registry.register(REGISTRY)
     return registry
+
+
+telegram_abuse_total = Counter(
+    "telegram_abuse_total", "Telegram admission decisions", ["action", "outcome"]
+)
+telegram_extraction_failures_total = Counter(
+    "telegram_extraction_failures_total", "Telegram photo extraction failures", ["reason"]
+)

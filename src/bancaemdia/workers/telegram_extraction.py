@@ -16,12 +16,17 @@ from sqlalchemy.ext.asyncio import AsyncEngine, AsyncSession
 from bancaemdia.domain.access import AccountReadOnlyError, require_write_access
 from bancaemdia.extracao.cliente import VERSAO_PROMPT
 from bancaemdia.integrations.telegram.client import TelegramApiError, TelegramClient
-from bancaemdia.integrations.telegram.codec import InvalidTelegramUpdateError, decrypt_payload
+from bancaemdia.integrations.telegram.codec import (
+    InvalidTelegramUpdateError,
+    _fernet,
+    decrypt_payload,
+)
 from bancaemdia.integrations.telegram.media import download_photo
 from bancaemdia.models.rascunho_aposta import ACTIVE_DRAFT_STATUSES, RascunhoAposta
-from bancaemdia.observability.metrics import observe_stage
-from bancaemdia.repositories.mensagem_repo import MidiaArquivoRepo, MidiaRepo
+from bancaemdia.models.telegram_media import TelegramMedia
+from bancaemdia.observability.metrics import observe_stage, telegram_extraction_failures_total
 from bancaemdia.services.telegram_conversation import apply_extraction, draft_summary
+from bancaemdia.services.telegram_link import get_link
 from bancaemdia.services.telegram_photo_intake import candidates_from_reading
 from bancaemdia.workers.extraction import RETRY_ON, extrair_bilhete
 from bancaemdia.workers.telegram import BILLING_DENIAL, queue_reply
@@ -77,6 +82,9 @@ async def claim_photo(engine: AsyncEngine, *, draft_id: UUID | None = None) -> P
                     select(RascunhoAposta.id, RascunhoAposta.usuario_id)
                     .where(
                         RascunhoAposta.status.in_(ACTIVE_DRAFT_STATUSES),
+                        func.telegram_chat_linked(
+                            RascunhoAposta.usuario_id, RascunhoAposta.telegram_chat_id
+                        ),
                         or_(
                             RascunhoAposta.status == "AWAITING_EXTRACTION",
                             RascunhoAposta.source_metadata_json.has_key("update_id"),
@@ -97,6 +105,8 @@ async def claim_photo(engine: AsyncEngine, *, draft_id: UUID | None = None) -> P
             if due is None:
                 return None
             await _set_photo_owner(session, due.usuario_id)
+            if await get_link(session, due.usuario_id) is None:
+                return None
             draft = await session.scalar(
                 select(RascunhoAposta)
                 .where(RascunhoAposta.id == due.id)
@@ -160,6 +170,7 @@ async def read_photo(
         chat_id=claim.chat_id,
         message_id=claim.message_id,
         versao_prompt=VERSAO_PROMPT,
+        private=True,
     )
     return content, mime, reading
 
@@ -177,6 +188,8 @@ async def _complete(
     async with AsyncSession(engine, expire_on_commit=False) as session:
         async with session.begin():
             await _set_photo_owner(session, claim.user_id)
+            if await get_link(session, claim.user_id) is None:
+                return
             draft = await session.scalar(
                 select(RascunhoAposta)
                 .where(
@@ -207,11 +220,35 @@ async def _complete(
                 )
                 return
             draft.extraction_completed_at = _now()
+            if error_code in {
+                "file_too_large",
+                "unsupported_image",
+                "invalid_image",
+                "empty_image",
+            }:
+                draft.status = "FAILED"
+                draft.closed_at = _now()
+                draft.media_reference_ciphertext = None
+                await queue_reply(
+                    session,
+                    user_id=claim.user_id,
+                    chat_id=claim.chat_id,
+                    key=f"telegram-photo:{claim.id}:rejected",
+                    message="Arquivo inválido ou acima do limite. Use uma foto válida de até 20 MiB.",
+                )
+                return
             media_hash = None
             if content is not None and mime is not None:
                 media_hash = hashlib.sha256(content).hexdigest()
-                await MidiaRepo().upsert_idempotent(session, media_hash, mime, len(content))
-                await MidiaArquivoRepo().upsert_idempotent(session, media_hash, content)
+                session.add(
+                    TelegramMedia(
+                        draft_id=draft.id,
+                        usuario_id=claim.user_id,
+                        content_ciphertext=_fernet().encrypt(content),
+                        content_hash=media_hash,
+                        mime=mime,
+                    )
+                )
                 source = dict(draft.source_metadata_json)
                 source["content_hash"] = media_hash
                 draft.source_metadata_json = source
@@ -263,10 +300,12 @@ async def process_photo_once(
         await _complete(engine, claim, error_code="account_read_only")
     except (TelegramApiError, InvalidTelegramUpdateError) as exc:
         reason = exc.reason if isinstance(exc, TelegramApiError) else "invalid_reference"
+        telegram_extraction_failures_total.labels(reason=reason).inc()
         retryable = isinstance(exc, TelegramApiError) and exc.retryable
         await _complete(engine, claim, error_code=reason, retryable=retryable)
         structlog.get_logger(__name__).warning("telegram_photo_retry", reason=reason)
-    except RETRY_ON:
+    except (*RETRY_ON, TimeoutError):
+        telegram_extraction_failures_total.labels(reason="unavailable").inc()
         await _complete(engine, claim, error_code="extraction_unavailable", retryable=True)
         structlog.get_logger(__name__).warning(
             "telegram_photo_retry", reason="extraction_unavailable"

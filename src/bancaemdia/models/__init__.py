@@ -31,6 +31,7 @@ from bancaemdia.models.telegram_link import (
     TelegramLinkAttemptEvent,
     TelegramLinkCode,
 )
+from bancaemdia.models.telegram_media import TelegramMedia as TelegramMedia
 from bancaemdia.models.telegram_message import TelegramInbox, TelegramOutbox
 from bancaemdia.models.time import Time
 from bancaemdia.models.tipster import Tipster
