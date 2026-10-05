@@ -15,8 +15,9 @@ from bancaemdia.api.contracts import AUTHENTICATED_ERROR_RESPONSES, ErrorRespons
 from bancaemdia.api.deps import get_current_user, get_current_user_primary_snapshot
 from bancaemdia.db.session import get_db, get_db_primary_snapshot
 from bancaemdia.domain.registros import Usuario
-from bancaemdia.models import Aposta, Base, Evento, RevisaoPendente, Upload
+from bancaemdia.models import Aposta, Base, Evento, RevisaoPendente, TelegramLink, Upload
 from bancaemdia.models.usuario import Usuario as UsuarioModel
+from bancaemdia.services.telegram_link import forget_sender_attempts
 
 router = APIRouter(responses=AUTHENTICATED_ERROR_RESPONSES)
 
@@ -34,6 +35,11 @@ EXPORT_TABLES = (
     "usos_conta_casa",
     "trocas_titular_requisicoes",
     "trocas_titular_eventos",
+    "telegram_links",
+    "telegram_link_codes",
+    "telegram_outbox",
+    "rascunhos_aposta",
+    "rascunho_correcoes",
     "unidades",
     "revisao_pendente",
     "coletas_casa",
@@ -47,6 +53,9 @@ EXPORT_TABLES = (
 )
 EXCLUDED_COLUMNS = frozenset({
     "token_hash",
+    "code_hash",
+    "payload_ciphertext",
+    "media_reference_ciphertext",
     "conteudo",
     "provider_customer_ref",
     "provider_subscription_ref",
@@ -214,6 +223,16 @@ async def anonimizar_minha_conta(
     await session.execute(
         text("SELECT set_config('app.erase_user_data', :uid, true)"), {"uid": str(usuario.id)}
     )
+    from bancaemdia.services.telegram_privacy import forget_pending_content
+
+    await forget_pending_content(session, usuario.id)
+    sender_ids = (
+        await session.scalars(
+            select(TelegramLink.telegram_user_id).where(TelegramLink.usuario_id == usuario.id)
+        )
+    ).all()
+    for sender_id in set(sender_ids):
+        await forget_sender_attempts(session, sender_id)
     for table in reversed(Base.metadata.sorted_tables):
         if (
             table.name

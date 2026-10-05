@@ -19,7 +19,7 @@ from sqlalchemy.orm import Mapped, mapped_column
 from bancaemdia.db.models import Base
 
 ESTADOS = ("PENDENTE", "GREEN", "RED", "ANULADA", "MEIO_GREEN", "MEIO_RED", "CASHOUT")
-ORIGENS = ("telegram", "print", "manual", "planilha", "casa")
+ORIGENS = ("telegram", "telegram_bot", "print", "manual", "planilha", "casa")
 
 
 class Aposta(Base):

@@ -30,6 +30,7 @@ PUBLIC_PATHS = frozenset({
     "/api/v1/coleta/contract/schema",
     "/api/v1/coleta/catalogo",
     "/webhook/upload-complete",
+    "/api/v1/integrations/telegram/webhook",
     "/openapi.json",
     "/docs",
     "/docs/oauth2-redirect",

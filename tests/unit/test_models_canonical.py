@@ -48,8 +48,16 @@ from bancaemdia.models.midia import Midia
 from bancaemdia.models.midia_arquivo import MidiaArquivo
 from bancaemdia.models.movimento import Movimento
 from bancaemdia.models.movimento_requisicao import MovimentoRequisicao
+from bancaemdia.models.rascunho_aposta import RascunhoAposta, RascunhoCorrecao
 from bancaemdia.models.reader_quarantine import ReaderQuarantine
 from bancaemdia.models.revisao_pendente import RevisaoPendente
+from bancaemdia.models.telegram_link import (
+    TelegramLink,
+    TelegramLinkAttempt,
+    TelegramLinkAttemptEvent,
+    TelegramLinkCode,
+)
+from bancaemdia.models.telegram_message import TelegramInbox, TelegramOutbox
 from bancaemdia.models.time import Time
 from bancaemdia.models.tipster import Tipster
 from bancaemdia.models.titular import Titular
@@ -86,6 +94,9 @@ BILLING = (
     BillingEvent,
 )
 HOLDERS = (Titular, UsoContaCasa, TrocaTitularEvento, TrocaTitularRequisicao)
+TELEGRAM_LINKING = (TelegramLink, TelegramLinkCode, TelegramLinkAttempt, TelegramLinkAttemptEvent)
+TELEGRAM_TRANSPORT = (TelegramInbox, TelegramOutbox)
+TELEGRAM_DRAFTS = (RascunhoAposta, RascunhoCorrecao)
 POR_USUARIO = (
     ChamadaIA,
     ColetaCasa,
@@ -123,7 +134,7 @@ def _indexes(modelo: type[Base]) -> dict[str, list[str]]:
     return {i.name: [c.name for c in i.columns] for i in modelo.__table__.indexes}
 
 
-def test_all_thirty_eight_tables_are_registered() -> None:
+def test_all_forty_eight_tables_are_registered() -> None:
     esperadas = {
         m.__tablename__
         for m in NUCLEO
@@ -132,6 +143,9 @@ def test_all_thirty_eight_tables_are_registered() -> None:
         + UPLOAD
         + BILLING
         + HOLDERS
+        + TELEGRAM_LINKING
+        + TELEGRAM_TRANSPORT
+        + TELEGRAM_DRAFTS
         + (
             CatalogoOperador,
             CasaDominio,
@@ -149,7 +163,8 @@ def test_all_thirty_eight_tables_are_registered() -> None:
             ColetaEntrega,
         )
     }
-    assert len(esperadas) == 54
+    esperadas |= {"telegram_media", "telegram_rate_buckets"}
+    assert len(esperadas) == 64
     assert set(Base.metadata.tables) == esperadas
     assert {m.__tablename__ for m in CANONICOS} == {
         "casas",
@@ -340,5 +355,9 @@ def test_bigserial_except_composite_and_billing_owner_keys() -> None:
         "billing_rollout",
         "billing_checkouts",
         "billing_events",
+        "telegram_media",
+        "telegram_rate_buckets",
+        "telegram_link_attempts",
+        "rascunhos_aposta",
     }:
         assert "id BIGSERIAL NOT NULL" in _create_table(nome)

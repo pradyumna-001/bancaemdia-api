@@ -36,6 +36,8 @@ app = Celery(
         "bancaemdia.workers.upload",
         "bancaemdia.workers.billing",
         "bancaemdia.workers.coleta_v2",
+        "bancaemdia.workers.telegram",
+        "bancaemdia.workers.telegram_privacy",
     ],
 )
 app.conf.update(
@@ -48,11 +50,15 @@ app.conf.update(
     enable_utc=True,
     task_acks_late=True,
     task_reject_on_worker_lost=True,
-    beat_schedule={"billing-reconcile": {"task": "billing.reconcile", "schedule": 60.0}},
     task_routes={
         "billing.*": {"queue": MATERIALIZATION_QUEUE},
         "extraction.*": {"queue": EXTRACTION_QUEUE},
         "materialization.*": {"queue": MATERIALIZATION_QUEUE},
+        "telegram.*": {"queue": MATERIALIZATION_QUEUE},
+    },
+    beat_schedule={
+        "billing-reconcile": {"task": "billing.reconcile", "schedule": 60.0},
+        "telegram-transport-tick": {"task": "telegram.tick", "schedule": 5.0},
     },
     task_queues=(
         Queue(EXTRACTION_QUEUE, routing_key=EXTRACTION_QUEUE),
@@ -64,6 +70,10 @@ app.conf.beat_schedule = {
     **(app.conf.beat_schedule or {}),
     "collection-v2-inbox": {"task": "materialization.collection_v2", "schedule": 10.0},
 }
+# Add schedules without replacing billing or other registered Beat entries.
+app.conf.beat_schedule.update({
+    "telegram-privacy-purge": {"task": "telegram.purge", "schedule": 3600.0},
+})
 
 
 dead_letter_queue = Queue(DEAD_LETTER_QUEUE, routing_key=DEAD_LETTER_QUEUE)
@@ -100,7 +110,9 @@ def send_to_dead_letter(
         headers={
             "original_task_id": task_id,
             "original_queue": delivery_info.get("routing_key"),
-            "exception": repr(exception),
+            "exception": "telegram_task_failed"
+            if sender.name.startswith("telegram.")
+            else repr(exception),
         },
     )
 

@@ -28,6 +28,7 @@ from bancaemdia.api.v1 import (
     coleta_sessoes,
     painel,
     revisao,
+    telegram,
     titulares,
     upload,
     usuario,
@@ -36,6 +37,7 @@ from bancaemdia.auth.middleware import JWTAuthMiddleware
 from bancaemdia.config import get_settings
 from bancaemdia.db.session import LAG_CHECK_SECONDS, engine, replica_engine, replica_lag_seconds
 from bancaemdia.domain.access import AccountReadOnlyError
+from bancaemdia.integrations.telegram import webhook as telegram_webhook
 from bancaemdia.middleware.coleta_body import CollectionBodyLimit
 from bancaemdia.middleware.coleta_credentials import CollectionCredentialMiddleware
 from bancaemdia.middleware.rate_limit import AuthRateLimitMiddleware, RateLimitMiddleware
@@ -117,6 +119,8 @@ app.include_router(revisao.router)
 app.include_router(billing_webhook.router)
 app.include_router(billing.router)
 app.include_router(titulares.router)
+app.include_router(telegram.router)
+app.include_router(telegram_webhook.router)
 app.include_router(usuario.router)
 
 

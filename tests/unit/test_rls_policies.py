@@ -48,6 +48,20 @@ POR_USUARIO_TITULARES = {
     "trocas_titular_requisicoes",
     "trocas_titular_eventos",
 }
+POR_USUARIO_TELEGRAM = {
+    "telegram_media",
+    "telegram_links",
+    "telegram_link_codes",
+    "telegram_outbox",
+    "rascunhos_aposta",
+    "rascunho_correcoes",
+}
+GLOBAIS_TELEGRAM = {
+    "telegram_rate_buckets",
+    "telegram_link_attempts",
+    "telegram_link_attempt_events",
+    "telegram_inbox",
+}
 COMPARTILHADAS = {
     "midia_arquivos",
     "casas",
@@ -111,26 +125,35 @@ def test_protected_and_shared_tables_cover_the_whole_schema() -> None:
         "billing_checkouts",
         "billing_events",
     }
-    assert protegidas | POR_USUARIO_TITULARES | COMPARTILHADAS | billing | {
-        "coleta_instalacoes",
-        "coleta_pairing_codes",
-        "coleta_pairing_quotas",
-        "coleta_sessoes",
-        "coleta_entregas",
-        "aposta_consolidacoes",
-        "cruzamento_entradas",
-        "cruzamento_candidatos",
-        "reader_quarantine",
-        "catalogo_operadores",
-        "casa_dominios",
-        "catalogo_fontes",
-        "catalogo_snapshots",
-        "catalogo_publicacoes",
-        "catalogo_confirmacoes",
-        "catalogo_auditoria",
-        "usuarios",
-        "audit_log",
-    } == set(Base.metadata.tables)
+    assert (
+        protegidas
+        | POR_USUARIO_TITULARES
+        | POR_USUARIO_TELEGRAM
+        | GLOBAIS_TELEGRAM
+        | COMPARTILHADAS
+        | billing
+        | {
+            "coleta_instalacoes",
+            "coleta_pairing_codes",
+            "coleta_pairing_quotas",
+            "coleta_sessoes",
+            "coleta_entregas",
+            "aposta_consolidacoes",
+            "cruzamento_entradas",
+            "cruzamento_candidatos",
+            "reader_quarantine",
+            "catalogo_operadores",
+            "casa_dominios",
+            "catalogo_fontes",
+            "catalogo_snapshots",
+            "catalogo_publicacoes",
+            "catalogo_confirmacoes",
+            "catalogo_auditoria",
+            "usuarios",
+            "audit_log",
+        }
+        == set(Base.metadata.tables)
+    )
     assert not protegidas & COMPARTILHADAS
     for tabela in protegidas:
         assert "usuario_id" in Base.metadata.tables[tabela].c

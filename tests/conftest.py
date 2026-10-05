@@ -112,7 +112,16 @@ async def _preparar_papel(url_admin: str) -> None:
                 text(f"GRANT USAGE, SELECT ON ALL SEQUENCES IN SCHEMA public TO {PAPEL}")
             )
             await conn.execute(
-                text(f"GRANT EXECUTE ON FUNCTION create_user_profile(text,text) TO {PAPEL}")
+                text(
+                    f"GRANT EXECUTE ON FUNCTION telegram_link_code_issuer(text), "
+                    f"telegram_link_active_owner(bigint,bigint), telegram_link_attempt_state(text), "
+                    f"telegram_link_record_failure(text,text), telegram_link_clear_attempts(text) TO {PAPEL}"
+                )
+            )
+            await conn.execute(
+                text(
+                    f"GRANT EXECUTE ON FUNCTION create_user_profile(text,text), telegram_purge_legacy_media(text,timestamptz), telegram_legacy_media_visible(text), telegram_purge_link_metadata(timestamptz,integer), telegram_chat_linked(bigint,bigint) TO {PAPEL}"
+                )
             )
     finally:
         await engine.dispose()

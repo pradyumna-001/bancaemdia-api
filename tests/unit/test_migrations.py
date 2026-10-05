@@ -94,7 +94,7 @@ def test_upgrade_creates_every_model_table_once() -> None:
 def test_upgrade_renders_the_schema_of_the_models() -> None:
     sql = _upgrade_sql()
     # Billing adds two singleton/user-keyed tables and two generated-key tables.
-    assert sql.count("id BIGSERIAL NOT NULL") == len(Base.metadata.tables) - 6
+    assert sql.count("id BIGSERIAL NOT NULL") == len(Base.metadata.tables) - 9
     assert "CREATE TYPE familia_de_mercado AS ENUM ('GOLS'" in sql
     assert "payload_json JSONB NOT NULL" in sql
     assert "CHECK (NOT freebet OR stake_centavos = 0)" in sql
