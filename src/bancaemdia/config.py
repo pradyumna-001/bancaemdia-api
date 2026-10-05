@@ -70,6 +70,44 @@ class Settings(BaseSettings):
     COLETA_TOKEN_SECRET: str = Field(
         ..., description="HMAC key for the browser extension's coleta tokens"
     )
+    TELEGRAM_BOT_TOKEN: str | None = Field(
+        default=None, description="Bot API token; required when sending or polling"
+    )
+    TELEGRAM_WEBHOOK_SECRET: str | None = Field(
+        default=None, description="Secret supplied to Telegram setWebhook"
+    )
+    TELEGRAM_MODE: str = Field(
+        default="webhook", description="Telegram update transport: webhook or local polling"
+    )
+    TELEGRAM_API_BASE_URL: str = Field(
+        default="https://api.telegram.org", description="Telegram Bot API origin"
+    )
+    TELEGRAM_ACTION_LIMITS: dict[str, tuple[int, int, int]] = Field(
+        default={
+            "link": (5, 5, 100),
+            "photo": (10, 10, 200),
+            "correction": (30, 30, 1000),
+            "confirmation": (20, 20, 500),
+        },
+        description="Per action: chat, user, global counts; shared PostgreSQL windows",
+    )
+    TELEGRAM_LIMIT_WINDOW_SECONDS: int = Field(default=60, gt=0, le=86400)
+    TELEGRAM_RAW_RETENTION_DAYS: int = Field(default=7, ge=1, le=365)
+    TELEGRAM_MEDIA_RETENTION_DAYS: int = Field(default=7, ge=1, le=365)
+    TELEGRAM_DRAFT_RETENTION_DAYS: int = Field(default=30, ge=1, le=365)
+    TELEGRAM_PURGE_BATCH_SIZE: int = Field(default=100, gt=0, le=1000)
+
+    @field_validator("TELEGRAM_ACTION_LIMITS")
+    @classmethod
+    def validate_telegram_limits(
+        cls, value: dict[str, tuple[int, int, int]]
+    ) -> dict[str, tuple[int, int, int]]:
+        if set(value) != {"link", "photo", "correction", "confirmation"} or any(
+            count <= 0 for limits in value.values() for count in limits
+        ):
+            raise ValueError("Telegram limits require all four actions and positive counts")
+        return value
+
     COLETA_RATE_LIMIT: str = Field(
         default="10/minute", description="Coleta sends allowed per extension token"
     )
@@ -171,6 +209,13 @@ class Settings(BaseSettings):
             except ValueError as exc:
                 raise ValueError(f"invalid trusted proxy network: {network}") from exc
         return ",".join(networks)
+
+    @field_validator("TELEGRAM_MODE")
+    @classmethod
+    def validate_telegram_mode(cls, value: str) -> str:
+        if value not in {"webhook", "polling"}:
+            raise ValueError("TELEGRAM_MODE must be webhook or polling")
+        return value
 
 
 @lru_cache

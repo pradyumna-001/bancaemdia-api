@@ -1,0 +1,38 @@
+groups:
+  - name: telegram
+    rules:
+      - alert: TelegramBacklogOld
+        expr: max(telegram_inbox_oldest_age_seconds) > 120 or max(telegram_outbox_oldest_age_seconds) > 300
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: Telegram durable backlog exceeds its age budget
+      - alert: TelegramDLQGrowth
+        expr: sum(delta(telegram_transport_dlq_count[10m])) > 0
+        for: 1m
+        labels:
+          severity: warning
+        annotations:
+          summary: Telegram dead letter queue is growing
+      - alert: TelegramExtractionFailure
+        expr: sum(increase(telegram_extraction_failures_total[10m])) >= 5
+        for: 2m
+        labels:
+          severity: warning
+        annotations:
+          summary: Telegram photo extraction needs investigation
+      - alert: TelegramDeliveryFailure
+        expr: sum(increase(telegram_api_errors_total{method="sendMessage"}[10m])) >= 5
+        for: 2m
+        labels:
+          severity: warning
+        annotations:
+          summary: Telegram reply delivery is failing
+      - alert: TelegramSuspiciousLinkAttempts
+        expr: sum(increase(telegram_abuse_total{action="link",outcome="limited"}[10m])) >= 10
+        for: 2m
+        labels:
+          severity: warning
+        annotations:
+          summary: Telegram link attempts exceed admission limits

@@ -15,7 +15,6 @@ from fastapi.testclient import TestClient
 from hypothesis import given, settings
 from hypothesis import strategies as st
 from hypothesis.strategies import SearchStrategy
-from schemathesis.config import HealthCheck
 from starlette.types import ASGIApp, Message, Receive, Scope, Send
 
 from bancaemdia.api.contracts import ReadinessResponse
@@ -212,7 +211,7 @@ def test_openapi_endpoint_matches_checked_in_snapshot(openapi_document: JsonObje
 @pytest.mark.contract
 def test_every_operation_has_human_documentation(openapi_document: JsonObject) -> None:
     operations = list(_operations(openapi_document))
-    assert len(operations) == 48
+    assert len(operations) == 52
     for method, path, operation in operations:
         location = f"{method.upper()} {path}"
         assert str(operation.get("summary", "")).strip(), location
@@ -237,7 +236,7 @@ def test_request_bodies_have_examples(openapi_document: JsonObject) -> None:
             assert media.get("example") is not None or media.get("examples"), (
                 f"{method.upper()} {path}: {media_type} lacks an example"
             )
-    assert bodies == 18
+    assert bodies == 19
 
 
 @pytest.mark.contract
@@ -560,7 +559,7 @@ def test_schemathesis_invalid_collection_requests_match_contract(
         assert collection_backend.queued == []
 
 
-negative_config = schemathesis.Config(suppress_health_check=[HealthCheck.filter_too_much])
+negative_config = schemathesis.Config()
 negative_config.projects.default.generation.update(
     modes=[schemathesis.GenerationMode.NEGATIVE],
     max_examples=5,
@@ -582,6 +581,7 @@ negative_schema = (
     # Stripe uses an HMAC over raw bytes, not the bearer-token contract below.
     # Its HTTP failure contracts are exercised in test_billing_webhook_contract.py.
     .exclude(path="/api/v1/billing/webhook")
+    .exclude(path="/api/v1/integrations/telegram/webhook")
 )
 
 

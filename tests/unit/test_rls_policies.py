@@ -21,7 +21,7 @@ REVISAO_RESOLVIDA = "f2a9c4e7b106"
 PAINEL = "d3f6a8c1e209"
 CAIXA_REVISAO_MERGE = "e5a1c7d9b204"
 PAINEL_CAIXA_MERGE = "f8b2d4a6c901"
-HEAD = "h2review2026"
+HEAD = "h3review2026"
 USUARIO_ATUAL = "NULLIF(current_setting('app.current_user_id', true), '')::bigint"
 JOB_OFERECIDO = "NULLIF(current_setting('app.upload_job_id', true), '')::uuid"
 POR_USUARIO = {
@@ -47,6 +47,20 @@ POR_USUARIO_TITULARES = {
     "usos_conta_casa",
     "trocas_titular_requisicoes",
     "trocas_titular_eventos",
+}
+POR_USUARIO_TELEGRAM = {
+    "telegram_media",
+    "telegram_links",
+    "telegram_link_codes",
+    "telegram_outbox",
+    "rascunhos_aposta",
+    "rascunho_correcoes",
+}
+GLOBAIS_TELEGRAM = {
+    "telegram_rate_buckets",
+    "telegram_link_attempts",
+    "telegram_link_attempt_events",
+    "telegram_inbox",
 }
 COMPARTILHADAS = {
     "midia_arquivos",
@@ -111,10 +125,19 @@ def test_protected_and_shared_tables_cover_the_whole_schema() -> None:
         "billing_checkouts",
         "billing_events",
     }
-    assert protegidas | POR_USUARIO_TITULARES | COMPARTILHADAS | billing | {
-        "usuarios",
-        "audit_log",
-    } == set(Base.metadata.tables)
+    assert (
+        protegidas
+        | POR_USUARIO_TITULARES
+        | POR_USUARIO_TELEGRAM
+        | GLOBAIS_TELEGRAM
+        | COMPARTILHADAS
+        | billing
+        | {
+            "usuarios",
+            "audit_log",
+        }
+        == set(Base.metadata.tables)
+    )
     assert not protegidas & COMPARTILHADAS
     for tabela in protegidas:
         assert "usuario_id" in Base.metadata.tables[tabela].c

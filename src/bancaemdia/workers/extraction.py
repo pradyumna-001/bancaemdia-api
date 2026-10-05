@@ -47,12 +47,14 @@ class LeitorLimitado:
         *,
         chat_id: int | None = None,
         message_id: int | None = None,
+        private: bool = False,
     ) -> None:
         self.leitor = leitor
         self.limiter = limiter
         self.usuario_id = usuario_id
         self.chat_id = chat_id
         self.message_id = message_id
+        self.private = private
         self.modelo_escalonamento = leitor.modelo_escalonamento
 
     def ler(
@@ -65,7 +67,9 @@ class LeitorLimitado:
         escalonar: bool = False,
     ) -> Leitura:
         self.limiter.acquire(self.usuario_id)
-        custo = anthropic_cost.labels(usuario_id=str(self.usuario_id))
+        custo = anthropic_cost.labels(
+            usuario_id="telegram" if self.private else str(self.usuario_id)
+        )
         modelo = (
             self.modelo_escalonamento
             if escalonar
@@ -101,20 +105,27 @@ def extrair_bilhete(
     chat_id: int | None = None,
     message_id: int | None = None,
     versao_prompt: str = VERSAO_PROMPT,
+    private: bool = False,
 ) -> dict[str, object]:
     if versao_prompt != VERSAO_PROMPT:
         raise ValueError(f"prompt {versao_prompt!r} não está publicado neste worker")
     from bancaemdia.domain.access import require_worker_write_access
 
     asyncio.run(require_worker_write_access(usuario_id))
+    cache = get_cache()
+    if private:
+        from bancaemdia.cache.telegram_cache import TelegramExtractionCache
+
+        cache = TelegramExtractionCache(cache, usuario_id)
     with observe_stage(EXTRACTION_QUEUE):
         leitura = ler_mensagem(
             LeitorLimitado(
                 get_leitor(),
                 get_limiter(),
                 usuario_id,
-                chat_id=chat_id,
-                message_id=message_id,
+                chat_id=None if private else chat_id,
+                message_id=None if private else message_id,
+                private=private,
             ),
             base64.b64decode(imagem_base64),
             tipo_da_imagem(nome_do_arquivo),
@@ -122,7 +133,7 @@ def extrair_bilhete(
             postada_em=datetime.fromisoformat(postada_em) if postada_em else None,
             casas_do_link=casas_do_link or (),
             odds_do_texto=odds_do_texto or (),
-            cache=get_cache(),
+            cache=cache,
         )
         batch_bets_processed.labels(stage=EXTRACTION_QUEUE).inc(leitura.quantidade_de_apostas)
     return {

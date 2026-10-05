@@ -36,6 +36,7 @@ python scripts/generate_openapi.py
 | `GET` | `/api/v1/caixa/extrato` | Consultar extrato | `200`, `401`, `402`, `422`, `429`, `500`, `503` | — |
 | `GET` | `/api/v1/caixa/saldo` | Consultar saldos | `200`, `401`, `402`, `422`, `429`, `500`, `503` | — |
 | `POST` | `/api/v1/coleta` | Receber coleta da extensão | `200`, `400`, `402`, `403`, `413`, `429`, `500`, `503` | — |
+| `POST` | `/api/v1/integrations/telegram/webhook` | Receber atualização do bot Telegram | `202`, `400`, `403`, `413`, `415`, `429`, `503` | — |
 | `GET` | `/api/v1/painel` | Consultar painel financeiro | `200`, `401`, `402`, `422`, `429`, `500`, `503` | — |
 | `GET` | `/api/v1/painel/export` | Exportar painel em Excel | `200`, `401`, `402`, `422`, `429`, `500`, `503` | — |
 | `GET` | `/api/v1/painel/metricas` | Consultar séries para gráficos | `200`, `401`, `402`, `422`, `429`, `500`, `503` | — |
@@ -44,6 +45,9 @@ python scripts/generate_openapi.py
 | `GET` | `/api/v1/revisao/{revisao_id}` | Consultar revisão | `200`, `401`, `402`, `404`, `422`, `429`, `500`, `503` | — |
 | `GET` | `/api/v1/revisao/{revisao_id}/foto` | Consultar foto da revisão | `200`, `401`, `402`, `404`, `422`, `429`, `500`, `503` | — |
 | `POST` | `/api/v1/revisao/{revisao_id}/resolver` | Resolver revisão | `200`, `401`, `402`, `404`, `409`, `413`, `422`, `429`, `500`, `503` | — |
+| `GET` | `/api/v1/telegram/link` | Consultar vínculo Telegram | `200`, `401`, `402`, `422`, `429`, `500`, `503` | — |
+| `DELETE` | `/api/v1/telegram/link` | Revogar vínculo Telegram | `200`, `401`, `402`, `422`, `429`, `500`, `503` | — |
+| `POST` | `/api/v1/telegram/link-codes` | Emitir código de vínculo Telegram | `201`, `401`, `402`, `422`, `429`, `500`, `503` | — |
 | `GET` | `/api/v1/titulares` | Listar titulares | `200`, `401`, `402`, `422`, `429`, `500`, `503` | — |
 | `POST` | `/api/v1/titulares` | Criar titular | `201`, `401`, `402`, `413`, `422`, `429`, `500`, `503` | — |
 | `GET` | `/api/v1/titulares/casas/{casa_id}/matriz` | Consultar titulares por casa | `200`, `401`, `402`, `422`, `429`, `500`, `503` | — |

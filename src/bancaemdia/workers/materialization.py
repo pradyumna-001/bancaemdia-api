@@ -226,7 +226,7 @@ async def _gravar(
         [
             EventoNovo(
                 "APOSTA_CRIADA",
-                "ia",
+                "manual" if nova.origem == "telegram_bot" else "ia",
                 {**nova.payload, "versao_prompt": versao_prompt},
                 nova.confianca,
             )
@@ -277,6 +277,7 @@ async def _gravar(
     )
     resolution: AccountResolution | None = None
     conta_casa_id = estado.get("conta_casa_id")
+    explicit_requested = nova.payload.get("conta_referencia_explicita") is True
     if reattribute:
         try:
             resolution = await attribute_account(
@@ -295,7 +296,7 @@ async def _gravar(
                 payload={
                     **novos[0].payload,
                     "conta_casa_id": conta_casa_id,
-                    "conta_referencia_explicita": False,
+                    "conta_referencia_explicita": explicit_requested,
                 },
             )
         else:
