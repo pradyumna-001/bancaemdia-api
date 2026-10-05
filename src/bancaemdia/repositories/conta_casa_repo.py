@@ -9,6 +9,64 @@ from bancaemdia.repositories.base import colunas
 
 
 class ContaCasaRepo:
+    async def list_by_holder(
+        self, session: AsyncSession, usuario_id: int, titular_id: int
+    ) -> list[models.ContaCasa]:
+        return list(
+            (
+                await session.execute(
+                    select(models.ContaCasa)
+                    .where(
+                        models.ContaCasa.usuario_id == usuario_id,
+                        models.ContaCasa.titular_id == titular_id,
+                    )
+                    .order_by(models.ContaCasa.casa_id, models.ContaCasa.id)
+                )
+            ).scalars()
+        )
+
+    async def list_by_house(
+        self, session: AsyncSession, usuario_id: int, casa_id: int
+    ) -> list[models.ContaCasa]:
+        return list(
+            (
+                await session.execute(
+                    select(models.ContaCasa)
+                    .where(
+                        models.ContaCasa.usuario_id == usuario_id,
+                        models.ContaCasa.casa_id == casa_id,
+                    )
+                    .order_by(models.ContaCasa.titular_id, models.ContaCasa.id)
+                )
+            ).scalars()
+        )
+
+    async def update_details(
+        self,
+        session: AsyncSession,
+        usuario_id: int,
+        account_id: int,
+        *,
+        apelido: str,
+        estado: str,
+    ) -> models.ContaCasa | None:
+        return (
+            await session.execute(
+                update(models.ContaCasa)
+                .where(
+                    models.ContaCasa.usuario_id == usuario_id,
+                    models.ContaCasa.id == account_id,
+                    models.ContaCasa.estado != "EM_USO",
+                )
+                .values(
+                    apelido=apelido,
+                    estado=estado,
+                    ativa=estado != "ENCERRADA",
+                )
+                .returning(models.ContaCasa)
+            )
+        ).scalar_one_or_none()
+
     async def get_by_usuario_casa(
         self, session: AsyncSession, usuario_id: int, casa_id: int
     ) -> ContaCasa | None:
@@ -19,11 +77,10 @@ class ContaCasaRepo:
                 models.ContaCasa.casa_id == casa_id,
                 models.ContaCasa.ativa.is_(True),
             )
-            .order_by(models.ContaCasa.id)
-            .limit(1)
+            .limit(2)
         )
-        obj = (await session.execute(stmt)).scalar_one_or_none()
-        return None if obj is None else ContaCasa(**colunas(obj))
+        matches = list((await session.execute(stmt)).scalars())
+        return ContaCasa(**colunas(matches[0])) if len(matches) == 1 else None
 
     async def get_by_id(self, session: AsyncSession, usuario_id: int, id_: int) -> ContaCasa | None:
         stmt = select(models.ContaCasa).where(
@@ -68,16 +125,15 @@ class ContaCasaRepo:
                 models.Casa.nome == nome,
                 models.ContaCasa.ativa.is_(True),
             )
-            .order_by(models.ContaCasa.id)
-            .limit(1)
+            .limit(2)
         )
         if data is not None:
             stmt = stmt.where(
                 or_(models.ContaCasa.desde.is_(None), models.ContaCasa.desde <= data),
                 or_(models.ContaCasa.ate.is_(None), models.ContaCasa.ate >= data),
             )
-        obj = (await session.execute(stmt)).scalar_one_or_none()
-        return None if obj is None else ContaCasa(**colunas(obj))
+        matches = list((await session.execute(stmt)).scalars())
+        return ContaCasa(**colunas(matches[0])) if len(matches) == 1 else None
 
     async def create(self, session: AsyncSession, dados: dict[str, object]) -> ContaCasa:
         obj = (

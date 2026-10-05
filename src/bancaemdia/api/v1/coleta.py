@@ -216,6 +216,9 @@ async def receber_coleta(request: Request, session: AsyncSession = Depends(get_d
     request.state.usuario_id = usuario_id
     request.state.instalacao_id = identity.instalacao_id
     await _set_current_user(session, usuario_id)
+    from bancaemdia.domain.access import require_write_access
+
+    await require_write_access(session, usuario_id)
 
     # O teto vem antes de ler o corpo: quem já passou dele não custa nem a memória do envio.
     hoje = datetime.now(UTC).replace(hour=0, minute=0, second=0, microsecond=0)

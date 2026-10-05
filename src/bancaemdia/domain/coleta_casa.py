@@ -147,6 +147,7 @@ def eventos_da_criacao(coletada: Coletada, valor_unidade_centavos: int) -> list[
     payload: dict[str, Any] = {
         "origem": "casa",
         "data_aposta": coletada.data_aposta,
+        "data_jogo": coletada.data_aposta,
         "casa": coletada.casa.strip(),
         "tipster": None,
         "evento": coletada.evento,

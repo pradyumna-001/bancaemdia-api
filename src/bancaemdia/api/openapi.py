@@ -188,6 +188,58 @@ OPERATION_DOCUMENTATION: dict[OperationKey, tuple[str, str]] = {
         "Consultar revisão",
         "Retorna os dados auditáveis de uma revisão pertencente ao usuário.",
     ),
+    ("post", "/api/v1/titulares/trocas/preview"): (
+        "Prévia de troca de conta",
+        "Mostra as apostas cuja atribuição difere após a troca, sem alterar as contas.",
+    ),
+    ("post", "/api/v1/titulares/trocas"): (
+        "Trocar conta da casa",
+        "Aplica uma prévia feita com a mesma chave; fecha a origem e abre o destino no instante escolhido.",
+    ),
+    ("post", "/api/v1/titulares"): (
+        "Criar titular",
+        "Cria um titular pertencente ao usuário autenticado.",
+    ),
+    ("get", "/api/v1/titulares"): (
+        "Listar titulares",
+        "Lista titulares do usuário com busca e paginação.",
+    ),
+    ("get", "/api/v1/titulares/casas/{casa_id}/matriz"): (
+        "Consultar titulares por casa",
+        "Lista contas, estados e histórico de uso nesta casa; inclui titulares sem conta.",
+    ),
+    ("get", "/api/v1/titulares/financeiro"): (
+        "Consultar financeiro por titular e conta",
+        "Concilia apostas por conta, titular e usuário em centavos; mantém caixa e não atribuídas separados.",
+    ),
+    ("get", "/api/v1/titulares/{titular_id}"): (
+        "Consultar titular",
+        "Retorna um titular pertencente ao usuário.",
+    ),
+    ("patch", "/api/v1/titulares/{titular_id}"): (
+        "Editar titular",
+        "Atualiza o nome de um titular ativo.",
+    ),
+    ("delete", "/api/v1/titulares/{titular_id}"): (
+        "Arquivar titular",
+        "Arquiva um titular que não tenha conta em uso.",
+    ),
+    ("get", "/api/v1/titulares/{titular_id}/matriz"): (
+        "Consultar casas do titular",
+        "Lista contas estáveis, intervalos de uso e ações disponíveis do titular.",
+    ),
+    ("post", "/api/v1/titulares/{titular_id}/contas"): (
+        "Criar conta da casa",
+        "Cria uma conta estável da casa para o titular.",
+    ),
+    ("patch", "/api/v1/titulares/{titular_id}/contas/{conta_id}"): (
+        "Editar conta da casa",
+        "Altera apelido ou estado de uma conta fora de uso.",
+    ),
+    ("post", "/api/v1/titulares/{titular_id}/contas/{conta_id}/ativar"): (
+        "Ativar primeira conta da casa",
+        "Abre o primeiro intervalo de uso no instante atual quando a casa está livre.",
+    ),
     ("get", "/api/v1/usuario/me/export"): (
         "Exportar meus registros",
         "Baixa perfil e registros vinculados à conta em JSON ou Excel, sem arquivos binários.",
@@ -220,19 +272,21 @@ PARAMETER_DESCRIPTIONS = {
     "instalacao_id": "ID interno da instalação do usuário autenticado.",
     "Idempotency-Key": (
         "Chave opaca obrigatória do cliente; reutilizá-la com o mesmo corpo reproduz a resposta "
-        "original sem lançar dinheiro novamente."
+        "original sem repetir a operação."
     ),
     "ate": "Limite final exclusivo do intervalo, em ISO 8601.",
     "casa_id": "Identificador canônico da casa usada como filtro.",
     "chave": "Chave estável e opaca da aposta.",
     "competicao_id": "Identificador canônico da competição usada como filtro.",
     "conta_casa_id": "Identificador da conta da casa usada como filtro.",
+    "conta_id": "Identificador da conta estável da casa pertencente ao titular.",
     "data_corte": "Data civil opcional para reconstruir o saldo histórico.",
     "desde": "Limite inicial inclusivo do intervalo, em ISO 8601.",
     "estado": "Estado de liquidação da aposta usado como filtro.",
     "fresh": "Lê no primário quando verdadeiro, sem forçar refresh das materialized views.",
     "formato": "Formato da exportação dos dados da conta: JSON ou Excel.",
     "incluir_apagadas": "Inclui apostas retiradas da apuração quando verdadeiro.",
+    "include_archived": "Inclui titulares arquivados na listagem quando verdadeiro.",
     "job_id": "UUID público retornado quando o upload foi aceito.",
     "mercado_id": "Identificador canônico do mercado usado como filtro.",
     "motivo": "Texto do motivo usado para filtrar a fila de revisões.",
@@ -242,6 +296,8 @@ PARAMETER_DESCRIPTIONS = {
     "periodo": "Janela civil de agregação no fuso America/Sao_Paulo.",
     "revisao_grave": "Filtra apostas pela marca de revisão grave.",
     "revisao_id": "Identificador numérico da revisão pertencente ao usuário.",
+    "search": "Busca textual pelo nome do titular.",
+    "titular_id": "Identificador do titular pertencente ao usuário.",
     "tipo": "Tipo de movimento de caixa usado como filtro.",
     "tipster_id": "Identificador canônico do tipster usado como filtro.",
 }
@@ -292,6 +348,19 @@ REQUEST_EXAMPLES: dict[OperationKey, tuple[str, JsonObject]] = {
         "Configured currency and cadence",
         {"currency": "BRL", "frequency": "MONTHLY"},
     ),
+    ("post", "/api/v1/titulares"): ("Criar titular", {"nome": "Ana"}),
+    ("patch", "/api/v1/titulares/{titular_id}"): (
+        "Renomear titular",
+        {"nome": "Ana Silva"},
+    ),
+    ("post", "/api/v1/titulares/{titular_id}/contas"): (
+        "Criar conta estável",
+        {"casa_id": 7, "apelido": "Ana Betano"},
+    ),
+    ("patch", "/api/v1/titulares/{titular_id}/contas/{conta_id}"): (
+        "Limitar conta",
+        {"estado": "LIMITADA"},
+    ),
     ("patch", "/api/v1/caixa/contas/{conta_casa_id}/banca"): (
         "Vincular conta à banca",
         {"banca_id": 12},
@@ -330,6 +399,26 @@ REQUEST_EXAMPLES: dict[OperationKey, tuple[str, JsonObject]] = {
     ("post", "/api/v1/revisao/{revisao_id}/resolver"): (
         "Corrigir e resolver",
         {"acao": "CORRIGIR", "aposta_corrigida": {"odd": 2.05}},
+    ),
+    ("post", "/api/v1/titulares/trocas/preview"): (
+        "Prévia de troca de conta",
+        {
+            "casa_id": 3,
+            "conta_origem_id": 42,
+            "conta_destino_id": 43,
+            "efetiva_em": "2026-09-22T14:30:00-03:00",
+            "estado_origem": "LIMITADA",
+        },
+    ),
+    ("post", "/api/v1/titulares/trocas"): (
+        "Aplicar troca após prévia",
+        {
+            "casa_id": 3,
+            "conta_origem_id": 42,
+            "conta_destino_id": 43,
+            "efetiva_em": "2026-09-22T14:30:00-03:00",
+            "estado_origem": "LIMITADA",
+        },
     ),
 }
 

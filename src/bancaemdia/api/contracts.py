@@ -52,6 +52,10 @@ COMMON_ERROR_RESPONSES: OpenAPIResponses = {
 }
 
 AUTHENTICATED_ERROR_RESPONSES: OpenAPIResponses = {
+    402: {
+        "model": ErrorResponse,
+        "description": "account_read_only: writes require confirmed trial or paid access.",
+    },
     401: {
         "model": ErrorResponse,
         "description": "Missing, expired, or invalid bearer token.",
@@ -72,6 +76,7 @@ AUTHENTICATED_ERROR_RESPONSES: OpenAPIResponses = {
 }
 
 COLETA_ERROR_RESPONSES: OpenAPIResponses = {
+    402: {"model": ErrorResponse, "description": "account_read_only: retain the extension outbox."},
     400: {"model": ErrorResponse, "description": "Malformed collection payload."},
     403: {"model": ErrorResponse, "description": "Invalid collection token."},
     429: {
@@ -104,6 +109,7 @@ class BetResponse(StrictContractModel):
     lucro_centavos: int | None
     freebet: bool
     conta_casa_id: int | None
+    conta_atribuicao: Literal["ASSIGNED", "UNASSIGNED"] = "UNASSIGNED"
     tipster_id: int | None
     time_casa_id: int | None
     time_fora_id: int | None

@@ -19,7 +19,7 @@ from bancaemdia.domain.materializar import casa_canonica
 MAX_BYTES = PLANILHA_MAX_BYTES
 MAX_ROWS = 1_000
 REQUIRED = ("casa", "data_aposta", "odd", "stake_unidades", "atualizada_em")
-OPTIONAL = ("evento", "descricao", "mercado_bruto", "freebet")
+OPTIONAL = ("evento", "descricao", "mercado_bruto", "freebet", "data_jogo")
 FUSO_DO_BRASIL = ZoneInfo("America/Sao_Paulo")
 
 
@@ -41,6 +41,7 @@ class LinhaPlanilha:
     mercado_bruto: str | None
     freebet: bool
     presentes: frozenset[str]
+    data_jogo: datetime | None = None
 
 
 def _data(valor: object, numero: int, campo: str) -> datetime:
@@ -156,6 +157,9 @@ def ler_planilha(conteudo: bytes, origem_id: str) -> list[LinhaPlanilha]:
                         mercado_bruto=_texto(_campo(colunas, valores, "mercado_bruto")),
                         freebet=_booleano(_campo(colunas, valores, "freebet"), numero),
                         presentes=frozenset(colunas),
+                        data_jogo=_data(_campo(colunas, valores, "data_jogo"), numero, "data_jogo")
+                        if _campo(colunas, valores, "data_jogo") is not None
+                        else None,
                     )
                 )
     finally:

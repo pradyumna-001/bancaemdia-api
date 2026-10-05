@@ -281,6 +281,15 @@ class MovimentoRepo:
         )
         if filtros.get("conta_casa_id") is not None:
             stmt = stmt.where(models.Movimento.conta_casa_id == filtros["conta_casa_id"])
+        if filtros.get("titular_id") is not None:
+            stmt = stmt.where(
+                models.Movimento.conta_casa_id.in_(
+                    select(models.ContaCasa.id).where(
+                        models.ContaCasa.usuario_id == usuario_id,
+                        models.ContaCasa.titular_id == filtros["titular_id"],
+                    )
+                )
+            )
         if filtros.get("tipo") is not None:
             stmt = stmt.where(models.Movimento.tipo == filtros["tipo"])
         if filtros.get("desde") is not None:
