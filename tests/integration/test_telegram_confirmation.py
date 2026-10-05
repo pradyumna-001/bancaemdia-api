@@ -23,6 +23,63 @@ from bancaemdia.workers.telegram_materialization import draft_bet_key
 pytestmark = pytest.mark.xdist_group("postgres")
 
 
+@pytest.mark.parametrize("explicit, game", [(False, True), (True, True), (True, False)])
+async def test_game_clock_selects_default_and_multicontas_preserves_actual_account(
+    engine_admin, engine_app, como, novo_usuario, explicit, game
+):
+    user = await novo_usuario()
+    old_id = await _account(engine_admin, engine_app, como, user)
+    chat = _id()
+    async with como(engine_app, user) as session:
+        old = await ContaCasaRepo().get_by_id(session, user, old_id)
+        usages = UsoContaCasaRepo()
+        current = await usages.current_for_update(session, user, old.casa_id)
+        switch = datetime(2026, 9, 21, tzinfo=UTC)
+        await usages.close(session, current.id, switch)
+        new = await ContaCasaRepo().create(
+            session, {"usuario_id": user, "casa_id": old.casa_id, "apelido": "depois"}
+        )
+        await usages.open(session, user, old.casa_id, new.id, switch)
+        session.add(
+            models.TelegramLink(usuario_id=user, telegram_user_id=chat, telegram_chat_id=chat)
+        )
+        fields = {
+            "casa": "Betano",
+            "odd": 2.0,
+            "stake_unidades": 1.0,
+            "data_aposta": "2026-09-20T12:00:00-03:00",
+        }
+        if game:
+            fields["data_jogo"] = "2026-09-22T12:00:00-03:00"
+        draft, _ = await open_draft(
+            session,
+            user_id=user,
+            chat_id=chat,
+            message_id=1,
+            update_id=_id(),
+            extracted=fields,
+        )
+        if not game:
+            assert draft.missing_fields_json == ["data_jogo"]
+            assert "conta_casa_id" not in draft.fields_json
+            assert not (
+                await confirm_draft(session, user_id=user, chat_id=chat, update_id=_id())
+            ).queued
+        else:
+            assert draft.fields_json["conta_casa_id"] == new.id
+        if explicit:
+            await handle_text(
+                session, user_id=user, chat_id=chat, update_id=_id(), text=f"conta={old_id}"
+            )
+        reply = await confirm_draft(session, user_id=user, chat_id=chat, update_id=_id())
+        assert reply.queued
+        saved = await ApostaRepo().get_by_chave(session, user, draft_bet_key(draft.id))
+        assert saved.conta_casa_id == (old_id if explicit else new.id)
+        assert saved.data_aposta == datetime(2026, 9, 20, 15, tzinfo=UTC)
+        assert saved.data_jogo == (datetime(2026, 9, 22, 15, tzinfo=UTC) if game else None)
+        await session.commit()
+
+
 def _id() -> int:
     return uuid4().int & ((1 << 62) - 1)
 

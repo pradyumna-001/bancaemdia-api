@@ -8,6 +8,14 @@ financeira por texto puro. Texto pode preencher/corrigir um rascunho. `/confirma
 Stake extraída só é aceita quando a imagem declara unidades explicitamente;
 valor monetário não é convertido por suposição.
 
+A conta padrão é a vigente na data/hora do jogo, nunca na data da aposta ou do
+recebimento da mensagem. Sem data do jogo, o bot pede `jogo=24/09/2026`.
+No multicontas, `conta=<número>` mantém a conta que fez a aposta, validada para o
+usuário e a casa. Uma referência inválida não permite escolha automática.
+Uma assinatura expirada preserva a foto em `AWAITING_EXTRACTION`, com
+`extraction_error_code=account_read_only`, sem consumir IA. Após restabelecer o
+acesso, o Beat retoma a leitura; `/confirmar` continua obrigatório.
+
 ## Configuração e rotação
 
 1. Aplicar migrations e grants com o papel administrativo; API/worker usam o

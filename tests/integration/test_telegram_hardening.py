@@ -787,6 +787,58 @@ async def test_subscription_denial_preserves_cancellation_and_purge(bot, engine_
             await conn.execute(text("UPDATE billing_rollout SET activated_at=NULL WHERE id=1"))
 
 
+async def test_expired_photo_pauses_without_provider_and_resumes_after_payment(bot, engine_admin):
+    await bot.send({"photo": [{"file_id": "pending-before-expiry"}]})
+    draft = await bot.draft()
+    assert draft.status == "AWAITING_EXTRACTION"
+    original_fields = draft.fields_json
+    reference = draft.media_reference_ciphertext
+    async with engine_admin.begin() as conn:
+        await conn.execute(
+            text("UPDATE billing_rollout SET activated_at=clock_timestamp() WHERE id=1")
+        )
+        await conn.execute(
+            text(
+                "UPDATE assinaturas SET trial_confirmed=false, status='EXPIRED' WHERE usuario_id=:uid"
+            ),
+            {"uid": bot.user},
+        )
+    try:
+        assert not await telegram_extraction.process_photo_once(
+            bot.engine, bot.client, draft_id=draft.id
+        )
+        paused = await bot.draft()
+        assert paused.status == "AWAITING_EXTRACTION"
+        assert paused.fields_json == original_fields
+        assert paused.media_reference_ciphertext == reference
+        assert paused.extraction_error_code == "account_read_only"
+        assert paused.extraction_lease_token is None and paused.extraction_lease_until is None
+        assert bot.provider.reads == 0 and not await bot.bets()
+        async with engine_admin.begin() as conn:
+            await conn.execute(
+                text("""UPDATE assinaturas SET status='ACTIVE',
+                    current_period_started_at=clock_timestamp()-interval '1 hour',
+                    current_period_ends_at=clock_timestamp()+interval '1 day' WHERE usuario_id=:uid"""),
+                {"uid": bot.user},
+            )
+            await conn.execute(
+                update(models.RascunhoAposta)
+                .where(models.RascunhoAposta.id == draft.id)
+                .values(extraction_next_attempt_at=datetime.now(UTC) - timedelta(seconds=1))
+            )
+        assert await telegram_extraction.process_photo_once(
+            bot.engine, bot.client, draft_id=draft.id
+        )
+        assert bot.provider.reads == 1
+        assert (await bot.draft()).status == "AWAITING_CONFIRMATION"
+        assert not await bot.bets()
+        await bot.send({"text": "/confirmar"})
+        assert len(await bot.bets()) == 1
+    finally:
+        async with engine_admin.begin() as conn:
+            await conn.execute(text("UPDATE billing_rollout SET activated_at=NULL WHERE id=1"))
+
+
 async def test_real_redis_celery_tick_consumes_durable_inbox(bot, banco, bot_redis, monkeypatch):
     from celery import Celery
     from celery.contrib.testing.worker import start_worker
