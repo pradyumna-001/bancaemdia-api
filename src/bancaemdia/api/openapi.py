@@ -20,6 +20,34 @@ MANUAL_BET_HOUSES = sorted(
 
 
 OPERATION_DOCUMENTATION: dict[OperationKey, tuple[str, str]] = {
+    ("post", "/api/v1/coleta/sessions"): (
+        "Abrir ou retomar sessão",
+        "Cria uma fronteira imutável por instalação ou retoma o UUID explícito sem ampliar o corte.",
+    ),
+    ("get", "/api/v1/coleta/sessions/{sessao_id}"): (
+        "Consultar sessão",
+        "Consulta somente sessão da instalação autenticada no primário.",
+    ),
+    ("delete", "/api/v1/coleta/sessions/{sessao_id}"): (
+        "Encerrar sessão",
+        "Impede novas capturas sem perder entregas já aceitas.",
+    ),
+    ("post", "/api/v1/coleta/batches"): (
+        "Receber lote v2",
+        "Persiste um ACK estável por item antes de responder; resultado financeiro é consultado pelo job.",
+    ),
+    ("get", "/api/v1/coleta/jobs/{job_id}"): (
+        "Consultar entrega v2",
+        "Retorna estado terminal ou pendente, restrito à instalação dona da captura.",
+    ),
+    ("get", "/api/v1/coleta/contract"): (
+        "Consultar versão do contrato",
+        "Publica N/N-1, hashes, faixa de protocolo e política de depreciação.",
+    ),
+    ("get", "/api/v1/coleta/contract/schema"): (
+        "Baixar contrato canônico",
+        "OpenAPI canônico gerado dos mesmos modelos usados pela API.",
+    ),
     ("post", "/api/v1/coleta/pairing-codes"): (
         "Criar código de pareamento",
         "Emite código descartável para uma instalação; requer JWT e HTTPS.",
@@ -188,6 +216,7 @@ OPERATION_DOCUMENTATION: dict[OperationKey, tuple[str, str]] = {
 
 
 PARAMETER_DESCRIPTIONS = {
+    "sessao_id": "UUID opaco da sessão pertencente à instalação autenticada.",
     "instalacao_id": "ID interno da instalação do usuário autenticado.",
     "Idempotency-Key": (
         "Chave opaca obrigatória do cliente; reutilizá-la com o mesmo corpo reproduz a resposta "
@@ -219,6 +248,38 @@ PARAMETER_DESCRIPTIONS = {
 
 
 REQUEST_EXAMPLES: dict[OperationKey, tuple[str, JsonObject]] = {
+    ("post", "/api/v1/coleta/sessions"): (
+        "Nova sessão explícita",
+        {"coletar_desde": "2026-08-01T00:00:00Z", "retomar_sessao_id": None},
+    ),
+    ("post", "/api/v1/coleta/batches"): (
+        "Captura sintética",
+        {
+            "contrato": 2,
+            "batch_id": "00000000-0000-4000-8000-000000000001",
+            "sessao_id": "00000000-0000-4000-8000-000000000002",
+            "items": [
+                {
+                    "client_event_id": "00000000-0000-4000-8000-000000000003",
+                    "hostname": "betano.bet.br",
+                    "observado": {
+                        "source": "observed_response",
+                        "transport": "fetch",
+                        "method": "GET",
+                        "path": "/synthetic/history",
+                        "status": 200,
+                        "content_type": "application/json",
+                        "adapter_version": "1.0.0",
+                        "sanitization_version": 1,
+                    },
+                    "capturado_em": "2026-08-02T00:00:00Z",
+                    "payload": {},
+                    "content_hash": "44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a",
+                    "conta_casa_ref": None,
+                }
+            ],
+        },
+    ),
     ("post", "/api/v1/coleta/pairing-exchange"): (
         "Código descartável e instalação opaca",
         {
@@ -611,6 +672,15 @@ def _install_collection_security(document: JsonObject) -> None:
         "description": "Token opaco da extensão; armazenado no servidor somente como HMAC.",
     }
     paths = _object(document["paths"], context="paths")
+    for path in (
+        "/api/v1/coleta/sessions",
+        "/api/v1/coleta/sessions/{sessao_id}",
+        "/api/v1/coleta/batches",
+        "/api/v1/coleta/jobs/{job_id}",
+    ):
+        for method, operation in paths[path].items():
+            if method in HTTP_METHODS:
+                operation["security"] = [{"CollectionToken": []}]
     for path in COLLECTION_PATHS:
         operation = _object(
             _object(paths[path], context=f"path {path}")["post"],

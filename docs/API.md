@@ -36,11 +36,18 @@ python scripts/generate_openapi.py
 | `GET` | `/api/v1/caixa/extrato` | Consultar extrato | `200`, `401`, `422`, `429`, `500`, `503` | — |
 | `GET` | `/api/v1/caixa/saldo` | Consultar saldos | `200`, `401`, `422`, `429`, `500`, `503` | — |
 | `POST` | `/api/v1/coleta` | Receber coleta da extensão | `200`, `400`, `403`, `413`, `429`, `500`, `503` | — |
+| `POST` | `/api/v1/coleta/batches` | Receber lote v2 | `200`, `400`, `401`, `403`, `404`, `409`, `413`, `422`, `429`, `500`, `503` | — |
+| `GET` | `/api/v1/coleta/contract` | Consultar versão do contrato | `200`, `400`, `401`, `403`, `404`, `409`, `422`, `429`, `500`, `503` | — |
+| `GET` | `/api/v1/coleta/contract/schema` | Baixar contrato canônico | `200`, `400`, `401`, `403`, `404`, `409`, `422`, `429`, `500`, `503` | — |
 | `GET` | `/api/v1/coleta/installations` | Listar instalações | `200`, `400`, `401`, `403`, `404`, `422`, `429`, `500`, `503` | — |
 | `DELETE` | `/api/v1/coleta/installations/{instalacao_id}` | Revogar instalação | `204`, `400`, `401`, `403`, `404`, `422`, `429`, `500`, `503` | — |
 | `POST` | `/api/v1/coleta/installations/{instalacao_id}/rotate` | Rotacionar credencial | `200`, `400`, `401`, `403`, `404`, `422`, `429`, `500`, `503` | — |
+| `GET` | `/api/v1/coleta/jobs/{job_id}` | Consultar entrega v2 | `200`, `400`, `401`, `403`, `404`, `409`, `422`, `429`, `500`, `503` | — |
 | `POST` | `/api/v1/coleta/pairing-codes` | Criar código de pareamento | `201`, `400`, `401`, `403`, `404`, `422`, `429`, `500`, `503` | — |
 | `POST` | `/api/v1/coleta/pairing-exchange` | Parear instalação | `200`, `400`, `401`, `403`, `404`, `413`, `422`, `429`, `500`, `503` | — |
+| `POST` | `/api/v1/coleta/sessions` | Abrir ou retomar sessão | `200`, `400`, `401`, `403`, `404`, `409`, `413`, `422`, `429`, `500`, `503` | — |
+| `GET` | `/api/v1/coleta/sessions/{sessao_id}` | Consultar sessão | `200`, `400`, `401`, `403`, `404`, `409`, `422`, `429`, `500`, `503` | — |
+| `DELETE` | `/api/v1/coleta/sessions/{sessao_id}` | Encerrar sessão | `204`, `400`, `401`, `403`, `404`, `409`, `422`, `429`, `500`, `503` | — |
 | `GET` | `/api/v1/coleta/status` | Consultar credencial da instalação | `200`, `400`, `401`, `403`, `404`, `422`, `429`, `500`, `503` | — |
 | `GET` | `/api/v1/painel` | Consultar painel financeiro | `200`, `401`, `422`, `429`, `500`, `503` | — |
 | `GET` | `/api/v1/painel/export` | Exportar painel em Excel | `200`, `401`, `422`, `429`, `500`, `503` | — |

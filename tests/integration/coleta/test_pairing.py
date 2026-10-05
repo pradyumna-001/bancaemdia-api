@@ -601,7 +601,7 @@ async def test_legacy_upgrade_requires_repair_and_roundtrip_never_reactivates(ba
             await asyncio.to_thread(command.downgrade, config, "a9d6e3f1c210")
         async with engine.connect() as conn:
             assert (
-                await conn.scalar(text("SELECT version_num FROM alembic_version")) == "c107pair2026"
+                await conn.scalar(text("SELECT version_num FROM alembic_version")) == "c108v22026"
             )
             assert await conn.scalar(text("SELECT ativo FROM coleta_token")) is False
     finally:

@@ -23,6 +23,7 @@ from bancaemdia.models.coleta_instalacao import (
     ColetaPairingCode,
     ColetaPairingQuota,
 )
+from bancaemdia.models.coleta_sessao import ColetaEntrega, ColetaSessao
 from bancaemdia.models.coleta_token import ColetaToken
 from bancaemdia.models.competicao import Competicao
 from bancaemdia.models.conta_casa import ContaCasa
@@ -111,9 +112,9 @@ def test_all_thirty_seven_tables_are_registered() -> None:
         + SUPORTE
         + UPLOAD
         + BILLING
-        + (AuditLog, ColetaInstalacao, ColetaPairingCode, ColetaPairingQuota)
+        + (AuditLog, ColetaInstalacao, ColetaPairingCode, ColetaPairingQuota, ColetaSessao, ColetaEntrega)
     }
-    assert len(esperadas) == 37
+    assert len(esperadas) == 39
     assert set(Base.metadata.tables) == esperadas
     assert {m.__tablename__ for m in CANONICOS} == {
         "casas",

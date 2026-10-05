@@ -1,3 +1,4 @@
+import re
 from collections.abc import Awaitable, Callable
 
 from starlette.middleware.base import BaseHTTPMiddleware
@@ -23,6 +24,10 @@ PUBLIC_PATHS = frozenset({
     "/api/v1/coleta",
     "/api/v1/coleta/pairing-exchange",
     "/api/v1/coleta/status",
+    "/api/v1/coleta/sessions",
+    "/api/v1/coleta/batches",
+    "/api/v1/coleta/contract",
+    "/api/v1/coleta/contract/schema",
     "/webhook/upload-complete",
     "/openapi.json",
     "/docs",
@@ -51,7 +56,9 @@ class JWTAuthMiddleware(BaseHTTPMiddleware):
     async def dispatch(
         self, request: Request, call_next: Callable[[Request], Awaitable[Response]]
     ) -> Response:
-        if route_path(request) in PUBLIC_PATHS:
+        if route_path(request) in PUBLIC_PATHS or re.fullmatch(
+            r"/api/v1/coleta/(sessions|jobs)/[0-9a-fA-F-]{36}", route_path(request)
+        ):
             return await call_next(request)
 
         scheme, _, token = (request.headers.get("Authorization") or "").partition(" ")

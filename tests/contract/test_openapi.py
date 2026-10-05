@@ -89,6 +89,9 @@ def _collection_backend() -> Generator[CollectionContractBackend]:
             return CollectionIdentity(7, 17) if token_hash == expected else None
 
     class CollectionRepository:
+        async def lock_daily_admission(self, _session: object, _usuario_id: int) -> None:
+            pass
+
         async def count_received_since(
             self, _session: object, _usuario_id: int, _desde: object
         ) -> int:
@@ -566,6 +569,7 @@ negative_schema = (
     # These public operations authenticate a challenge/token, not a JWT; their negative cases have dedicated tests.
     .exclude(path="/api/v1/coleta/pairing-exchange")
     .exclude(path="/api/v1/coleta/status")
+    .exclude(path_regex=r"^/api/v1/coleta/(sessions|batches|jobs|contract)(/|$)")
     .exclude(
         # `chave` is an intentionally opaque, unconstrained string. There is no serializable
         # negative string value for that path parameter, so Schemathesis correctly has no strategy.

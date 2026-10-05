@@ -111,6 +111,8 @@ def test_protected_and_shared_tables_cover_the_whole_schema() -> None:
         "coleta_instalacoes",
         "coleta_pairing_codes",
         "coleta_pairing_quotas",
+        "coleta_sessoes",
+        "coleta_entregas",
     } == set(Base.metadata.tables)
     assert not protegidas & COMPARTILHADAS
     for tabela in protegidas:
