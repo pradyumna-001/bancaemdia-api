@@ -3896,6 +3896,16 @@
             },
             "description": "Missing, expired, or invalid bearer token."
           },
+          "402": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "account_read_only: writes require confirmed trial or paid access."
+          },
           "422": {
             "content": {
               "application/json": {
@@ -3992,6 +4002,16 @@
               }
             },
             "description": "Missing, expired, or invalid bearer token."
+          },
+          "402": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "account_read_only: writes require confirmed trial or paid access."
           },
           "409": {
             "content": {
@@ -4123,6 +4143,16 @@
             },
             "description": "Missing, expired, or invalid bearer token."
           },
+          "402": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "account_read_only: writes require confirmed trial or paid access."
+          },
           "413": {
             "content": {
               "text/plain": {
@@ -4219,6 +4249,16 @@
               }
             },
             "description": "Missing, expired, or invalid bearer token."
+          },
+          "402": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "account_read_only: writes require confirmed trial or paid access."
           },
           "404": {
             "content": {
@@ -4323,6 +4363,16 @@
               }
             },
             "description": "Missing, expired, or invalid bearer token."
+          },
+          "402": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "account_read_only: writes require confirmed trial or paid access."
           },
           "404": {
             "content": {
@@ -4437,6 +4487,16 @@
               }
             },
             "description": "Missing, expired, or invalid bearer token."
+          },
+          "402": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "account_read_only: writes require confirmed trial or paid access."
           },
           "404": {
             "content": {
@@ -4554,6 +4614,16 @@
               }
             },
             "description": "Missing, expired, or invalid bearer token."
+          },
+          "402": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "account_read_only: writes require confirmed trial or paid access."
           },
           "404": {
             "content": {
@@ -4680,6 +4750,16 @@
             },
             "description": "Missing, expired, or invalid bearer token."
           },
+          "402": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "account_read_only: writes require confirmed trial or paid access."
+          },
           "404": {
             "content": {
               "application/json": {
@@ -4789,6 +4869,16 @@
             },
             "description": "Missing, expired, or invalid bearer token."
           },
+          "402": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "account_read_only: writes require confirmed trial or paid access."
+          },
           "409": {
             "content": {
               "application/json": {
@@ -4876,6 +4966,16 @@
             },
             "description": "Missing, expired, or invalid bearer token."
           },
+          "402": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "account_read_only: writes require confirmed trial or paid access."
+          },
           "409": {
             "content": {
               "application/json": {
@@ -4962,6 +5062,16 @@
               }
             },
             "description": "Missing, expired, or invalid bearer token."
+          },
+          "402": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "account_read_only: writes require confirmed trial or paid access."
           },
           "409": {
             "content": {
@@ -5082,6 +5192,16 @@
               }
             },
             "description": "Missing, expired, or invalid bearer token."
+          },
+          "402": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "account_read_only: writes require confirmed trial or paid access."
           },
           "409": {
             "content": {
@@ -5369,6 +5489,16 @@
             },
             "description": "Missing, expired, or invalid bearer token."
           },
+          "402": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "account_read_only: writes require confirmed trial or paid access."
+          },
           "422": {
             "content": {
               "application/json": {
@@ -5486,6 +5616,16 @@
               }
             },
             "description": "Missing, expired, or invalid bearer token."
+          },
+          "402": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "account_read_only: writes require confirmed trial or paid access."
           },
           "404": {
             "content": {
@@ -5631,6 +5771,16 @@
               }
             },
             "description": "Missing, expired, or invalid bearer token."
+          },
+          "402": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "account_read_only: writes require confirmed trial or paid access."
           },
           "404": {
             "content": {
@@ -5810,6 +5960,16 @@
             },
             "description": "Missing, expired, or invalid bearer token."
           },
+          "402": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "account_read_only: writes require confirmed trial or paid access."
+          },
           "422": {
             "content": {
               "application/json": {
@@ -5903,6 +6063,16 @@
               }
             },
             "description": "Missing, expired, or invalid bearer token."
+          },
+          "402": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "account_read_only: writes require confirmed trial or paid access."
           },
           "422": {
             "content": {
@@ -6034,6 +6204,16 @@
               }
             },
             "description": "Malformed collection payload."
+          },
+          "402": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "account_read_only: retain the extension outbox."
           },
           "403": {
             "content": {
@@ -6202,6 +6382,16 @@
             },
             "description": "Missing, expired, or invalid bearer token."
           },
+          "402": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "account_read_only: writes require confirmed trial or paid access."
+          },
           "422": {
             "content": {
               "application/json": {
@@ -6347,6 +6537,16 @@
             },
             "description": "Missing, expired, or invalid bearer token."
           },
+          "402": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "account_read_only: writes require confirmed trial or paid access."
+          },
           "422": {
             "content": {
               "application/json": {
@@ -6490,6 +6690,16 @@
               }
             },
             "description": "Missing, expired, or invalid bearer token."
+          },
+          "402": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "account_read_only: writes require confirmed trial or paid access."
           },
           "422": {
             "content": {
@@ -6646,6 +6856,16 @@
             },
             "description": "Missing, expired, or invalid bearer token."
           },
+          "402": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "account_read_only: writes require confirmed trial or paid access."
+          },
           "422": {
             "content": {
               "application/json": {
@@ -6719,6 +6939,16 @@
               }
             },
             "description": "Missing, expired, or invalid bearer token."
+          },
+          "402": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "account_read_only: writes require confirmed trial or paid access."
           },
           "422": {
             "content": {
@@ -6807,6 +7037,16 @@
               }
             },
             "description": "Missing, expired, or invalid bearer token."
+          },
+          "402": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "account_read_only: writes require confirmed trial or paid access."
           },
           "404": {
             "content": {
@@ -6931,6 +7171,16 @@
             },
             "description": "Missing, expired, or invalid bearer token."
           },
+          "402": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "account_read_only: writes require confirmed trial or paid access."
+          },
           "404": {
             "content": {
               "application/json": {
@@ -7049,6 +7299,16 @@
               }
             },
             "description": "Missing, expired, or invalid bearer token."
+          },
+          "402": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "account_read_only: writes require confirmed trial or paid access."
           },
           "404": {
             "content": {
@@ -7219,6 +7479,16 @@
             },
             "description": "Missing, expired, or invalid bearer token."
           },
+          "402": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "account_read_only: writes require confirmed trial or paid access."
+          },
           "413": {
             "content": {
               "application/json": {
@@ -7322,6 +7592,16 @@
             },
             "description": "Missing, expired, or invalid bearer token."
           },
+          "402": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "account_read_only: writes require confirmed trial or paid access."
+          },
           "404": {
             "content": {
               "application/json": {
@@ -7405,6 +7685,16 @@
               }
             },
             "description": "Missing, expired, or invalid bearer token."
+          },
+          "402": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "account_read_only: writes require confirmed trial or paid access."
           },
           "409": {
             "content": {
@@ -7686,6 +7976,16 @@
             },
             "description": "Missing, expired, or invalid bearer token."
           },
+          "402": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "account_read_only: writes require confirmed trial or paid access."
+          },
           "422": {
             "content": {
               "application/json": {
@@ -7816,6 +8116,16 @@
               }
             },
             "description": "Malformed collection payload."
+          },
+          "402": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "account_read_only: retain the extension outbox."
           },
           "403": {
             "content": {
