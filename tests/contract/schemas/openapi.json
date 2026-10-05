@@ -537,6 +537,47 @@
         "title": "ApostaManual",
         "type": "object"
       },
+      "BankrollRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "bankroll_centavos": {
+            "exclusiveMinimum": 0.0,
+            "maximum": 1000000000000.0,
+            "title": "Bankroll Centavos",
+            "type": "integer"
+          },
+          "percentage": {
+            "anyOf": [
+              {
+                "maxLength": 22,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Percentage"
+          },
+          "stake_centavos": {
+            "anyOf": [
+              {
+                "maximum": 1000000000000.0,
+                "minimum": 0.0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Stake Centavos"
+          }
+        },
+        "required": [
+          "bankroll_centavos"
+        ],
+        "title": "BankrollRequest",
+        "type": "object"
+      },
       "BatchAck": {
         "additionalProperties": false,
         "properties": {
@@ -1259,6 +1300,191 @@
           "origem_id"
         ],
         "title": "Body_importar_planilha_api_v1_apostas_importar_planilha_post",
+        "type": "object"
+      },
+      "BucketAnaliseSaida": {
+        "additionalProperties": false,
+        "properties": {
+          "base_roi_centavos": {
+            "title": "Base Roi Centavos",
+            "type": "integer"
+          },
+          "capital_banca_centavos": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Capital Banca Centavos"
+          },
+          "chave": {
+            "title": "Chave",
+            "type": "string"
+          },
+          "giro_centavos": {
+            "title": "Giro Centavos",
+            "type": "integer"
+          },
+          "greens": {
+            "title": "Greens",
+            "type": "integer"
+          },
+          "hit_rate": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Hit Rate"
+          },
+          "lucro_centavos": {
+            "title": "Lucro Centavos",
+            "type": "integer"
+          },
+          "motivo_progressao": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Motivo Progressao"
+          },
+          "nome": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Nome"
+          },
+          "pendentes": {
+            "title": "Pendentes",
+            "type": "integer"
+          },
+          "progressao": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Progressao"
+          },
+          "reds": {
+            "title": "Reds",
+            "type": "integer"
+          },
+          "resultado_nao_aplicavel": {
+            "title": "Resultado Nao Aplicavel",
+            "type": "integer"
+          },
+          "roi": {
+            "title": "Roi",
+            "type": "string"
+          },
+          "total_apostas": {
+            "title": "Total Apostas",
+            "type": "integer"
+          },
+          "valor_face_max_centavos": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Valor Face Max Centavos"
+          },
+          "valor_face_min_centavos": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Valor Face Min Centavos"
+          }
+        },
+        "required": [
+          "total_apostas",
+          "pendentes",
+          "greens",
+          "reds",
+          "giro_centavos",
+          "base_roi_centavos",
+          "lucro_centavos",
+          "roi",
+          "hit_rate",
+          "resultado_nao_aplicavel",
+          "chave"
+        ],
+        "title": "BucketAnaliseSaida",
+        "type": "object"
+      },
+      "CalculationResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "assumptions": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Assumptions",
+            "type": "array"
+          },
+          "data": {
+            "additionalProperties": {
+              "$ref": "#/components/schemas/JsonValue"
+            },
+            "title": "Data",
+            "type": "object"
+          },
+          "method": {
+            "title": "Method",
+            "type": "string"
+          },
+          "precision": {
+            "title": "Precision",
+            "type": "string"
+          },
+          "rounding": {
+            "title": "Rounding",
+            "type": "string"
+          },
+          "warnings": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Warnings",
+            "type": "array"
+          }
+        },
+        "required": [
+          "data",
+          "method",
+          "precision",
+          "rounding",
+          "assumptions",
+          "warnings"
+        ],
+        "title": "CalculationResponse",
         "type": "object"
       },
       "Capture": {
@@ -2756,6 +2982,22 @@
         "title": "FinanceiroSaida",
         "type": "object"
       },
+      "FusoEntrada": {
+        "additionalProperties": false,
+        "properties": {
+          "fuso_horario": {
+            "maxLength": 64,
+            "minLength": 1,
+            "title": "Fuso Horario",
+            "type": "string"
+          }
+        },
+        "required": [
+          "fuso_horario"
+        ],
+        "title": "FusoEntrada",
+        "type": "object"
+      },
       "GrupoSaida": {
         "additionalProperties": false,
         "properties": {
@@ -2817,6 +3059,52 @@
           }
         },
         "title": "HTTPValidationError",
+        "type": "object"
+      },
+      "HedgeRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "commission_percentage": {
+            "default": "0",
+            "maxLength": 22,
+            "title": "Commission Percentage",
+            "type": "string"
+          },
+          "market_type": {
+            "const": "two_way",
+            "default": "two_way",
+            "title": "Market Type",
+            "type": "string"
+          },
+          "opposing_odd": {
+            "maxLength": 22,
+            "title": "Opposing Odd",
+            "type": "string"
+          },
+          "original_odd": {
+            "maxLength": 22,
+            "title": "Original Odd",
+            "type": "string"
+          },
+          "original_stake_centavos": {
+            "exclusiveMinimum": 0.0,
+            "maximum": 1000000000000.0,
+            "title": "Original Stake Centavos",
+            "type": "integer"
+          },
+          "stake_type": {
+            "const": "cash",
+            "default": "cash",
+            "title": "Stake Type",
+            "type": "string"
+          }
+        },
+        "required": [
+          "original_stake_centavos",
+          "original_odd",
+          "opposing_odd"
+        ],
+        "title": "HedgeRequest",
         "type": "object"
       },
       "HostedResponse": {
@@ -3196,6 +3484,79 @@
         "title": "LastKnownGood",
         "type": "object"
       },
+      "LinkCodeResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "code": {
+            "title": "Code",
+            "type": "string"
+          },
+          "expires_at": {
+            "format": "date-time",
+            "title": "Expires At",
+            "type": "string"
+          }
+        },
+        "required": [
+          "code",
+          "expires_at"
+        ],
+        "title": "LinkCodeResponse",
+        "type": "object"
+      },
+      "LinkStatusResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "last_inbound_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Last Inbound At"
+          },
+          "last_outbound_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Last Outbound At"
+          },
+          "linked": {
+            "title": "Linked",
+            "type": "boolean"
+          },
+          "linked_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Linked At"
+          }
+        },
+        "required": [
+          "linked",
+          "linked_at",
+          "last_inbound_at",
+          "last_outbound_at"
+        ],
+        "title": "LinkStatusResponse",
+        "type": "object"
+      },
       "LivenessResponse": {
         "additionalProperties": false,
         "properties": {
@@ -3275,6 +3636,26 @@
         "title": "ManualReceipt",
         "type": "object"
       },
+      "MarketRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "outcomes": {
+            "description": "Supply every mutually exclusive outcome. Odds alone cannot prove completeness.",
+            "items": {
+              "$ref": "#/components/schemas/Outcome"
+            },
+            "maxItems": 20,
+            "minItems": 2,
+            "title": "Outcomes",
+            "type": "array"
+          }
+        },
+        "required": [
+          "outcomes"
+        ],
+        "title": "MarketRequest",
+        "type": "object"
+      },
       "MatrizCasaSaida": {
         "additionalProperties": false,
         "properties": {
@@ -3335,6 +3716,265 @@
           "contas"
         ],
         "title": "MatrizTitularSaida",
+        "type": "object"
+      },
+      "MetaAlteracao": {
+        "additionalProperties": false,
+        "properties": {
+          "alvo": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Alvo"
+          },
+          "fim": {
+            "anyOf": [
+              {
+                "format": "date",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Fim"
+          },
+          "inicio": {
+            "anyOf": [
+              {
+                "format": "date",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Inicio"
+          },
+          "linha_base": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Linha Base"
+          },
+          "metrica": {
+            "anyOf": [
+              {
+                "enum": [
+                  "lucro_centavos",
+                  "giro_centavos",
+                  "roi",
+                  "win_rate",
+                  "total_apostas"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Metrica"
+          },
+          "status": {
+            "anyOf": [
+              {
+                "enum": [
+                  "ativa",
+                  "concluida",
+                  "arquivada"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Status"
+          },
+          "titulo": {
+            "anyOf": [
+              {
+                "maxLength": 120,
+                "minLength": 1,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Titulo"
+          }
+        },
+        "title": "MetaAlteracao",
+        "type": "object"
+      },
+      "MetaEntrada": {
+        "additionalProperties": false,
+        "properties": {
+          "alvo": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+                "type": "string"
+              }
+            ],
+            "title": "Alvo"
+          },
+          "fim": {
+            "format": "date",
+            "title": "Fim",
+            "type": "string"
+          },
+          "inicio": {
+            "format": "date",
+            "title": "Inicio",
+            "type": "string"
+          },
+          "linha_base": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+                "type": "string"
+              }
+            ],
+            "default": "0",
+            "title": "Linha Base"
+          },
+          "metrica": {
+            "enum": [
+              "lucro_centavos",
+              "giro_centavos",
+              "roi",
+              "win_rate",
+              "total_apostas"
+            ],
+            "title": "Metrica",
+            "type": "string"
+          },
+          "titulo": {
+            "maxLength": 120,
+            "minLength": 1,
+            "title": "Titulo",
+            "type": "string"
+          }
+        },
+        "required": [
+          "titulo",
+          "metrica",
+          "inicio",
+          "fim",
+          "alvo"
+        ],
+        "title": "MetaEntrada",
+        "type": "object"
+      },
+      "MetaSaida": {
+        "additionalProperties": false,
+        "properties": {
+          "alvo": {
+            "title": "Alvo",
+            "type": "string"
+          },
+          "alvo_atingido": {
+            "title": "Alvo Atingido",
+            "type": "boolean"
+          },
+          "fim": {
+            "format": "date",
+            "title": "Fim",
+            "type": "string"
+          },
+          "id": {
+            "title": "Id",
+            "type": "integer"
+          },
+          "inicio": {
+            "format": "date",
+            "title": "Inicio",
+            "type": "string"
+          },
+          "linha_base": {
+            "title": "Linha Base",
+            "type": "string"
+          },
+          "metrica": {
+            "enum": [
+              "lucro_centavos",
+              "giro_centavos",
+              "roi",
+              "win_rate",
+              "total_apostas"
+            ],
+            "title": "Metrica",
+            "type": "string"
+          },
+          "progresso": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Progresso"
+          },
+          "status": {
+            "enum": [
+              "ativa",
+              "concluida",
+              "arquivada"
+            ],
+            "title": "Status",
+            "type": "string"
+          },
+          "titulo": {
+            "title": "Titulo",
+            "type": "string"
+          },
+          "valor_atual": {
+            "title": "Valor Atual",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "titulo",
+          "metrica",
+          "inicio",
+          "fim",
+          "alvo",
+          "linha_base",
+          "status",
+          "valor_atual",
+          "progresso",
+          "alvo_atingido"
+        ],
+        "title": "MetaSaida",
         "type": "object"
       },
       "MetricasGraficosSaida": {
@@ -3941,6 +4581,28 @@
           "sanitization_version"
         ],
         "title": "ObservedTransport",
+        "type": "object"
+      },
+      "Outcome": {
+        "additionalProperties": false,
+        "properties": {
+          "name": {
+            "maxLength": 80,
+            "minLength": 1,
+            "title": "Name",
+            "type": "string"
+          },
+          "odd": {
+            "maxLength": 22,
+            "title": "Odd",
+            "type": "string"
+          }
+        },
+        "required": [
+          "name",
+          "odd"
+        ],
+        "title": "Outcome",
         "type": "object"
       },
       "PaginacaoSaida": {
@@ -4936,6 +5598,33 @@
         "title": "SessionResponse",
         "type": "object"
       },
+      "StakeMarketRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "outcomes": {
+            "description": "Supply every mutually exclusive outcome. Odds alone cannot prove completeness.",
+            "items": {
+              "$ref": "#/components/schemas/Outcome"
+            },
+            "maxItems": 20,
+            "minItems": 2,
+            "title": "Outcomes",
+            "type": "array"
+          },
+          "total_stake_centavos": {
+            "exclusiveMinimum": 0.0,
+            "maximum": 1000000000000.0,
+            "title": "Total Stake Centavos",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "outcomes",
+          "total_stake_centavos"
+        ],
+        "title": "StakeMarketRequest",
+        "type": "object"
+      },
       "SubmissionAck": {
         "additionalProperties": false,
         "properties": {
@@ -5016,6 +5705,20 @@
           "regressao"
         ],
         "type": "string"
+      },
+      "TelegramWebhookAck": {
+        "additionalProperties": false,
+        "properties": {
+          "accepted": {
+            "title": "Accepted",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "accepted"
+        ],
+        "title": "TelegramWebhookAck",
+        "type": "object"
       },
       "TipoMovimentoConsulta": {
         "enum": [
@@ -8537,6 +9240,492 @@
         "summary": "Consultar saldos"
       }
     },
+    "/api/v1/calculadoras/cobertura-ao-vivo": {
+      "post": {
+        "description": "Mercado binário com stakes em dinheiro. Calcula a cobertura que equaliza o lucro dos dois desfechos; a comissão incide sobre o lucro da aposta vencedora. Sem freebet, cashout parcial ou push asiático.",
+        "operationId": "hedge_api_v1_calculadoras_cobertura_ao_vivo_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "examples": {
+                "default": {
+                  "summary": "Cobertura binária",
+                  "value": {
+                    "opposing_odd": "3.00",
+                    "original_odd": "1.50",
+                    "original_stake_centavos": 10000
+                  }
+                }
+              },
+              "schema": {
+                "$ref": "#/components/schemas/HedgeRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CalculationResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Missing, expired, or invalid bearer token."
+          },
+          "402": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "account_read_only: writes require confirmed trial or paid access."
+          },
+          "413": {
+            "content": {
+              "text/plain": {
+                "example": "Content Too Large",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            },
+            "description": "The request body exceeds this endpoint's streaming limit."
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorOrValidationResponse"
+                }
+              }
+            },
+            "description": "The request does not satisfy the published contract or a domain rule."
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "The caller exceeded an applicable request limit."
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unexpected internal failure with no sensitive exception details."
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "A required dependency is temporarily unavailable."
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Calcular cobertura ao vivo",
+        "tags": [
+          "calculadoras"
+        ]
+      }
+    },
+    "/api/v1/calculadoras/distribuir-entre-resultados": {
+      "post": {
+        "description": "Equaliza retornos, expõe lucro ou perda após arredondamento em cada resultado e identifica arbitragem quando todos são lucrativos.",
+        "operationId": "distribute_api_v1_calculadoras_distribuir_entre_resultados_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "examples": {
+                "default": {
+                  "summary": "Resultados mutuamente exclusivos",
+                  "value": {
+                    "outcomes": [
+                      {
+                        "name": "A",
+                        "odd": "2.10"
+                      },
+                      {
+                        "name": "B",
+                        "odd": "2.10"
+                      }
+                    ],
+                    "total_stake_centavos": 10000
+                  }
+                }
+              },
+              "schema": {
+                "$ref": "#/components/schemas/StakeMarketRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CalculationResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Missing, expired, or invalid bearer token."
+          },
+          "402": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "account_read_only: writes require confirmed trial or paid access."
+          },
+          "413": {
+            "content": {
+              "text/plain": {
+                "example": "Content Too Large",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            },
+            "description": "The request body exceeds this endpoint's streaming limit."
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorOrValidationResponse"
+                }
+              }
+            },
+            "description": "The request does not satisfy the published contract or a domain rule."
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "The caller exceeded an applicable request limit."
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unexpected internal failure with no sensitive exception details."
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "A required dependency is temporarily unavailable."
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Distribuir entre resultados",
+        "tags": [
+          "calculadoras"
+        ]
+      }
+    },
+    "/api/v1/calculadoras/mercado-justo": {
+      "post": {
+        "description": "Normaliza proporcionalmente um mercado completo; os resultados devem ser mutuamente exclusivos e completos. Odds não comprovam completude nem probabilidade verdadeira.",
+        "operationId": "fair_api_v1_calculadoras_mercado_justo_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "examples": {
+                "default": {
+                  "summary": "Mercado binário completo",
+                  "value": {
+                    "outcomes": [
+                      {
+                        "name": "A",
+                        "odd": "1.90"
+                      },
+                      {
+                        "name": "B",
+                        "odd": "1.90"
+                      }
+                    ]
+                  }
+                }
+              },
+              "schema": {
+                "$ref": "#/components/schemas/MarketRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CalculationResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Missing, expired, or invalid bearer token."
+          },
+          "402": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "account_read_only: writes require confirmed trial or paid access."
+          },
+          "413": {
+            "content": {
+              "text/plain": {
+                "example": "Content Too Large",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            },
+            "description": "The request body exceeds this endpoint's streaming limit."
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorOrValidationResponse"
+                }
+              }
+            },
+            "description": "The request does not satisfy the published contract or a domain rule."
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "The caller exceeded an applicable request limit."
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unexpected internal failure with no sensitive exception details."
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "A required dependency is temporarily unavailable."
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Normalizar mercado justo",
+        "tags": [
+          "calculadoras"
+        ]
+      }
+    },
+    "/api/v1/calculadoras/percentual-banca": {
+      "post": {
+        "description": "Converte percentual em stake ou stake em percentual, com banca fornecida na requisição.",
+        "operationId": "bankroll_api_v1_calculadoras_percentual_banca_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "examples": {
+                "default": {
+                  "summary": "Modo direto",
+                  "value": {
+                    "bankroll_centavos": 100000,
+                    "percentage": "5"
+                  }
+                }
+              },
+              "schema": {
+                "$ref": "#/components/schemas/BankrollRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CalculationResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Missing, expired, or invalid bearer token."
+          },
+          "402": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "account_read_only: writes require confirmed trial or paid access."
+          },
+          "413": {
+            "content": {
+              "text/plain": {
+                "example": "Content Too Large",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            },
+            "description": "The request body exceeds this endpoint's streaming limit."
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorOrValidationResponse"
+                }
+              }
+            },
+            "description": "The request does not satisfy the published contract or a domain rule."
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "The caller exceeded an applicable request limit."
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unexpected internal failure with no sensitive exception details."
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "A required dependency is temporarily unavailable."
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Calcular percentual da banca",
+        "tags": [
+          "calculadoras"
+        ]
+      }
+    },
     "/api/v1/catalogo/candidatos": {
       "post": {
         "description": "Registra confirmação de acesso do usuário, sem afirmar autorização ou suporte técnico.",
@@ -10971,6 +12160,155 @@
         "summary": "Desvincular fontes após revisão"
       }
     },
+    "/api/v1/integrations/telegram/webhook": {
+      "post": {
+        "description": "Valida o segredo do webhook e persiste o update_id antes de responder; o processamento é assíncrono.",
+        "operationId": "telegram_webhook_api_v1_integrations_telegram_webhook_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "examples": {
+                "default": {
+                  "summary": "Mensagem privada",
+                  "value": {
+                    "message": {
+                      "chat": {
+                        "id": 123,
+                        "type": "private"
+                      },
+                      "from": {
+                        "id": 123
+                      },
+                      "message_id": 1,
+                      "text": "/start"
+                    },
+                    "update_id": 123456
+                  }
+                }
+              },
+              "schema": {
+                "additionalProperties": {
+                  "$ref": "#/components/schemas/JsonValue"
+                },
+                "properties": {
+                  "callback_query": {
+                    "additionalProperties": {
+                      "$ref": "#/components/schemas/JsonValue"
+                    },
+                    "type": "object"
+                  },
+                  "edited_message": {
+                    "additionalProperties": {
+                      "$ref": "#/components/schemas/JsonValue"
+                    },
+                    "type": "object"
+                  },
+                  "message": {
+                    "additionalProperties": {
+                      "$ref": "#/components/schemas/JsonValue"
+                    },
+                    "type": "object"
+                  },
+                  "update_id": {
+                    "minimum": 1,
+                    "type": "integer"
+                  }
+                },
+                "required": [
+                  "update_id"
+                ],
+                "type": "object"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "202": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TelegramWebhookAck"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Invalid Telegram update."
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Invalid webhook secret."
+          },
+          "413": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              },
+              "text/plain": {
+                "example": "Content Too Large",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            },
+            "description": "Update body exceeds 128 KiB."
+          },
+          "415": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "JSON content type is required."
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Webhook request limit exceeded."
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Webhook is not configured."
+          }
+        },
+        "security": [
+          {
+            "TelegramWebhookSecret": []
+          }
+        ],
+        "summary": "Receber atualização do bot Telegram"
+      }
+    },
     "/api/v1/painel": {
       "get": {
         "description": "Lê agregados materializados e informa separadamente frescor dos dados e atraso da réplica.",
@@ -11232,6 +12570,16 @@
             },
             "description": "Missing, expired, or invalid bearer token."
           },
+          "402": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "account_read_only: writes require confirmed trial or paid access."
+          },
           "422": {
             "content": {
               "application/json": {
@@ -11465,6 +12813,16 @@
             },
             "description": "Missing, expired, or invalid bearer token."
           },
+          "402": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "account_read_only: writes require confirmed trial or paid access."
+          },
           "422": {
             "content": {
               "application/json": {
@@ -11559,6 +12917,16 @@
               }
             },
             "description": "Missing, expired, or invalid bearer token."
+          },
+          "402": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "account_read_only: writes require confirmed trial or paid access."
           },
           "413": {
             "content": {
@@ -11657,6 +13025,16 @@
             },
             "description": "Missing, expired, or invalid bearer token."
           },
+          "402": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "account_read_only: writes require confirmed trial or paid access."
+          },
           "422": {
             "content": {
               "application/json": {
@@ -11740,6 +13118,16 @@
               }
             },
             "description": "Missing, expired, or invalid bearer token."
+          },
+          "402": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "account_read_only: writes require confirmed trial or paid access."
           },
           "422": {
             "content": {
@@ -11842,6 +13230,16 @@
               }
             },
             "description": "Missing, expired, or invalid bearer token."
+          },
+          "402": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "account_read_only: writes require confirmed trial or paid access."
           },
           "413": {
             "content": {
@@ -12082,6 +13480,16 @@
             },
             "description": "Missing, expired, or invalid bearer token."
           },
+          "402": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "account_read_only: writes require confirmed trial or paid access."
+          },
           "422": {
             "content": {
               "application/json": {
@@ -12171,6 +13579,16 @@
               }
             },
             "description": "Missing, expired, or invalid bearer token."
+          },
+          "402": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "account_read_only: writes require confirmed trial or paid access."
           },
           "413": {
             "content": {
@@ -15344,7 +16762,8 @@
                     "coleta_token",
                     "chamadas_ia",
                     "audit_log",
-                    "assinaturas"
+                    "assinaturas",
+                    "metas_desempenho"
                   ],
                   "type": "object"
                 }

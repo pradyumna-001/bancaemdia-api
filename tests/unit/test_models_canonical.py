@@ -167,7 +167,7 @@ def test_all_forty_eight_tables_are_registered() -> None:
         )
     }
     esperadas |= {"telegram_media", "telegram_rate_buckets"}
-    assert len(esperadas) == 64
+    assert len(esperadas) == 65
     assert set(Base.metadata.tables) == esperadas
     assert {m.__tablename__ for m in CANONICOS} == {
         "casas",

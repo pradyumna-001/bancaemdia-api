@@ -176,7 +176,7 @@ async def _consolidate(
         house is None
         or tip is None
         or house.origem != "casa"
-        or tip.origem not in {"telegram", "print"}
+        or tip.origem not in {"telegram", "telegram_bot", "print"}
     ):
         raise ConsolidacaoRecusadaError("fontes indisponíveis para este usuário")
     active = await ApostaConsolidacaoRepo().active(session, user, [house_id, telegram_id])
@@ -515,7 +515,7 @@ async def reject_pair(
         house is None
         or tip is None
         or house.origem != "casa"
-        or tip.origem not in {"telegram", "print"}
+        or tip.origem not in {"telegram", "telegram_bot", "print"}
     ):
         raise ConsolidacaoRecusadaError("fontes indisponíveis para rejeição")
     if await ApostaConsolidacaoRepo().active(session, user, [house_id, tip_id]):

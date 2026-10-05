@@ -55,7 +55,26 @@ def _dashboard(canonical: bool) -> None:
             "COALESCE(a.tipster_id, (SELECT (r.contexto->>'tipster_id')::bigint FROM public.aposta_consolidacoes r WHERE r.usuario_id=a.usuario_id AND r.casa_aposta_id=a.id AND r.estado='active'), 0)",
         )
         summary = summary.replace("public.apostas AS a", "public.apostas_financeiras AS a")
-    op.execute(sql)
+    # Analytics appends columns to this published view. PostgreSQL refuses a
+    # replacement that drops them, regardless of the branch upgrade order.
+    marker = "FROM public.apostas_financeiras AS a" if canonical else "FROM public.apostas AS a"
+    extended = sql.replace(
+        marker,
+        """, a.id AS aposta_id,
+    COALESCE(a.data_aposta, a.criada_em) AS instante,
+    a.odd::numeric AS odd,
+    (CASE WHEN a.freebet THEN a.valor_aposta_centavos ELSE a.stake_centavos END)::numeric
+        AS valor_face_centavos,
+    COALESCE(a.competicao_id, 0)::bigint AS competicao_id
+"""
+        + marker,
+    )
+    op.execute(f"""DO $dashboard$ BEGIN
+      IF EXISTS (SELECT 1 FROM information_schema.columns
+        WHERE table_schema='painel' AND table_name='apostas_metricas' AND column_name='aposta_id')
+      THEN EXECUTE $extended${extended}$extended$;
+      ELSE EXECUTE $original${sql}$original$; END IF;
+    END $dashboard$""")
     # Only the summary bypasses apostas_metricas for balance. Preserve existing role grants.
     op.execute("""CREATE TEMP TABLE consolidation_dashboard_grants ON COMMIT DROP AS
         SELECT grantee::regrole::text AS role FROM

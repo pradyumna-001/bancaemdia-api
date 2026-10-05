@@ -217,7 +217,7 @@ def test_openapi_endpoint_matches_checked_in_snapshot(openapi_document: JsonObje
 @pytest.mark.contract
 def test_every_operation_has_human_documentation(openapi_document: JsonObject) -> None:
     operations = list(_operations(openapi_document))
-    assert len(operations) == 71
+    assert len(operations) == 83
     for method, path, operation in operations:
         location = f"{method.upper()} {path}"
         assert str(operation.get("summary", "")).strip(), location
@@ -242,7 +242,7 @@ def test_request_bodies_have_examples(openapi_document: JsonObject) -> None:
             assert media.get("example") is not None or media.get("examples"), (
                 f"{method.upper()} {path}: {media_type} lacks an example"
             )
-    assert bodies == 26
+    assert bodies == 32
 
 
 @pytest.mark.contract

@@ -318,7 +318,8 @@ async def test_unhandled_error_is_correlated_and_context_is_cleared() -> None:
     provider = TracerProvider()
     FastAPIInstrumentor.instrument_app(app, tracer_provider=provider)
     tracer = provider.get_tracer("test")
-    with tracer.start_as_current_span("server", context=Context()):
+    with tracer.start_as_current_span("server", context=Context()) as span:
+        expected_span = span.get_span_context()
         async with httpx.AsyncClient(
             transport=httpx.ASGITransport(app=app, raise_app_exceptions=True),
             base_url="http://test",
@@ -341,11 +342,7 @@ async def test_unhandled_error_is_correlated_and_context_is_cleared() -> None:
     assert response.json() == {"detail": "Internal server error"}
     (failure,) = _payloads(stream, "unhandled_request_error")
     assert (failure["request_id"], failure["usuario_id"]) == (request_id, 7)
-    # Another test module may globally instrument FastAPI in the same xdist worker; the request
-    # then runs under a NEW server root trace, which is what the log must honestly report.
-    # Ambient-trace propagation is pinned deterministically by
-    # test_active_otel_span_is_copied_to_the_log.
-    assert isinstance(failure["trace_id"], str) and len(failure["trace_id"]) == 32
+    assert failure["trace_id"] == f"{expected_span.trace_id:032x}"
     assert isinstance(failure["span_id"], str) and len(failure["span_id"]) == 16
     assert failure["error_type"] == "RuntimeError"
     assert failure["error_code"] is None

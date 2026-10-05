@@ -14,13 +14,14 @@ import subprocess
 import sys
 import time
 from pathlib import Path
+from uuid import uuid4
 from xml.etree import ElementTree
 
 import asyncpg
 import httpx
+import jwt
 from cryptography.hazmat.primitives.asymmetric import rsa
-from cryptography.hazmat.primitives.serialization import Encoding, PublicFormat
-from jose import jwk, jwt
+from jwt.algorithms import RSAAlgorithm
 
 ROOT = Path(__file__).resolve().parents[1]
 LABEL = "bancaemdia.k6-run"
@@ -311,13 +312,12 @@ async def seed(directory: Path, info: dict, env: dict) -> None:
     finally:
         await engine.dispose()
     key = rsa.generate_private_key(public_exponent=65537, key_size=2048)
-    public = key.public_key().public_bytes(Encoding.PEM, PublicFormat.SubjectPublicKeyInfo)
     key_id = secrets.token_hex(8)
     issuer = directory / "issuer"
     issuer.mkdir(mode=0o700)
     write_private(
         issuer / "jwks.json",
-        {"keys": [{**jwk.construct(public, "RS256").to_dict(), "kid": key_id}]},
+        {"keys": [{**json.loads(RSAAlgorithm.to_jwk(key.public_key())), "kid": key_id}]},
     )
     tokens = []
     collection_tokens = []
@@ -340,11 +340,17 @@ async def seed(directory: Path, info: dict, env: dict) -> None:
                 "INSERT INTO bancas(usuario_id,nome,saldo_inicial_centavos) VALUES($1,'k6',1000000) RETURNING id",
                 uid,
             )
-            await conn.execute(
-                "INSERT INTO contas_casa(usuario_id,casa_id,banca_id,apelido,desde) VALUES($1,$2,$3,'k6','2020-01-01')",
+            account = await conn.fetchval(
+                "INSERT INTO contas_casa(usuario_id,casa_id,banca_id,apelido,desde) VALUES($1,$2,$3,'k6','2020-01-01') RETURNING id",
                 uid,
                 casa,
                 banca,
+            )
+            await conn.execute(
+                "INSERT INTO usos_conta_casa(usuario_id,casa_id,conta_casa_id,vigente_de) VALUES($1,$2,$3,'2020-01-01')",
+                uid,
+                casa,
+                account,
             )
             tokens.append(
                 jwt.encode(
@@ -365,7 +371,10 @@ async def seed(directory: Path, info: dict, env: dict) -> None:
                     info["collection_secret"].encode(), token.encode(), hashlib.sha256
                 ).hexdigest()
                 await conn.execute(
-                    "INSERT INTO coleta_token(usuario_id,token_hash) VALUES($1,$2)", uid, digest
+                    "INSERT INTO coleta_instalacoes(usuario_id,instalacao_publica_id,token_hash,pareado_em,expira_em) VALUES($1,$2,$3,now(),now()+interval '3 hours')",
+                    uid,
+                    uuid4(),
+                    digest,
                 )
                 collection_tokens.append(token)
     finally:

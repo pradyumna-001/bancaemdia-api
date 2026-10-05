@@ -49,6 +49,22 @@ no observed alert is not sufficient detection.
 
 ## Backups and recovery
 
+The snapshot role templates are [trust](../../infra/lightsail/snapshot-trust.json.example)
+and [permissions](../../infra/lightsail/snapshot-policy.json.example). Substitute the real
+account, region and **instance resource ARN**, not its display name or snapshot ARN.
+The sole allowed action is `lightsail:CreateInstanceSnapshot`; the trust binds the exact
+repository, `production` environment and STS audience. Protect that environment and
+restrict deployment branches to reviewed `main`/release tags before activation. The
+validation job has no OIDC permission. See the [AWS action/resource reference](https://docs.aws.amazon.com/service-authorization/latest/reference/list_lightsail.html).
+
+`Phase 1 operational acceptance` executes the shipped backup and restore scripts with
+real PostgreSQL containers and a local private object transport, without AWS credentials.
+It checks the dump checksum, actual restoration and original row contents. It also
+runs the actual Caddy logging directives, sends sentinel credentials in headers/query
+and requires their absence from access logs, while `/metrics` stays inaccessible at
+the public edge. This proves local recovery and boundary behavior. The real bucket,
+weekly snapshot, restore duration, DNS recovery and operator alerts remain launch evidence.
+
 - On the host, schedule `python scripts/lightsail_backup.py --bucket PRIVATE_BUCKET --directory /opt/bancaemdia/deploy/lightsail` daily. It creates a PostgreSQL custom-format dump, validates its archive, uploads the dump and SHA-256 sidecar to the private bucket, checks remote size, and deletes the local copy only on success. Alert on a missed run; a failed upload leaves its local dump for inspection. Test AWS CLI access before enabling the schedule.
 - Configure the weekly [snapshot workflow](../../.github/workflows/lightsail-snapshot.yml) with a narrowly scoped GitHub OIDC role and `LIGHTSAIL_SNAPSHOT_ENABLED=true` only after the instance exists. Set `LIGHTSAIL_REGION`, `LIGHTSAIL_INSTANCE_NAME` and `LIGHTSAIL_SNAPSHOT_ROLE_ARN`; manually dispatch once, confirm the snapshot and review snapshot storage charges. The workflow does not delete old snapshots automatically.
 - Before launch and at least quarterly, run `python scripts/lightsail_restore_drill.py --bucket PRIVATE_BUCKET --backup EXACT_DUMP_NAME --postgres-image REVIEWED_POSTGRES_IMAGE` from an operator machine with sufficient disk and Docker. It verifies the checksum and restores into a disposable container with no published port. Record the result and measured restore time. A passing archive-list check alone is not a restore test.

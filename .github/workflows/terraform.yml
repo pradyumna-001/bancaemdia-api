@@ -16,8 +16,6 @@ on:
 
 permissions:
   contents: read
-  id-token: write
-  pull-requests: write
 
 concurrency:
   group: terraform-${{ github.ref }}
@@ -56,6 +54,10 @@ jobs:
           terraform -chdir=infra/terraform/modules/elasticache test
 
   plan-staging:
+    permissions:
+      contents: read
+      id-token: write
+      pull-requests: write
     if: >-
       github.event_name == 'pull_request' &&
       github.event.pull_request.head.repo.full_name == github.repository &&
@@ -107,6 +109,9 @@ jobs:
           gh pr comment "${{ github.event.pull_request.number }}" --body-file "$RUNNER_TEMP/plan-comment.md"
 
   apply-staging:
+    permissions:
+      contents: read
+      id-token: write
     if: >-
       github.event_name == 'push' && github.ref == 'refs/heads/main' &&
       vars.TF_APPLY_ENABLED == 'true'
@@ -136,6 +141,9 @@ jobs:
           terraform -chdir=infra/terraform/environments/staging apply -input=false -auto-approve
 
   apply-production:
+    permissions:
+      contents: read
+      id-token: write
     if: >-
       github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v') &&
       vars.TF_APPLY_ENABLED == 'true'

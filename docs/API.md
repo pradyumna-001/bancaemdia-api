@@ -37,6 +37,10 @@ python scripts/generate_openapi.py
 | `PATCH` | `/api/v1/caixa/contas/{conta_casa_id}/banca` | Vincular conta à banca | `200`, `401`, `402`, `404`, `413`, `422`, `429`, `500`, `503` | — |
 | `GET` | `/api/v1/caixa/extrato` | Consultar extrato | `200`, `401`, `402`, `422`, `429`, `500`, `503` | — |
 | `GET` | `/api/v1/caixa/saldo` | Consultar saldos | `200`, `401`, `402`, `422`, `429`, `500`, `503` | — |
+| `POST` | `/api/v1/calculadoras/cobertura-ao-vivo` | Calcular cobertura ao vivo | `200`, `401`, `402`, `413`, `422`, `429`, `500`, `503` | calculadoras |
+| `POST` | `/api/v1/calculadoras/distribuir-entre-resultados` | Distribuir entre resultados | `200`, `401`, `402`, `413`, `422`, `429`, `500`, `503` | calculadoras |
+| `POST` | `/api/v1/calculadoras/mercado-justo` | Normalizar mercado justo | `200`, `401`, `402`, `413`, `422`, `429`, `500`, `503` | calculadoras |
+| `POST` | `/api/v1/calculadoras/percentual-banca` | Calcular percentual da banca | `200`, `401`, `402`, `413`, `422`, `429`, `500`, `503` | calculadoras |
 | `POST` | `/api/v1/catalogo/candidatos` | Confirmar acesso a domínio exato | `200`, `400`, `401`, `402`, `403`, `405`, `413`, `422`, `429`, `500`, `503` | — |
 | `POST` | `/api/v1/coleta` | Receber coleta da extensão | `200`, `400`, `402`, `403`, `413`, `429`, `500`, `503` | — |
 | `POST` | `/api/v1/coleta/batches` | Receber lote v2 | `200`, `400`, `401`, `402`, `403`, `404`, `409`, `413`, `422`, `429`, `500`, `503` | — |
@@ -55,9 +59,18 @@ python scripts/generate_openapi.py
 | `GET` | `/api/v1/coleta/status` | Consultar credencial da instalação | `200`, `400`, `401`, `402`, `403`, `404`, `422`, `429`, `500`, `503` | — |
 | `POST` | `/api/v1/consolidacoes` | Consolidar fontes após revisão | `200`, `401`, `402`, `413`, `422`, `429`, `500`, `503` | — |
 | `POST` | `/api/v1/consolidacoes/{relacao_id}/desvincular` | Desvincular fontes após revisão | `200`, `401`, `402`, `413`, `422`, `429`, `500`, `503` | — |
+| `POST` | `/api/v1/integrations/telegram/webhook` | Receber atualização do bot Telegram | `202`, `400`, `403`, `413`, `415`, `429`, `503` | — |
 | `GET` | `/api/v1/painel` | Consultar painel financeiro | `200`, `401`, `402`, `422`, `429`, `500`, `503` | — |
+| `GET` | `/api/v1/painel/analises` | Consultar análises adicionais | `200`, `401`, `402`, `422`, `429`, `500`, `503` | — |
 | `GET` | `/api/v1/painel/export` | Exportar painel em Excel | `200`, `401`, `402`, `422`, `429`, `500`, `503` | — |
+| `GET` | `/api/v1/painel/metas` | Listar metas de desempenho | `200`, `401`, `402`, `422`, `429`, `500`, `503` | — |
+| `POST` | `/api/v1/painel/metas` | Criar meta de desempenho | `201`, `401`, `402`, `413`, `422`, `429`, `500`, `503` | — |
+| `GET` | `/api/v1/painel/metas/{meta_id}` | Consultar meta de desempenho | `200`, `401`, `402`, `422`, `429`, `500`, `503` | — |
+| `PATCH` | `/api/v1/painel/metas/{meta_id}` | Alterar meta de desempenho | `200`, `401`, `402`, `413`, `422`, `429`, `500`, `503` | — |
+| `DELETE` | `/api/v1/painel/metas/{meta_id}` | Arquivar meta de desempenho | `200`, `401`, `402`, `422`, `429`, `500`, `503` | — |
 | `GET` | `/api/v1/painel/metricas` | Consultar séries para gráficos | `200`, `401`, `402`, `422`, `429`, `500`, `503` | — |
+| `GET` | `/api/v1/painel/preferencias` | Consultar preferências do painel | `200`, `401`, `402`, `422`, `429`, `500`, `503` | — |
+| `PATCH` | `/api/v1/painel/preferencias` | Alterar preferências do painel | `200`, `401`, `402`, `413`, `422`, `429`, `500`, `503` | — |
 | `GET` | `/api/v1/revisao` | Listar revisões pendentes | `200`, `401`, `402`, `422`, `429`, `500`, `503` | — |
 | `GET` | `/api/v1/revisao/stats` | Consultar estatísticas de revisão | `200`, `401`, `402`, `422`, `429`, `500`, `503` | — |
 | `GET` | `/api/v1/revisao/{revisao_id}` | Consultar revisão | `200`, `401`, `402`, `404`, `422`, `429`, `500`, `503` | — |

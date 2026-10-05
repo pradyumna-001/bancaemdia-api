@@ -1,0 +1,38 @@
+name: Phase 1 operational acceptance
+
+on:
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  recovery-and-edge:
+    runs-on: ubuntu-latest
+    env:
+      PHASE1_ACCEPTANCE_REQUIRED: '1'
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+          cache: pip
+      - run: pip install -e '.[dev]'
+      - name: Real PostgreSQL dump and isolated restore; actual Caddy privacy and metrics boundary
+        run: pytest tests/integration/test_lightsail_acceptance.py -n 0 --junitxml=phase1-results.xml
+      - name: Require every operational acceptance scenario without skips
+        run: |
+          python - <<'PY'
+          import xml.etree.ElementTree as ET
+          cases = ET.parse('phase1-results.xml').findall('.//testcase')
+          assert len(cases) == 2
+          assert all(not any(x.tag in ('skipped', 'failure', 'error') for x in c) for c in cases)
+          PY
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: phase1-operational-${{ github.event.pull_request.head.sha }}
+          path: phase1-results.xml

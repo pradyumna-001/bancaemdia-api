@@ -7,11 +7,14 @@ on:
 
 permissions:
   contents: read
-  id-token: write
 
 jobs:
   snapshot:
     if: vars.LIGHTSAIL_SNAPSHOT_ENABLED == 'true'
+    environment: production
+    permissions:
+      contents: read
+      id-token: write
     runs-on: ubuntu-latest
     steps:
       - name: Check configuration

@@ -100,7 +100,7 @@ async def dictionary_for(session: AsyncSession, raw: dict[str, Any]) -> dict[str
 
 
 async def generate(session: AsyncSession, user: int, bet: Any, state: dict[str, Any]) -> str:
-    if bet.usuario_id != user or bet.origem not in {"casa", "telegram", "print"}:
+    if bet.usuario_id != user or bet.origem not in {"casa", "telegram", "telegram_bot", "print"}:
         return "nova"
     repo = CruzamentoCandidatoRepo()
     await repo.lock(session, user)
@@ -197,7 +197,7 @@ async def rebuild_page(session: AsyncSession, user: int, after: int = 0, limit: 
             .where(
                 models.Aposta.usuario_id == user,
                 models.Aposta.id > after,
-                models.Aposta.origem.in_(["casa", "telegram", "print"]),
+                models.Aposta.origem.in_(["casa", "telegram", "telegram_bot", "print"]),
             )
             .order_by(models.Aposta.id)
             .limit(limit)

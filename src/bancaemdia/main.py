@@ -27,6 +27,7 @@ from bancaemdia.api.v1 import (
     coleta_catalogo,
     coleta_pairing,
     coleta_sessoes,
+    metas,
     painel,
     revisao,
     telegram,

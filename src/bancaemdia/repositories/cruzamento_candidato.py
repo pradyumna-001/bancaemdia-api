@@ -39,7 +39,7 @@ class CruzamentoCandidatoRepo:
 
     def neighbors_query(self, entry: Entry) -> Any:
         assert entry.ocorrido_em is not None
-        opposite = ["telegram", "print"] if entry.origem == "casa" else ["casa"]
+        opposite = ["telegram", "telegram_bot", "print"] if entry.origem == "casa" else ["casa"]
         eligible = exists(
             select(models.Aposta.id).where(
                 models.Aposta.id == Entry.aposta_id,
