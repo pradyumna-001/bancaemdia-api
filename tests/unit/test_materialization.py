@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import asyncio
 from datetime import UTC, datetime, timedelta
 from types import SimpleNamespace
 
@@ -13,6 +14,7 @@ from sqlalchemy.pool import NullPool
 
 from bancaemdia.config import get_settings
 from bancaemdia.domain import materializar
+from bancaemdia.domain.account_attribution import AccountResolution, ResolutionStatus
 from bancaemdia.domain.coleta_casa import ApostaInvalidaError
 from bancaemdia.domain.conferencias import GRAVES, Origem, conferir
 from bancaemdia.domain.event_bus import ApostaCriada
@@ -146,7 +148,6 @@ def _banco(unidade=None, contas=(None,), desatualizada=False):
     banco.repos = {
         "EventoRepo": EventoRepo,
         "ApostaRepo": ApostaRepo,
-        "ContaCasaRepo": ContaCasaRepo,
         "RevisaoPendenteRepo": RevisaoPendenteRepo,
         "UnidadeRepo": UnidadeRepo,
     }
@@ -162,6 +163,22 @@ def _instalar(monkeypatch, banco):
     monkeypatch.setattr(materialization, "AsyncSession", lambda *a, **k: banco.session)
     monkeypatch.setattr(materialization, "get_engine", lambda: banco.engine)
     monkeypatch.setattr(materialization, "get_event_bus", lambda: banco.bus)
+
+    async def attribute_account(session, usuario_id, casa, instant, explicit_id=None):
+        await asyncio.sleep(0)
+        banco.contas_buscadas.append((casa, instant))
+        conta = banco.contas.pop(0) if len(banco.contas) > 1 else banco.contas[0]
+        return AccountResolution(
+            ResolutionStatus.NONE if conta is None else ResolutionStatus.UNIQUE,
+            None if conta is None else conta.id,
+        )
+
+    async def sync_account_review(*args, **kwargs):
+        await asyncio.sleep(0)
+        return None
+
+    monkeypatch.setattr(materialization, "attribute_account", attribute_account)
+    monkeypatch.setattr(materialization, "sync_account_review", sync_account_review)
 
 
 def _conta(id_):
@@ -208,7 +225,10 @@ def test_new_reading_creates_the_bet_its_event_and_publishes_it(monkeypatch) -> 
     banco = _banco(unidade=5_000, contas=[_conta(3)])
     _instalar(monkeypatch, banco)
 
-    resultado = materialization.materializar_aposta(7, _extracao(), "hash-da-foto")
+    jogo = "2026-07-26T21:00:00-03:00"
+    resultado = materialization.materializar_aposta(
+        7, _extracao(bilhete=_bom(quando=jogo).model_dump(mode="json")), "hash-da-foto"
+    )
 
     assert resultado == {
         "usuario_id": 7,
@@ -238,7 +258,8 @@ def test_new_reading_creates_the_bet_its_event_and_publishes_it(monkeypatch) -> 
         "telegram",
         False,
     )
-    assert banco.contas_buscadas == [("Betano", postada)]
+    assert banco.contas_buscadas == [("Betano", datetime.fromisoformat(jogo))]
+    assert aposta["data_jogo"] == datetime.fromisoformat(jogo)
     assert banco.publicados == [ApostaCriada(7, "t:100:200:0", "telegram", False)]
     assert any("set_config('app.current_user_id'" in sql for sql, _ in banco.sql)
     assert (
@@ -683,12 +704,60 @@ def test_house_bet_becomes_a_bet_with_its_result_and_the_house_as_source(monkeyp
         jogo,
         3,
     )
+    placement = materialization._data(materialization.LEITORES["betano"](_betano()).colocada_em)
+    assert placement != jogo
     assert banco.contas_buscadas == [("Betano", jogo)]
     assert guardada.processadas == [11]
     assert banco.publicados == [ApostaCriada(7, chave, "casa", False)]
     assert _sample("batch_bets_processed_total", stage="materialization") == pytest.approx(
         apostas + 1
     )
+
+
+def test_house_collection_accepts_an_optional_validated_account_reference(monkeypatch) -> None:
+    banco = _banco()
+    _instalar(monkeypatch, banco)
+    _guardada(monkeypatch, _betano(conta_casa_id=9))
+    seen = []
+
+    async def attribute_account(session, user_id, house, instant, explicit_id=None):
+        await asyncio.sleep(0)
+        seen.append((user_id, house, explicit_id))
+        return AccountResolution(ResolutionStatus.UNIQUE, explicit_id)
+
+    monkeypatch.setattr(materialization, "attribute_account", attribute_account)
+    materialization.materializar_coleta(7, 11)
+
+    assert seen == [(7, "Betano", 9)]
+    assert banco.upserts[0]["conta_casa_id"] == 9
+    creation = banco.eventos[0]["payload_json"]
+    assert creation["snapshot_replay"]["conta_casa_id"] == 9
+    assert creation["conta_referencia_explicita"] is True
+
+
+def test_invalid_collection_account_stays_unassigned_for_review(monkeypatch) -> None:
+    from bancaemdia.domain.account_attribution_service import InvalidAccountReferenceError
+
+    banco = _banco()
+    _instalar(monkeypatch, banco)
+    _guardada(monkeypatch, _betano(conta_casa_id=999))
+    reviewed = []
+
+    async def invalid(*args, **kwargs):
+        await asyncio.sleep(0)
+        raise InvalidAccountReferenceError("conta inválida")
+
+    async def review(session, user_id, key, resolution, **kwargs):
+        await asyncio.sleep(0)
+        reviewed.append((key, resolution.status))
+        return "conta pendente"
+
+    monkeypatch.setattr(materialization, "attribute_account", invalid)
+    monkeypatch.setattr(materialization, "sync_account_review", review)
+    materialization.materializar_coleta(7, 11)
+
+    assert banco.upserts[0]["conta_casa_id"] is None
+    assert reviewed == [("c:betano:20753556039", ResolutionStatus.NONE)]
 
 
 def test_open_house_bet_that_settles_gets_the_result_the_house_paid(monkeypatch) -> None:

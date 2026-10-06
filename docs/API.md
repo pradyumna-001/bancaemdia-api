@@ -17,53 +17,54 @@ python scripts/generate_openapi.py
 
 | Method | Path | Summary | Responses | Tags |
 | --- | --- | --- | --- | --- |
-| `GET` | `/api/v1/apostas` | Listar apostas | `200`, `401`, `422`, `429`, `500`, `503` | — |
-| `POST` | `/api/v1/apostas` | Criar aposta manual | `201`, `401`, `403`, `409`, `413`, `422`, `429`, `500`, `503` | — |
-| `POST` | `/api/v1/apostas/importar-planilha` | Importar apostas do Excel | `200`, `401`, `403`, `413`, `422`, `429`, `500`, `503` | — |
-| `GET` | `/api/v1/apostas/{chave}` | Consultar aposta | `200`, `401`, `404`, `422`, `429`, `500`, `503` | — |
-| `PATCH` | `/api/v1/apostas/{chave}` | Corrigir aposta | `200`, `401`, `403`, `404`, `409`, `413`, `422`, `429`, `500`, `503` | — |
-| `DELETE` | `/api/v1/apostas/{chave}` | Excluir aposta da apuração | `200`, `401`, `403`, `404`, `409`, `422`, `429`, `500`, `503` | — |
-| `POST` | `/api/v1/apostas/{chave}/restaurar` | Restaurar aposta na apuração | `200`, `401`, `403`, `404`, `409`, `422`, `429`, `500`, `503` | — |
-| `POST` | `/api/v1/apostas/{chave}/resultado` | Registrar resultado da aposta | `200`, `401`, `403`, `404`, `409`, `413`, `422`, `429`, `500`, `503` | — |
-| `POST` | `/api/v1/billing/cancel` | Cancel renewal | `200`, `401`, `403`, `409`, `422`, `429`, `500`, `503` | billing |
-| `POST` | `/api/v1/billing/portal` | Manage subscription | `200`, `401`, `403`, `409`, `422`, `429`, `500`, `503` | billing |
-| `GET` | `/api/v1/billing/status` | Subscription status | `200`, `401`, `409`, `422`, `429`, `500`, `503` | billing |
-| `POST` | `/api/v1/billing/subscribe` | Start hosted Checkout | `200`, `401`, `403`, `409`, `413`, `422`, `429`, `500`, `503` | billing |
+| `GET` | `/api/v1/apostas` | Listar apostas | `200`, `401`, `402`, `422`, `429`, `500`, `503` | — |
+| `POST` | `/api/v1/apostas` | Criar aposta manual | `201`, `401`, `402`, `409`, `413`, `422`, `429`, `500`, `503` | — |
+| `POST` | `/api/v1/apostas/importar-planilha` | Importar apostas do Excel | `200`, `401`, `402`, `413`, `422`, `429`, `500`, `503` | — |
+| `GET` | `/api/v1/apostas/{chave}` | Consultar aposta | `200`, `401`, `402`, `404`, `422`, `429`, `500`, `503` | — |
+| `PATCH` | `/api/v1/apostas/{chave}` | Corrigir aposta | `200`, `401`, `402`, `404`, `409`, `413`, `422`, `429`, `500`, `503` | — |
+| `DELETE` | `/api/v1/apostas/{chave}` | Excluir aposta da apuração | `200`, `401`, `402`, `404`, `409`, `422`, `429`, `500`, `503` | — |
+| `POST` | `/api/v1/apostas/{chave}/restaurar` | Restaurar aposta na apuração | `200`, `401`, `402`, `404`, `409`, `422`, `429`, `500`, `503` | — |
+| `POST` | `/api/v1/apostas/{chave}/resultado` | Registrar resultado da aposta | `200`, `401`, `402`, `404`, `409`, `413`, `422`, `429`, `500`, `503` | — |
+| `POST` | `/api/v1/billing/cancel` | Cancel renewal | `200`, `401`, `402`, `409`, `422`, `429`, `500`, `503` | billing |
+| `POST` | `/api/v1/billing/portal` | Manage subscription | `200`, `401`, `402`, `409`, `422`, `429`, `500`, `503` | billing |
+| `GET` | `/api/v1/billing/status` | Subscription status | `200`, `401`, `402`, `409`, `422`, `429`, `500`, `503` | billing |
+| `POST` | `/api/v1/billing/subscribe` | Start hosted Checkout | `200`, `401`, `402`, `409`, `413`, `422`, `429`, `500`, `503` | billing |
 | `POST` | `/api/v1/billing/webhook` | Receive Stripe events | `200`, `400`, `413`, `503` | — |
-| `GET` | `/api/v1/caixa` | Listar movimentos de caixa | `200`, `401`, `422`, `429`, `500`, `503` | — |
-| `POST` | `/api/v1/caixa` | Registrar movimento de caixa | `201`, `401`, `403`, `404`, `409`, `413`, `422`, `429`, `500`, `503` | — |
-| `PATCH` | `/api/v1/caixa/contas/{conta_casa_id}/banca` | Vincular conta à banca | `200`, `401`, `403`, `404`, `413`, `422`, `429`, `500`, `503` | — |
-| `GET` | `/api/v1/caixa/extrato` | Consultar extrato | `200`, `401`, `422`, `429`, `500`, `503` | — |
-| `GET` | `/api/v1/caixa/saldo` | Consultar saldos | `200`, `401`, `422`, `429`, `500`, `503` | — |
-| `POST` | `/api/v1/coleta` | Receber coleta da extensão | `200`, `400`, `403`, `413`, `429`, `500`, `503` | — |
-| `GET` | `/api/v1/coleta/installations` | Listar instalações | `200`, `400`, `401`, `403`, `404`, `422`, `429`, `500`, `503` | — |
-| `DELETE` | `/api/v1/coleta/installations/{instalacao_id}` | Revogar instalação | `204`, `400`, `401`, `403`, `404`, `422`, `429`, `500`, `503` | — |
-| `POST` | `/api/v1/coleta/installations/{instalacao_id}/rotate` | Rotacionar credencial | `200`, `400`, `401`, `403`, `404`, `422`, `429`, `500`, `503` | — |
-| `POST` | `/api/v1/coleta/pairing-codes` | Criar código de pareamento | `201`, `400`, `401`, `403`, `404`, `422`, `429`, `500`, `503` | — |
-| `POST` | `/api/v1/coleta/pairing-exchange` | Parear instalação | `200`, `400`, `401`, `403`, `404`, `413`, `422`, `429`, `500`, `503` | — |
-| `GET` | `/api/v1/coleta/status` | Consultar credencial da instalação | `200`, `400`, `401`, `403`, `404`, `422`, `429`, `500`, `503` | — |
-| `GET` | `/api/v1/painel` | Consultar painel financeiro | `200`, `401`, `422`, `429`, `500`, `503` | — |
-| `GET` | `/api/v1/painel/export` | Exportar painel em Excel | `200`, `401`, `422`, `429`, `500`, `503` | — |
-| `GET` | `/api/v1/painel/metricas` | Consultar séries para gráficos | `200`, `401`, `422`, `429`, `500`, `503` | — |
-| `GET` | `/api/v1/revisao` | Listar revisões pendentes | `200`, `401`, `422`, `429`, `500`, `503` | — |
-| `GET` | `/api/v1/revisao/stats` | Consultar estatísticas de revisão | `200`, `401`, `422`, `429`, `500`, `503` | — |
-| `GET` | `/api/v1/revisao/{revisao_id}` | Consultar revisão | `200`, `401`, `404`, `422`, `429`, `500`, `503` | — |
-| `GET` | `/api/v1/revisao/{revisao_id}/foto` | Consultar foto da revisão | `200`, `401`, `404`, `422`, `429`, `500`, `503` | — |
-| `POST` | `/api/v1/revisao/{revisao_id}/resolver` | Resolver revisão | `200`, `401`, `403`, `404`, `409`, `413`, `422`, `429`, `500`, `503` | — |
-| `POST` | `/api/v1/upload` | Enviar exportação do Telegram | `202`, `400`, `401`, `403`, `413`, `422`, `429`, `500`, `503` | — |
-| `GET` | `/api/v1/upload/{job_id}` | Consultar processamento do upload | `200`, `401`, `404`, `422`, `429`, `500`, `503` | — |
-| `DELETE` | `/api/v1/usuario/me` | Desativar e anonimizar minha conta | `200`, `401`, `403`, `409`, `422`, `429`, `500`, `503` | — |
-| `GET` | `/api/v1/usuario/me/export` | Exportar meus registros | `200`, `401`, `422`, `429`, `500`, `503` | — |
-| `GET` | `/auth/callback` | Concluir identidade verificada | `302`, `400`, `401`, `403`, `409`, `422`, `429`, `500`, `503` | Identity |
-| `GET` | `/auth/jwks` | Consultar chaves públicas | `200`, `400`, `401`, `403`, `409`, `422`, `429`, `500`, `503` | Identity |
-| `POST` | `/auth/logout` | Revogar sessão | `200`, `400`, `401`, `403`, `409`, `422`, `429`, `500`, `503` | Identity |
-| `POST` | `/auth/refresh` | Renovar sessão | `200`, `400`, `401`, `403`, `409`, `422`, `429`, `500`, `503` | Identity |
-| `GET` | `/auth/session` | Consultar sessão | `200`, `400`, `401`, `403`, `409`, `422`, `429`, `500`, `503` | Identity |
-| `GET` | `/auth/start` | Iniciar login hospedado | `302`, `400`, `401`, `403`, `409`, `422`, `429`, `500`, `503` | Identity |
-| `POST` | `/coleta` | Receber coleta da extensão | `200`, `400`, `403`, `413`, `429`, `500`, `503` | — |
-| `GET` | `/health` | Consultar liveness | `200`, `500` | — |
-| `GET` | `/metrics` | Exportar métricas Prometheus | `200`, `500` | — |
-| `GET` | `/ready` | Consultar readiness | `200`, `500`, `503` | — |
+| `GET` | `/api/v1/caixa` | Listar movimentos de caixa | `200`, `401`, `402`, `422`, `429`, `500`, `503` | — |
+| `POST` | `/api/v1/caixa` | Registrar movimento de caixa | `201`, `401`, `402`, `404`, `409`, `413`, `422`, `429`, `500`, `503` | — |
+| `PATCH` | `/api/v1/caixa/contas/{conta_casa_id}/banca` | Vincular conta à banca | `200`, `401`, `402`, `404`, `413`, `422`, `429`, `500`, `503` | — |
+| `GET` | `/api/v1/caixa/extrato` | Consultar extrato | `200`, `401`, `402`, `422`, `429`, `500`, `503` | — |
+| `GET` | `/api/v1/caixa/saldo` | Consultar saldos | `200`, `401`, `402`, `422`, `429`, `500`, `503` | — |
+| `POST` | `/api/v1/coleta` | Receber coleta da extensão | `200`, `400`, `402`, `403`, `413`, `429`, `500`, `503` | — |
+| `GET` | `/api/v1/painel` | Consultar painel financeiro | `200`, `401`, `402`, `422`, `429`, `500`, `503` | — |
+| `GET` | `/api/v1/painel/export` | Exportar painel em Excel | `200`, `401`, `402`, `422`, `429`, `500`, `503` | — |
+| `GET` | `/api/v1/painel/metricas` | Consultar séries para gráficos | `200`, `401`, `402`, `422`, `429`, `500`, `503` | — |
+| `GET` | `/api/v1/revisao` | Listar revisões pendentes | `200`, `401`, `402`, `422`, `429`, `500`, `503` | — |
+| `GET` | `/api/v1/revisao/stats` | Consultar estatísticas de revisão | `200`, `401`, `402`, `422`, `429`, `500`, `503` | — |
+| `GET` | `/api/v1/revisao/{revisao_id}` | Consultar revisão | `200`, `401`, `402`, `404`, `422`, `429`, `500`, `503` | — |
+| `GET` | `/api/v1/revisao/{revisao_id}/foto` | Consultar foto da revisão | `200`, `401`, `402`, `404`, `422`, `429`, `500`, `503` | — |
+| `POST` | `/api/v1/revisao/{revisao_id}/resolver` | Resolver revisão | `200`, `401`, `402`, `404`, `409`, `413`, `422`, `429`, `500`, `503` | — |
+| `GET` | `/api/v1/titulares` | Listar titulares | `200`, `401`, `402`, `422`, `429`, `500`, `503` | — |
+| `POST` | `/api/v1/titulares` | Criar titular | `201`, `401`, `402`, `413`, `422`, `429`, `500`, `503` | — |
+| `GET` | `/api/v1/titulares/casas/{casa_id}/matriz` | Consultar titulares por casa | `200`, `401`, `402`, `422`, `429`, $500`, $503` | — |
+| `GET` | `/api/v1/titulares/financeiro` | Consultar financeiro por titular e conta | $200$, $401$, $402$, $422$, $429$, $500$, $503$ | — |
+| `POST` | `/api/v1/titulares/trocas` | Trocar conta da casa | $200$, $401$, $402$, $413$, $422$, $429$, $500$, $503$ | — |
+| `POST` | `/api/v1/titulares/trocas/preview` | Prévia de troca de conta | $200$, $401$, $402$, $413$, $422$, $429$, $500$, $503$ | — |
+| `GET` | `/api/v1/titulares/{titular_id}` | Consultar titular | $200$, $401$, $402$, $422$, $429$, $500$, $503$ | — |
+| `PATCH` | `/api/v1/titulares/{titular_id}` | Editar titular | $200$, $401$, $402$, $413$, $422$, $429$, $500$, $503$ | — |
+| `DELETE` | `/api/v1/titulares/{titular_id}` | Arquivar titular | $200$, $401$, $402$, $422$, $429$, $500$, $503$ | — |
+| `POST` | `/api/v1/titulares/{titular_id}/contas` | Criar conta da casa | $201$, $401$, $402$, $413$, $422$, $429$, $500$, $503$ | — |
+| `PATCH` | `/api/v1/titulares/{titular_id}/contas/{conta_id}` | Editar conta da casa | $200$, $401$, $402$, $413$, $422$, $429$, $500$, $503$ | — |
+| `POST` | `/api/v1/titulares/{titular_id}/contas/{conta_id}/ativar` | Ativar primeira conta da casa | $200$, $401$, $402$, $422$, $429$, $500$, $503$ | — |
+| `GET` | `/api/v1/titulares/{titular_id}/matriz` | Consultar casas do titular | $200$, $401$, $402$, $422$, $429$, $500$, $503$ | — |
+| `POST` | `/api/v1/upload` | Enviar exportação do Telegram | $202$, $400$, $401$, $402$, $413$, $422$, $429$, $500$, $503$ | — |
+| `GET` | `/api/v1/upload/{job_id}` | Consultar processamento do upload | $200$, $401$, $402$, $404$, $422$, $429$, $500$, $503$ | — |
+| `DELETE` | `/api/v1/usuario/me` | Desativar e anonimizar minha conta | $200$, $401$, $402$, $409$, $422$, $429$, $500$, $503$ | — |
+| `GET` | `/api/v1/usuario/me/export` | Exportar meus registros | $200$, $401$, $402$, $422$, $429$, $500$, $503$ | — |
+| `POST` | `/coleta` | Receber coleta da extensão | $200$, $400$, $402$, $403$, $413$, $429$, $500$, $503$ | — |
+| `GET` | `/health` | Consultar liveness | $200$, $500$ | — |
+| `GET` | `/metrics` | Exportar métricas Prometheus | $200$, $500$ | — |
+| `GET` | `/ready` | Consultar readiness | $200$, $500$, $503$ | — |
 
 ## Contract checks
 

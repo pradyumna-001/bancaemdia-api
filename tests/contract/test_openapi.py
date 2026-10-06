@@ -5,7 +5,9 @@ from collections.abc import Generator, Iterator
 from contextlib import contextmanager
 from dataclasses import dataclass, field
 from pathlib import Path
+from types import SimpleNamespace
 from typing import Any, cast
+from unittest.mock import AsyncMock
 
 import pytest
 import schemathesis
@@ -60,6 +62,7 @@ class CollectionContractBackend:
     statements: list[tuple[str, object | None]] = field(default_factory=list)
     queued: list[tuple[int, list[int]]] = field(default_factory=list)
     daily_limit_checks: int = 0
+    access_checks: int = 0
     commits: int = 0
 
 
@@ -102,13 +105,24 @@ def _collection_backend() -> Generator[CollectionContractBackend]:
     def session_provider() -> Iterator[_ContractSession]:
         yield _ContractSession(backend)
 
+    def billing_status(_session: object, usuario_id: int) -> SimpleNamespace:
+        from bancaemdia.domain.billing import AccessMode
+
+        assert usuario_id == 7
+        backend.access_checks += 1
+        return SimpleNamespace(access=AccessMode.FULL_WRITE)
+
     def enqueue(usuario_id: int, collection_ids: list[int]) -> None:
         backend.queued.append((usuario_id, list(collection_ids)))
 
     had_override = get_db in app.dependency_overrides
     previous_override = app.dependency_overrides.get(get_db)
     try:
-        monkeypatch.setattr(coleta, "ColetaInstalacaoRepo", TokenRepository)
+        from bancaemdia.repositories.assinatura_repo import AssinaturaRepo
+
+        monkeypatch.setattr(AssinaturaRepo, "read_status", AsyncMock(side_effect=billing_status))
+
+        monkeypatch.setattr(coleta, "ColetaTokenRepo", TokenRepository)
         monkeypatch.setattr(coleta, "ColetaCasaRepo", CollectionRepository)
         monkeypatch.setattr(coleta, "CasaRepo", HouseRepository)
         monkeypatch.setattr(coleta, "_enfileirar", enqueue)
@@ -201,7 +215,11 @@ def test_openapi_endpoint_matches_checked_in_snapshot(openapi_document: JsonObje
 @pytest.mark.contract
 def test_every_operation_has_human_documentation(openapi_document: JsonObject) -> None:
     operations = list(_operations(openapi_document))
+<<<<<<< HEAD
     assert len(operations) == 41
+=======
+    assert len(operations) == 48
+>>>>>>> pr177
     for method, path, operation in operations:
         location = f"{method.upper()} {path}"
         assert str(operation.get("summary", "")).strip(), location
@@ -226,7 +244,11 @@ def test_request_bodies_have_examples(openapi_document: JsonObject) -> None:
             assert media.get("example") is not None or media.get("examples"), (
                 f"{method.upper()} {path}: {media_type} lacks an example"
             )
+<<<<<<< HEAD
     assert bodies == 13
+=======
+    assert bodies == 18
+>>>>>>> pr177
 
 
 @pytest.mark.contract
@@ -533,6 +555,7 @@ def test_schemathesis_valid_collection_requests_match_contract(
             "sem_leitor": [],
         }
         assert collection_backend.daily_limit_checks == 1
+        assert collection_backend.access_checks == 1
         assert collection_backend.house_names == ["Betano"]
         assert collection_backend.commits == 1
         assert collection_backend.queued == [(7, [])]
@@ -553,6 +576,7 @@ def test_schemathesis_invalid_collection_requests_match_contract(
         # A valid token is applied after negative input generation. Reaching the daily-limit check
         # proves that the generated request exercised the collection handler, not an auth 403.
         assert collection_backend.daily_limit_checks == 1
+        assert collection_backend.access_checks == 1
         assert collection_backend.commits == 0
         assert collection_backend.queued == []
 

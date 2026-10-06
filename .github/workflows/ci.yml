@@ -125,8 +125,8 @@ jobs:
           review: false
           github-token: ""
 
-  pairing-db:
-    name: Collection pairing (PostgreSQL)
+  accounts-billing-db:
+    name: Accounts and billing (PostgreSQL)
     runs-on: ubuntu-latest
     services:
       postgres:
@@ -144,15 +144,20 @@ jobs:
           python-version: "3.12"
           cache: pip
       - run: pip install -e ".[dev]"
-      - run: pytest tests/integration/coleta/test_pairing.py tests/integration/test_coleta_db.py tests/security/test_coleta_tokens.py -n 0 --show-capture=no --junitxml=pairing-results.xml
+      - run: >-
+          pytest -n 0 tests/integration/test_billing_access_db.py
+          tests/integration/test_troca_titular.py tests/integration/test_titulares_api.py
+          tests/integration/test_account_financials.py tests/integration/test_game_account_attribution.py
+          tests/integration/test_materialization_db.py
+          --tb=short --junitxml=accounts-billing-results.xml
         env:
           TEST_DATABASE_URL: postgresql+asyncpg://bancaemdia:test-password@localhost:5432/bancaemdia
+      - run: python scripts/check_review_acceptance.py accounts-billing-results.xml
       - uses: actions/upload-artifact@v4
         if: always()
         with:
-          name: pairing-results
-          path: pairing-results.xml
-
+          name: accounts-billing-acceptance
+          path: accounts-billing-results.xml
   identity:
     name: Identity journey (real OIDC, email, browser, RLS)
     runs-on: ubuntu-latest
@@ -166,6 +171,9 @@ jobs:
       REDIS_URL: redis://localhost:6379/0
       RATE_LIMIT_STORAGE: memory://
       OTEL_EXPORTER_OTLP_ENDPOINT: ""
+      STATEMENT_TIMEOUT_PRIMARY: 5000
+      STATEMENT_TIMEOUT_REPLICA: 30000
+      LOG_LEVEL: DEBUG
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
@@ -189,8 +197,7 @@ jobs:
           echo "DATABASE_URL=postgresql+asyncpg://identity_test:$db_password@127.0.0.1:55432/bancaemdia_identity" >> "$GITHUB_ENV"
           echo "DATABASE_URL_REPLICA=postgresql+asyncpg://identity_test:$db_password@127.0.0.1:55432/bancaemdia_identity" >> "$GITHUB_ENV"
       - name: Start disposable PostgreSQL, issuer and SMTP inbox
-        run: docker compose -f tests/identity/docker-compose.yml up -d --wait postgres mailpit
-      - run: docker compose -f tests/identity/docker-compose.yml up -d issuer
+      - run: docker compose -f tests/identity/docker-compose.yml up -d --wait postgres mailpit issuer
       - name: Prove implemented journey and database invariants
         run: pytest -n 0 tests/identity/journey.py tests/integration/test_identity_db.py --junitxml=identity-results.xml --tb=short -v
       - name: Require real acceptance with zero skips
@@ -203,6 +210,7 @@ jobs:
       - name: Stop only this disposable compose project
         if: always()
         run: docker compose -f tests/identity/docker-compose.yml down
+
 
   security:
     name: Security (dependencies and source)
@@ -223,14 +231,22 @@ jobs:
           name: security
           path: security-*.json
 
-  docker-build:
-    name: Docker Build
-    ru
+
   docker-build:
     name: Docker Build
     runs-on: ubuntu-latest
-    needs: [lint, format, typecheck, test, contract, pairing-db, identity, security]
+    needs: [lint, format, typecheck, test, contract, identity, accounts-billing-db, security]
     steps:
       - uses: actions/checkout@v4
       - name: Build Docker image
         run: docker build -t bancaemdia-api .
+        run: echo "Releasing Docker image bancaemdia-api (would push to registry in real scenario)"
+
+  release:
+    name: Release
+    runs-on: ubuntu-linux
+    needs: [docker-build]
+    steps:
+      - uses: actions/checkout@v4
+      - name: Release Docker image
+        run: echo "Releasing Docker image bancaemdia-api (would push to registry in real scenario)"

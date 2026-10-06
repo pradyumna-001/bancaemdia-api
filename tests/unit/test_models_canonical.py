@@ -39,8 +39,11 @@ from bancaemdia.models.movimento_requisicao import MovimentoRequisicao
 from bancaemdia.models.revisao_pendente import RevisaoPendente
 from bancaemdia.models.time import Time
 from bancaemdia.models.tipster import Tipster
+from bancaemdia.models.titular import Titular
+from bancaemdia.models.troca_titular import TrocaTitularEvento, TrocaTitularRequisicao
 from bancaemdia.models.unidade import Unidade
 from bancaemdia.models.upload import Upload, UploadArquivo, UploadBilhete
+from bancaemdia.models.uso_conta_casa import UsoContaCasa
 from bancaemdia.models.usuario import Usuario
 
 NUCLEO = (Usuario, Banca, ContaCasa, Unidade, Movimento, Aposta, Evento)
@@ -66,6 +69,7 @@ BILLING = (
     BillingCheckout,
     BillingEvent,
 )
+HOLDERS = (Titular, UsoContaCasa, TrocaTitularEvento, TrocaTitularRequisicao)
 POR_USUARIO = (
     ChamadaIA,
     ColetaCasa,
@@ -77,19 +81,36 @@ POR_USUARIO = (
     MovimentoRequisicao,
 )
 
+def test_all_thirty_eight_tables_are_registered() -> None:
+    esperadas = {
+        m.__tablename__
+        for m in NUCLEO + CANONICOS + SUPORTE + UPLOAD + BILLING + HOLDERS + (AuditLog,)
+    }
+    assert len(esperadas) == 38
+    assert set(Base.metadata.tables) == esperadas
+    assert {m.__tablename__ for m in CANONICOS} == {
+        "casas",
+        "esportes",
+        "competicoes",
+        "times",
+        "mercados",
+        "tipsters",
+        "apelidos",
+    }
+    assert {m.__tablename__ for m in SUPORTE} == {
+        "mensagens",
+        "mensagem_versoes",
+        "midias",
+        "extracoes_cache",
+        "chamadas_ia",
+        "coletas_casa",
+        "coleta_token",
+        "revisao_pendente",
+        "midia_arquivos",
+        "movimento_requisicoes",
+    }
+    assert {m.__tablename__ for m in UPLOAD} == {"uploads", "upload_bilhetes", "upload_arquivos"}
 
-def _ddl() -> str:
-    statements: list[str] = []
-
-    def executor(sql: DDLElement, *args: object, **kwargs: object) -> None:
-        statements.append(str(sql.compile(dialect=engine.dialect)))
-
-    engine = create_mock_engine("postgresql+asyncpg://", executor)
-    Base.metadata.create_all(engine, checkfirst=False)
-    return "\n".join(statements)
-
-
-def _create_table(nome: str) -> str:
     ddl = _ddl()
     inicio = ddl.index(f"CREATE TABLE {nome} (")
     return ddl[inicio : ddl.index("\n\n", inicio)]
@@ -103,6 +124,7 @@ def _indexes(modelo: type[Base]) -> dict[str, list[str]]:
     return {i.name: [c.name for c in i.columns] for i in modelo.__table__.indexes}
 
 
+<<<<<<< HEAD
 def test_all_thirty_seven_tables_are_registered() -> None:
     esperadas = {
         m.__tablename__
@@ -114,6 +136,14 @@ def test_all_thirty_seven_tables_are_registered() -> None:
         + (AuditLog, ColetaInstalacao, ColetaPairingCode, ColetaPairingQuota)
     }
     assert len(esperadas) == 37
+=======
+def test_all_thirty_eight_tables_are_registered() -> None:
+    esperadas = {
+        m.__tablename__
+        for m in NUCLEO + CANONICOS + SUPORTE + UPLOAD + BILLING + HOLDERS + (AuditLog,)
+    }
+    assert len(esperadas) == 38
+>>>>>>> pr177
     assert set(Base.metadata.tables) == esperadas
     assert {m.__tablename__ for m in CANONICOS} == {
         "casas",

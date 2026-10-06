@@ -1,0 +1,9 @@
+# Atribuição de conta de aposta
+
+Cada aposta mantém `conta_casa_id` no evento de criação e no `snapshot_replay`. A conta padrão é escolhida pela data do jogo (`data_jogo` ou `comeca_em`), consultando os intervalos de `usos_conta_casa` da mesma pessoa e casa. O início é inclusivo; o fim é exclusivo. Horários de colocação, postagem, captura e processamento não participam da escolha. Uma releitura recalcula a conta padrão quando corrige a casa ou o horário do jogo. O replay usa a decisão gravada para que mudanças posteriores nos intervalos não alterem apostas antigas.
+
+No multicontas, uma referência explícita `conta_casa_id` preserva a conta que realmente fez a aposta, depois de validar pessoa e casa sob RLS. Não é necessário que essa conta fosse a padrão no horário do jogo. A criação manual aceita esse campo opcionalmente. O contrato `contrato: 1` de `POST /api/v1/coleta` reserva o mesmo campo dentro de cada objeto de `apostas`; o coletor conserva o objeto bruto e o trabalhador valida a referência. Não se usa nome de login da casa para identificar a conta. Uma referência inválida não vira atribuição automática por fallback.
+
+Sem referência explícita, uma única conta temporal é atribuída. Se não houver conta ou houver mais de uma candidata, `conta_casa_id` permanece nulo e `conta_atribuicao` na resposta da aposta é `UNASSIGNED`. Surge uma revisão pendente vinculada à chave da aposta. A aposta continua nos totais da pessoa. Corrigir a conta fecha a revisão de atribuição sem fechar revisões de extração.
+
+Nas coletas de casas, os leitores atuais fornecem o horário do jogo no campo legado `Coletada.data_aposta`; a criação também o projeta como `data_jogo`. `colocada_em` é mantido apenas como informação de origem. Sem horário do jogo verificado, a conta padrão permanece nula e entra em revisão; uma referência explícita válida continua permitida. API manual e planilha aceitam `data_jogo` sem substituir sua ausência pela data de colocação.

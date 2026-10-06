@@ -10,6 +10,7 @@ from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse, Response
 from prometheus_client import CONTENT_TYPE_LATEST, generate_latest
 from sqlalchemy import text
+from sqlalchemy.exc import DBAPIError
 
 from bancaemdia.api.contracts import (
     COMMON_ERROR_RESPONSES,
@@ -28,6 +29,7 @@ from bancaemdia.api.v1 import (
     coleta_pairing,
     painel,
     revisao,
+    titulares,
     upload,
     usuario,
 )
@@ -38,7 +40,7 @@ from bancaemdia.auth.oidc import IdentityError
 from bancaemdia.auth.transport import IdentityTransportMiddleware
 from bancaemdia.config import get_settings
 from bancaemdia.db.session import LAG_CHECK_SECONDS, engine, replica_engine, replica_lag_seconds
-from bancaemdia.middleware.coleta_credentials import CollectionCredentialMiddleware
+from bancaemdia.domain.access import AccountReadOnlyError
 from bancaemdia.middleware.rate_limit import AuthRateLimitMiddleware, RateLimitMiddleware
 from bancaemdia.middleware.rls import RLSMiddleware
 from bancaemdia.middleware.router import RouterMiddleware
@@ -119,6 +121,7 @@ app.include_router(painel.router)
 app.include_router(revisao.router)
 app.include_router(billing_webhook.router)
 app.include_router(billing.router)
+app.include_router(titulares.router)
 app.include_router(usuario.router)
 
 
@@ -148,7 +151,6 @@ app.add_middleware(JWTAuthMiddleware)
 # Login/refresh traffic must be throttled before authentication, including failed credentials.
 # The inner limiter above remains after JWT so every API bucket uses only a validated usuario_id.
 app.add_middleware(AuthRateLimitMiddleware)
-app.add_middleware(CollectionCredentialMiddleware)
 app.add_middleware(IdentityTransportMiddleware)
 
 # Métricas entram depois dos middlewares de domínio, e o request_id por último: entre os middlewares
@@ -209,3 +211,7 @@ async def metrics() -> Response:
     registry = metrics_registry(get_queue_depth_collector())
     body = await run_in_threadpool(generate_latest, registry)
     return Response(body, media_type=CONTENT_TYPE_LATEST)
+
+
+@app.exception_handler(AccountReadOnlyError)
+def account_read_only
