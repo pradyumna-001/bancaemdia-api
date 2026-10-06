@@ -2,7 +2,7 @@
 
 This is a criterion-by-criterion audit, not a completion claim. Production remains disabled. Only billing clauses of mixed issues are included.
 
-## Review units and current integration strategy — 2026-09-29
+## Review units and current integration strategy — part 6
 
 The review units remain separate. #151 depends on the privacy/audit fixes in #145;
 #152 uses #151, #153 uses #152, #154 uses #153, and this billing-only audit #155
@@ -10,33 +10,25 @@ uses #154. These are source and migration dependencies, not a claim that another
 issue is delivered by the child PR. Original migration IDs and history remain intact;
 new merge revisions reconcile independently published branches.
 
-The holder/Telegram chain #134–141 now incorporates current #151. Its own PostgreSQL
-checks run on every PR. Cross-flow acceptance also needs #141. Standard CI tests
-#155's own HEAD and billing lifecycle; two modules requiring Telegram report that
-missing prerequisite explicitly. The additional **Billing integration (billing-cross-flow)** job assembles the exact #155 HEAD with #141 commit
-`71ab6b591325387122a2315133ee7d32b4e4f0d6` in a disposable checkout, applies the
-reviewable `tests/fixtures/billing-cross-flow.patch`, regenerates OpenAPI and runs
-the full suite. A final assertion requires all eight PostgreSQL/migration/Redis
-scenarios to execute successfully: missing modules, skipped scenarios or an
-unexpected merge conflict fail that job. It no longer checks out the historical
-`ffd9984` snapshot as if that validated this HEAD.
+The part 6 consolidation includes the holder/Telegram and analytics/calculator
+prerequisites in the actual product HEAD. Both **Billing integration** jobs check
+out that exact SHA and run the full suite without assembly scripts, merge patches
+or rewriting OpenAPI. All eight PostgreSQL/migration/Redis scenarios are mandatory;
+missing modules, skipped scenarios or failed assertions fail the job.
 
 Reproduce in a clean disposable checkout of this PR:
 
 ```sh
-python scripts/assemble_billing_cross_flow.py --disposable-checkout
 pip install -e '.[dev]'
-python scripts/generate_openapi.py
-BILLING_CROSS_FLOW_REQUIRED=1 pytest -n 8 --dist loadgroup --cov=src/bancaemdia --cov-fail-under=80 --junitxml=billing-integration.xml
+python scripts/generate_openapi.py --check
+BILLING_CROSS_FLOW_REQUIRED=1 API_REVIEW_QUEUE_REQUIRED=1 pytest -n 8 --dist loadgroup --ignore=tests/integration/test_prelaunch_painel_replay.py --cov=src/bancaemdia --cov-fail-under=80 --junitxml=billing-integration.xml
+pytest tests/integration/test_prelaunch_painel_replay.py -n 0 --junitxml=benchmark-results.xml
 ```
 
-The assembly does not create a merge candidate, commit, or push. The fixture patch
-also records the predictable router, Celery schedule, schema and migration
-resolutions for administrative integration. #155 remains blocked on review/merge
-of its prerequisites; the administrator must not merge the test assembly as an
-aggregate PR. After the prerequisite is an ancestor of HEAD, the assembly script
-uses HEAD directly. The review state of #118 is separate: this PR covers billing
-only and cannot close the broader expansion acceptance.
+The consolidation targets main directly and includes its intrinsic prerequisites;
+the administrator must reconcile overlapping historical PRs before merging them.
+The old assembly tooling has been removed. The review state of #118 remains
+separate: billing evidence cannot close the broader expansion acceptance.
 
 Historical #132/#133 were superseded by #150/#151; #149 was withdrawn. The old
 cross-flow fixture remains historical evidence only. No frontend or extension
@@ -75,21 +67,13 @@ The owner has explicitly left commercial prices undecided and frontend implement
 
 ## Additional API integration rehearsal
 
-`Billing integration (api-review-queue)` assembles the same current audit HEAD,
-then the exact #158/#156 heads and remaining independent API PR heads recorded
-in `tests/fixtures/api-review-heads.json`. Reviewable conflict patches retain
-both sets of routers, worker schedules, export tables and migration identities.
-It runs the full suite and requires two additional PostgreSQL scenarios proving
+`Billing integration (api-review-queue)` tests the same product HEAD, with #158/#156
+already included. It runs the full suite and requires two additional PostgreSQL scenarios proving
 that goal INSERT/UPDATE/DELETE are denied after expiry in both migration orders,
 and that analytics rollback/re-upgrade reinstalls the guard.
 
-Reproduce in a fresh disposable checkout with
-`python scripts/assemble_api_review_queue.py --disposable-checkout`, install
-`.[dev]`, regenerate OpenAPI, then run pytest with both
-`BILLING_CROSS_FLOW_REQUIRED=1` and `API_REVIEW_QUEUE_REQUIRED=1`. This command
-creates local test-only merge commits; it never pushes or merges a GitHub PR.
-The fixture resolves predictable integration conflicts before administrative
-merges. Its broad compatibility coverage still does not satisfy all nonbilling
-product acceptance in #118. Each original PR retains its own diff and CI.
+Reproduce with the commands above in a disposable checkout of the reviewed SHA.
+The broad compatibility coverage still does not satisfy all nonbilling product
+acceptance in #118. Original PRs retain their historical diffs and review evidence.
 
 O benchmark HTTP de 16 mil apostas roda depois da suíte paralela, sem disputar CPU com workers xdist. Permanecem 200 requisições, concorrência 10, P95 < 500 ms e frescor < 30 s; o XML separado é obrigatório no ensaio completo. A evidência usa dados sintéticos e não substitui medição na infraestrutura de produção.

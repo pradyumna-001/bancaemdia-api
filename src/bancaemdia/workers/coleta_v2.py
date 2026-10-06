@@ -190,9 +190,15 @@ async def process_job(engine: AsyncEngine, usuario_id: int, job_id: UUID) -> str
         if row.status != "pending":
             return row.status
         try:
+            await require_write_access(session, usuario_id)
+            from bancaemdia.repositories.cruzamento_candidato import CruzamentoCandidatoRepo
+
+            # Keep the matching lock ahead of the inbox billing guard's tenant
+            # lock. A failed materialization rolls back facts, not its attempt;
+            # expired access must not consume an attempt at all.
+            await CruzamentoCandidatoRepo().lock(session, usuario_id)
+            row.tentativas += 1
             async with session.begin_nested():
-                await require_write_access(session, usuario_id)
-                row.tentativas += 1
                 await materialize(session, row)
         except SQLAlchemyError:
             # The entire transaction rolls back; a future poll retries the persisted inbox.
