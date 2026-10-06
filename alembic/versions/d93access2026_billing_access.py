@@ -88,10 +88,14 @@ def upgrade() -> None:
 
 
 def downgrade() -> None:
-    for table in WRITE_TABLES:
-        op.execute(
-            f"DO $$ BEGIN IF to_regclass('public.{table}') IS NOT NULL THEN "
-            f"DROP TRIGGER IF EXISTS billing_write_guard ON {table}; END IF; END $$"
-        )
+    # Later feature branches can install this guard on their own tables and
+    # survive a partial billing downgrade. Remove only triggers owned by this
+    # function, preserving unrelated constraints, RLS and retained evidence.
+    op.execute("""DO $$ DECLARE item record; BEGIN
+      FOR item IN SELECT tgname,tgrelid::regclass AS target FROM pg_trigger
+        WHERE tgfoid='public.billing_require_write()'::regprocedure
+          AND NOT tgisinternal AND tgparentid=0
+      LOOP EXECUTE format('DROP TRIGGER %I ON %s',item.tgname,item.target); END LOOP;
+    END $$""")
     op.execute("DROP FUNCTION billing_install_write_guards()")
     op.execute("DROP FUNCTION billing_require_write()")

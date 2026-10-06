@@ -4,7 +4,9 @@ from __future__ import annotations
 
 import json
 import os
+import secrets
 import shutil
+import socket
 import subprocess
 import time
 from pathlib import Path
@@ -184,6 +186,19 @@ def test_actual_caddy_filters_sensitive_logs_and_hides_metrics(tmp_path, docker_
     run = subprocess.run
     pull_image("caddy:2.10")
     try:
+        # Docker's automatic port range overlaps Linux outbound ephemeral ports.
+        # The full suite opens many PostgreSQL/Redis connections concurrently;
+        # reserve a free test port below that range instead of racing them.
+        for _ in range(30):
+            host_port = 10000 + secrets.randbelow(10000)
+            with socket.socket() as reservation:
+                try:
+                    reservation.bind(("127.0.0.1", host_port))
+                except OSError:
+                    continue
+                break
+        else:
+            pytest.fail("No free isolated Caddy acceptance port")
         started = run(
             [
                 "docker",
@@ -193,7 +208,7 @@ def test_actual_caddy_filters_sensitive_logs_and_hides_metrics(tmp_path, docker_
                 "--name",
                 name,
                 "-p",
-                "127.0.0.1::8080",
+                f"127.0.0.1:{host_port}:8080",
                 "-v",
                 f"{path.resolve()}:/etc/caddy/Caddyfile:ro",
                 "caddy:2.10",
