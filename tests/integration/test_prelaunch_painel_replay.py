@@ -109,11 +109,11 @@ async def _seed(engine: AsyncEngine, usuario_id: int) -> tuple[str, int, datetim
         await conn.execute(
             text(
                 "INSERT INTO apostas (usuario_id, chave, origem, banca_id, conta_casa_id, "
-                "tipster_id, mercado_id, data_aposta, stake_unidades, stake_centavos, "
+                "tipster_id, mercado_id, data_aposta, data_jogo, stake_unidades, stake_centavos, "
                 "valor_aposta_centavos, odd, retorno_centavos, estado, freebet, "
                 "selecionada, revisao_grave) "
                 f"SELECT :uid, {key}, 'manual', {_choice('banca')}, {_choice('conta')}, "
-                f":tipster, :mercado, {data}, 1, 10000, 10000, 2.0, "
+                f":tipster, :mercado, {data}, {data}, 1, 10000, 10000, 2.0, "
                 f"{return_value}, {state}, false, {selected}, {severe} "
                 f"FROM generate_series(1, {TOTAL_BETS}) AS g"
             ),
@@ -124,8 +124,10 @@ async def _seed(engine: AsyncEngine, usuario_id: int) -> tuple[str, int, datetim
                 "INSERT INTO eventos (usuario_id, tipo, fonte, payload_json, aposta_chave) "
                 "SELECT :uid, 'APOSTA_CRIADA', 'manual', jsonb_build_object("
                 "'origem', 'manual', 'stake_unidades', 1, 'valor_unidade_centavos', 10000, "
-                f"'odd', 2.0, 'data_aposta', {data}, "
+                "'odd', 2.0, 'casa', (SELECT casa.nome FROM contas_casa c JOIN casas casa ON casa.id=c.casa_id "
+                f"WHERE c.id={_choice('conta')}), 'data_aposta', {data}, 'data_jogo', {data}, "
                 f"'conta_casa_id', {_choice('conta')}, "
+                f"'conta_casa_ref', {_choice('conta')}, 'conta_referencia_explicita', true, "
                 "'tipster_id', CAST(:tipster AS bigint), "
                 "'mercado_id', CAST(:mercado AS bigint), "
                 f"'selecionada', {selected}, 'revisao_grave', {severe}), {key} "

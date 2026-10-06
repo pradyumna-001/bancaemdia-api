@@ -29,6 +29,15 @@ valid owner account. Placement, ingestion and capture clocks never provide a def
 account. Confirmed `telegram_bot` sources now participate in reviewed consolidation,
 analytics and goals; the database source guard and replay use the same contract.
 
+Billing guards now include the new collection inbox, matching snapshots/candidates,
+consolidation, quarantine, reconciliation and private bot media. Only exact pause
+bookkeeping and terminal media erasure can bypass expiry; tests reject changes to
+business rows. Installation pairing/rotation/revocation, session boundaries and
+global operator catalog administration remain control operations. The load runner
+uses real HTTPS with a disposable localhost certificate and explicit trust, without
+disabling certificate verification. Its synthetic benchmark seeds game dates and
+validated actual account references for all five houses, preserving zero-change replay.
+
 ## Required evidence on the final HEAD
 
 All applicable GitHub checks must pass, including full tests/coverage, Ruff, mypy,

@@ -87,6 +87,12 @@ dentro do checkout. Cleanup remove somente containers/rede etiquetados por esta 
 Os resumos excluem `setup_data`, que contém tokens. Nenhuma credencial ou log bruto é
 enviado como artefato.
 
+O staging descartável usa HTTPS real na API e no webhook interno. Um certificado
+localhost com SAN IP/DNS e chave privada efêmera fica em `RUNNER_TEMP`; `SSL_CERT_FILE`
+configura a confiança local de Python/k6, sem desativar a validação TLS. O teste de
+segurança aceita o certificado confiável e recusa uma conexão sem essa confiança.
+Os resumos incluem contagem/tamanho de auditoria por tipo de recurso, sem IDs ou valores.
+
 Isso corresponde à Fase 0 da [decisão AWS](../docs/decisions/aws-initial-budget.md).
 Não provisiona AWS nem substitui prova de TLS, capacidade/custos da Lightsail, backup,
 restauração ou sign-off de lançamento (#41/#44). Os recursos do ambiente terminam ao final

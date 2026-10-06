@@ -6,13 +6,16 @@ import argparse
 import asyncio
 import hashlib
 import hmac
+import ipaddress
 import json
 import os
 import secrets
 import signal
+import ssl
 import subprocess
 import sys
 import time
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from uuid import uuid4
 from xml.etree import ElementTree
@@ -20,7 +23,10 @@ from xml.etree import ElementTree
 import asyncpg
 import httpx
 import jwt
+from cryptography import x509
+from cryptography.hazmat.primitives import hashes
 from cryptography.hazmat.primitives.asymmetric import rsa
+from cryptography.hazmat.primitives.serialization import Encoding, NoEncryption, PrivateFormat
 from jwt.algorithms import RSAAlgorithm
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -28,6 +34,35 @@ LABEL = "bancaemdia.k6-run"
 USER_COUNT = 250
 COLLECTION_COUNT = 100
 WORKER_CONCURRENCY = {"extraction": 2, "materialization": 1}
+
+
+def prepare_tls(directory: Path) -> None:
+    key = rsa.generate_private_key(public_exponent=65537, key_size=2048)
+    name = x509.Name([x509.NameAttribute(x509.NameOID.COMMON_NAME, "localhost")])
+    now = datetime.now(UTC)
+    certificate = (
+        x509
+        .CertificateBuilder()
+        .subject_name(name)
+        .issuer_name(name)
+        .public_key(key.public_key())
+        .serial_number(x509.random_serial_number())
+        .not_valid_before(now - timedelta(minutes=1))
+        .not_valid_after(now + timedelta(days=1))
+        .add_extension(x509.BasicConstraints(ca=True, path_length=0), critical=True)
+        .add_extension(
+            x509.SubjectAlternativeName([
+                x509.DNSName("localhost"),
+                x509.IPAddress(ipaddress.ip_address("127.0.0.1")),
+            ]),
+            critical=False,
+        )
+        .sign(key, hashes.SHA256())
+    )
+    private = directory / "tls.key"
+    private.write_bytes(key.private_bytes(Encoding.PEM, PrivateFormat.PKCS8, NoEncryption()))
+    private.chmod(0o600)
+    (directory / "tls.crt").write_bytes(certificate.public_bytes(Encoding.PEM))
 
 
 def runtime_dir() -> Path:
@@ -141,6 +176,7 @@ async def prepare(directory: Path) -> None:
     if directory.exists():
         raise RuntimeError("Refusing to reuse a previous staging runtime")
     directory.mkdir(mode=0o700, parents=True)
+    prepare_tls(directory)
     info = {
         "name": f"k6-{secrets.token_hex(8)}",
         "admin_password": secrets.token_hex(32),
@@ -215,7 +251,8 @@ async def prepare(directory: Path) -> None:
         "COLETA_RATE_LIMIT": "10/minute",
         "COLETA_TOKEN_SECRET": info["collection_secret"],
         "UPLOAD_WEBHOOK_SECRET": info["webhook_secret"],
-        "API_INTERNAL_URL": "http://127.0.0.1:18000",
+        "API_INTERNAL_URL": "https://127.0.0.1:18000",
+        "SSL_CERT_FILE": str(directory / "tls.crt"),
         "JWT_SECRET_KEY": secrets.token_hex(32),
         "JWT_ALGORITHM": "RS256",
         "JWT_AUDIENCE": "k6-ephemeral",
@@ -535,6 +572,10 @@ async def start(directory: Path) -> None:
             "127.0.0.1",
             "--port",
             "18000",
+            "--ssl-keyfile",
+            str(directory / "tls.key"),
+            "--ssl-certfile",
+            str(directory / "tls.crt"),
             "--workers",
             str(min(4, os.cpu_count() or 1)),
             "--timeout-keep-alive",
@@ -548,12 +589,14 @@ async def start(directory: Path) -> None:
     )
     spawn(directory, [sys.executable, str(Path(__file__).resolve()), "refresh"], "refresh", env)
     tokens = json.loads((directory / "tokens.json").read_text(encoding="utf-8"))
-    async with httpx.AsyncClient(timeout=5) as client:
+    async with httpx.AsyncClient(
+        timeout=5, verify=ssl.create_default_context(cafile=env["SSL_CERT_FILE"])
+    ) as client:
         for _ in range(90):
             try:
-                ready = await client.get("http://127.0.0.1:18000/ready")
+                ready = await client.get("https://127.0.0.1:18000/ready")
                 panel = await client.get(
-                    "http://127.0.0.1:18000/api/v1/painel",
+                    "https://127.0.0.1:18000/api/v1/painel",
                     headers={"Authorization": f"Bearer {tokens['jwt'][0]}"},
                 )
                 if ready.status_code == panel.status_code == 200:
@@ -564,7 +607,7 @@ async def start(directory: Path) -> None:
         else:
             raise RuntimeError("Real API, workers and authenticated dashboard are not ready")
     with Path(os.environ["GITHUB_ENV"]).open("a", encoding="utf-8") as handle:
-        handle.write("BASE_URL=http://127.0.0.1:18000\nALLOW_HTTP_LOCAL=1\n")
+        handle.write(f"BASE_URL=https://127.0.0.1:18000\nSSL_CERT_FILE={env['SSL_CERT_FILE']}\n")
         # Stay below both GitHub's secret limit and Linux's per-environment-string limit.
         for index in range(5):
             handle.write(
@@ -641,6 +684,18 @@ async def verify(directory: Path) -> None:
         )
         if streaming != 1:
             raise RuntimeError("Real streaming replica is unavailable")
+        audit_size = dict(
+            await conn.fetchrow(
+                "SELECT count(*) AS rows, "
+                "pg_total_relation_size('audit_log') AS total_bytes FROM audit_log"
+            )
+        )
+        audit_resources = dict(
+            (row["resource_type"], row["rows"])
+            for row in await conn.fetch(
+                "SELECT resource_type,count(*) AS rows FROM audit_log GROUP BY resource_type"
+            )
+        )
     finally:
         await conn.close()
     app = await connect(port=15432, user="k6_app", password=info["app_password"])
@@ -661,6 +716,7 @@ async def verify(directory: Path) -> None:
         "checkout_sha": command(["git", "rev-parse", "HEAD"], cwd=ROOT),
         "profile": profile,
         "environment": "ephemeral-github-runner-phase-0",
+        "audit_storage": {**audit_size, "resource_counts": audit_resources},
         "live_process_cpu_seconds_since_ready": cpu_since_ready(info),
         "runner_cpus": os.cpu_count(),
         "http_workers": min(4, os.cpu_count() or 1),

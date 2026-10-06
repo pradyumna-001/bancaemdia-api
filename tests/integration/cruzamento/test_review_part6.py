@@ -5,7 +5,8 @@ from decimal import Decimal
 from uuid import uuid4
 
 import pytest
-from sqlalchemy import select
+from sqlalchemy import select, text
+from sqlalchemy.exc import DBAPIError
 from sqlalchemy.ext.asyncio import AsyncSession
 from test_consolidacao import (
     GAME,
@@ -100,3 +101,22 @@ async def test_confirmed_bot_and_house_count_once_in_analytics_goals_and_replay(
             goal = await session.get(models.MetaDesempenho, meta_id)
             progress = await _progresso(session, goal)
             assert Decimal(progress.valor_atual) == 1 and progress.alvo_atingido
+    async with engine_admin.connect() as conn:
+        transaction = await conn.begin()
+        try:
+            await conn.execute(text("SELECT billing_activate_rollout()"))
+            # These rows were created by confirmation and actual collection/matching.
+            for table in ("aposta_consolidacoes", "cruzamento_entradas"):
+                assert await conn.scalar(
+                    text(f"SELECT count(*) FROM {table} WHERE usuario_id=:u"), {"u": user}
+                )
+                savepoint = await conn.begin_nested()
+                with pytest.raises(DBAPIError) as exc:
+                    await conn.execute(
+                        text(f"UPDATE {table} SET usuario_id=usuario_id WHERE usuario_id=:u"),
+                        {"u": user},
+                    )
+                assert exc.value.orig.sqlstate == "P0402"
+                await savepoint.rollback()
+        finally:
+            await transaction.rollback()

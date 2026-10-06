@@ -19,6 +19,17 @@ ROOT = Path(__file__).resolve().parents[2]
 pytestmark = [pytest.mark.integration, pytest.mark.xdist_group("phase1")]
 
 
+def pull_image(image):
+    # Registry/network failures are transient; every test still runs the real image.
+    for attempt in range(3):
+        result = subprocess.run(["docker", "pull", image], capture_output=True, text=True)
+        if result.returncode == 0:
+            return
+        if attempt < 2:
+            time.sleep(3 * (attempt + 1))
+    pytest.fail(f"Could not obtain required operational image: {result.stderr}")
+
+
 @pytest.fixture
 def docker_available():
     try:
@@ -37,6 +48,7 @@ def test_real_dump_roundtrip_through_private_object_transport(
     objects = tmp_path / "objects"
     objects.mkdir()
     restored = []
+    pull_image("postgres:16")
     run(
         [
             "docker",
@@ -122,7 +134,8 @@ def test_real_dump_roundtrip_through_private_object_transport(
         for _ in range(30):
             if (
                 run(
-                    ["docker", "exec", source, "pg_isready", "-U", "postgres"], capture_output=True
+                    ["docker", "exec", source, "pg_isready", "-h", "127.0.0.1", "-U", "postgres"],
+                    capture_output=True,
                 ).returncode
                 == 0
             ):
@@ -169,8 +182,9 @@ def test_actual_caddy_filters_sensitive_logs_and_hides_metrics(tmp_path, docker_
     path = tmp_path / "Caddyfile"
     path.write_text(config)
     run = subprocess.run
+    pull_image("caddy:2.10")
     try:
-        run(
+        started = run(
             [
                 "docker",
                 "run",
@@ -184,9 +198,10 @@ def test_actual_caddy_filters_sensitive_logs_and_hides_metrics(tmp_path, docker_
                 f"{path.resolve()}:/etc/caddy/Caddyfile:ro",
                 "caddy:2.10",
             ],
-            check=True,
             capture_output=True,
+            text=True,
         )
+        assert started.returncode == 0, started.stderr
         port = (
             run(["docker", "port", name, "8080"], check=True, capture_output=True, text=True)
             .stdout.strip()

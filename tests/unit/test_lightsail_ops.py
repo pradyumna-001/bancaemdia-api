@@ -33,6 +33,28 @@ def test_deploy_restores_previous_digest_when_new_release_is_unhealthy(
     assert [call[0] for call in calls] == ["pull", "up", "up"]
 
 
+@pytest.mark.parametrize("failure", ["pull", "up"])
+def test_deploy_failure_preserves_prior_digest_and_restores_partial_start(
+    tmp_path, monkeypatch, failure
+):
+    env = tmp_path / "compose.env"
+    env.write_text(f"APP_IMAGE={OLD}\nSITE_DOMAIN=api.example.com\n", encoding="utf-8")
+    calls = []
+
+    def compose(_directory, *args):
+        calls.append(args)
+        if args[0] == failure and f"APP_IMAGE={NEW}" in env.read_text():
+            raise RuntimeError("controlled deployment failure")
+
+    monkeypatch.setattr(lightsail_deploy, "_compose", compose)
+    monkeypatch.setattr(lightsail_deploy, "_ready", lambda _domain: True)
+    with pytest.raises(RuntimeError, match="controlled deployment failure"):
+        lightsail_deploy.deploy(tmp_path, NEW)
+    assert f"APP_IMAGE={OLD}" in env.read_text()
+    assert [call[0] for call in calls] == (["pull"] if failure == "pull" else ["pull", "up", "up"])
+    assert all(tuple(call[-4:]) == lightsail_deploy.SERVICES for call in calls)
+
+
 def test_backup_keeps_local_dump_when_remote_size_is_wrong(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:

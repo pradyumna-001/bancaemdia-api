@@ -189,10 +189,10 @@ async def process_job(engine: AsyncEngine, usuario_id: int, job_id: UUID) -> str
             return None
         if row.status != "pending":
             return row.status
-        row.tentativas += 1
         try:
             async with session.begin_nested():
                 await require_write_access(session, usuario_id)
+                row.tentativas += 1
                 await materialize(session, row)
         except SQLAlchemyError:
             # The entire transaction rolls back; a future poll retries the persisted inbox.
@@ -203,7 +203,6 @@ async def process_job(engine: AsyncEngine, usuario_id: int, job_id: UUID) -> str
         except AccountReadOnlyError:
             await session.refresh(row)
             row.reason = "account_read_only"
-            row.tentativas -= 1
         except Exception as error:
             await session.refresh(row)
             structlog.get_logger(__name__).warning(

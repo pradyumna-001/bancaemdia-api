@@ -1,8 +1,12 @@
 """The staging seeder must refuse a workstation or a path containing repository data."""
 
 import importlib.util
+import ssl
+import threading
+from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 
+import httpx
 import pytest
 
 SCRIPT = Path(__file__).resolve().parents[2] / "scripts/k6_staging.py"
@@ -52,3 +56,32 @@ def test_accepts_only_isolated_runner_child(monkeypatch, tmp_path):
     monkeypatch.setenv("RUNNER_TEMP", str(tmp_path))
     monkeypatch.setenv("K6_STAGING_DIR", str(tmp_path / "runtime"))
     assert staging.runtime_dir() == tmp_path / "runtime"
+
+
+def test_disposable_tls_accepts_verified_localhost_and_refuses_untrusted_certificate(tmp_path):
+    staging.prepare_tls(tmp_path)
+    context = ssl.SSLContext(ssl.PROTOCOL_TLS_SERVER)
+    context.load_cert_chain(tmp_path / "tls.crt", tmp_path / "tls.key")
+
+    class Endpoint(BaseHTTPRequestHandler):
+        def do_GET(self):
+            self.send_response(200)
+            self.end_headers()
+
+        def log_message(self, *_args):
+            pass
+
+    server = ThreadingHTTPServer(("127.0.0.1", 0), Endpoint)
+    server.socket = context.wrap_socket(server.socket, server_side=True)
+    thread = threading.Thread(target=server.serve_forever, daemon=True)
+    thread.start()
+    try:
+        url = f"https://127.0.0.1:{server.server_port}/ready"
+        trust = ssl.create_default_context(cafile=str(tmp_path / "tls.crt"))
+        assert httpx.get(url, verify=trust).status_code == 200
+        with pytest.raises(httpx.ConnectError):
+            httpx.get(url, verify=ssl.create_default_context())
+    finally:
+        server.shutdown()
+        server.server_close()
+        thread.join(timeout=5)

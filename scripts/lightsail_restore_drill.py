@@ -63,6 +63,8 @@ def restore_drill(bucket: str, name: str, postgres_image: str) -> int:
                         "exec",
                         container,
                         "pg_isready",
+                        "-h",
+                        "127.0.0.1",
                         "-U",
                         "postgres",
                         "-d",

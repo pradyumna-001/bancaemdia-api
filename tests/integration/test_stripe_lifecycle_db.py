@@ -403,6 +403,14 @@ async def test_all_business_tables_have_database_write_guards(engine_admin):
             "telegram_link_codes",
             "telegram_link_attempt_events",
             "telegram_outbox",
+            # Installation/session identity controls and global operator catalog
+            # administration do not create a financial fact or require a subscription.
+            "coleta_instalacoes",
+            "coleta_pairing_codes",
+            "coleta_sessoes",
+            "catalogo_operadores",
+            "catalogo_confirmacoes",
+            "catalogo_auditoria",
         }
         guarded = set(
             (

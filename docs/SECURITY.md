@@ -35,4 +35,4 @@ Cada escrita com proprietário em `eventos` ou `chamadas_ia` acrescenta uma linh
 
 ## Verificação
 
-Executar `ruff check .`, `ruff format --check .`, `mypy src/ --strict --ignore-missing-imports`, `pip-audit --local --skip-editable`, `bandit -r src/bancaemdia -q -lll`, testes unitários e de integração PostgreSQL, geração/checagem de OpenAPI e `terraform fmt -check`/`terraform validate`. A CI executa a varredura de dependências e código a cada PR. A migração de auditoria e os endpoints de exclusão precisam de PostgreSQL real; os testes locais sem Docker não exercitam esse trecho.
+Executar `ruff check .`, `ruff format --check .`, `mypy src/ --strict --ignore-missing-imports`, `pip-audit --local --skip-editable`, `bandit -r src/bancaemdia -q -ll -ii`, testes unitários e de integração PostgreSQL, geração/checagem de OpenAPI e `terraform fmt -check`/`terraform validate`. A CI executa a varredura de dependências e código a cada PR. A migração de auditoria e os endpoints de exclusão precisam de PostgreSQL real; os testes locais sem Docker não exercitam esse trecho.

@@ -32,7 +32,7 @@ The extension is a requested capture client, not part of the website frontend. I
 - The user chooses the effective instant of a change from holder X to holder Y and the resulting state of X's account; the system must never assume that X was limited.
 - Version 1 permits several historical/available accounts but only one account in use per bookmaker at an instant.
 - The model and contracts use explicit account identities and collections so a later issue can permit simultaneous accounts without redesigning historical data.
-- Attribution uses the bet occurrence time, not capture time. An open bet remains attached to the account used when it was placed.
+- Default attribution uses game time (`data_jogo` / `comeca_em`) and the authoritative account usage interval. Placement, posting, ingestion and capture never substitute for missing game time. Only an explicit validated multicontas reference preserves the account that placed the bet. This owner decision supersedes the former occurrence-time default.
 - No code may choose the first active account on ambiguity. Zero or multiple candidates produce an explicit review item.
 
 ### Telegram bot

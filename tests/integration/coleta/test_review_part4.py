@@ -133,6 +133,10 @@ async def test_expired_collection_access_pauses_ack_and_resumes_once_after_paid_
             {"uid": api.user},
         )
     try:
+        # Pairing remains an identity control; fresh financial payloads require access.
+        assert (await api.pair())["token"]
+        denied = await api.send([capture(api.account)])
+        assert denied.status_code == 402 and denied.json()["detail"] == "account_read_only"
         for _ in range(4):
             assert await api.run(ack) == "pending"
         async with api.admin.begin() as conn:
