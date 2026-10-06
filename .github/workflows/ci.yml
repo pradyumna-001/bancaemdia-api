@@ -521,4 +521,3 @@ jobs:
           name: telegram-results
           path: |
             telegram-results.xml
-
