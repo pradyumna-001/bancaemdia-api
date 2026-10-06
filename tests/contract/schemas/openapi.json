@@ -347,6 +347,25 @@
         "title": "ApostaManual",
         "type": "object"
       },
+      "AuthFailure": {
+        "additionalProperties": false,
+        "properties": {
+          "code": {
+            "title": "Code",
+            "type": "string"
+          },
+          "detail": {
+            "title": "Detail",
+            "type": "string"
+          }
+        },
+        "required": [
+          "detail",
+          "code"
+        ],
+        "title": "AuthFailure",
+        "type": "object"
+      },
       "BetChangedResponse": {
         "additionalProperties": false,
         "properties": {
@@ -2031,6 +2050,20 @@
         "title": "LivenessResponse",
         "type": "object"
       },
+      "LogoutStatus": {
+        "additionalProperties": false,
+        "properties": {
+          "logged_out": {
+            "title": "Logged Out",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "logged_out"
+        ],
+        "title": "LogoutStatus",
+        "type": "object"
+      },
       "MetricasGraficosSaida": {
         "additionalProperties": false,
         "properties": {
@@ -2863,6 +2896,74 @@
         "title": "PlanilhaImportada",
         "type": "object"
       },
+      "PublicKey": {
+        "additionalProperties": false,
+        "properties": {
+          "alg": {
+            "const": "RS256",
+            "title": "Alg",
+            "type": "string"
+          },
+          "e": {
+            "title": "E",
+            "type": "string"
+          },
+          "key_ops": {
+            "items": {
+              "const": "verify",
+              "type": "string"
+            },
+            "title": "Key Ops",
+            "type": "array"
+          },
+          "kid": {
+            "title": "Kid",
+            "type": "string"
+          },
+          "kty": {
+            "const": "RSA",
+            "title": "Kty",
+            "type": "string"
+          },
+          "n": {
+            "title": "N",
+            "type": "string"
+          },
+          "use": {
+            "const": "sig",
+            "title": "Use",
+            "type": "string"
+          }
+        },
+        "required": [
+          "kid",
+          "kty",
+          "use",
+          "alg",
+          "n",
+          "e",
+          "key_ops"
+        ],
+        "title": "PublicKey",
+        "type": "object"
+      },
+      "PublicKeys": {
+        "additionalProperties": false,
+        "properties": {
+          "keys": {
+            "items": {
+              "$ref": "#/components/schemas/PublicKey"
+            },
+            "title": "Keys",
+            "type": "array"
+          }
+        },
+        "required": [
+          "keys"
+        ],
+        "title": "PublicKeys",
+        "type": "object"
+      },
       "PublicPrice": {
         "additionalProperties": false,
         "properties": {
@@ -3422,6 +3523,57 @@
         "title": "SaldoContaSaida",
         "type": "object"
       },
+      "SessionStatus": {
+        "additionalProperties": false,
+        "properties": {
+          "access_expires_at": {
+            "format": "date-time",
+            "title": "Access Expires At",
+            "type": "string"
+          },
+          "csrf_token": {
+            "title": "Csrf Token",
+            "type": "string"
+          },
+          "email": {
+            "title": "Email",
+            "type": "string"
+          },
+          "nome": {
+            "title": "Nome",
+            "type": "string"
+          },
+          "refresh_required": {
+            "title": "Refresh Required",
+            "type": "boolean"
+          },
+          "session_expires_at": {
+            "format": "date-time",
+            "title": "Session Expires At",
+            "type": "string"
+          },
+          "session_version": {
+            "title": "Session Version",
+            "type": "string"
+          },
+          "usuario_id": {
+            "title": "Usuario Id",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "usuario_id",
+          "nome",
+          "email",
+          "session_version",
+          "csrf_token",
+          "access_expires_at",
+          "session_expires_at",
+          "refresh_required"
+        ],
+        "title": "SessionStatus",
+        "type": "object"
+      },
       "SubscribeRequest": {
         "additionalProperties": false,
         "properties": {
@@ -3869,9 +4021,21 @@
         "name": "X-Coleta-Token",
         "type": "apiKey"
       },
+      "CsrfProof": {
+        "description": "Prova de GET /auth/session mantida em memória, com Origin exata; obrigatória em mutações por cookie.",
+        "in": "header",
+        "name": "X-CSRF-Token",
+        "type": "apiKey"
+      },
       "HTTPBearer": {
         "scheme": "bearer",
         "type": "http"
+      },
+      "SessionCookie": {
+        "description": "Cookie HttpOnly Secure SameSite=Lax. Somente em teste loopback: bancaemdia_session. AUTH_ENABLED ativa este transporte e exige JWT interno vinculado à sessão para Bearer.",
+        "in": "cookie",
+        "name": "__Host-bancaemdia_session",
+        "type": "apiKey"
       },
       "StripeSignature": {
         "description": "Stripe HMAC signature of the exact request bytes and timestamp.",
@@ -4104,7 +4268,15 @@
                 }
               }
             },
-            "description": "Missing, expired, or invalid bearer token."
+            "description": "Missing, expired, or invalid bearer token.",
+            "headers": {
+              "X-Auth-Error": {
+                "description": "Identity error code when AUTH_ENABLED; legacy response body is preserved.",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
           },
           "422": {
             "content": {
@@ -4144,12 +4316,23 @@
                 }
               }
             },
-            "description": "A required dependency is temporarily unavailable."
+            "description": "A required dependency is temporarily unavailable.",
+            "headers": {
+              "X-Auth-Error": {
+                "description": "Identity error code when AUTH_ENABLED; legacy response body is preserved.",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
           }
         },
         "security": [
           {
             "HTTPBearer": []
+          },
+          {
+            "SessionCookie": []
           }
         ],
         "summary": "Listar apostas"
@@ -4201,7 +4384,25 @@
                 }
               }
             },
-            "description": "Missing, expired, or invalid bearer token."
+            "description": "Missing, expired, or invalid bearer token.",
+            "headers": {
+              "X-Auth-Error": {
+                "description": "Identity error code when AUTH_ENABLED; legacy response body is preserved.",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Cookie mutation requires exact Origin and current CSRF proof."
           },
           "409": {
             "content": {
@@ -4262,12 +4463,24 @@
                 }
               }
             },
-            "description": "A required dependency is temporarily unavailable."
+            "description": "A required dependency is temporarily unavailable.",
+            "headers": {
+              "X-Auth-Error": {
+                "description": "Identity error code when AUTH_ENABLED; legacy response body is preserved.",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
           }
         },
         "security": [
           {
             "HTTPBearer": []
+          },
+          {
+            "CsrfProof": [],
+            "SessionCookie": []
           }
         ],
         "summary": "Criar aposta manual"
@@ -4331,7 +4544,25 @@
                 }
               }
             },
-            "description": "Missing, expired, or invalid bearer token."
+            "description": "Missing, expired, or invalid bearer token.",
+            "headers": {
+              "X-Auth-Error": {
+                "description": "Identity error code when AUTH_ENABLED; legacy response body is preserved.",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Cookie mutation requires exact Origin and current CSRF proof."
           },
           "413": {
             "content": {
@@ -4382,12 +4613,24 @@
                 }
               }
             },
-            "description": "A required dependency is temporarily unavailable."
+            "description": "A required dependency is temporarily unavailable.",
+            "headers": {
+              "X-Auth-Error": {
+                "description": "Identity error code when AUTH_ENABLED; legacy response body is preserved.",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
           }
         },
         "security": [
           {
             "HTTPBearer": []
+          },
+          {
+            "CsrfProof": [],
+            "SessionCookie": []
           }
         ],
         "summary": "Importar apostas do Excel"
@@ -4428,7 +4671,25 @@
                 }
               }
             },
-            "description": "Missing, expired, or invalid bearer token."
+            "description": "Missing, expired, or invalid bearer token.",
+            "headers": {
+              "X-Auth-Error": {
+                "description": "Identity error code when AUTH_ENABLED; legacy response body is preserved.",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Cookie mutation requires exact Origin and current CSRF proof."
           },
           "404": {
             "content": {
@@ -4488,12 +4749,24 @@
                 }
               }
             },
-            "description": "A required dependency is temporarily unavailable."
+            "description": "A required dependency is temporarily unavailable.",
+            "headers": {
+              "X-Auth-Error": {
+                "description": "Identity error code when AUTH_ENABLED; legacy response body is preserved.",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
           }
         },
         "security": [
           {
             "HTTPBearer": []
+          },
+          {
+            "CsrfProof": [],
+            "SessionCookie": []
           }
         ],
         "summary": "Excluir aposta da apuração"
@@ -4532,7 +4805,15 @@
                 }
               }
             },
-            "description": "Missing, expired, or invalid bearer token."
+            "description": "Missing, expired, or invalid bearer token.",
+            "headers": {
+              "X-Auth-Error": {
+                "description": "Identity error code when AUTH_ENABLED; legacy response body is preserved.",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
           },
           "404": {
             "content": {
@@ -4582,12 +4863,23 @@
                 }
               }
             },
-            "description": "A required dependency is temporarily unavailable."
+            "description": "A required dependency is temporarily unavailable.",
+            "headers": {
+              "X-Auth-Error": {
+                "description": "Identity error code when AUTH_ENABLED; legacy response body is preserved.",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
           }
         },
         "security": [
           {
             "HTTPBearer": []
+          },
+          {
+            "SessionCookie": []
           }
         ],
         "summary": "Consultar aposta"
@@ -4646,7 +4938,25 @@
                 }
               }
             },
-            "description": "Missing, expired, or invalid bearer token."
+            "description": "Missing, expired, or invalid bearer token.",
+            "headers": {
+              "X-Auth-Error": {
+                "description": "Identity error code when AUTH_ENABLED; legacy response body is preserved.",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Cookie mutation requires exact Origin and current CSRF proof."
           },
           "404": {
             "content": {
@@ -4717,12 +5027,24 @@
                 }
               }
             },
-            "description": "A required dependency is temporarily unavailable."
+            "description": "A required dependency is temporarily unavailable.",
+            "headers": {
+              "X-Auth-Error": {
+                "description": "Identity error code when AUTH_ENABLED; legacy response body is preserved.",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
           }
         },
         "security": [
           {
             "HTTPBearer": []
+          },
+          {
+            "CsrfProof": [],
+            "SessionCookie": []
           }
         ],
         "summary": "Corrigir aposta"
@@ -4763,7 +5085,25 @@
                 }
               }
             },
-            "description": "Missing, expired, or invalid bearer token."
+            "description": "Missing, expired, or invalid bearer token.",
+            "headers": {
+              "X-Auth-Error": {
+                "description": "Identity error code when AUTH_ENABLED; legacy response body is preserved.",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Cookie mutation requires exact Origin and current CSRF proof."
           },
           "404": {
             "content": {
@@ -4823,12 +5163,24 @@
                 }
               }
             },
-            "description": "A required dependency is temporarily unavailable."
+            "description": "A required dependency is temporarily unavailable.",
+            "headers": {
+              "X-Auth-Error": {
+                "description": "Identity error code when AUTH_ENABLED; legacy response body is preserved.",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
           }
         },
         "security": [
           {
             "HTTPBearer": []
+          },
+          {
+            "CsrfProof": [],
+            "SessionCookie": []
           }
         ],
         "summary": "Restaurar aposta na apuração"
@@ -4888,7 +5240,25 @@
                 }
               }
             },
-            "description": "Missing, expired, or invalid bearer token."
+            "description": "Missing, expired, or invalid bearer token.",
+            "headers": {
+              "X-Auth-Error": {
+                "description": "Identity error code when AUTH_ENABLED; legacy response body is preserved.",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Cookie mutation requires exact Origin and current CSRF proof."
           },
           "404": {
             "content": {
@@ -4959,12 +5329,24 @@
                 }
               }
             },
-            "description": "A required dependency is temporarily unavailable."
+            "description": "A required dependency is temporarily unavailable.",
+            "headers": {
+              "X-Auth-Error": {
+                "description": "Identity error code when AUTH_ENABLED; legacy response body is preserved.",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
           }
         },
         "security": [
           {
             "HTTPBearer": []
+          },
+          {
+            "CsrfProof": [],
+            "SessionCookie": []
           }
         ],
         "summary": "Registrar resultado da aposta"
@@ -4997,7 +5379,25 @@
                 }
               }
             },
-            "description": "Missing, expired, or invalid bearer token."
+            "description": "Missing, expired, or invalid bearer token.",
+            "headers": {
+              "X-Auth-Error": {
+                "description": "Identity error code when AUTH_ENABLED; legacy response body is preserved.",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Cookie mutation requires exact Origin and current CSRF proof."
           },
           "409": {
             "content": {
@@ -5047,12 +5447,24 @@
                 }
               }
             },
-            "description": "A required dependency is temporarily unavailable."
+            "description": "A required dependency is temporarily unavailable.",
+            "headers": {
+              "X-Auth-Error": {
+                "description": "Identity error code when AUTH_ENABLED; legacy response body is preserved.",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
           }
         },
         "security": [
           {
             "HTTPBearer": []
+          },
+          {
+            "CsrfProof": [],
+            "SessionCookie": []
           }
         ],
         "summary": "Cancel renewal",
@@ -5084,7 +5496,25 @@
                 }
               }
             },
-            "description": "Missing, expired, or invalid bearer token."
+            "description": "Missing, expired, or invalid bearer token.",
+            "headers": {
+              "X-Auth-Error": {
+                "description": "Identity error code when AUTH_ENABLED; legacy response body is preserved.",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Cookie mutation requires exact Origin and current CSRF proof."
           },
           "409": {
             "content": {
@@ -5134,12 +5564,24 @@
                 }
               }
             },
-            "description": "A required dependency is temporarily unavailable."
+            "description": "A required dependency is temporarily unavailable.",
+            "headers": {
+              "X-Auth-Error": {
+                "description": "Identity error code when AUTH_ENABLED; legacy response body is preserved.",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
           }
         },
         "security": [
           {
             "HTTPBearer": []
+          },
+          {
+            "CsrfProof": [],
+            "SessionCookie": []
           }
         ],
         "summary": "Manage subscription",
@@ -5171,7 +5613,15 @@
                 }
               }
             },
-            "description": "Missing, expired, or invalid bearer token."
+            "description": "Missing, expired, or invalid bearer token.",
+            "headers": {
+              "X-Auth-Error": {
+                "description": "Identity error code when AUTH_ENABLED; legacy response body is preserved.",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
           },
           "409": {
             "content": {
@@ -5221,12 +5671,23 @@
                 }
               }
             },
-            "description": "A required dependency is temporarily unavailable."
+            "description": "A required dependency is temporarily unavailable.",
+            "headers": {
+              "X-Auth-Error": {
+                "description": "Identity error code when AUTH_ENABLED; legacy response body is preserved.",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
           }
         },
         "security": [
           {
             "HTTPBearer": []
+          },
+          {
+            "SessionCookie": []
           }
         ],
         "summary": "Subscription status",
@@ -5291,7 +5752,25 @@
                 }
               }
             },
-            "description": "Missing, expired, or invalid bearer token."
+            "description": "Missing, expired, or invalid bearer token.",
+            "headers": {
+              "X-Auth-Error": {
+                "description": "Identity error code when AUTH_ENABLED; legacy response body is preserved.",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Cookie mutation requires exact Origin and current CSRF proof."
           },
           "409": {
             "content": {
@@ -5352,12 +5831,24 @@
                 }
               }
             },
-            "description": "A required dependency is temporarily unavailable."
+            "description": "A required dependency is temporarily unavailable.",
+            "headers": {
+              "X-Auth-Error": {
+                "description": "Identity error code when AUTH_ENABLED; legacy response body is preserved.",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
           }
         },
         "security": [
           {
             "HTTPBearer": []
+          },
+          {
+            "CsrfProof": [],
+            "SessionCookie": []
           }
         ],
         "summary": "Start hosted Checkout",
@@ -5577,7 +6068,15 @@
                 }
               }
             },
-            "description": "Missing, expired, or invalid bearer token."
+            "description": "Missing, expired, or invalid bearer token.",
+            "headers": {
+              "X-Auth-Error": {
+                "description": "Identity error code when AUTH_ENABLED; legacy response body is preserved.",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
           },
           "422": {
             "content": {
@@ -5625,12 +6124,23 @@
                 }
               }
             },
-            "description": "A required dependency is temporarily unavailable."
+            "description": "A required dependency is temporarily unavailable.",
+            "headers": {
+              "X-Auth-Error": {
+                "description": "Identity error code when AUTH_ENABLED; legacy response body is preserved.",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
           }
         },
         "security": [
           {
             "HTTPBearer": []
+          },
+          {
+            "SessionCookie": []
           }
         ],
         "summary": "Listar movimentos de caixa"
@@ -5695,7 +6205,25 @@
                 }
               }
             },
-            "description": "Missing, expired, or invalid bearer token."
+            "description": "Missing, expired, or invalid bearer token.",
+            "headers": {
+              "X-Auth-Error": {
+                "description": "Identity error code when AUTH_ENABLED; legacy response body is preserved.",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Cookie mutation requires exact Origin and current CSRF proof."
           },
           "404": {
             "content": {
@@ -5774,12 +6302,24 @@
                 }
               }
             },
-            "description": "A required dependency is temporarily unavailable."
+            "description": "A required dependency is temporarily unavailable.",
+            "headers": {
+              "X-Auth-Error": {
+                "description": "Identity error code when AUTH_ENABLED; legacy response body is preserved.",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
           }
         },
         "security": [
           {
             "HTTPBearer": []
+          },
+          {
+            "CsrfProof": [],
+            "SessionCookie": []
           }
         ],
         "summary": "Registrar movimento de caixa"
@@ -5840,7 +6380,25 @@
                 }
               }
             },
-            "description": "Missing, expired, or invalid bearer token."
+            "description": "Missing, expired, or invalid bearer token.",
+            "headers": {
+              "X-Auth-Error": {
+                "description": "Identity error code when AUTH_ENABLED; legacy response body is preserved.",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Cookie mutation requires exact Origin and current CSRF proof."
           },
           "404": {
             "content": {
@@ -5901,12 +6459,24 @@
                 }
               }
             },
-            "description": "A required dependency is temporarily unavailable."
+            "description": "A required dependency is temporarily unavailable.",
+            "headers": {
+              "X-Auth-Error": {
+                "description": "Identity error code when AUTH_ENABLED; legacy response body is preserved.",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
           }
         },
         "security": [
           {
             "HTTPBearer": []
+          },
+          {
+            "CsrfProof": [],
+            "SessionCookie": []
           }
         ],
         "summary": "Vincular conta à banca"
@@ -6018,7 +6588,15 @@
                 }
               }
             },
-            "description": "Missing, expired, or invalid bearer token."
+            "description": "Missing, expired, or invalid bearer token.",
+            "headers": {
+              "X-Auth-Error": {
+                "description": "Identity error code when AUTH_ENABLED; legacy response body is preserved.",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
           },
           "422": {
             "content": {
@@ -6058,12 +6636,23 @@
                 }
               }
             },
-            "description": "A required dependency is temporarily unavailable."
+            "description": "A required dependency is temporarily unavailable.",
+            "headers": {
+              "X-Auth-Error": {
+                "description": "Identity error code when AUTH_ENABLED; legacy response body is preserved.",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
           }
         },
         "security": [
           {
             "HTTPBearer": []
+          },
+          {
+            "SessionCookie": []
           }
         ],
         "summary": "Consultar extrato"
@@ -6112,7 +6701,15 @@
                 }
               }
             },
-            "description": "Missing, expired, or invalid bearer token."
+            "description": "Missing, expired, or invalid bearer token.",
+            "headers": {
+              "X-Auth-Error": {
+                "description": "Identity error code when AUTH_ENABLED; legacy response body is preserved.",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
           },
           "422": {
             "content": {
@@ -6152,12 +6749,23 @@
                 }
               }
             },
-            "description": "A required dependency is temporarily unavailable."
+            "description": "A required dependency is temporarily unavailable.",
+            "headers": {
+              "X-Auth-Error": {
+                "description": "Identity error code when AUTH_ENABLED; legacy response body is preserved.",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
           }
         },
         "security": [
           {
             "HTTPBearer": []
+          },
+          {
+            "SessionCookie": []
           }
         ],
         "summary": "Consultar saldos"
@@ -7082,7 +7690,15 @@
                 }
               }
             },
-            "description": "Missing, expired, or invalid bearer token."
+            "description": "Missing, expired, or invalid bearer token.",
+            "headers": {
+              "X-Auth-Error": {
+                "description": "Identity error code when AUTH_ENABLED; legacy response body is preserved.",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
           },
           "422": {
             "content": {
@@ -7122,12 +7738,23 @@
                 }
               }
             },
-            "description": "A required dependency is temporarily unavailable."
+            "description": "A required dependency is temporarily unavailable.",
+            "headers": {
+              "X-Auth-Error": {
+                "description": "Identity error code when AUTH_ENABLED; legacy response body is preserved.",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
           }
         },
         "security": [
           {
             "HTTPBearer": []
+          },
+          {
+            "SessionCookie": []
           }
         ],
         "summary": "Consultar painel financeiro"
@@ -7227,7 +7854,15 @@
                 }
               }
             },
-            "description": "Missing, expired, or invalid bearer token."
+            "description": "Missing, expired, or invalid bearer token.",
+            "headers": {
+              "X-Auth-Error": {
+                "description": "Identity error code when AUTH_ENABLED; legacy response body is preserved.",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
           },
           "422": {
             "content": {
@@ -7267,12 +7902,23 @@
                 }
               }
             },
-            "description": "A required dependency is temporarily unavailable."
+            "description": "A required dependency is temporarily unavailable.",
+            "headers": {
+              "X-Auth-Error": {
+                "description": "Identity error code when AUTH_ENABLED; legacy response body is preserved.",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
           }
         },
         "security": [
           {
             "HTTPBearer": []
+          },
+          {
+            "SessionCookie": []
           }
         ],
         "summary": "Exportar painel em Excel"
@@ -7371,7 +8017,15 @@
                 }
               }
             },
-            "description": "Missing, expired, or invalid bearer token."
+            "description": "Missing, expired, or invalid bearer token.",
+            "headers": {
+              "X-Auth-Error": {
+                "description": "Identity error code when AUTH_ENABLED; legacy response body is preserved.",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
           },
           "422": {
             "content": {
@@ -7411,12 +8065,23 @@
                 }
               }
             },
-            "description": "A required dependency is temporarily unavailable."
+            "description": "A required dependency is temporarily unavailable.",
+            "headers": {
+              "X-Auth-Error": {
+                "description": "Identity error code when AUTH_ENABLED; legacy response body is preserved.",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
           }
         },
         "security": [
           {
             "HTTPBearer": []
+          },
+          {
+            "SessionCookie": []
           }
         ],
         "summary": "Consultar séries para gráficos"
@@ -7526,7 +8191,15 @@
                 }
               }
             },
-            "description": "Missing, expired, or invalid bearer token."
+            "description": "Missing, expired, or invalid bearer token.",
+            "headers": {
+              "X-Auth-Error": {
+                "description": "Identity error code when AUTH_ENABLED; legacy response body is preserved.",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
           },
           "422": {
             "content": {
@@ -7566,12 +8239,23 @@
                 }
               }
             },
-            "description": "A required dependency is temporarily unavailable."
+            "description": "A required dependency is temporarily unavailable.",
+            "headers": {
+              "X-Auth-Error": {
+                "description": "Identity error code when AUTH_ENABLED; legacy response body is preserved.",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
           }
         },
         "security": [
           {
             "HTTPBearer": []
+          },
+          {
+            "SessionCookie": []
           }
         ],
         "summary": "Listar revisões pendentes"
@@ -7600,7 +8284,15 @@
                 }
               }
             },
-            "description": "Missing, expired, or invalid bearer token."
+            "description": "Missing, expired, or invalid bearer token.",
+            "headers": {
+              "X-Auth-Error": {
+                "description": "Identity error code when AUTH_ENABLED; legacy response body is preserved.",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
           },
           "422": {
             "content": {
@@ -7640,12 +8332,23 @@
                 }
               }
             },
-            "description": "A required dependency is temporarily unavailable."
+            "description": "A required dependency is temporarily unavailable.",
+            "headers": {
+              "X-Auth-Error": {
+                "description": "Identity error code when AUTH_ENABLED; legacy response body is preserved.",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
           }
         },
         "security": [
           {
             "HTTPBearer": []
+          },
+          {
+            "SessionCookie": []
           }
         ],
         "summary": "Consultar estatísticas de revisão"
@@ -7688,7 +8391,15 @@
                 }
               }
             },
-            "description": "Missing, expired, or invalid bearer token."
+            "description": "Missing, expired, or invalid bearer token.",
+            "headers": {
+              "X-Auth-Error": {
+                "description": "Identity error code when AUTH_ENABLED; legacy response body is preserved.",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
           },
           "404": {
             "content": {
@@ -7738,12 +8449,23 @@
                 }
               }
             },
-            "description": "A required dependency is temporarily unavailable."
+            "description": "A required dependency is temporarily unavailable.",
+            "headers": {
+              "X-Auth-Error": {
+                "description": "Identity error code when AUTH_ENABLED; legacy response body is preserved.",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
           }
         },
         "security": [
           {
             "HTTPBearer": []
+          },
+          {
+            "SessionCookie": []
           }
         ],
         "summary": "Consultar revisão"
@@ -7811,7 +8533,15 @@
                 }
               }
             },
-            "description": "Missing, expired, or invalid bearer token."
+            "description": "Missing, expired, or invalid bearer token.",
+            "headers": {
+              "X-Auth-Error": {
+                "description": "Identity error code when AUTH_ENABLED; legacy response body is preserved.",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
           },
           "404": {
             "content": {
@@ -7861,12 +8591,23 @@
                 }
               }
             },
-            "description": "A required dependency is temporarily unavailable."
+            "description": "A required dependency is temporarily unavailable.",
+            "headers": {
+              "X-Auth-Error": {
+                "description": "Identity error code when AUTH_ENABLED; legacy response body is preserved.",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
           }
         },
         "security": [
           {
             "HTTPBearer": []
+          },
+          {
+            "SessionCookie": []
           }
         ],
         "summary": "Consultar foto da revisão"
@@ -7930,7 +8671,25 @@
                 }
               }
             },
-            "description": "Missing, expired, or invalid bearer token."
+            "description": "Missing, expired, or invalid bearer token.",
+            "headers": {
+              "X-Auth-Error": {
+                "description": "Identity error code when AUTH_ENABLED; legacy response body is preserved.",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Cookie mutation requires exact Origin and current CSRF proof."
           },
           "404": {
             "content": {
@@ -8009,12 +8768,24 @@
                 }
               }
             },
-            "description": "A required dependency is temporarily unavailable."
+            "description": "A required dependency is temporarily unavailable.",
+            "headers": {
+              "X-Auth-Error": {
+                "description": "Identity error code when AUTH_ENABLED; legacy response body is preserved.",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
           }
         },
         "security": [
           {
             "HTTPBearer": []
+          },
+          {
+            "CsrfProof": [],
+            "SessionCookie": []
           }
         ],
         "summary": "Resolver revisão"
@@ -8099,7 +8870,25 @@
                 }
               }
             },
-            "description": "Missing, expired, or invalid bearer token."
+            "description": "Missing, expired, or invalid bearer token.",
+            "headers": {
+              "X-Auth-Error": {
+                "description": "Identity error code when AUTH_ENABLED; legacy response body is preserved.",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Cookie mutation requires exact Origin and current CSRF proof."
           },
           "413": {
             "content": {
@@ -8155,12 +8944,24 @@
                 }
               }
             },
-            "description": "A required dependency is temporarily unavailable."
+            "description": "A required dependency is temporarily unavailable.",
+            "headers": {
+              "X-Auth-Error": {
+                "description": "Identity error code when AUTH_ENABLED; legacy response body is preserved.",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
           }
         },
         "security": [
           {
             "HTTPBearer": []
+          },
+          {
+            "CsrfProof": [],
+            "SessionCookie": []
           }
         ],
         "summary": "Enviar exportação do Telegram"
@@ -8202,7 +9003,15 @@
                 }
               }
             },
-            "description": "Missing, expired, or invalid bearer token."
+            "description": "Missing, expired, or invalid bearer token.",
+            "headers": {
+              "X-Auth-Error": {
+                "description": "Identity error code when AUTH_ENABLED; legacy response body is preserved.",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
           },
           "404": {
             "content": {
@@ -8252,12 +9061,23 @@
                 }
               }
             },
-            "description": "A required dependency is temporarily unavailable."
+            "description": "A required dependency is temporarily unavailable.",
+            "headers": {
+              "X-Auth-Error": {
+                "description": "Identity error code when AUTH_ENABLED; legacy response body is preserved.",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
           }
         },
         "security": [
           {
             "HTTPBearer": []
+          },
+          {
+            "SessionCookie": []
           }
         ],
         "summary": "Consultar processamento do upload"
@@ -8286,7 +9106,25 @@
                 }
               }
             },
-            "description": "Missing, expired, or invalid bearer token."
+            "description": "Missing, expired, or invalid bearer token.",
+            "headers": {
+              "X-Auth-Error": {
+                "description": "Identity error code when AUTH_ENABLED; legacy response body is preserved.",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Cookie mutation requires exact Origin and current CSRF proof."
           },
           "409": {
             "content": {
@@ -8336,12 +9174,24 @@
                 }
               }
             },
-            "description": "A required dependency is temporarily unavailable."
+            "description": "A required dependency is temporarily unavailable.",
+            "headers": {
+              "X-Auth-Error": {
+                "description": "Identity error code when AUTH_ENABLED; legacy response body is preserved.",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
           }
         },
         "security": [
           {
             "HTTPBearer": []
+          },
+          {
+            "CsrfProof": [],
+            "SessionCookie": []
           }
         ],
         "summary": "Desativar e anonimizar minha conta"
@@ -8566,7 +9416,15 @@
                 }
               }
             },
-            "description": "Missing, expired, or invalid bearer token."
+            "description": "Missing, expired, or invalid bearer token.",
+            "headers": {
+              "X-Auth-Error": {
+                "description": "Identity error code when AUTH_ENABLED; legacy response body is preserved.",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
           },
           "422": {
             "content": {
@@ -8606,15 +9464,799 @@
                 }
               }
             },
-            "description": "A required dependency is temporarily unavailable."
+            "description": "A required dependency is temporarily unavailable.",
+            "headers": {
+              "X-Auth-Error": {
+                "description": "Identity error code when AUTH_ENABLED; legacy response body is preserved.",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
           }
         },
         "security": [
           {
             "HTTPBearer": []
+          },
+          {
+            "SessionCookie": []
           }
         ],
         "summary": "Exportar meus registros"
+      }
+    },
+    "/auth/callback": {
+      "get": {
+        "description": "Valida identidade e e-mail confirmado, vincula (issuer, sub) ao usuário interno e cria sessão HttpOnly; redireciona somente ao destino interno armazenado.",
+        "operationId": "callback_auth_callback_get",
+        "parameters": [
+          {
+            "description": "State de uso único vinculado ao cookie de fluxo.",
+            "in": "query",
+            "name": "state",
+            "required": false,
+            "schema": {
+              "default": "",
+              "description": "One-time state issued by this API.",
+              "maxLength": 4096,
+              "title": "State",
+              "type": "string"
+            }
+          },
+          {
+            "description": "Código de autorização de uso único do emissor.",
+            "in": "query",
+            "name": "code",
+            "required": false,
+            "schema": {
+              "default": "",
+              "description": "Issuer's one-time authorization code.",
+              "maxLength": 4096,
+              "title": "Code",
+              "type": "string"
+            }
+          },
+          {
+            "description": "Recusa do emissor; nunca refletida em destinos nem logs.",
+            "in": "query",
+            "name": "error",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "maxLength": 200,
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Issuer denial; never reflected into redirects or logs.",
+              "title": "Error"
+            }
+          }
+        ],
+        "responses": {
+          "302": {
+            "description": "Verified identity provisioned and internal server session created; navigate to the stored internal destination.",
+            "headers": {
+              "Location": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AuthFailure"
+                }
+              }
+            },
+            "description": "Callback, state or destination is invalid."
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AuthFailure"
+                }
+              }
+            },
+            "description": "Session/identity is missing, expired, revoked or inactive."
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AuthFailure"
+                }
+              }
+            },
+            "description": "Email is unconfirmed or origin/CSRF proof is invalid."
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AuthFailure"
+                }
+              }
+            },
+            "description": "Email conflicts with a different internal identity; never auto-linked."
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AuthFailure"
+                }
+              }
+            },
+            "description": "Invalid identity query; sensitive input is never reflected in the response."
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "The caller exceeded an applicable request limit."
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unexpected internal failure with no sensitive exception details."
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "anyOf": [
+                    {
+                      "$ref": "#/components/schemas/AuthFailure"
+                    },
+                    {
+                      "$ref": "#/components/schemas/ErrorResponse"
+                    }
+                  ],
+                  "title": "Response 503 Callback Auth Callback Get"
+                }
+              }
+            },
+            "description": "Identity is not configured or issuer/database is temporarily unavailable."
+          }
+        },
+        "security": [],
+        "summary": "Concluir identidade verificada",
+        "tags": [
+          "Identity"
+        ]
+      }
+    },
+    "/auth/jwks": {
+      "get": {
+        "description": "Publica somente chaves RSA públicas; segredos de assinatura e criptografia permanecem no servidor.",
+        "operationId": "jwks_auth_jwks_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PublicKeys"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AuthFailure"
+                }
+              }
+            },
+            "description": "Callback, state or destination is invalid."
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AuthFailure"
+                }
+              }
+            },
+            "description": "Session/identity is missing, expired, revoked or inactive."
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AuthFailure"
+                }
+              }
+            },
+            "description": "Email is unconfirmed or origin/CSRF proof is invalid."
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AuthFailure"
+                }
+              }
+            },
+            "description": "Email conflicts with a different internal identity; never auto-linked."
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AuthFailure"
+                }
+              }
+            },
+            "description": "Invalid identity query; sensitive input is never reflected in the response."
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "The caller exceeded an applicable request limit."
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unexpected internal failure with no sensitive exception details."
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "anyOf": [
+                    {
+                      "$ref": "#/components/schemas/AuthFailure"
+                    },
+                    {
+                      "$ref": "#/components/schemas/ErrorResponse"
+                    }
+                  ],
+                  "title": "Response 503 Jwks Auth Jwks Get"
+                }
+              }
+            },
+            "description": "Identity is not configured or issuer/database is temporarily unavailable."
+          }
+        },
+        "security": [],
+        "summary": "Consultar chaves públicas",
+        "tags": [
+          "Identity"
+        ]
+      }
+    },
+    "/auth/logout": {
+      "post": {
+        "description": "Exige cookie, Origin exata e X-CSRF-Token; revoga imediatamente acesso local, incluindo JWT emitido, e persiste revogação do refresh externo para tentativas posteriores.",
+        "operationId": "logout_auth_logout_post",
+        "parameters": [
+          {
+            "description": "Revogar todas as sessões locais desta identidade confirmada.",
+            "in": "query",
+            "name": "all_sessions",
+            "required": false,
+            "schema": {
+              "default": false,
+              "description": "Revoke every local session of this verified identity.",
+              "title": "All Sessions",
+              "type": "boolean"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LogoutStatus"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AuthFailure"
+                }
+              }
+            },
+            "description": "Callback, state or destination is invalid."
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AuthFailure"
+                }
+              }
+            },
+            "description": "Session/identity is missing, expired, revoked or inactive."
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AuthFailure"
+                }
+              }
+            },
+            "description": "Email is unconfirmed or origin/CSRF proof is invalid."
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AuthFailure"
+                }
+              }
+            },
+            "description": "Email conflicts with a different internal identity; never auto-linked."
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AuthFailure"
+                }
+              }
+            },
+            "description": "Invalid identity query; sensitive input is never reflected in the response."
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "The caller exceeded an applicable request limit."
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unexpected internal failure with no sensitive exception details."
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "anyOf": [
+                    {
+                      "$ref": "#/components/schemas/AuthFailure"
+                    },
+                    {
+                      "$ref": "#/components/schemas/ErrorResponse"
+                    }
+                  ],
+                  "title": "Response 503 Logout Auth Logout Post"
+                }
+              }
+            },
+            "description": "Identity is not configured or issuer/database is temporarily unavailable."
+          }
+        },
+        "security": [
+          {
+            "CsrfProof": [],
+            "SessionCookie": []
+          }
+        ],
+        "summary": "Revogar sessão",
+        "tags": [
+          "Identity"
+        ]
+      }
+    },
+    "/auth/refresh": {
+      "post": {
+        "description": "Exige cookie, Origin exata e X-CSRF-Token; renova no emissor e rotaciona cookie e geração. Reuso de cookie retirado revoga a família. Serialize renovação.",
+        "operationId": "refresh_auth_refresh_post",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SessionStatus"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AuthFailure"
+                }
+              }
+            },
+            "description": "Callback, state or destination is invalid."
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AuthFailure"
+                }
+              }
+            },
+            "description": "Session/identity is missing, expired, revoked or inactive."
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AuthFailure"
+                }
+              }
+            },
+            "description": "Email is unconfirmed or origin/CSRF proof is invalid."
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AuthFailure"
+                }
+              }
+            },
+            "description": "Email conflicts with a different internal identity; never auto-linked."
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AuthFailure"
+                }
+              }
+            },
+            "description": "Invalid identity query; sensitive input is never reflected in the response."
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "The caller exceeded an applicable request limit."
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unexpected internal failure with no sensitive exception details."
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "anyOf": [
+                    {
+                      "$ref": "#/components/schemas/AuthFailure"
+                    },
+                    {
+                      "$ref": "#/components/schemas/ErrorResponse"
+                    }
+                  ],
+                  "title": "Response 503 Refresh Auth Refresh Post"
+                }
+              }
+            },
+            "description": "Identity is not configured or issuer/database is temporarily unavailable."
+          }
+        },
+        "security": [
+          {
+            "CsrfProof": [],
+            "SessionCookie": []
+          }
+        ],
+        "summary": "Renovar sessão",
+        "tags": [
+          "Identity"
+        ]
+      }
+    },
+    "/auth/session": {
+      "get": {
+        "description": "Retorna identidade, versão e prova CSRF, sem tokens. Sessão ainda válida pode exigir renovação do acesso.",
+        "operationId": "session_status_auth_session_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SessionStatus"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AuthFailure"
+                }
+              }
+            },
+            "description": "Callback, state or destination is invalid."
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AuthFailure"
+                }
+              }
+            },
+            "description": "Session/identity is missing, expired, revoked or inactive."
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AuthFailure"
+                }
+              }
+            },
+            "description": "Email is unconfirmed or origin/CSRF proof is invalid."
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AuthFailure"
+                }
+              }
+            },
+            "description": "Email conflicts with a different internal identity; never auto-linked."
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AuthFailure"
+                }
+              }
+            },
+            "description": "Invalid identity query; sensitive input is never reflected in the response."
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "The caller exceeded an applicable request limit."
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unexpected internal failure with no sensitive exception details."
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "anyOf": [
+                    {
+                      "$ref": "#/components/schemas/AuthFailure"
+                    },
+                    {
+                      "$ref": "#/components/schemas/ErrorResponse"
+                    }
+                  ],
+                  "title": "Response 503 Session Status Auth Session Get"
+                }
+              }
+            },
+            "description": "Identity is not configured or issuer/database is temporarily unavailable."
+          }
+        },
+        "security": [
+          {
+            "SessionCookie": []
+          }
+        ],
+        "summary": "Consultar sessão",
+        "tags": [
+          "Identity"
+        ]
+      }
+    },
+    "/auth/start": {
+      "get": {
+        "description": "Inicia Authorization Code + S256 PKCE com state de uso único e nonce; cadastro, confirmação de e-mail e recuperação usam a interface real do emissor.",
+        "operationId": "start_auth_start_get",
+        "parameters": [
+          {
+            "description": "Caminho interno do frontend; origens arbitrárias são recusadas.",
+            "in": "query",
+            "name": "return_to",
+            "required": false,
+            "schema": {
+              "default": "/",
+              "description": "Internal frontend path only, never an arbitrary origin.",
+              "maxLength": 2048,
+              "title": "Return To",
+              "type": "string"
+            }
+          },
+          {
+            "description": "login, signup ou recover; use o link real do emissor. Recover revoga sessões locais anteriores após login verificado.",
+            "in": "query",
+            "name": "intent",
+            "required": false,
+            "schema": {
+              "default": "login",
+              "description": "Use the hosted registration/recovery link; a successful recovery login revokes older local sessions.",
+              "enum": [
+                "login",
+                "signup",
+                "recover"
+              ],
+              "title": "Intent",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "302": {
+            "description": "Navigate to the issuer's hosted login, including registration and password recovery.",
+            "headers": {
+              "Location": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AuthFailure"
+                }
+              }
+            },
+            "description": "Callback, state or destination is invalid."
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AuthFailure"
+                }
+              }
+            },
+            "description": "Session/identity is missing, expired, revoked or inactive."
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AuthFailure"
+                }
+              }
+            },
+            "description": "Email is unconfirmed or origin/CSRF proof is invalid."
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AuthFailure"
+                }
+              }
+            },
+            "description": "Email conflicts with a different internal identity; never auto-linked."
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AuthFailure"
+                }
+              }
+            },
+            "description": "Invalid identity query; sensitive input is never reflected in the response."
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "The caller exceeded an applicable request limit."
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unexpected internal failure with no sensitive exception details."
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "anyOf": [
+                    {
+                      "$ref": "#/components/schemas/AuthFailure"
+                    },
+                    {
+                      "$ref": "#/components/schemas/ErrorResponse"
+                    }
+                  ],
+                  "title": "Response 503 Start Auth Start Get"
+                }
+              }
+            },
+            "description": "Identity is not configured or issuer/database is temporarily unavailable."
+          }
+        },
+        "security": [],
+        "summary": "Iniciar login hospedado",
+        "tags": [
+          "Identity"
+        ]
       }
     },
     "/coleta": {

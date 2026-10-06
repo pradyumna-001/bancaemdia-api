@@ -13,7 +13,6 @@ from fastapi.testclient import TestClient
 from hypothesis import given, settings
 from hypothesis import strategies as st
 from hypothesis.strategies import SearchStrategy
-from schemathesis.config import HealthCheck
 from starlette.types import ASGIApp, Message, Receive, Scope, Send
 
 from bancaemdia.api.contracts import ReadinessResponse
@@ -236,7 +235,10 @@ def test_responses_cover_success_and_failures_with_schemas(openapi_document: Jso
         location = f"{method.upper()} {path}"
         responses = _as_object(operation["responses"])
         numeric_codes = {int(code) for code in responses if str(code).isdigit()}
-        assert any(200 <= code < 300 for code in numeric_codes), f"{location}: missing 2xx"
+        if path in {"/auth/start", "/auth/callback"}:
+            assert method == "get" and 302 in numeric_codes, location
+        else:
+            assert any(200 <= code < 300 for code in numeric_codes), f"{location}: missing 2xx"
         assert any(500 <= code < 600 for code in numeric_codes), f"{location}: missing 5xx"
         if path.startswith("/api/") or operation.get("requestBody") or operation.get("parameters"):
             assert any(400 <= code < 500 for code in numeric_codes), f"{location}: missing 4xx"
@@ -248,6 +250,10 @@ def test_responses_cover_success_and_failures_with_schemas(openapi_document: Jso
                 assert "content" not in response, f"{location}: 204 must have no body"
                 continue
             content = response.get("content")
+            if path in {"/auth/start", "/auth/callback"} and str(code) == "302":
+                assert not content, f"{location}: redirect must have no JSON body"
+                assert response["headers"]["Location"]["schema"]["type"] == "string"
+                continue
             assert isinstance(content, dict) and content, f"{location}: {code} content"
             for media_type, media_value in content.items():
                 schema = _as_object(_as_object(media_value).get("schema"))
@@ -551,7 +557,7 @@ def test_schemathesis_invalid_collection_requests_match_contract(
         assert collection_backend.queued == []
 
 
-negative_config = schemathesis.Config(suppress_health_check=[HealthCheck.filter_too_much])
+negative_config = schemathesis.Config()
 negative_config.projects.default.generation.update(
     modes=[schemathesis.GenerationMode.NEGATIVE],
     max_examples=5,

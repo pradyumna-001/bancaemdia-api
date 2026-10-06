@@ -39,6 +39,16 @@ The Week 5–9 issue bodies and the extension responsibility map are review arti
 
 ---
 
+## Identity
+
+| # | Title | Status | Date |
+|---|-------|--------|------|
+| [025](025-oidc-identity-server-sessions.md) | OIDC Identity and Revocable Server Sessions | Proposed in PR #168; production provider pending administrator decision | 2026-09-29 |
+
+The implemented [frontend contract](../contracts/identity-session.md) and [operator runbook](../runbooks/identity-session.md) accompany the identity proposal.
+
+---
+
 ## Process
 
 1. **Create** new ADR from template (MADR elaborate format)

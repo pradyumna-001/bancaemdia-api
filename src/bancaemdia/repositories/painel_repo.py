@@ -3,6 +3,10 @@
 Os indicadores filtrados saem sempre do cubo diario publico. As visoes por
 eixo sao usadas apenas como lookups de nomes; seus totais all-time nunca sao
 misturados com uma janela filtrada.
+
+Reviewed B608 exceptions: only internal aliases, fixed _EIXOS/_BUCKET_POSTGRES entries and
+bound predicates are interpolated. Every tenant/filter/date value is bound separately.
+Regression: test_dynamic_dashboard_sql_binds_values_and_allowlists_identifiers.
 """
 
 from __future__ import annotations
@@ -161,7 +165,7 @@ def _sql_resumo(usuario_id: int, filtros: FiltrosPainel) -> tuple[str, dict[str,
             {_somas_metricas("p")}
         FROM public.painel_por_periodo AS p
         WHERE {onde}
-        """,
+        """,  # nosec B608
         parametros,
     )
 
@@ -196,7 +200,7 @@ def _sql_grupo(
           ON d.usuario_id = :usuario_id
          AND d.{coluna_id} = a.id
         ORDER BY a.lucro_centavos DESC, a.id
-        """,
+        """,  # nosec B608
         parametros,
     )
 
@@ -216,7 +220,7 @@ def _sql_por_periodo(
         WHERE {onde}
         GROUP BY 1
         ORDER BY 1
-        """,
+        """,  # nosec B608
         parametros,
     )
 
@@ -258,7 +262,7 @@ def _sql_evolucao(
             ) AS anteriores
             GROUP BY banca_id
         )
-        """
+        """  # nosec B608
     bucket = _BUCKET_POSTGRES[filtros.janela.granularidade]
     return (
         f"""
@@ -322,7 +326,7 @@ def _sql_evolucao(
         JOIN iniciais AS i ON i.banca_id = c.banca_id
         LEFT JOIN historico AS h ON h.banca_id = c.banca_id
         ORDER BY c.banca_id, c.periodo_inicio
-        """,
+        """,  # nosec B608
         parametros,
     )
 
