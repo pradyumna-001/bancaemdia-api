@@ -20,6 +20,30 @@ MANUAL_BET_HOUSES = sorted(
 
 
 OPERATION_DOCUMENTATION: dict[OperationKey, tuple[str, str]] = {
+    ("post", "/api/v1/coleta/pairing-codes"): (
+        "Criar código de pareamento",
+        "Emite código descartável para uma instalação; requer JWT e HTTPS.",
+    ),
+    ("post", "/api/v1/coleta/pairing-exchange"): (
+        "Parear instalação",
+        "Troca código uma única vez por credencial restrita; requer HTTPS, sem Bearer.",
+    ),
+    ("get", "/api/v1/coleta/installations"): (
+        "Listar instalações",
+        "Lista somente instalações do usuário, sem hashes ou segredos.",
+    ),
+    ("post", "/api/v1/coleta/installations/{instalacao_id}/rotate"): (
+        "Rotacionar credencial",
+        "Invalida atomicamente o token anterior desta instalação.",
+    ),
+    ("delete", "/api/v1/coleta/installations/{instalacao_id}"): (
+        "Revogar instalação",
+        "Revoga somente a instalação selecionada. Novo pareamento permite reconexão.",
+    ),
+    ("get", "/api/v1/coleta/status"): (
+        "Consultar credencial da instalação",
+        "Autentica X-Coleta-Token no primário e retorna somente a identidade validada.",
+    ),
     ("post", "/api/v1/billing/webhook"): (
         "Receive Stripe events",
         "Verify the raw body signature and persist a minimal deduplicated test-mode inbox; worker fetches current state.",
@@ -164,6 +188,7 @@ OPERATION_DOCUMENTATION: dict[OperationKey, tuple[str, str]] = {
 
 
 PARAMETER_DESCRIPTIONS = {
+    "instalacao_id": "ID interno da instalação do usuário autenticado.",
     "Idempotency-Key": (
         "Chave opaca obrigatória do cliente; reutilizá-la com o mesmo corpo reproduz a resposta "
         "original sem lançar dinheiro novamente."
@@ -194,6 +219,14 @@ PARAMETER_DESCRIPTIONS = {
 
 
 REQUEST_EXAMPLES: dict[OperationKey, tuple[str, JsonObject]] = {
+    ("post", "/api/v1/coleta/pairing-exchange"): (
+        "Código descartável e instalação opaca",
+        {
+            "codigo": "synthetic-code",
+            "instalacao_publica_id": "91b643c0-46e6-4b1b-b488-6254247128fd",
+            "nome_dispositivo": "Meu dispositivo",
+        },
+    ),
     ("post", "/api/v1/billing/subscribe"): (
         "Configured currency and cadence",
         {"currency": "BRL", "frequency": "MONTHLY"},
@@ -584,6 +617,13 @@ def _install_collection_security(document: JsonObject) -> None:
             context=f"POST {path}",
         )
         operation["security"] = [{"CollectionToken": []}]
+    _object(
+        _object(paths["/api/v1/coleta/status"], context="status")["get"], context="status operation"
+    )["security"] = [{"CollectionToken": []}]
+    _object(
+        _object(paths["/api/v1/coleta/pairing-exchange"], context="exchange")["post"],
+        context="exchange operation",
+    )["security"] = []
 
 
 def _strictify_schema(schema: JsonObject) -> None:

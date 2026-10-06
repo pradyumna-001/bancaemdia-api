@@ -36,7 +36,8 @@ from bancaemdia.observability.tracing import custom_span
 from bancaemdia.repositories.aposta_repo import ApostaRepo
 from bancaemdia.repositories.casa_repo import CasaRepo
 from bancaemdia.repositories.coleta_casa_repo import ColetaCasaRepo
-from bancaemdia.repositories.coleta_token_repo import ColetaTokenRepo
+from bancaemdia.repositories.coleta_instalacao import ColetaInstalacaoRepo
+from bancaemdia.services.coleta_tokens import audit
 from bancaemdia.workers.celery_app import app as celery
 
 TOKEN_HEADER = "X-Coleta-Token"
@@ -199,15 +200,21 @@ def _enfileirar(usuario_id: int, fila: list[int]) -> None:
 @router.post("/coleta", response_model=CollectionResponse)
 async def receber_coleta(request: Request, session: AsyncSession = Depends(get_db)) -> JSONResponse:
     token = request.headers.get(TOKEN_HEADER)
-    tokens = ColetaTokenRepo()
-    usuario_id = (
-        await tokens.get_usuario_id_by_hash(session, hash_do_token(token)) if token else None
+    tokens = ColetaInstalacaoRepo()
+    identity = (
+        await tokens.authenticate(session, hash_do_token(token))
+        if token and len(token) <= 128
+        else None
     )
-    if usuario_id is None:
+    if identity is None:
+        audit("auth_rejected")
         return erro(
             status.HTTP_403_FORBIDDEN,
             "o token não confere — abra a tela de coleta do planilhador e cole o token de novo",
         )
+    usuario_id = identity.usuario_id
+    request.state.usuario_id = usuario_id
+    request.state.instalacao_id = identity.instalacao_id
     await _set_current_user(session, usuario_id)
 
     # O teto vem antes de ler o corpo: quem já passou dele não custa nem a memória do envio.

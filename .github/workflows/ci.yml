@@ -138,10 +138,38 @@ jobs:
           review: false
           github-token: ""
 
+  pairing-db:
+    name: Collection pairing (PostgreSQL)
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_DB: bancaemdia
+          POSTGRES_USER: bancaemdia
+          POSTGRES_PASSWORD: test-password
+        ports: ["5432:5432"]
+        options: --health-cmd "pg_isready -U bancaemdia -d bancaemdia" --health-interval 5s --health-timeout 3s --health-retries 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+      - run: pip install -e ".[dev]"
+      - run: pytest tests/integration/coleta/test_pairing.py tests/integration/test_coleta_db.py tests/security/test_coleta_tokens.py -n 0 --show-capture=no --junitxml=pairing-results.xml
+        env:
+          TEST_DATABASE_URL: postgresql+asyncpg://bancaemdia:test-password@localhost:5432/bancaemdia
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: pairing-results
+          path: pairing-results.xml
+
   docker-build:
     name: Docker Build
     runs-on: ubuntu-latest
-    needs: [lint, format, typecheck, security, test, contract]
+    needs: [lint, format, typecheck, security, test, contract, pairing-db]
     steps:
       - uses: actions/checkout@v4
       - name: Build Docker image

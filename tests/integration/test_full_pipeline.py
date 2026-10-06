@@ -11,7 +11,7 @@ import zipfile
 from collections import Counter
 from collections.abc import Awaitable, Callable, Iterable, Iterator
 from contextlib import AbstractAsyncContextManager
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta, timezone
 from pathlib import Path
 from types import SimpleNamespace
 from uuid import uuid4
@@ -49,7 +49,6 @@ from bancaemdia.rate_limit.anthropic_limiter import AnthropicLimiter
 from bancaemdia.repositories.aposta_repo import ApostaRepo
 from bancaemdia.repositories.casa_repo import CasaRepo
 from bancaemdia.repositories.coleta_casa_repo import ColetaCasaRepo
-from bancaemdia.repositories.coleta_token_repo import ColetaTokenRepo
 from bancaemdia.repositories.evento_repo import EventoRepo
 from bancaemdia.repositories.revisao_pendente_repo import RevisaoPendenteRepo
 from bancaemdia.resilience.circuit_breaker import new_anthropic_breaker
@@ -404,7 +403,15 @@ def _envio(casa: str) -> dict[str, object]:
 async def _token(engine: AsyncEngine, como: Como, usuario: int) -> str:
     token = f"tok-{uuid4().hex}"
     async with como(engine, usuario) as session:
-        await ColetaTokenRepo().create(session, usuario, coleta.hash_do_token(token))
+        session.add(
+            models.ColetaInstalacao(
+                usuario_id=usuario,
+                instalacao_publica_id=uuid4(),
+                token_hash=coleta.hash_do_token(token),
+                token_prefixo=token[:12],
+                pareado_em=datetime.now(UTC),
+            )
+        )
         await session.commit()
     return token
 
@@ -464,7 +471,7 @@ async def test_house_sends_reach_the_materialization_queue_and_become_bets(
     monkeypatch.setattr(coleta.celery, "send_task", fila.send_task)
     monkeypatch.setattr(coleta.limiter, "enabled", False)
     monkeypatch.setitem(main.app.dependency_overrides, get_db, _sessoes(banco.url_app))
-    cliente = TestClient(main.app)
+    cliente = TestClient(main.app, base_url="https://testserver")
 
     respostas = {}
     for casa in CASAS:

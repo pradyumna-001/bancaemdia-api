@@ -73,6 +73,11 @@ class Settings(BaseSettings):
     COLETA_RATE_LIMIT: str = Field(
         default="10/minute", description="Coleta sends allowed per extension token"
     )
+    COLETA_PAIRING_TTL_SECONDS: int = Field(default=600, ge=60, le=1800)
+    COLETA_PAIRING_CREATE_LIMIT: int = Field(default=5, ge=1, le=100000)
+    COLETA_PAIRING_EXCHANGE_LIMIT: int = Field(default=20, ge=1, le=100000)
+    COLETA_PAIRING_GLOBAL_LIMIT: int = Field(default=300, ge=1, le=100000)
+    COLETA_PAIRING_WINDOW_SECONDS: int = Field(default=60, ge=1, le=86400)
     COLETA_DAILY_LIMIT: int = Field(
         default=5000, ge=0, description="Raw house bets stored per user per day; 0 disables"
     )

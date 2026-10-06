@@ -21,6 +21,8 @@ PUBLIC_PATHS = frozenset({
     "/metrics",
     "/coleta",
     "/api/v1/coleta",
+    "/api/v1/coleta/pairing-exchange",
+    "/api/v1/coleta/status",
     "/webhook/upload-complete",
     "/openapi.json",
     "/docs",

@@ -18,6 +18,11 @@ from bancaemdia.models.billing_rollout import BillingRollout
 from bancaemdia.models.casa import Casa
 from bancaemdia.models.chamada_ia import ChamadaIA
 from bancaemdia.models.coleta_casa import ColetaCasa
+from bancaemdia.models.coleta_instalacao import (
+    ColetaInstalacao,
+    ColetaPairingCode,
+    ColetaPairingQuota,
+)
 from bancaemdia.models.coleta_token import ColetaToken
 from bancaemdia.models.competicao import Competicao
 from bancaemdia.models.conta_casa import ContaCasa
@@ -98,11 +103,17 @@ def _indexes(modelo: type[Base]) -> dict[str, list[str]]:
     return {i.name: [c.name for c in i.columns] for i in modelo.__table__.indexes}
 
 
-def test_all_thirty_four_tables_are_registered() -> None:
+def test_all_thirty_seven_tables_are_registered() -> None:
     esperadas = {
-        m.__tablename__ for m in NUCLEO + CANONICOS + SUPORTE + UPLOAD + BILLING + (AuditLog,)
+        m.__tablename__
+        for m in NUCLEO
+        + CANONICOS
+        + SUPORTE
+        + UPLOAD
+        + BILLING
+        + (AuditLog, ColetaInstalacao, ColetaPairingCode, ColetaPairingQuota)
     }
-    assert len(esperadas) == 34
+    assert len(esperadas) == 37
     assert set(Base.metadata.tables) == esperadas
     assert {m.__tablename__ for m in CANONICOS} == {
         "casas",
