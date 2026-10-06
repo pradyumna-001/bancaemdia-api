@@ -690,12 +690,12 @@ async def verify(directory: Path) -> None:
                 "pg_total_relation_size('audit_log') AS total_bytes FROM audit_log"
             )
         )
-        audit_resources = dict(
-            (row["resource_type"], row["rows"])
+        audit_resources = {
+            row["resource_type"]: row["rows"]
             for row in await conn.fetch(
                 "SELECT resource_type,count(*) AS rows FROM audit_log GROUP BY resource_type"
             )
-        )
+        }
     finally:
         await conn.close()
     app = await connect(port=15432, user="k6_app", password=info["app_password"])
