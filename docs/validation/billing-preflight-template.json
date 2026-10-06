@@ -1,0 +1,23 @@
+{
+  "schema_version": 1,
+  "seller_country": "BR",
+  "account": {
+    "mode": "unverified",
+    "charges_enabled": null,
+    "payouts_enabled": null,
+    "details_submitted": null,
+    "requirements_due_count": null,
+    "requirements_pending_count": null
+  },
+  "checks": {
+    "account_verification": { "status": "pending" },
+    "account_commercial_conditions": { "status": "pending" },
+    "market_and_currency_scope": { "status": "pending" },
+    "tax_calculation_and_collection": { "status": "pending" },
+    "tax_reporting_and_invoicing": { "status": "pending" },
+    "tax_failure_and_reconciliation": { "status": "pending" },
+    "commercial_catalog": { "status": "pending" },
+    "terms_cancellation_refunds": { "status": "pending" },
+    "owner_launch_authorization": { "status": "pending" }
+  }
+}

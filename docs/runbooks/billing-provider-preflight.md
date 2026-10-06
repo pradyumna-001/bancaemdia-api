@@ -2,6 +2,12 @@
 
 Leia ADR 025. Nunca registrar chaves, cartões, documentos ou dados pessoais em Git, logs, issues ou chat.
 
+O [pacote comercial da #89](billing-commercial-preflight.md) reúne a consulta de
+2026-10-06, alternativas fiscais, responsáveis, documentos a aprovar e o
+verificador offline. Métricas do sandbox não representam assinantes pagantes ou
+recebimentos reais. A produção ainda abre na etapa inicial `Ativar Payments`;
+capacidades atuais e condições particulares permanecem não verificadas.
+
 1. O titular abre a conta brasileira correta e usa somente modo de teste. Confirma a modalidade real PF/CPF ou PJ/CNPJ, verificações e pendências diretamente no painel. Não copiar documentos aqui.
 2. Apresentar fielmente o software de registro/análise de apostas externas, sem recebimento de apostas, depósitos, prêmios ou fundos. Por decisão explícita do titular em 2026-09-27, não abrir consulta preventiva ao suporte nem exigir resposta escrita como gate. Não registrar essa decisão como aprovação da Stripe.
 3. Registrar apenas data, conclusão, referência sanitizada e pendências; não publicar resposta com dados privados.

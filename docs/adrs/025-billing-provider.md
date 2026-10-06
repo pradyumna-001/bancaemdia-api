@@ -40,6 +40,19 @@ O sandbox real foi exercitado em 2026-09-27: Checkout com cartão, trial de 6048
 ## GO pendente
 Faltam: conta/capacidades verificadas, preços comerciais e moedas aprovados, impostos/termos/política de reembolso, revisão/CI e autorização específica do titular para produção. Sandbox não conclui #89 nem autoriza cobrança real. Stripe permanece o provedor escolhido em caso de bloqueio.
 
+## Complemento de preflight em 2026-10-06
+
+Consulta de leitura autenticada: sandbox exibe assinatura/MRR fictícias; a conta
+de produção permanece no início de `Ativar Payments`. Não houve envio de dados,
+aceite ou ativação. Esses resultados não confirmam capacidades/condições live.
+
+O [pacote comercial](../runbooks/billing-commercial-preflight.md) prepara a
+decisão fiscal com taxas manuais ou integração de terceiro condicionada à
+elegibilidade/parecer, escopo de mercados, cotação e prova de falhas/conciliação.
+Nenhum método foi aprovado ou contratado. O verificador offline novo só avalia
+a completude de referências privadas: não autentica aprovações e nunca concede
+GO de produção. Stripe, escopo do software, catálogo vazio e NO_GO permanecem.
+
 ## Histórico preservado (substituído, sem implementação futura)
 O texto abaixo documenta a investigação anterior e não é uma instrução de implementação ou fallback.
 
