@@ -1,0 +1,7 @@
+{
+  "contrato": 1,
+  "casa": "novibet",
+  "capturado_em": "2026-09-10T22:00:00Z",
+  "nota": "placeholder, not a Novibet capture: there is no reader for this house yet, so the route only stores what it gets",
+  "apostas": [{"amostra": "sem leitor", "id": "novibet-placeholder-1"}]
+}

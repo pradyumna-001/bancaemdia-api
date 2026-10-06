@@ -8,6 +8,7 @@ from datetime import datetime
 import anthropic
 import pybreaker
 import pytest
+import redis
 from celery import signals
 from celery.utils.time import get_exponential_backoff_interval
 from prometheus_client import REGISTRY
@@ -100,12 +101,14 @@ def test_task_retries_transient_provider_failures() -> None:
 
     assert set(task.autoretry_for) == {
         anthropic.APIConnectionError,
+        anthropic.APITimeoutError,
         anthropic.RateLimitError,
         anthropic.InternalServerError,
         anthropic.OverloadedError,
         anthropic.ServiceUnavailableError,
         anthropic.DeadlineExceededError,
         pybreaker.CircuitBreakerError,
+        redis.RedisError,
     }
     assert task.max_retries == 3
 

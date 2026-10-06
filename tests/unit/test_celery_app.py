@@ -143,6 +143,57 @@ def test_worker_init_signal_applies_prefetch() -> None:
     assert worker.prefetch_multiplier == 4
 
 
+def test_worker_observability_is_initialized_with_the_child_engine(monkeypatch) -> None:
+    from bancaemdia.workers import materialization
+
+    engine = object()
+    configured = []
+    cleared = []
+    monkeypatch.setattr(materialization, "get_engine", lambda: engine)
+    monkeypatch.setattr(celery_app, "clear_request_context", lambda: cleared.append(True))
+    monkeypatch.setattr(celery_app, "configure_logging", lambda level: configured.append(level))
+    monkeypatch.setattr(
+        celery_app,
+        "configure_tracing",
+        lambda **options: configured.append(options),
+    )
+
+    celery_app.configure_worker_observability()
+
+    assert cleared == [True]
+    assert configured == [
+        celery_app.settings.LOG_LEVEL,
+        {
+            "engines": (engine,),
+            "service_name": "bancaemdia-worker",
+            "environment": celery_app.settings.APP_ENV,
+            "otlp_endpoint": celery_app.settings.OTEL_EXPORTER_OTLP_ENDPOINT,
+        },
+    ]
+
+
+def test_celery_parent_and_task_loggers_are_reconfigured_as_json(monkeypatch) -> None:
+    configured = []
+    cleared = []
+    monkeypatch.setattr(celery_app, "clear_request_context", lambda: cleared.append(True))
+    monkeypatch.setattr(celery_app, "configure_logging", lambda level: configured.append(level))
+
+    signals.after_setup_logger.send(sender=object())
+    signals.after_setup_task_logger.send(sender=object())
+
+    assert cleared == [True, True]
+    assert configured == [celery_app.settings.LOG_LEVEL, celery_app.settings.LOG_LEVEL]
+
+
+def test_worker_process_shutdown_flushes_tracing(monkeypatch) -> None:
+    flushed = []
+    monkeypatch.setattr(celery_app, "shutdown_owned_tracing", lambda: flushed.append(True))
+
+    celery_app.shutdown_worker_observability()
+
+    assert flushed == [True]
+
+
 def test_failed_task_is_sent_to_dead_letter() -> None:
     task, sent = _failed_task({"routing_key": "materialization"})
 

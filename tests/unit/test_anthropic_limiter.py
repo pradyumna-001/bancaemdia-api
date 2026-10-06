@@ -253,14 +253,15 @@ def test_every_wait_is_observed_in_the_histogram() -> None:
     assert _sample("rate_limit_wait_seconds_sum") == pytest.approx(total + 6.0)
 
 
-def test_redis_down_lets_the_request_through_and_counts_the_error() -> None:
+def test_redis_down_blocks_unmetered_provider_calls_and_counts_the_error() -> None:
     clock = _clock()
     limiter, _ = _limiter(clock, failure=redis.ConnectionError("down"))
     errors = _sample("rate_limit_error_total")
 
-    assert limiter.acquire(7) == pytest.approx(0.0)
+    with pytest.raises(redis.ConnectionError):
+        limiter.acquire(7)
     assert clock.now == pytest.approx(0.0)
-    assert _sample("rate_limit_error_total") == pytest.approx(errors + 2)
+    assert _sample("rate_limit_error_total") == pytest.approx(errors + 1)
 
 
 def test_get_limiter_reads_settings_with_short_timeouts(monkeypatch) -> None:

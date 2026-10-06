@@ -1,7 +1,14 @@
 from bancaemdia.db.models import Base
 from bancaemdia.models.apelido import Apelido
 from bancaemdia.models.aposta import Aposta
+from bancaemdia.models.assinatura import Assinatura
+from bancaemdia.models.audit_log import AuditLog
 from bancaemdia.models.banca import Banca
+from bancaemdia.models.billing_checkout import BillingCheckout
+from bancaemdia.models.billing_event import BillingEvent
+from bancaemdia.models.billing_price import BillingPrice
+from bancaemdia.models.billing_price_audit import BillingPriceAudit
+from bancaemdia.models.billing_rollout import BillingRollout
 from bancaemdia.models.casa import Casa
 from bancaemdia.models.chamada_ia import ChamadaIA
 from bancaemdia.models.coleta_casa import ColetaCasa
@@ -15,16 +22,20 @@ from bancaemdia.models.mensagem import Mensagem
 from bancaemdia.models.mensagem_versao import MensagemVersao
 from bancaemdia.models.mercado import Mercado
 from bancaemdia.models.midia import Midia
+from bancaemdia.models.midia_arquivo import MidiaArquivo
 from bancaemdia.models.movimento import Movimento
+from bancaemdia.models.movimento_requisicao import MovimentoRequisicao
 from bancaemdia.models.revisao_pendente import RevisaoPendente
 from bancaemdia.models.time import Time
 from bancaemdia.models.tipster import Tipster
 from bancaemdia.models.unidade import Unidade
+from bancaemdia.models.upload import Upload, UploadArquivo, UploadBilhete
 from bancaemdia.models.usuario import Usuario
 
 __all__ = [
     "Apelido",
     "Aposta",
+    "AuditLog",
     "Banca",
     "Base",
     "Casa",
@@ -40,10 +51,34 @@ __all__ = [
     "MensagemVersao",
     "Mercado",
     "Midia",
+    "MidiaArquivo",
     "Movimento",
+    "MovimentoRequisicao",
     "RevisaoPendente",
     "Time",
     "Tipster",
     "Unidade",
+    "Upload",
+    "UploadArquivo",
+    "UploadBilhete",
     "Usuario",
 ]
+
+
+__all__ += ["BillingEvent"]
+
+__all__ += ["BillingCheckout"]
+
+__all__ += ["Assinatura"]
+
+
+__all__ += ["AuditLog"]
+
+
+__all__ += ["BillingPrice"]
+
+
+__all__ += ["BillingPriceAudit"]
+
+
+__all__ += ["BillingRollout"]

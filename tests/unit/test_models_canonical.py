@@ -7,7 +7,14 @@ from sqlalchemy.sql.ddl import DDLElement
 from bancaemdia.db.models import Base
 from bancaemdia.models.apelido import ENTIDADES, Apelido
 from bancaemdia.models.aposta import Aposta
+from bancaemdia.models.assinatura import Assinatura
+from bancaemdia.models.audit_log import AuditLog
 from bancaemdia.models.banca import Banca
+from bancaemdia.models.billing_checkout import BillingCheckout
+from bancaemdia.models.billing_event import BillingEvent
+from bancaemdia.models.billing_price import BillingPrice
+from bancaemdia.models.billing_price_audit import BillingPriceAudit
+from bancaemdia.models.billing_rollout import BillingRollout
 from bancaemdia.models.casa import Casa
 from bancaemdia.models.chamada_ia import ChamadaIA
 from bancaemdia.models.coleta_casa import ColetaCasa
@@ -21,11 +28,14 @@ from bancaemdia.models.mensagem import Mensagem
 from bancaemdia.models.mensagem_versao import MensagemVersao
 from bancaemdia.models.mercado import FAMILIAS, Mercado
 from bancaemdia.models.midia import Midia
+from bancaemdia.models.midia_arquivo import MidiaArquivo
 from bancaemdia.models.movimento import Movimento
+from bancaemdia.models.movimento_requisicao import MovimentoRequisicao
 from bancaemdia.models.revisao_pendente import RevisaoPendente
 from bancaemdia.models.time import Time
 from bancaemdia.models.tipster import Tipster
 from bancaemdia.models.unidade import Unidade
+from bancaemdia.models.upload import Upload, UploadArquivo, UploadBilhete
 from bancaemdia.models.usuario import Usuario
 
 NUCLEO = (Usuario, Banca, ContaCasa, Unidade, Movimento, Aposta, Evento)
@@ -39,8 +49,28 @@ SUPORTE = (
     ColetaCasa,
     ColetaToken,
     RevisaoPendente,
+    MidiaArquivo,
+    MovimentoRequisicao,
 )
-POR_USUARIO = (ChamadaIA, ColetaCasa, ColetaToken, RevisaoPendente)
+UPLOAD = (Upload, UploadBilhete, UploadArquivo)
+BILLING = (
+    Assinatura,
+    BillingPrice,
+    BillingPriceAudit,
+    BillingRollout,
+    BillingCheckout,
+    BillingEvent,
+)
+POR_USUARIO = (
+    ChamadaIA,
+    ColetaCasa,
+    ColetaToken,
+    RevisaoPendente,
+    Upload,
+    UploadBilhete,
+    UploadArquivo,
+    MovimentoRequisicao,
+)
 
 
 def _ddl() -> str:
@@ -68,9 +98,11 @@ def _indexes(modelo: type[Base]) -> dict[str, list[str]]:
     return {i.name: [c.name for c in i.columns] for i in modelo.__table__.indexes}
 
 
-def test_all_twenty_two_tables_are_registered() -> None:
-    esperadas = {m.__tablename__ for m in NUCLEO + CANONICOS + SUPORTE}
-    assert len(esperadas) == 22
+def test_all_thirty_four_tables_are_registered() -> None:
+    esperadas = {
+        m.__tablename__ for m in NUCLEO + CANONICOS + SUPORTE + UPLOAD + BILLING + (AuditLog,)
+    }
+    assert len(esperadas) == 34
     assert set(Base.metadata.tables) == esperadas
     assert {m.__tablename__ for m in CANONICOS} == {
         "casas",
@@ -90,7 +122,10 @@ def test_all_twenty_two_tables_are_registered() -> None:
         "coletas_casa",
         "coleta_token",
         "revisao_pendente",
+        "midia_arquivos",
+        "movimento_requisicoes",
     }
+    assert {m.__tablename__ for m in UPLOAD} == {"uploads", "upload_bilhetes", "upload_arquivos"}
 
 
 def test_create_all_renders_every_table_once() -> None:
@@ -155,6 +190,7 @@ def test_jsonb_columns() -> None:
         ExtracaoCache.__table__.c.resultado_json,
         ColetaCasa.__table__.c.bruto_json,
         RevisaoPendente.__table__.c.extracao_bruta,
+        MovimentoRequisicao.__table__.c.resposta_json,
     ):
         assert isinstance(coluna.type, JSONB)
     assert "apelidos JSONB DEFAULT '[]'::jsonb NOT NULL" in _create_table("times")
@@ -179,8 +215,11 @@ def test_mensagens_are_unique_per_chat_and_message() -> None:
     assert _indexes(Mensagem) == {
         "idx_mensagens_data": ["data"],
         "idx_mensagens_autor": ["autor_bruto"],
+        "idx_mensagens_midia_hash": ["midia_hash"],
     }
     assert Mensagem.__table__.c.autor_bruto.nullable is True
+    assert Mensagem.__table__.c.editada_em.nullable is True
+    assert Mensagem.__table__.c.midia_hash.nullable is True
 
 
 def test_mensagem_versoes_are_partitioned_by_month() -> None:
@@ -243,6 +282,12 @@ def test_revisao_pendente_indexes() -> None:
     assert RevisaoPendente.__table__.c.midia_hash.nullable is True
 
 
-def test_bigserial_everywhere_except_the_cache() -> None:
-    for nome in set(Base.metadata.tables) - {"extracoes_cache"}:
+def test_bigserial_except_composite_and_billing_owner_keys() -> None:
+    for nome in set(Base.metadata.tables) - {
+        "extracoes_cache",
+        "assinaturas",
+        "billing_rollout",
+        "billing_checkouts",
+        "billing_events",
+    }:
         assert "id BIGSERIAL NOT NULL" in _create_table(nome)

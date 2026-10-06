@@ -186,7 +186,8 @@ response: 202 { coleta_id, status: "queued" }
 
 **Exit criteria Week 3**:
 - [ ] All endpoints return 2xx/4xx/5xx correctly, structured JSON errors
-- [ ] `/ready` checks: PG writable, Anthropic HEAD ok, queue depth < 100
+- [ ] `/ready` gates traffic on PG primary/replica and Redis; Anthropic and queue depth remain
+      visible as report-only degradation
 - [ ] Distributed trace: upload → extraction → materialization → painel visible
 - [ ] Rate limit headers (`X-RateLimit-Limit`, `X-RateLimit-Remaining`) present
 

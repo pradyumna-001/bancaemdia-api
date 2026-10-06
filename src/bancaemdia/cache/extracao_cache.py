@@ -2,11 +2,13 @@ import hashlib
 import re
 import unicodedata
 from contextlib import suppress
+from datetime import datetime
 from functools import lru_cache
 
 import redis
 from pydantic import BaseModel, ValidationError
 
+from bancaemdia.cache.redis_client import sync_client
 from bancaemdia.config import get_settings
 from bancaemdia.extracao.cliente import VERSAO_PROMPT, Leitura
 from bancaemdia.extracao.modelos import ExtracaoBilhete
@@ -29,11 +31,15 @@ def normalizar_legenda(legenda: str) -> str:
     return re.sub(r"\s+", " ", limpa)
 
 
-def chave_de_imagem(imagem: bytes, legenda: str = "") -> str:
+def chave_de_imagem(imagem: bytes, legenda: str = "", *, postada_em: datetime | None = None) -> str:
     hash_da_imagem = hashlib.sha256(imagem).hexdigest()
-    if not legenda.strip():
+    if not legenda.strip() and postada_em is None:
         return hash_da_imagem
-    return hashlib.sha256(f"{hash_da_imagem}|{normalizar_legenda(legenda)}".encode()).hexdigest()
+    contexto = f"{hash_da_imagem}|{normalizar_legenda(legenda)}"
+    if postada_em is not None:
+        # This is the exact minute rendered into the AI prompt for relative dates.
+        contexto += f"|{postada_em:%d/%m/%Y %H:%M}"
+    return hashlib.sha256(contexto.encode()).hexdigest()
 
 
 def chave_no_redis(chave: str, versao_prompt: str) -> str:
@@ -101,10 +107,10 @@ class ExtracaoCache:
                 if versao_anterior(texto.rsplit(":", 1)[-1], self.versao_prompt):
                     lote.append(texto)
                 if len(lote) == LOTE_DE_LIMPEZA:
-                    apagadas += self.client.unlink(*lote)
+                    apagadas += sum(self.client.unlink(nome) for nome in lote)
                     lote = []
             if lote:
-                apagadas += self.client.unlink(*lote)
+                apagadas += sum(self.client.unlink(nome) for nome in lote)
         except redis.RedisError:
             cache_errors.inc()
         return apagadas
@@ -112,9 +118,8 @@ class ExtracaoCache:
 
 @lru_cache
 def get_cache() -> ExtracaoCache:
-    client = redis.Redis.from_url(
-        get_settings().REDIS_URL,
-        socket_timeout=TIMEOUT_SEGUNDOS,
-        socket_connect_timeout=TIMEOUT_SEGUNDOS,
+    settings = get_settings()
+    client = sync_client(
+        settings.REDIS_URL, cluster=settings.REDIS_CLUSTER_MODE, timeout=TIMEOUT_SEGUNDOS
     )
     return ExtracaoCache(client)

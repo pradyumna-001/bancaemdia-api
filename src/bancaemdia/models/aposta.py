@@ -55,10 +55,23 @@ class Aposta(Base):
         Index("idx_apostas_data", "usuario_id", "data_aposta"),
         Index("idx_apostas_duplicada", "usuario_id", "duplicada_de"),
         Index(
+            "idx_apostas_print_ordem",
+            "usuario_id",
+            "midia_hash",
+            "ordem_na_mensagem",
+            postgresql_where=text("origem = 'print' AND midia_hash IS NOT NULL"),
+        ),
+        Index(
             "idx_apostas_revisao",
             "usuario_id",
             "revisao_grave",
             postgresql_where=text("revisao_grave"),
+        ),
+        Index(
+            "idx_apostas_apagadas",
+            "usuario_id",
+            "criada_em",
+            postgresql_where=text("NOT selecionada"),
         ),
         Index(
             "idx_apostas_chave",
@@ -97,6 +110,9 @@ class Aposta(Base):
     parceira_chave: Mapped[str | None] = mapped_column(String)
     duplicada_de: Mapped[str | None] = mapped_column(String)
     revisao_grave: Mapped[bool] = mapped_column(Boolean, server_default=text("false"))
+    # Apagar no projeto antigo nunca foi apagar: a aposta sai das contas e das listas, e o
+    # histórico dela fica inteiro, para dar para desfazer.
+    selecionada: Mapped[bool] = mapped_column(Boolean, server_default=text("true"))
     criada_em: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
     atualizada_em: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), onupdate=func.now()

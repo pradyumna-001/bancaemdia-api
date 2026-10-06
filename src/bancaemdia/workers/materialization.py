@@ -1,7 +1,10 @@
 import asyncio
+import errno
 import re
+from collections.abc import Sequence
 from dataclasses import dataclass, replace
 from datetime import datetime, timedelta, timezone
+from decimal import Decimal
 from functools import lru_cache
 from typing import Any
 
@@ -15,8 +18,10 @@ from sqlalchemy.pool import NullPool
 from bancaemdia.coleta.leitores import LEITORES
 from bancaemdia.config import get_settings
 from bancaemdia.domain.coleta_casa import (
+    ApostaInvalidaError,
     casa_da_coleta,
     chave_casa,
+    evento_do_aviso,
     eventos_da_criacao,
     eventos_do_resultado,
     validar,
@@ -35,14 +40,17 @@ from bancaemdia.domain.materializar import (
 )
 from bancaemdia.domain.registros import ColetaCasa
 from bancaemdia.domain.temporal import VALOR_UNIDADE_PADRAO_CENTAVOS
+from bancaemdia.extracao.cliente import VERSAO_PROMPT
 from bancaemdia.extracao.modelos import ExtracaoBilhete
 from bancaemdia.observability.metrics import (
+    apostas_created_total,
     batch_bets_processed,
     materialization_duration,
     materialization_failures,
     observe_stage,
     revisao_pendente_created,
 )
+from bancaemdia.observability.tracing import custom_span
 from bancaemdia.repositories.aposta_repo import ApostaRepo
 from bancaemdia.repositories.casa_repo import CasaRepo
 from bancaemdia.repositories.coleta_casa_repo import ColetaCasaRepo
@@ -50,7 +58,9 @@ from bancaemdia.repositories.conta_casa_repo import ContaCasaRepo
 from bancaemdia.repositories.evento_repo import EventoRepo
 from bancaemdia.repositories.revisao_pendente_repo import RevisaoPendenteRepo
 from bancaemdia.repositories.unidade_repo import UnidadeRepo
+from bancaemdia.repositories.upload_repo import UploadBilheteRepo, UploadRepo
 from bancaemdia.workers.celery_app import MATERIALIZATION_QUEUE, app
+from bancaemdia.workers.pairing import parear_criacao
 
 MOTIVO_GRAVE_PADRAO = "conferência grave"
 FUSO_DO_BRASIL = timezone(timedelta(hours=-3))
@@ -123,6 +133,7 @@ class Gravada:
     eventos: int
     revisao: str | None
     revisao_grave: bool
+    estado: str
 
 
 def motivo_da_metrica(motivo: str) -> str:
@@ -196,30 +207,25 @@ async def _gravar(
 ) -> Gravada:
     await _set_current_user(session, usuario_id)
     historico = await _historico(session, usuario_id, nova.chave)
+    versao_prompt = extracao_json.get("versao_prompt")
+    if versao_prompt is not None and versao_prompt != VERSAO_PROMPT:
+        raise ValueError(f"prompt {versao_prompt!r} não está publicado neste worker")
     atual, protegidos = projetar(historico)
     criada = not any(tipo == "APOSTA_CRIADA" for tipo, _, _ in historico)
     novos = (
-        [EventoNovo("APOSTA_CRIADA", "ia", nova.payload, nova.confianca)]
+        [
+            EventoNovo(
+                "APOSTA_CRIADA",
+                "ia",
+                {**nova.payload, "versao_prompt": versao_prompt},
+                nova.confianca,
+            )
+        ]
         if criada
         else eventos_da_releitura(nova, atual, protegidos)
     )
-    eventos = EventoRepo()
-    for evento in novos:
-        da_mensagem = evento.tipo == "APOSTA_CRIADA"
-        await eventos.append(
-            session,
-            {
-                "usuario_id": usuario_id,
-                "tipo": evento.tipo,
-                "fonte": evento.fonte,
-                "payload_json": evento.payload,
-                "confianca": evento.confianca,
-                "chat_id": nova.chat_id if da_mensagem else None,
-                "message_id": nova.message_id if da_mensagem else None,
-                "aposta_chave": nova.chave,
-            },
-        )
-
+    if not criada and versao_prompt is not None and versao_prompt != atual.get("versao_prompt"):
+        novos.append(EventoNovo("CORRECAO_MANUAL", "ia", {"versao_prompt": versao_prompt}))
     estado, _ = projetar([*historico, *((e.tipo, e.fonte, e.payload) for e in novos)])
     data_aposta = _data(estado.get("data_aposta"))
     financeira = _financeira(estado)
@@ -237,7 +243,19 @@ async def _gravar(
         "odd": estado.get("odd"),
         "freebet": financeira.freebet,
         "revisao_grave": bool(estado.get("revisao_grave")),
+        # O estado e o retorno moram na linha: sem eles, uma releitura que muda a odd deixava o
+        # lucro guardado com a odd velha, e a aposta apagada voltava a contar.
+        "estado": estado.get("estado", "PENDENTE"),
+        "retorno_centavos": estado.get("retorno_centavos"),
+        "selecionada": bool(estado.get("selecionada", True)),
     }
+    # Os identificadores só entram quando a pessoa os escolheu: em branco, eles apagariam a
+    # ligação que a planilha ou a tela já tinha feito.
+    for campo in ("tipster_id", "time_casa_id", "time_fora_id", "mercado_id", "competicao_id"):
+        if estado.get(campo) is not None:
+            dados[campo] = estado[campo]
+    if estado.get("data_jogo") is not None:
+        dados["data_jogo"] = _data(estado["data_jogo"])
     if midia_hash is not None:
         dados["midia_hash"] = midia_hash
     conta_casa_id = estado.get("conta_casa_id")
@@ -248,9 +266,39 @@ async def _gravar(
         conta_casa_id = None if conta is None else conta.id
     if conta_casa_id is not None or criada or any("casa" in e.payload for e in novos):
         dados["conta_casa_id"] = conta_casa_id
-    aposta = await ApostaRepo().upsert_materializada(session, dados)
+    if criada:
+        # The first event now carries every derived association needed to recreate a deleted
+        # projection. Legacy events without this marker remain fail-closed during replay.
+        snapshot = {
+            campo: valor.isoformat() if isinstance(valor, datetime) else valor
+            for campo, valor in dados.items()
+            if campo not in {"usuario_id", "chave", "stake_centavos", "valor_aposta_centavos"}
+        }
+        snapshot["valor_unidade_centavos"] = financeira.valor_unidade_centavos
+        snapshot["snapshot_completo"] = True
+        novos[0] = replace(novos[0], payload={**novos[0].payload, "snapshot_replay": snapshot})
+    eventos = EventoRepo()
+    for evento in novos:
+        da_mensagem = evento.tipo == "APOSTA_CRIADA"
+        await eventos.append(
+            session,
+            {
+                "usuario_id": usuario_id,
+                "tipo": evento.tipo,
+                "fonte": evento.fonte,
+                "payload_json": evento.payload,
+                "confianca": evento.confianca,
+                "chat_id": nova.chat_id if da_mensagem else None,
+                "message_id": nova.message_id if da_mensagem else None,
+                "aposta_chave": nova.chave,
+            },
+        )
+    with custom_span("materializacao.upsert", origem=nova.origem, usuario_id=usuario_id):
+        aposta = await ApostaRepo().upsert_materializada(session, dados)
     if aposta is None:
         raise GravacaoConcorrenteError(f"outra gravação mais nova de {nova.chave} chegou antes")
+    if criada and getattr(aposta, "id", None) is not None:
+        await parear_criacao(session, usuario_id, aposta, estado)
 
     revisao = await _revisar(
         session,
@@ -260,10 +308,24 @@ async def _gravar(
         novos,
         criada,
         midia_hash,
-        {"aposta_chave": nova.chave, "extracao": extracao_json},
+        {
+            "aposta_chave": nova.chave,
+            "extracao": extracao_json,
+            **(
+                {"parceira_suspeita": estado["parceira_suspeita"]}
+                if estado.get("parceira_suspeita")
+                else {}
+            ),
+        },
     )
     return Gravada(
-        nova.chave, nova.origem, criada, len(novos), revisao, bool(estado.get("revisao_grave"))
+        nova.chave,
+        nova.origem,
+        criada,
+        len(novos),
+        revisao,
+        bool(estado.get("revisao_grave")),
+        str(estado.get("estado") or "PENDENTE"),
     )
 
 
@@ -334,6 +396,8 @@ async def gravar_leitura(
             async with session.begin():
                 gravada = await _gravar(session, usuario_id, nova, extracao_json, midia_hash)
             gravadas.append(gravada)
+            if gravada.criada:
+                apostas_created_total.labels(origem=gravada.origem, estado=gravada.estado).inc()
             if gravada.revisao is not None:
                 revisao_pendente_created.labels(reason=motivo_da_metrica(gravada.revisao)).inc()
             if gravada.criada:
@@ -356,8 +420,13 @@ def materializar_aposta(
             gravadas = asyncio.run(
                 gravar_leitura(get_engine(), usuario_id, extracao, extracao_json, midia_hash)
             )
-        except RETRY_ON:
-            materialization_failures.labels(reason="banco").inc()
+        except RETRY_ON as error:
+            cause = getattr(error, "orig", None)
+            disk_full = isinstance(error, OperationalError) and (
+                getattr(cause, "sqlstate", None) == "53100"
+                or getattr(cause, "errno", None) == errno.ENOSPC
+            )
+            materialization_failures.labels(reason="disk_full" if disk_full else "banco").inc()
             raise
         except Exception:
             materialization_failures.labels(reason="inesperado").inc()
@@ -383,26 +452,82 @@ materializar_aposta_task = app.task(
 
 
 async def _gravar_coletada(
-    session: AsyncSession, usuario_id: int, coleta: ColetaCasa, casa: str, nome_da_casa: str
+    session: AsyncSession,
+    usuario_id: int,
+    coletas: Sequence[ColetaCasa],
+    casa: str,
+    nome_da_casa: str,
 ) -> Gravada:
-    coletada = replace(LEITORES[casa](coleta.bruto_json), casa=casa)
-    chave = chave_casa(casa, coletada.identidade)
+    lidas = [replace(LEITORES[casa](coleta.bruto_json), casa=casa) for coleta in coletas]
+    chave = chave_casa(casa, lidas[-1].identidade)
     historico = await _historico(session, usuario_id, chave)
-    atual, _ = projetar(historico)
-    criada = not any(tipo == "APOSTA_CRIADA" for tipo, _, _ in historico)
-    data_aposta = _data(coletada.data_aposta)
+    existia = any(tipo == "APOSTA_CRIADA" for tipo, _, _ in historico)
+    capturas = list(zip(coletas, lidas, strict=True))
+    novos: list[EventoNovo] = []
+    data_aposta = None
+    recusa: ApostaInvalidaError | None = None
+    coleta_da_revisao = coletas[-1].id
+    # A aposta que já existe recebe só a captura mais nova: repassar as velhas desfaria o resultado.
+    # A que ainda não existe passa pelo histórico na ordem, como se o leitor já estivesse lá.
+    for coleta, coletada in capturas[-1:] if existia else capturas:
+        antes = len(novos)
+        if existia or any(e.tipo == "APOSTA_CRIADA" for e in novos):
+            atual, _ = projetar([*historico, *((e.tipo, e.fonte, e.payload) for e in novos)])
+            novos.extend(eventos_do_resultado(coletada, atual))
+        else:
+            data_aposta = _data(coletada.data_aposta)
+            # A unidade vigente é a do dia que conta para a aposta da casa, o do jogo.
+            unidade = (
+                None
+                if data_aposta is None
+                else await UnidadeRepo().get_vigente(session, usuario_id, data_aposta)
+            )
+            valor_unidade = (
+                VALOR_UNIDADE_PADRAO_CENTAVOS if unidade is None else unidade.valor_centavos
+            )
+            try:
+                validar(coletada, valor_unidade)
+            except ApostaInvalidaError as erro:
+                recusa = erro
+                continue
+            novos.extend(eventos_da_criacao(coletada, valor_unidade))
+        if any(e.payload.get("revisao_motivo") for e in novos[antes:]):
+            coleta_da_revisao = coleta.id
+    criada = not existia and any(e.tipo == "APOSTA_CRIADA" for e in novos)
+    if recusa is not None and not existia and not criada:
+        raise recusa
+    atual, _ = projetar([*historico, *((e.tipo, e.fonte, e.payload) for e in novos)])
+    aviso = next(((coleta, c.motivo_retencao) for coleta, c in capturas if c.motivo_retencao), None)
+    # O aviso de uma captura anterior não se perde por ela não ser a mais nova: aplicada na ordem, ela
+    # teria marcado a aposta, e o aviso que a aposta já tem nunca é sobrescrito.
+    if existia and aviso is not None and not atual.get("revisao_motivo"):
+        novos.append(evento_do_aviso(aviso[1]))
+        coleta_da_revisao = aviso[0].id
+    conta_criacao = None
     if criada:
-        # A unidade vigente é a do dia que conta para a aposta da casa, o do jogo.
-        unidade = (
-            None
-            if data_aposta is None
-            else await UnidadeRepo().get_vigente(session, usuario_id, data_aposta)
+        conta_criacao = await ContaCasaRepo().get_vigente_by_nome_da_casa(
+            session, usuario_id, nome_da_casa, data_aposta
         )
-        valor_unidade = VALOR_UNIDADE_PADRAO_CENTAVOS if unidade is None else unidade.valor_centavos
-        validar(coletada, valor_unidade)
-        novos = eventos_da_criacao(coletada, valor_unidade)
-    else:
-        novos = eventos_do_resultado(coletada, atual)
+        financeira_criacao = _financeira(atual)
+        snapshot = {
+            "snapshot_completo": True,
+            "origem": "casa",
+            "stake_unidades": financeira_criacao.stake_unidades,
+            "valor_unidade_centavos": financeira_criacao.valor_unidade_centavos,
+            "conta_casa_id": None if conta_criacao is None else conta_criacao.id,
+            "chat_id": None,
+            "message_id": None,
+            "ordem_na_mensagem": 0,
+            "data_aposta": atual.get("data_aposta"),
+            "freebet": financeira_criacao.freebet,
+        }
+        for indice, evento in enumerate(novos):
+            if evento.tipo == "APOSTA_CRIADA":
+                novos[indice] = replace(
+                    evento,
+                    payload={**evento.payload, "snapshot_replay": snapshot},
+                )
+                break
     eventos = EventoRepo()
     for evento in novos:
         await eventos.append(
@@ -436,12 +561,13 @@ async def _gravar_coletada(
         "revisao_grave": bool(estado.get("revisao_grave")),
     }
     if criada:
-        conta = await ContaCasaRepo().get_vigente_by_nome_da_casa(
-            session, usuario_id, nome_da_casa, data_aposta
-        )
-        dados["conta_casa_id"] = None if conta is None else conta.id
-    if await ApostaRepo().upsert_materializada(session, dados) is None:
+        dados["conta_casa_id"] = None if conta_criacao is None else conta_criacao.id
+    with custom_span("materializacao.upsert", origem="casa", usuario_id=usuario_id):
+        aposta = await ApostaRepo().upsert_materializada(session, dados)
+    if aposta is None:
         raise GravacaoConcorrenteError(f"outra gravação mais nova de {chave} chegou antes")
+    if criada and getattr(aposta, "id", None) is not None:
+        await parear_criacao(session, usuario_id, aposta, estado)
 
     revisao = await _revisar(
         session,
@@ -451,52 +577,100 @@ async def _gravar_coletada(
         novos,
         criada,
         None,
-        {"aposta_chave": chave, "coleta_id": coleta.id},
+        {
+            "aposta_chave": chave,
+            "coleta_id": coleta_da_revisao,
+            **(
+                {"parceira_suspeita": estado["parceira_suspeita"]}
+                if estado.get("parceira_suspeita")
+                else {}
+            ),
+        },
     )
-    return Gravada(chave, "casa", criada, len(novos), revisao, bool(estado.get("revisao_grave")))
+    return Gravada(
+        chave,
+        "casa",
+        criada,
+        len(novos),
+        revisao,
+        bool(estado.get("revisao_grave")),
+        str(estado.get("estado") or "PENDENTE"),
+    )
 
 
-async def gravar_coleta(engine: AsyncEngine, usuario_id: int, coleta_id: int) -> Gravada | None:
+async def gravar_coletas(
+    engine: AsyncEngine, usuario_id: int, coleta_ids: Sequence[int]
+) -> Gravada | None:
     async with (
         engine.connect() as conexao,
         AsyncSession(bind=conexao, expire_on_commit=False) as session,
     ):
         async with session.begin():
             await _set_current_user(session, usuario_id)
-            coletas = ColetaCasaRepo()
-            # A linha é travada antes de ser lida: uma tarefa atrasada processa a captura mais nova,
-            # nunca a velha por cima dela, e a rota só grava outra captura depois deste commit.
-            coleta = await coletas.get_by_id_for_update(session, usuario_id, coleta_id)
-            if coleta is None:
+            repo = ColetaCasaRepo()
+            # As linhas são travadas antes de serem lidas: uma tarefa atrasada lê o conteúdo atual de
+            # cada uma, e a rota só grava outra captura nelas depois deste commit.
+            travadas = [
+                await repo.get_by_id_for_update(session, usuario_id, coleta_id)
+                for coleta_id in sorted(set(coleta_ids))
+            ]
+            coletas = sorted(
+                (coleta for coleta in travadas if coleta is not None),
+                key=lambda coleta: (coleta.recebido_em, coleta.id),
+            )
+            if not coletas:
                 return None
-            nome_da_casa = await CasaRepo().get_nome_by_id(session, coleta.casa_id)
+            nome_da_casa = await CasaRepo().get_nome_by_id(session, coletas[0].casa_id)
             casa = None if nome_da_casa is None else casa_da_coleta(nome_da_casa)
             if nome_da_casa is None or casa is None:
                 return None
-            gravada = await _gravar_coletada(session, usuario_id, coleta, casa, nome_da_casa)
-            await coletas.set_processado(session, usuario_id, coleta.id)
+            # A captura mais nova da aposta pode ter chegado pela rota depois que o comando listou o
+            # histórico: ela entra, travada, para a velha não ser aplicada por cima dela.
+            identidade = LEITORES[casa](coletas[-1].bruto_json).identidade
+            da_casa = await repo.get_by_identidade_for_update(
+                session, usuario_id, coletas[0].casa_id, identidade
+            )
+            if da_casa is not None and all(coleta.id != da_casa.id for coleta in coletas):
+                coletas = sorted(
+                    [*coletas, da_casa], key=lambda coleta: (coleta.recebido_em, coleta.id)
+                )
+            gravada = await _gravar_coletada(session, usuario_id, coletas, casa, nome_da_casa)
+            for coleta in coletas:
+                await repo.set_processado(session, usuario_id, coleta.id)
         if gravada.revisao is not None:
             revisao_pendente_created.labels(reason=motivo_da_metrica(gravada.revisao)).inc()
         if gravada.criada:
+            apostas_created_total.labels(origem=gravada.origem, estado=gravada.estado).inc()
             get_event_bus().publish(
                 ApostaCriada(usuario_id, gravada.chave, "casa", gravada.revisao_grave)
             )
     return gravada
 
 
-def materializar_coleta(usuario_id: int, coleta_id: int) -> dict[str, object]:
+async def gravar_coleta(engine: AsyncEngine, usuario_id: int, coleta_id: int) -> Gravada | None:
+    return await gravar_coletas(engine, usuario_id, [coleta_id])
+
+
+def _materializar_coletas(usuario_id: int, coleta_ids: list[int]) -> dict[str, object]:
     with observe_stage(MATERIALIZATION_QUEUE):
-        gravada = asyncio.run(gravar_coleta(get_engine(), usuario_id, coleta_id))
+        gravada = asyncio.run(gravar_coletas(get_engine(), usuario_id, coleta_ids))
         if gravada is not None:
             batch_bets_processed.labels(stage=MATERIALIZATION_QUEUE).inc()
     return {
         "usuario_id": usuario_id,
-        "coleta_id": coleta_id,
         "aposta": None if gravada is None else gravada.chave,
         "criada": gravada is not None and gravada.criada,
         "eventos": 0 if gravada is None else gravada.eventos,
         "revisao": gravada is not None and gravada.revisao is not None,
     }
+
+
+def materializar_coleta(usuario_id: int, coleta_id: int) -> dict[str, object]:
+    return {**_materializar_coletas(usuario_id, [coleta_id]), "coleta_id": coleta_id}
+
+
+def materializar_coletas(usuario_id: int, coleta_ids: list[int]) -> dict[str, object]:
+    return {**_materializar_coletas(usuario_id, coleta_ids), "coleta_ids": coleta_ids}
 
 
 materializar_coleta_task = app.task(
@@ -507,3 +681,116 @@ materializar_coleta_task = app.task(
     retry_jitter=False,
     max_retries=3,
 )(materializar_coleta)
+
+materializar_coletas_task = app.task(
+    name="materialization.materializar_coletas",
+    autoretry_for=RETRY_ON,
+    retry_backoff=30,
+    retry_backoff_max=600,
+    retry_jitter=False,
+    max_retries=3,
+)(materializar_coletas)
+
+
+async def _fechar_bilhete(
+    engine: AsyncEngine,
+    usuario_id: int,
+    upload_id: int,
+    chat_id: int,
+    message_id: int,
+    estado: str,
+    apostas: int,
+    custo_usd: float,
+) -> bool:
+    async with (
+        engine.connect() as conexao,
+        AsyncSession(bind=conexao, expire_on_commit=False) as session,
+    ):
+        async with session.begin():
+            await _set_current_user(session, usuario_id)
+            fechado = await UploadBilheteRepo().finish(
+                session,
+                usuario_id,
+                upload_id,
+                chat_id,
+                message_id,
+                estado,
+                apostas,
+                Decimal(str(round(custo_usd, 6))),
+            )
+            if fechado is None:
+                return False
+            # O envio só termina quando nenhum bilhete está pendente; a linha do envio é travada
+            # para duas últimas leituras não avisarem duas vezes.
+            upload = await UploadRepo().get_by_id_for_update(session, usuario_id, upload_id)
+            por_estado = await UploadBilheteRepo().count_by_estado(session, usuario_id, upload_id)
+        return (
+            upload is not None
+            and upload.status == "processing"
+            and not por_estado.get("PENDENTE", 0)
+        )
+
+
+def _registrar_no_upload(
+    usuario_id: int,
+    upload_id: int,
+    chat_id: int,
+    message_id: int,
+    estado: str,
+    apostas: int = 0,
+    custo_usd: float = 0.0,
+) -> None:
+    terminou = asyncio.run(
+        _fechar_bilhete(
+            get_engine(), usuario_id, upload_id, chat_id, message_id, estado, apostas, custo_usd
+        )
+    )
+    if terminou:
+        app.send_task(
+            "materialization.notificar_upload",
+            kwargs={"upload_id": upload_id, "usuario_id": usuario_id},
+        )
+
+
+def materializar_leitura(
+    extracao_json: dict[str, Any],
+    usuario_id: int,
+    midia_hash: str | None = None,
+    upload_id: int | None = None,
+) -> dict[str, object]:
+    resultado = materializar_aposta(usuario_id, extracao_json, midia_hash)
+    if upload_id is not None:
+        apostas = resultado["apostas"]
+        _registrar_no_upload(
+            usuario_id,
+            upload_id,
+            int(extracao_json["chat_id"]),
+            int(extracao_json["message_id"]),
+            "LIDO",
+            len(apostas) if isinstance(apostas, list) else 0,
+            float(extracao_json.get("custo_usd") or 0.0),
+        )
+    return resultado
+
+
+def registrar_falha(upload_id: int, usuario_id: int, chat_id: int, message_id: int) -> None:
+    _registrar_no_upload(usuario_id, upload_id, chat_id, message_id, "FALHOU")
+
+
+materializar_leitura_task = app.task(
+    name="materialization.materializar_leitura",
+    autoretry_for=RETRY_ON,
+    retry_backoff=30,
+    retry_backoff_max=600,
+    retry_jitter=False,
+    max_retries=3,
+)(materializar_leitura)
+
+registrar_falha_task = app.task(
+    name="materialization.registrar_falha",
+    autoretry_for=RETRY_ON,
+    retry_backoff=30,
+    retry_backoff_max=600,
+    retry_jitter=False,
+    max_retries=3,
+)(registrar_falha)

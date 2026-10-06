@@ -164,7 +164,9 @@ class Resumo:
     def roi_sem_bonus(self) -> float:
         if not self.giro_proprio_centavos:
             return 0.0
-        return self.lucro_proprio_centavos / self.giro_proprio_centavos
+        # The alternative ROI removes the freebet face value from the denominator only. Its
+        # winnings remain part of the actual profit, just as they do in the regular ROI.
+        return self.lucro_centavos / self.giro_proprio_centavos
 
     @property
     def taxa_de_acerto(self) -> float:

@@ -4,6 +4,7 @@ from functools import lru_cache
 
 import redis
 
+from bancaemdia.cache.redis_client import sync_client
 from bancaemdia.config import get_settings
 from bancaemdia.observability.metrics import rate_limit_errors, rate_limit_exceeded, rate_limit_wait
 
@@ -67,17 +68,17 @@ class AnthropicLimiter:
             wait_ms = self.script(keys=[key], args=[limit, self.window, tokens])
         except redis.RedisError:
             rate_limit_errors.inc()
-            return 0.0
+            # Without the shared quota, a worker must wait for Redis rather than make
+            # unmetered paid calls. Celery retries the extraction when Redis recovers.
+            raise
         return int(wait_ms) / 1000
 
 
 @lru_cache
 def get_limiter() -> AnthropicLimiter:
     settings = get_settings()
-    client = redis.Redis.from_url(
-        settings.REDIS_URL,
-        socket_timeout=TIMEOUT_SECONDS,
-        socket_connect_timeout=TIMEOUT_SECONDS,
+    client = sync_client(
+        settings.REDIS_URL, cluster=settings.REDIS_CLUSTER_MODE, timeout=TIMEOUT_SECONDS
     )
     return AnthropicLimiter(
         client,

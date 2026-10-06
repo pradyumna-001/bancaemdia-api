@@ -1,0 +1,51 @@
+{
+  "contrato": 1,
+  "casa": "betano",
+  "capturado_em": "2026-09-10T22:00:00Z",
+  "apostas": [
+    {
+      "id": "90000000001",
+      "bonusType": 0,
+      "totalAmount": 160.0,
+      "totalAmountWithCurrency": {"amount": 160.0, "currencyCode": "BRL"},
+      "totalOdds": 1.9,
+      "finalWinnings": 304.0,
+      "placedAt": 1785708161930,
+      "finalBetResult": "Win",
+      "settledAt": 1785711761930,
+      "legs": [
+        {
+          "legItems": [
+            {
+              "eventId": "86389413",
+              "eventName": "Internacional - Corinthians",
+              "startTime": 1785709800000,
+              "selections": [{"description": "Mais de 41.5", "odds": 1.9}]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "90000000002",
+      "bonusType": 0,
+      "totalAmount": 50.0,
+      "totalAmountWithCurrency": {"amount": 50.0, "currencyCode": "BRL"},
+      "totalOdds": 2.25,
+      "finalWinnings": 0.0,
+      "placedAt": 1785708161930,
+      "legs": [
+        {
+          "legItems": [
+            {
+              "eventId": "86389500",
+              "eventName": "Fortaleza - Bahia",
+              "startTime": 1785709800000,
+              "selections": [{"description": "Fortaleza", "odds": 2.25}]
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

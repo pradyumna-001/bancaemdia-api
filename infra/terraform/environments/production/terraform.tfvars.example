@@ -1,0 +1,7 @@
+region          = "us-east-1"
+dr_region       = "us-west-2"
+api_domain      = "api.example.com"
+route53_zone_id = "ZEXAMPLE"
+deploy_enabled  = false
+image_uri       = ""
+tags            = { Owner = "platform" }

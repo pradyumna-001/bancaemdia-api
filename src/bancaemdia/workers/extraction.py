@@ -4,7 +4,9 @@ from datetime import datetime
 
 import anthropic
 import pybreaker
-from celery import signals
+import redis
+from celery import chain, signals
+from celery.canvas import Signature
 
 from bancaemdia.cache.extracao_cache import get_cache
 from bancaemdia.extracao.cliente import (
@@ -18,25 +20,38 @@ from bancaemdia.extracao.cliente import (
 from bancaemdia.extracao.escada import Leitor
 from bancaemdia.extracao.rodada import ler_mensagem
 from bancaemdia.observability.metrics import anthropic_cost, batch_bets_processed, observe_stage
+from bancaemdia.observability.tracing import custom_span
 from bancaemdia.rate_limit.anthropic_limiter import AnthropicLimiter, get_limiter
 from bancaemdia.workers.celery_app import EXTRACTION_QUEUE, app
 
 RETRY_ON = (
     anthropic.APIConnectionError,
+    anthropic.APITimeoutError,
     anthropic.RateLimitError,
     anthropic.InternalServerError,
     anthropic.OverloadedError,
     anthropic.ServiceUnavailableError,
     anthropic.DeadlineExceededError,
     pybreaker.CircuitBreakerError,
+    redis.RedisError,
 )
 
 
 class LeitorLimitado:
-    def __init__(self, leitor: Leitor, limiter: AnthropicLimiter, usuario_id: int) -> None:
+    def __init__(
+        self,
+        leitor: Leitor,
+        limiter: AnthropicLimiter,
+        usuario_id: int,
+        *,
+        chat_id: int | None = None,
+        message_id: int | None = None,
+    ) -> None:
         self.leitor = leitor
         self.limiter = limiter
         self.usuario_id = usuario_id
+        self.chat_id = chat_id
+        self.message_id = message_id
         self.modelo_escalonamento = leitor.modelo_escalonamento
 
     def ler(
@@ -50,10 +65,22 @@ class LeitorLimitado:
     ) -> Leitura:
         self.limiter.acquire(self.usuario_id)
         custo = anthropic_cost.labels(usuario_id=str(self.usuario_id))
+        modelo = (
+            self.modelo_escalonamento
+            if escalonar
+            else str(getattr(self.leitor, "modelo", "unknown"))
+        )
         try:
-            leitura = self.leitor.ler(
-                imagem, tipo, legenda=legenda, postada_em=postada_em, escalonar=escalonar
-            )
+            with custom_span(
+                "extraction.chamar_anthropic",
+                model=modelo,
+                versao_prompt=VERSAO_PROMPT,
+                chat_id=self.chat_id,
+                message_id=self.message_id,
+            ):
+                leitura = self.leitor.ler(
+                    imagem, tipo, legenda=legenda, postada_em=postada_em, escalonar=escalonar
+                )
         except LeituraFalhouError as erro:
             # Resposta cortada, recusa ou JSON incompleto também foram cobrados.
             custo.inc(erro.custo_usd)
@@ -72,10 +99,19 @@ def extrair_bilhete(
     odds_do_texto: list[float] | None = None,
     chat_id: int | None = None,
     message_id: int | None = None,
+    versao_prompt: str = VERSAO_PROMPT,
 ) -> dict[str, object]:
+    if versao_prompt != VERSAO_PROMPT:
+        raise ValueError(f"prompt {versao_prompt!r} não está publicado neste worker")
     with observe_stage(EXTRACTION_QUEUE):
         leitura = ler_mensagem(
-            LeitorLimitado(get_leitor(), get_limiter(), usuario_id),
+            LeitorLimitado(
+                get_leitor(),
+                get_limiter(),
+                usuario_id,
+                chat_id=chat_id,
+                message_id=message_id,
+            ),
             base64.b64decode(imagem_base64),
             tipo_da_imagem(nome_do_arquivo),
             legenda=legenda,
@@ -90,7 +126,7 @@ def extrair_bilhete(
         "chat_id": chat_id,
         "message_id": message_id,
         "postada_em": postada_em,
-        "versao_prompt": VERSAO_PROMPT,
+        "versao_prompt": versao_prompt,
         **leitura.para_json(),
     }
 
@@ -114,3 +150,55 @@ def limpar_cache_de_versoes_antigas(**kwargs: object) -> threading.Thread:
 
 
 signals.worker_ready.connect(limpar_cache_de_versoes_antigas)
+
+
+def cadeia_do_bilhete(
+    usuario_id: int,
+    imagem_base64: str,
+    *,
+    nome_do_arquivo: str,
+    legenda: str,
+    postada_em: str | None,
+    casas_do_link: list[str],
+    odds_do_texto: list[float],
+    chat_id: int,
+    message_id: int,
+    midia_hash: str,
+    upload_id: int | None = None,
+    versao_prompt: str = VERSAO_PROMPT,
+) -> Signature:
+    if versao_prompt != VERSAO_PROMPT:
+        raise ValueError(f"prompt {versao_prompt!r} não está publicado neste worker")
+    # A leitura entra como primeiro argumento posicional da gravação: `materializar_aposta` tem o
+    # usuário nessa posição e a corrente trocaria os dois sem erro nenhum (medido).
+    leitura = app.signature(
+        "extraction.extrair_bilhete",
+        kwargs={
+            "usuario_id": usuario_id,
+            "imagem_base64": imagem_base64,
+            "nome_do_arquivo": nome_do_arquivo,
+            "legenda": legenda,
+            "postada_em": postada_em,
+            "casas_do_link": casas_do_link,
+            "odds_do_texto": odds_do_texto,
+            "chat_id": chat_id,
+            "message_id": message_id,
+            "versao_prompt": versao_prompt,
+        },
+    )
+    gravacao = app.signature(
+        "materialization.materializar_leitura",
+        kwargs={"usuario_id": usuario_id, "midia_hash": midia_hash, "upload_id": upload_id},
+    )
+    corrente = chain(leitura, gravacao)
+    if upload_id is None:
+        return corrente
+    # Sem este retorno de erro o envio ficaria "processando" para sempre quando a leitura esgota
+    # as tentativas: é ele que fecha o bilhete como FALHOU.
+    return corrente.on_error(
+        app.signature(
+            "materialization.registrar_falha",
+            args=(upload_id, usuario_id, chat_id, message_id),
+            immutable=True,
+        )
+    )

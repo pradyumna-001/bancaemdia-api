@@ -79,6 +79,17 @@ async def test_get_db_no_user_skips_config(monkeypatch) -> None:
     assert executed == []
 
 
+def test_financial_snapshot_sessions_use_repeatable_read() -> None:
+    assert (
+        db_session.snapshot_engine.sync_engine.get_execution_options()["isolation_level"]
+        == "REPEATABLE READ"
+    )
+    assert (
+        db_session.snapshot_replica_engine.sync_engine.get_execution_options()["isolation_level"]
+        == "REPEATABLE READ"
+    )
+
+
 async def test_get_read_db_yields_session(monkeypatch) -> None:
     class Session:
         async def __aenter__(self):

@@ -19,6 +19,7 @@ TIPOS_DE_EVENTO = (
     "CORRECAO_MANUAL",
     "MOVIMENTO_REGISTRADO",
     "CLV_REGISTRADO",
+    "REVISAO_RESOLVIDA",
 )
 FONTES = ("export", "ia", "manual", "liquidacao", "planilha", "casa")
 
