@@ -1,8 +1,7 @@
 # Revisão da parte 4: coleta, catálogo e infraestrutura dos readers
 
 Esta entrega reúne os apontamentos dos PRs #164 (#108), #171 (#113) e
-#172 (#114) em uma árvore de produto com base `main`. Não conclui a aprovação
-humana das fixtures da #114 nem implementa o matching/consolidação da parte 5.
+#172 (#114) em uma árvore de produto com base `main`. Publica os exemplos sintéticos da #114 por autorização do titular em 06/10/2026, para revisão no PR; não declara aprovação do administrador nem suporte real de casa. O matching/consolidação pertence à parte 5.
 
 ## Composição e ordem administrativa
 
@@ -44,7 +43,7 @@ nunca apagar histórico para permitir downgrade.
 | #171: comunicação ao usuário | Legalidade/fonte/data de consulta ficam separadas do suporte técnico; catálogo não concede permissão de navegador nem endosso legal. Runbook especifica os campos e limites que o cliente deve apresentar. UI/extensão não são alteradas neste backend. Snapshots regulatórios datados não são tratados como consulta atual. |
 | #171: E2E real | Parear, obter publicação assinada, ETag, rotacionar, revogar e rejeitar token/ambiente/versão/host inválidos via API real e PostgreSQL. Suíte de 41 casos de catálogo/instalação sem skips. |
 | #172: schema desconhecido | Registry fechado por casa/host/schema/endpoint/canal/versão; casos incompatíveis viram quarentena sem fallback default ou mutação financeira. `tests/coleta/`, `reader_quarantine_acceptance.py` |
-| #172: golden independente | Oracle por bytes canônicos, hash e versão, manifesto e aprovação humana anterior ao primeiro `git add`. Gate verifica autor confiável e digest exato; aprovação genérica de PR não serve. |
+| #172: golden independente | Oracle por bytes canônicos, hash e versão. Capturas reais exigem aprovação humana antes do Git. Para o pacote sintético exato da #114, o titular autorizou publicação para review em 06/10/2026; digest fixo, sem aprovação administrativa inferida. |
 | #172: ausência de matching | Reader produz resultado normalizado ou quarentena. Matching #109, consolidação #110 e ligação ao pipeline #115 permanecem fronteiras explícitas; teste de reader não comprova consolidação. |
 | #172: formatos mistos/regressão | Harness cobre versão/canal/host incompatíveis, moeda, opcionais, múltiplas e segurança; 16 aceites de quarentena PostgreSQL/RLS/rollback/concorrência, além da regressão herdada. O conjunto de produção ainda está vazio enquanto falta aprovação das fixtures. |
 
@@ -63,30 +62,11 @@ auditoria e ACK/retry. A ativação de billing usa um banco descartável própri
 para não interferir com testes paralelos. A data legada de colocação conserva
 seu significado para outros consumidores, mas não determina esta atribuição.
 
-## Bloqueio humano da #114
+## Pacote sintético da #114 publicado para revisão
 
-**Responsável: administrador `pradyumna-001`.** O usuário solicitou aguardar
-sua revisão. O pacote candidato tem 11 casos sintéticos e 33 arquivos;
-continua fora do Git. Pedido de revisão e manifesto:
-https://github.com/pradyumna-001/bancaemdia-api/issues/114#issuecomment-5914508578
+Em 06/10/2026 o titular autorizou publicar os 11 exemplos/33 arquivos no PR, substituindo a espera de aprovação anterior ao Git para esse pacote exato. Digest: `4df5308bfc391564e6e2cb0e6ace49e29f7194a640f5c74ce53aec55353de601`. A revisão administrativa continua pendente; `reviewer` e `reference` permanecem null e o status é `publication_authorized`.
 
-Digest do pacote:
-`4df5308bfc391564e6e2cb0e6ace49e29f7194a640f5c74ce53aec55353de601`.
-Após revisar exatamente os bytes, o administrador pode registrar:
-
-```text
-Approved reader fixture bundle SHA256: 4df5308bfc391564e6e2cb0e6ace49e29f7194a640f5c74ce53aec55353de601
-```
-
-Próxima ação após essa aprovação: validar autoria/digest, incluir somente o
-pacote aprovado, executar o gate/harness/quarentena/regressão e conferir todos
-os checks do novo HEAD. Se qualquer byte mudar, solicitar revisão do novo
-digest. O agente não substitui aprovação humana por seu próprio comentário.
-
-Enquanto isso, o relatório registra **zero fixture sets aprovados e zero
-registros de produção**. CI verde comprova a infraestrutura e suas negativas,
-não cobertura de produção das onze fixtures nem aceite integral da #114.
-Essa pendência é revisão do administrador, não ativação de lançamento.
+O gate aceita somente esse digest e a proveniência sintética do exemplo; continua verificando os hashes originais, dados sensíveis, inventário, versões e goldens. Os testes publicados comprovam estados, valores, replay e atualizações. O relatório distingue um conjunto publicado para revisão de zero conjuntos aprovados, e registra zero leitores de produção. Capturas reais e outros pacotes seguem o gate de aprovação humana anterior. Detalhes: [contrato](../contracts/backend-readers.md).
 
 ## Gates de entrega
 
@@ -95,5 +75,5 @@ mínima de 80%, contratos/OpenAPI/breaking changes e Docker permanecem
 obrigatórios. Jobs dedicados exercitam contas/billing, coleta/instalações,
 catálogo e readers no código final. Aceites obrigatórios rejeitam ausência,
 falha, erro e skip; a regressão herdada permite apenas os cenários de réplica
-não configurada e o placeholder histórico do painel. O gate humano continua
-obrigatório mesmo com o conjunto aprovado vazio.
+não configurada e o placeholder histórico do painel. O gate de segurança/autorização continua
+obrigatório; a exceção sintética exata não promove leitor de produção.

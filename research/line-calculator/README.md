@@ -1,5 +1,7 @@
 # Reproducible data audit for issue #104
 
+**Archived for post-launch (2026-10-06, owner decision).** Historical research only; acquisition, probes, benchmarks and implementation are paused. [Archive and reactivation requirements](../../docs/archive/post-launch/line-calculator.md). Not a launch or #118 dependency.
+
 This directory contains a **data contract and quality audit**, not a trained model. The checked-in fixture is explicitly synthetic. No API key, paid export or personal account data is stored here.
 
 ## Public sample and provenance

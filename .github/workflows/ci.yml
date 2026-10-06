@@ -217,7 +217,7 @@ jobs:
           cache: "pip"
       - run: pip install -e ".[dev]"
       - run: pytest tests/coleta/ -n 0 --junitxml=reader-contract-results.xml
-      - name: Verify every fixture and trusted human review
+      - name: Verify fixture safety, publication authorization and human review
         run: python scripts/validate_reader_fixtures.py --base-ref origin/main --report reader-capabilities.json
         env:
           GH_TOKEN: ${{ github.token }}
