@@ -21,7 +21,7 @@ CI results and pending work must be evaluated against this consolidation's actua
 | #155 | Eight PostgreSQL/Redis billing lifecycle scenarios and both goal migration orders run on the actual product tree. Temporary assembly/patches are removed. This is partial evidence for broad issue #118. |
 | #156 | Four Decimal calculators and independent golden examples through the API. |
 | #158 | Tenant-private preferences, advanced analytics and audited goals use the canonical financial projection; upgrade orders and rollback retain privacy/billing guards. |
-| #173 | Real API, workers, JWKS, PostgreSQL primary/standby and Redis; current installation tokens and game-date account usages; 100-user collection preflight and the complete four-profile load run. |
+| #173 | Real API, workers, JWKS, PostgreSQL primary/standby and Redis; current installation tokens and game-date account usages; asynchronous upload and 100-user collection preflights, plus the complete four-profile load run. |
 | #176 | Reconcile current review/launch status with source judgments; preserve the review history without importing its outdated code snapshot. |
 
 Default account attribution uses the game date. Explicit multicontas keeps the actual

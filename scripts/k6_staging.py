@@ -6,6 +6,7 @@ import argparse
 import asyncio
 import hashlib
 import hmac
+import io
 import ipaddress
 import json
 import os
@@ -15,6 +16,7 @@ import ssl
 import subprocess
 import sys
 import time
+import zipfile
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from uuid import uuid4
@@ -420,11 +422,16 @@ async def seed(directory: Path, info: dict, env: dict) -> None:
         mask(token)
     write_private(directory / "tokens.json", {"jwt": tokens, "coleta": collection_tokens})
     os.environ.update(env)
+    seed_extraction_cache(env)
+
+
+def seed_extraction_cache(env: dict) -> None:
     # Only the existing, explicitly synthetic k6 archive is cached. No reader-review fixtures.
     from bancaemdia.cache.extracao_cache import chave_de_imagem, get_cache
     from bancaemdia.domain.upload import ExportTelegram
     from bancaemdia.extracao.cliente import Leitura
     from bancaemdia.extracao.modelos import ExtracaoBilhete, Selecao
+    from bancaemdia.workers.materialization import FUSO_DO_BRASIL
 
     with (
         (ROOT / "k6/fixtures/telegram-small.zip").open("rb") as archive,
@@ -442,13 +449,98 @@ async def seed(directory: Path, info: dict, env: dict) -> None:
         quando="2026-09-22T15:00:00",
         selecoes=[Selecao(mercado="Resultado Final", escolha="Flamengo", odd=1.9)],
     )
-    cache_key = chave_de_imagem(image, message.texto)
+    # Upload stores a naive export clock as Brazilian local time, then the worker
+    # converts its timestamptz back to that local minute for the extraction prompt.
+    posted = message.data
+    if posted.tzinfo is not None:
+        posted = posted.astimezone(FUSO_DO_BRASIL).replace(tzinfo=None)
+    cache_key = chave_de_imagem(image, message.texto, postada_em=posted)
     cache = get_cache()
     cache.guardar(
         cache_key, Leitura((coupon,), env.get("ANTHROPIC_ESCALATION_MODEL", "claude-sonnet-5"))
     )
     if cache.buscar(cache_key) is None:
         raise RuntimeError("Extraction cache could not be seeded")
+
+
+def upload_preflight_archive() -> bytes:
+    """Keep the original photo/context but reserve a distinct message for user 1."""
+    output = io.BytesIO()
+    with (
+        zipfile.ZipFile(ROOT / "k6/fixtures/telegram-small.zip") as original,
+        zipfile.ZipFile(output, "w", compression=zipfile.ZIP_DEFLATED) as prepared,
+    ):
+        for item in original.infolist():
+            content = original.read(item)
+            if Path(item.filename).name == "result.json":
+                export = json.loads(content)
+                for index, message in enumerate(export["messages"]):
+                    message["id"] = 900001 + index
+                content = json.dumps(export).encode()
+            prepared.writestr(item, content)
+    return output.getvalue()
+
+
+async def upload_preflight(directory: Path) -> None:
+    info = state(directory)
+    tokens = json.loads((directory / "tokens.json").read_text(encoding="utf-8"))
+    trust = ssl.create_default_context(cafile=str(directory / "tls.crt"))
+    async with httpx.AsyncClient(
+        base_url="https://127.0.0.1:18000",
+        headers={"Authorization": f"Bearer {tokens['jwt'][0]}"},
+        verify=trust,
+        timeout=20,
+    ) as client:
+        accepted = await client.post(
+            "/api/v1/upload",
+            files={
+                "file": ("telegram-preflight.zip", upload_preflight_archive(), "application/zip")
+            },
+        )
+        if accepted.status_code != 202:
+            raise RuntimeError(f"Upload preflight acceptance HTTP {accepted.status_code}")
+        status_url = accepted.json()["status_url"]
+        for _ in range(90):
+            response = await client.get(status_url)
+            if response.status_code != 200:
+                raise RuntimeError(f"Upload preflight status HTTP {response.status_code}")
+            outcome = response.json()
+            if outcome["status"] in {"completed", "failed"}:
+                break
+            await asyncio.sleep(1)
+        if (
+            outcome["status"] != "completed"
+            or outcome["bets_processed"] != 1
+            or outcome["bets_failed"] != 0
+            or outcome["cost_usd"] != 0
+        ):
+            # Do not expose task inputs, identities, or raw error text in diagnostics.
+            raise RuntimeError(
+                "Upload preflight did not complete one cached bet without failure/cost"
+            )
+    conn = await connect(15432, info["admin_password"])
+    try:
+        persisted = await conn.fetchval(
+            "SELECT count(*) FROM apostas WHERE usuario_id=1 AND origem='telegram'"
+        )
+        if persisted != 1:
+            raise RuntimeError("Upload preflight did not persist exactly one tenant-owned bet")
+    finally:
+        await conn.close()
+    info["upload_preflight_bets"] = 1
+    write_private(directory / "state.json", info)
+    evidence = {
+        "sha": os.environ["TESTED_HEAD_SHA"],
+        "checkout_sha": command(["git", "rev-parse", "HEAD"], cwd=ROOT),
+        "uploads": 1,
+        "telegram_bets": persisted,
+        "bets_failed": 0,
+        "ai_cost_usd": 0,
+        "transport": "verified HTTPS API and asynchronous worker callback",
+    }
+    (ROOT / "k6-upload-preflight-evidence.json").write_text(
+        json.dumps(evidence, indent=2), encoding="utf-8"
+    )
 
 
 def spawn(directory: Path, args: list[str], name: str, env: dict) -> None:
@@ -641,7 +733,9 @@ async def refresh(directory: Path) -> None:
 async def verify(directory: Path) -> None:
     info = state(directory)
     profile = os.environ.get("LOAD_PROFILE", "all")
-    expected_uploads = {"all": 250, "steady": 50, "spike": 200}.get(profile, 0)
+    scenario_uploads = {"all": 250, "steady": 50, "spike": 200}.get(profile, 0)
+    preflight_bets = info.get("upload_preflight_bets", 0)
+    expected_uploads = scenario_uploads + preflight_bets
     conn = await connect(15432, info["admin_password"])
     try:
         for _ in range(60):
@@ -728,6 +822,7 @@ async def verify(directory: Path) -> None:
             "recycle_seconds": 7200,
         },
         "counts": counts,
+        "upload_expectation": {"scenario": scenario_uploads, "preflight": preflight_bets},
         "streaming_replicas": streaming,
         "rls_cross_tenant_visible": leaked,
         "ai": "synthetic cached extraction; no paid provider; not an AI benchmark",
@@ -797,7 +892,16 @@ async def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument(
         "operation",
-        choices=["prepare", "regressions", "start", "refresh", "verify", "cleanup", "diagnose"],
+        choices=[
+            "prepare",
+            "regressions",
+            "start",
+            "refresh",
+            "upload-preflight",
+            "verify",
+            "cleanup",
+            "diagnose",
+        ],
     )
     operation = parser.parse_args().operation
     directory = runtime_dir()
@@ -811,6 +915,7 @@ async def main() -> None:
             "regressions": regressions,
             "start": start,
             "refresh": refresh,
+            "upload-preflight": upload_preflight,
             "verify": verify,
         }[operation](directory)
 

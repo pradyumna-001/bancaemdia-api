@@ -25,6 +25,8 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
       - uses: grafana/setup-k6-action@v1
         with:
           k6-version: '1.3.0'
@@ -69,6 +71,8 @@ jobs:
       TESTED_HEAD_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
     steps:
       - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
       - uses: grafana/setup-k6-action@v1
         with:
           k6-version: '1.3.0'
@@ -103,6 +107,9 @@ jobs:
           test -z "${K6_LOCAL_SMOKE:-}" || { echo 'Smoke mode is forbidden for staging load'; exit 1; }
       - name: Authenticated preflight against the real API
         run: LOAD_PROFILE=cd-smoke python k6/run.py
+      - name: Complete one asynchronous cached upload before full load
+        if: vars.STAGING_BASE_URL == '' && env.LOAD_PROFILE == 'all'
+        run: python scripts/k6_staging.py upload-preflight
       - name: Five-minute collection preflight with 100 simultaneous users
         if: vars.STAGING_BASE_URL == '' && env.LOAD_PROFILE == 'all'
         run: |
@@ -129,6 +136,7 @@ jobs:
             k6-coleta-preflight-summary.json
             k6-coleta-preflight-report.html
             k6-coleta-preflight-evidence.json
+            k6-upload-preflight-evidence.json
           if-no-files-found: warn
       - name: Sanitized backend diagnostics on failure
         if: failure() && vars.STAGING_BASE_URL == ''

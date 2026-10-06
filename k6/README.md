@@ -61,6 +61,13 @@ Os quatro perfis completos mantêm 55 minutos e todos os limiares originais. `K6
 persistidas, apostas Casa materializadas, streaming ativo e RLS sem acesso entre tenants.
 Um preflight autenticado de 30 segundos usa a API real antes da carga; falha rapidamente
 se houver problemas de credenciais. Ele não substitui os quatro perfis completos.
+O perfil completo também exige um upload assíncrono concluído antes da carga: usa a
+mesma foto/contexto sintéticos, com mensagem reservada diferente, e confere uma aposta
+persistida do primeiro usuário, custo zero e nenhum bilhete falho. A chave pré-carregada
+inclui a hora local brasileira de postagem, como o worker real. A aposta desse preflight
+permanece no banco: a verificação final exige 251 uploads/apostas Telegram, sendo um
+do preflight e todos os 250 dos cenários. `k6-upload-preflight-evidence.json` comprova
+o percurso API HTTPS, filas, extração, materialização e callback HTTPS.
 Para o perfil completo, a Fase 0 também executa primeiro cinco minutos de coleta com 100
 VUs, os mesmos limiares e verificação de materialização. Isso detecta problemas de início
 simultâneo, quota e pipeline antes dos 55 minutos. As coletas dessa etapa permanecem no
@@ -77,7 +84,8 @@ O arquivo sintético já versionado `fixtures/telegram-small.zip` tem sua leitur
 pré-carregada no cache real de extração. A IA aponta para uma porta local sem serviço;
 qualquer cache miss falha, sem chamada à IA paga. Isto mede o percurso com cache aquecido,
 não qualidade/latência da IA nem imagens inéditas. Não usa as fixtures pendentes de revisão
-da #114. HTTP é restrito ao loopback por `ALLOW_HTTP_LOCAL=1`, já suportado pelo k6.
+da #114. O staging descartável usa HTTPS verificado; HTTP local é permitido apenas
+no smoke contratual separado, com `ALLOW_HTTP_LOCAL=1`.
 
 Senhas, JWTs e chaves HMAC são aleatórios, mascarados e escritos apenas em diretório privado
 do runner, fora do checkout. A API e os workers usam papel PostgreSQL sem SUPERUSER ou
