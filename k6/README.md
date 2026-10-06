@@ -90,6 +90,9 @@ no smoke contratual separado, com `ALLOW_HTTP_LOCAL=1`.
 Senhas, JWTs e chaves HMAC são aleatórios, mascarados e escritos apenas em diretório privado
 do runner, fora do checkout. A API e os workers usam papel PostgreSQL sem SUPERUSER ou
 BYPASSRLS. Migração, seed e refresh usam a credencial administrativa só deste banco novo.
+O papel descartável, criado após a migração, recebe explicitamente execução das duas
+funções privadas usadas pelas políticas RLS de mídia/chat Telegram. Não recebe
+SUPERUSER/BYPASSRLS nem execução irrestrita das funções administrativas.
 O script recusa execução fora do GitHub Actions Linux e destinos fora de `RUNNER_TEMP` ou
 dentro do checkout. Cleanup remove somente containers/rede etiquetados por esta execução;
 Os resumos excluem `setup_data`, que contém tokens. Nenhuma credencial ou log bruto é

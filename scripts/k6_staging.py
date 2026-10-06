@@ -10,6 +10,7 @@ import io
 import ipaddress
 import json
 import os
+import re
 import secrets
 import signal
 import ssl
@@ -17,6 +18,7 @@ import subprocess
 import sys
 import time
 import zipfile
+from collections import Counter
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from uuid import uuid4
@@ -289,6 +291,12 @@ async def prepare(directory: Path) -> None:
             "GRANT SELECT, INSERT, UPDATE, DELETE ON ALL TABLES IN SCHEMA public TO k6_app"
         )
         await conn.execute("GRANT USAGE, SELECT ON ALL SEQUENCES IN SCHEMA public TO k6_app")
+        # This disposable role is created after migrations. The private Telegram
+        # RLS helpers grant bancaemdia_app only when that role already exists.
+        await conn.execute(
+            "GRANT EXECUTE ON FUNCTION telegram_legacy_media_visible(text), "
+            "telegram_chat_linked(bigint,bigint) TO k6_app"
+        )
     finally:
         await conn.close()
     network = json.loads(command(["docker", "network", "inspect", info["name"]]))[0]
@@ -873,6 +881,25 @@ def diagnose(directory: Path) -> None:
         json.dumps({"live_process_cpu_seconds_since_ready": cpu_since_ready(state(directory))})
         + "\n"
     )
+    # Only exception classes and known routine names, never task arguments,
+    # exception reprs, SQL parameters or identifiers, enter public diagnostics.
+    import redis
+
+    env = json.loads((directory / "env.json").read_text(encoding="utf-8"))
+    failures: Counter[str] = Counter()
+    try:
+        with redis.Redis.from_url(env["CELERY_BROKER_URL"], socket_timeout=2) as broker:
+            for encoded in broker.lrange("dead_letter", 0, 99):
+                exception = str(json.loads(encoded).get("headers", {}).get("exception", ""))
+                kind = exception.split("(", 1)[0]
+                if kind.isidentifier():
+                    failures[kind] += 1
+                for routine in ("telegram_legacy_media_visible", "telegram_chat_linked"):
+                    if re.search(rf"permission denied for function {routine}\b", exception):
+                        failures[f"permission_denied:{routine}"] += 1
+    except (redis.RedisError, ValueError):
+        sys.stdout.write("Dead-letter diagnostics unavailable\n")
+    sys.stdout.write(json.dumps({"dead_letter_exception_counts": dict(failures)}) + "\n")
     hidden = [value for value in state(directory).values() if isinstance(value, str)]
     for name in ("tokens.json", "env.json"):
         path = directory / name
