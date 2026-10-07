@@ -35,6 +35,7 @@ from bancaemdia.models.cruzamento_candidato import CruzamentoCandidato, Cruzamen
 from bancaemdia.models.esporte import Esporte
 from bancaemdia.models.evento import Evento
 from bancaemdia.models.extracao_cache import ExtracaoCache
+from bancaemdia.models.grupo_aposta import ApostaGrupo, GrupoAposta
 from bancaemdia.models.mensagem import Mensagem
 from bancaemdia.models.mensagem_versao import MensagemVersao
 from bancaemdia.models.mercado import Mercado
@@ -67,6 +68,7 @@ __all__ = [
     "Apelido",
     "Aposta",
     "ApostaConsolidacao",
+    "ApostaGrupo",
     "Assinatura",
     "AuditLog",
     "Banca",
@@ -97,6 +99,7 @@ __all__ = [
     "Esporte",
     "Evento",
     "ExtracaoCache",
+    "GrupoAposta",
     "Mensagem",
     "MensagemVersao",
     "Mercado",

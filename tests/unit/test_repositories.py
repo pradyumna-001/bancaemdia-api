@@ -241,14 +241,21 @@ async def test_aposta_page_counts_the_filter_in_the_same_query() -> None:
     assert (len(apostas), total) == (1, 137)
     sql = _sql(session.statements[0])
     # O total vem na mesma ida ao banco, e a apagada fica de fora até alguém pedir.
-    assert "count(*) OVER ()" in sql
-    assert "AND apostas.selecionada" in sql
+    assert "SELECT count(*) AS total" in sql and "FROM apostas_filtradas" in sql
+    assert "LEFT OUTER JOIN" in sql and "ON true" in sql
+    assert "AND apostas.selecionada IS true" in sql
     assert "LIMIT %(param_1)s OFFSET %(param_2)s" in sql
-    assert "ORDER BY apostas.criada_em DESC, apostas.id DESC" in sql
+    assert "ORDER BY apostas_filtradas.criada_em DESC, apostas_filtradas.id DESC" in sql
 
 
 async def test_aposta_page_applies_every_filter_of_the_list() -> None:
-    session = _Session()
+    class EmptyPage:
+        total = 0
+
+        def __getitem__(self, index: int) -> None:
+            return None
+
+    session = _Session(EmptyPage())
 
     await ApostaRepo().list_page(
         session,

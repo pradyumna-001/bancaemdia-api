@@ -693,6 +693,11 @@ async def test_painel_totals_match_the_conferir_numeros_logic(isolated_banco, mo
             assert panel.resumo.giro_centavos == 10000
             assert panel.resumo.lucro_centavos == 10000
             assert panel.resumo.roi_basis_points == 10000
+            from bancaemdia.repositories.painel_filtrado_repo import PainelFiltradoRepo
+
+            filtered = await PainelFiltradoRepo().resumo(session, user, {})
+            assert filtered["total_apostas"] == 1
+            assert filtered["giro_centavos"] == filtered["lucro_centavos"] == 10000
         checker = run_path(str(Path(__file__).parents[2] / "scripts/conferir_numeros.py"))
         monkeypatch.setattr(replay, "get_engine", lambda: checker_engine)
         monkeypatch.setattr(sys, "argv", ["conferir_numeros.py", "--usuario-id", str(user)])

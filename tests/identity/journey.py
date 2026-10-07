@@ -445,6 +445,55 @@ async def test_real_registration_refresh_recovery_isolation_and_revocation(harne
         assert (await fetch(pa, "/api/v1/apostas/" + key))["status"] == 200
         assert (await fetch(pb, "/api/v1/apostas/" + key))["status"] == 404
         assert (await fetch(pb, "/api/v1/apostas"))["data"]["pagination"]["total"] == 0
+        # Exercise these new GETs through the real hosted-login HttpOnly session.
+        for dimensao in [
+            "casas",
+            "tipsters",
+            "mercados",
+            "competicoes",
+            "origens",
+            "grupos",
+            "bancas",
+            "titulares",
+            "contas",
+        ]:
+            opcoes = await fetch(pa, "/api/v1/filtros/" + dimensao)
+            assert opcoes["status"] == 200
+            assert opcoes["headers"]["cache-control"] == "private, no-store"
+            assert "Cookie" in opcoes["headers"]["vary"]
+        grupo = await fetch(
+            pa,
+            "/api/v1/grupos",
+            method="POST",
+            csrf=sa["csrf_token"],
+            body={"nome": "Grupo privado descartável"},
+        )
+        assert grupo["status"] == 201
+        gid = grupo["data"]["id"]
+        assert isinstance(gid, str)
+        assert (await fetch(pb, "/api/v1/filtros/grupos?id=" + gid))["data"]["data"] == []
+        atribuir = await fetch(
+            pa,
+            "/api/v1/apostas/" + key + "/grupos",
+            method="PUT",
+            csrf=sa["csrf_token"],
+            body={"grupo_ids": [gid]},
+        )
+        assert atribuir["status"] == 200
+        query = "?grupo_id=" + gid + "&visibilidade=ativas"
+        resumo = await fetch(pa, "/api/v1/painel/filtrado" + query)
+        assert resumo["status"] == 200 and resumo["data"]["resumo"]["total_apostas"] == 1
+        assert (await fetch(pb, "/api/v1/painel/filtrado" + query))["data"]["resumo"][
+            "total_apostas"
+        ] == 0
+        graficos = await fetch(pa, "/api/v1/painel/filtrado/metricas" + query)
+        assert graficos["status"] == 200 and graficos["data"]["total_periodo"]["total_apostas"] == 1
+        arquivo = await pa.evaluate(
+            """async url => {const r=await fetch(url,{credentials:'include'});return {status:r.status,type:r.headers.get('content-type'),bytes:(await r.arrayBuffer()).byteLength}}""",
+            API + "/api/v1/painel/filtrado/export" + query,
+        )
+        assert arquivo["status"] == 200 and arquivo["bytes"] > 1000
+        assert "spreadsheetml" in arquivo["type"]
         cookie_before, credentials = await harness.credentials(a)
         async with httpx.AsyncClient() as client:
             invalid = await client.get(

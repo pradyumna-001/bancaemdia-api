@@ -1,14 +1,16 @@
 from datetime import datetime
 from typing import cast
 
-from sqlalchemy import distinct, func, select, text, tuple_, update
+from sqlalchemy import distinct, func, select, text, true, tuple_, update
 from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.orm import aliased
 
 from bancaemdia import models
 from bancaemdia.domain.registros import Aposta, ApostasPorOrigem
 from bancaemdia.repositories.aposta_consolidacao import financial_predicate
 from bancaemdia.repositories.base import colunas
+from bancaemdia.repositories.selecao_apostas import selecionar_apostas
 
 IMUTAVEIS = frozenset({"id", "usuario_id", "chave", "criada_em"})
 
@@ -81,57 +83,28 @@ class ApostaRepo:
         pagina: int = 1,
         tamanho: int = 50,
     ) -> tuple[list[Aposta], int]:
-        stmt = select(models.Aposta, func.count().over().label("total")).where(
-            models.Aposta.usuario_id == usuario_id
-        )
-        # A apagada só aparece quando a pessoa pede: ela saiu das contas por decisão dela.
-        if not filtros.get("incluir_apagadas"):
-            stmt = stmt.where(models.Aposta.selecionada, financial_predicate())
-        for campo in ("estado", "origem", "tipster_id", "mercado_id", "competicao_id"):
-            if filtros.get(campo) is not None:
-                stmt = stmt.where(getattr(models.Aposta, campo) == filtros[campo])
-        if filtros.get("revisao_grave") is not None:
-            stmt = stmt.where(models.Aposta.revisao_grave == filtros["revisao_grave"])
-        if filtros.get("conta_casa_id") is not None:
-            stmt = stmt.where(models.Aposta.conta_casa_id == filtros["conta_casa_id"])
-        if filtros.get("titular_id") is not None:
-            stmt = stmt.where(
-                models.Aposta.conta_casa_id.in_(
-                    select(models.ContaCasa.id).where(
-                        models.ContaCasa.usuario_id == usuario_id,
-                        models.ContaCasa.titular_id == filtros["titular_id"],
-                    )
-                )
-            )
-        if filtros.get("casa_id") is not None:
-            # A aposta guarda a CONTA da casa, não a casa: quem filtra por casa passa por elas.
-            contas = select(models.ContaCasa.id).where(
-                models.ContaCasa.usuario_id == usuario_id,
-                models.ContaCasa.casa_id == filtros["casa_id"],
-            )
-            stmt = stmt.where(models.Aposta.conta_casa_id.in_(contas))
-        if filtros.get("desde") is not None:
-            stmt = stmt.where(models.Aposta.data_aposta >= filtros["desde"])
-        if filtros.get("ate") is not None:
-            stmt = stmt.where(models.Aposta.data_aposta < filtros["ate"])
-        stmt = (
-            stmt
-            .order_by(models.Aposta.criada_em.desc(), models.Aposta.id.desc())
+        base = selecionar_apostas(usuario_id, filtros).cte("apostas_filtradas")
+        aposta = aliased(models.Aposta, base)
+        pagina_sql = (
+            select(aposta)
+            .order_by(aposta.criada_em.desc(), aposta.id.desc())
             .limit(tamanho)
             .offset((pagina - 1) * tamanho)
+            .subquery()
+        )
+        item = aliased(models.Aposta, pagina_sql)
+        total_sql = select(func.count().label("total")).select_from(base).subquery()
+        # One statement/snapshot, including an empty page beyond the last result.
+        stmt = (
+            select(item, total_sql.c.total)
+            .select_from(total_sql)
+            .outerjoin(pagina_sql, true())
+            .order_by(item.criada_em.desc(), item.id.desc())
         )
         linhas = (await session.execute(stmt)).all()
-        # O total vem na mesma ida ao banco: um COUNT separado leria a tabela duas vezes e podia
-        # discordar da página quando uma aposta entra no meio. Página vazia não tem de onde tirá-lo,
-        # e devolver 0 depois do fim faria a tela dizer que a pessoa não tem aposta nenhuma.
-        if linhas:
-            return [Aposta(**colunas(linha[0])) for linha in linhas], int(linhas[0].total)
-        if pagina == 1:
-            return [], 0
-        contagem = select(func.count()).select_from(
-            stmt.limit(None).offset(None).order_by(None).subquery()
+        return [Aposta(**colunas(row[0])) for row in linhas if row[0] is not None], int(
+            linhas[0].total
         )
-        return [], int((await session.execute(contagem)).scalar_one())
 
     async def count_by_origem(
         self,
