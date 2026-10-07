@@ -603,7 +603,6 @@ negative_schema = (
     schemathesis.openapi
     .from_asgi("/openapi.json", contract_app, config=negative_config)
     .include(path_regex=r"^/api/v1/(?!coleta$)")
-    # These public operations authenticate a challenge/token, not a JWT; their negative cases have dedicated tests.
     .exclude(path="/api/v1/coleta/pairing-exchange")
     .exclude(path="/api/v1/coleta/status")
     .exclude(path="/api/v1/coleta/catalogo")
