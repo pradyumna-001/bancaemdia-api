@@ -123,8 +123,9 @@ jobs:
           baseline="$GITHUB_WORKSPACE/.openapi-main.json"
           git fetch --no-tags --depth=1 origin main:refs/remotes/origin/main
 
-          if git show origin/main:tests/contract/schemas/openapi.json > "$baseline" 2>/dev/null; then
-            echo "Using the checked-in origin/main OpenAPI snapshot."
+          if git cat-file -e origin/main:tests/contract/schemas/openapi.json 2>/dev/null; then
+            python scripts/prepare_openapi_baseline.py --ref origin/main --output "$baseline"
+            echo "Using the complete origin/main OpenAPI snapshot."
             echo "available=true" >> "$GITHUB_OUTPUT"
           else
             rm -f "$baseline"

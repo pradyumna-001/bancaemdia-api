@@ -121,7 +121,7 @@ def _collection_backend() -> Generator[CollectionContractBackend]:
         from bancaemdia.repositories.assinatura_repo import AssinaturaRepo
 
         monkeypatch.setattr(AssinaturaRepo, "read_status", AsyncMock(side_effect=billing_status))
-        monkeypatch.setattr(coleta, "ColetaTokenRepo", TokenRepository)
+        monkeypatch.setattr(coleta, "ColetaInstalacaoRepo", TokenRepository)
         monkeypatch.setattr(coleta, "ColetaCasaRepo", CollectionRepository)
         monkeypatch.setattr(coleta, "CasaRepo", HouseRepository)
         monkeypatch.setattr(coleta, "_enfileirar", enqueue)
