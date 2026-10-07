@@ -84,4 +84,4 @@ seu gate de escrita também na admissão e processamento da inbox. Com privacida
 incluir sessões e entregas nas regras de exclusão/retenção da conta. Esses PRs
 não estão na base desta entrega, e seus escopos não são declarados implementados.
 
-Na parte 4, h4review2026 converge as pontas publicadas. A CI valida diretamente a árvore de produto com pareamento, contas #177, catálogo e quarentena; sem patch externo ou revisão descartável.
+Na parte 4, h4review2026 preserva a convergência publicada; j168base2026/j4main2026 acrescentam a main aceita, incluindo identidade OIDC. A ponta atual é j4main2026. A CI valida diretamente a árvore de produto com pareamento, contas #177, catálogo e quarentena; sem patch externo ou revisão descartável.
