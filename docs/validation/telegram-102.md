@@ -7,13 +7,17 @@ A revisão consolidada da parte 3 reúne #97–#102, originalmente entregues em
 mantêm seus registros. O pré-requisito é a parte 2 (#177), no SHA
 `8d727d2fd1acb941552b49d0d60829cf3df9c3ce`. Esta branch contém esse commit
 para testar a composição completa sem aplicar migrations ou patches artificiais
-nas fixtures. Até o #177 entrar na `main`, o diff contra ela também mostra esse
-pré-requisito; o diff contra o SHA acima isola a parte 3 para revisão.
+nas fixtures. O administrador integrou #163, #168 e #177 em 06/10/2026;
+a base aceita `78b322ad7a2b27eae782d89404f85e7b30021864` já contém esses
+pré-requisitos, incluindo a identidade OIDC. Esta composição concilia o bot
+com essa base, sem depender de outro merge dessas entregas.
 Não houve merge de PRs nem alteração de `main`.
 
 `h3review2026` converge as pontas publicadas `h2review2026` e `b102hard2026`,
 reinstala os guards nos módulos agora presentes e aplica a exceção restrita de
-retenção. Os IDs e pais publicados foram preservados. A suíte obrigatória valida
+retenção. Os IDs e pais publicados foram preservados. A convergência adicional
+`j168base2026`/`j3main2026` une essa cadeia à main aceita; a ponta atual da
+parte 3 é `j3main2026`. A suíte obrigatória valida
 a migration de produto real, sem importar uma migration antiga por variável de
 ambiente e sem modificar funções SQL dentro de fixtures.
 
