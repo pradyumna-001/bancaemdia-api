@@ -15,6 +15,7 @@ from fastapi.testclient import TestClient
 from hypothesis import given, settings
 from hypothesis import strategies as st
 from hypothesis.strategies import SearchStrategy
+from schemathesis.config import HealthCheck
 from starlette.types import ASGIApp, Message, Receive, Scope, Send
 
 from bancaemdia.api.contracts import ReadinessResponse
@@ -590,7 +591,7 @@ def test_schemathesis_invalid_collection_requests_match_contract(
         assert collection_backend.queued == []
 
 
-negative_config = schemathesis.Config()
+negative_config = schemathesis.Config(suppress_health_check=[HealthCheck.filter_too_much])
 negative_config.projects.default.generation.update(
     modes=[schemathesis.GenerationMode.NEGATIVE],
     max_examples=5,

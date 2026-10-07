@@ -1,0 +1,117 @@
+{
+  "fixture_set_version": "1.0.0",
+  "reader_id": "synthetic_reference",
+  "reader_version": "1.0.0",
+  "raw_schema_version": "example-1",
+  "brand": "example",
+  "hostname": "reader.example.invalid",
+  "evidence_kind": "synthetic",
+  "last_real_capture_at": null,
+  "review": {
+    "status": "publication_authorized",
+    "reviewer": null,
+    "reference": null,
+    "bundle_sha256": "4df5308bfc391564e6e2cb0e6ace49e29f7194a640f5c74ce53aec55353de601"
+  },
+  "fixtures": [
+    {
+      "name": "open",
+      "covered_state": "PENDENTE",
+      "files": {
+        "open.raw.json": "fec9136282e640fb8be8e21b2ce0a91527c94eb0cfc03360fba44bcb38238c92",
+        "open.envelope.json": "ed0f0766de939ac497c8d23461a445805021d47f467939343e4af41e4ad0403e",
+        "open.golden.json": "37eaa0751d492f0250432d246507f456ea6a5ce1095d1127d7ed311855823e07"
+      }
+    },
+    {
+      "name": "green",
+      "covered_state": "GREEN",
+      "files": {
+        "green.raw.json": "fdacd959cad28752f7bbcfc1674ad255a0ece55f8cee5f9c080fcb275aeb0bfc",
+        "green.envelope.json": "053612b522f1c02296f3405c047fe5dca2579c6809a3c837136956b95d12ae62",
+        "green.golden.json": "322f65f8605b2592c41e04d0db87038c1cf6a118a457c6eecb0111096be177b8"
+      }
+    },
+    {
+      "name": "red",
+      "covered_state": "RED",
+      "files": {
+        "red.raw.json": "fb59cc35b317799331d10347d746a2d7c1b1595db3d084bc74bef1b36488b7e7",
+        "red.envelope.json": "9c9b63f23310911a3ae8ae045247b58af3b0e895bcb58a9dbe6b2e0ab4c46fe3",
+        "red.golden.json": "0098183823970d01175d0f93b5f9a3be18be326a50627df49a3f80c813c16ba6"
+      }
+    },
+    {
+      "name": "void",
+      "covered_state": "ANULADA",
+      "files": {
+        "void.raw.json": "e4716df4d5508bb72244e4a97a9a480d02c341c132a541de1d17dae40dc6e3d3",
+        "void.envelope.json": "09bd0cca2eec06219bb021440109168960a9597133e70b214f7e607328db9c02",
+        "void.golden.json": "438bf6b4ddf3b77726f07277b3497d893c731500f70d373b5e923d521823d75e"
+      }
+    },
+    {
+      "name": "cashout",
+      "covered_state": "CASHOUT",
+      "files": {
+        "cashout.raw.json": "d2cff16e2297354d8da29280b42c7e3091747515d26c0d264e7b82e6f5b9cec9",
+        "cashout.envelope.json": "880fa5105b774e98175207ed5c69c05a00272c8dd5cc216ffa0cc07414797977",
+        "cashout.golden.json": "b5e3ed1306557e0cbfbabd7ba8a631bb2481c8c9087c1c02bbb5a69e731b2bab"
+      }
+    },
+    {
+      "name": "half-green",
+      "covered_state": "MEIO_GREEN",
+      "files": {
+        "half-green.raw.json": "502b5882e389317055bace88aa99d785bf822bccfdb9a795b0118d4179efe799",
+        "half-green.envelope.json": "d4b8c90b3f3bc38855cf73ae857e9e521800e297044fcd0d91280248420feec9",
+        "half-green.golden.json": "f00df4b1f8af6ccad2ca4321655605c5eac376e32fee342d2b1df0416a78ffaa"
+      }
+    },
+    {
+      "name": "half-red",
+      "covered_state": "MEIO_RED",
+      "files": {
+        "half-red.raw.json": "5714e736b38afa5d526fc67aa7040a121d4cb836b29641417ed341eb2d7d8dc0",
+        "half-red.envelope.json": "6fb91669af1fb7d1849059fa7904306d099ced85e493856c3c01c6ea3f3b208d",
+        "half-red.golden.json": "dd7c1e541a78d46797f74103f7d7a6760a68030cc73a0498a96e540dfec51245"
+      }
+    },
+    {
+      "name": "multiple",
+      "covered_state": "PENDENTE",
+      "files": {
+        "multiple.raw.json": "cc883fee307293fa5ecc7e1d9ed2259a952a0cec9a0a17de58780f34b89245c6",
+        "multiple.envelope.json": "f4235b4ee2f7a2fb3ee43600ce0715fd081edde1c75f9f90e68f16a223893091",
+        "multiple.golden.json": "ba229f9920d69ce084370ed6871335348a39a33b343c4b5df06d2b3083f4fc4b"
+      }
+    },
+    {
+      "name": "brazilian",
+      "covered_state": "GREEN",
+      "files": {
+        "brazilian.raw.json": "fba019ffd9fcece9f1b003b7e252e6391b1c29c77c293a580392d1bafafaa93e",
+        "brazilian.envelope.json": "ba497d30aae2a07a0bb26c2e56ebf52f7fcfa1eed5109761baa5d0034e4b3ec5",
+        "brazilian.golden.json": "9292f195edeb2d90ba7161f20209407c43bc2e8c536acea78b47e847433959cd"
+      }
+    },
+    {
+      "name": "optional-missing",
+      "covered_state": "PENDENTE",
+      "files": {
+        "optional-missing.raw.json": "98c7cc1376b0d4d80f6d7541032f068ec8e17c1fa51792ceabf6498e5a4e204d",
+        "optional-missing.envelope.json": "797cc2f8a20b5e0308f7ad7b6d9d86087706ed392ab40962677a19ecc1b9f62b",
+        "optional-missing.golden.json": "165e3a45e73195b5b0d208d3f15f56da66dc24ad5560e079bf1523d0b36e7197"
+      }
+    },
+    {
+      "name": "unsupported",
+      "covered_state": "UNSUPPORTED",
+      "files": {
+        "unsupported.raw.json": "0c38b7aef6dbd60b62ad5aa3f8f2cadc59ee91abe0bd510d11121430e41cc6a7",
+        "unsupported.envelope.json": "bb704b8d19995e54aa07ef32f89d3afd6c151790f1be45376f0541249b7f8e55",
+        "unsupported.golden.json": "57cfc9e7c9fa47bb26f5c2c8e61db1d1e4b11effa932fb82f48126588ed4fcce"
+      }
+    }
+  ]
+}

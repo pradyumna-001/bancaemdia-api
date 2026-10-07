@@ -13,7 +13,7 @@
 - [ ] When extraction is incomplete, the bot asks only for the missing information and never asks the user to resend the photo
 - [ ] Replayed updates, repeated confirmations, worker restarts, and Telegram outages never duplicate a bet or lose a reply
 - [ ] The four selected calculator APIs use one pure `Decimal` domain core, deterministic cent allocation, and explicit validation
-- [ ] The line-calculator work ends in an approved model/data decision; no Poisson assumption and no implementation issue before that gate passes
+- The line-calculator research (#104) is archived for post-launch by owner decision on 2026-10-06; it is excluded from this milestone. Historical criteria below remain preserved; see [archive](../archive/post-launch/line-calculator.md).
 - [ ] Advanced analytics adds only capabilities absent from GitHub #30 and keeps deposits/withdrawals separate from betting profit
 - [ ] Authenticated financial responses are never publicly cacheable
 - [ ] RLS, privacy, rate-limit, contract, and end-to-end tests pass in CI
@@ -252,6 +252,8 @@ are rejected explicitly.
 **Size**: L (6-8 hours)
 
 **Files**:
+**Archived for post-launch — #104, owner decision 2026-10-06.** The following research outline is historical, not an active implementation or release prerequisite.
+
 - `docs/discovery/line-calculator.md`
 - `docs/adrs/xxx-line-calculator-model-decision.md`
 - `research/line-calculator/README.md`

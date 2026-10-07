@@ -28,6 +28,32 @@ def bundle_digest(manifest: dict) -> str:
     )
 
 
+# Owner instruction of 2026-10-06: publish this exact synthetic candidate for PR review.
+# This is publication authorization, never administrator approval or real-host evidence.
+FIXTURE_SHA256 = "4df5308bfc391564e6e2cb0e6ace49e29f7194a640f5c74ce53aec55353de601"
+
+
+def owner_authorized_candidate(manifest: dict) -> bool:
+    return (
+        bundle_digest(manifest) == FIXTURE_SHA256
+        and manifest.get("review")
+        == {
+            "status": "publication_authorized",
+            "reviewer": None,
+            "reference": None,
+            "bundle_sha256": FIXTURE_SHA256,
+        }
+        and (
+            manifest.get("evidence_kind"),
+            manifest.get("reader_id"),
+            manifest.get("brand"),
+            manifest.get("hostname"),
+            manifest.get("last_real_capture_at"),
+        )
+        == ("synthetic", "synthetic_reference", "example", "reader.example.invalid", None)
+    )
+
+
 def reviewed_manifest(directory: Path) -> dict:
     if directory.is_symlink():
         raise FixtureContractError("unsafe_fixture_directory")
@@ -39,9 +65,24 @@ def reviewed_manifest(directory: Path) -> dict:
         review["reference"],
     ):
         raise FixtureContractError("invalid_human_review_reference")
-    screening = {**manifest, "review": {**review, "reference": None}}
+    # Hex SHA-256 metadata can coincidentally contain phone/CPF digit sequences.
+    # Validate its format separately; scan every payload and all other metadata normally.
+    hashes = [review.get("bundle_sha256")]
+    hashes.extend(value for fixture in manifest["fixtures"] for value in fixture["files"].values())
+    if any(
+        not isinstance(value, str) or not re.fullmatch(r"[0-9a-f]{64}", value) for value in hashes
+    ):
+        raise FixtureContractError("invalid_sha256_metadata")
+    screening = {
+        **manifest,
+        "review": {**review, "reference": None, "bundle_sha256": None},
+        "fixtures": [
+            {**fixture, "files": dict.fromkeys(fixture["files"])}
+            for fixture in manifest["fixtures"]
+        ],
+    }
     check_safe(screening)
-    if (
+    if not owner_authorized_candidate(manifest) and (
         review.get("status") != "approved"
         or not review.get("reviewer")
         or not review.get("reference")
@@ -144,6 +185,7 @@ def run_fixture_set(directory: Path, registry: ReaderRegistry) -> dict:
         "covered_states": sorted(states),
         "last_real_capture_at": manifest["last_real_capture_at"],
         "evidence_kind": manifest["evidence_kind"],
+        "review_status": manifest["review"]["status"],
         "passed": not failures,
         "drift_reason": None if not failures else "golden_mismatch",
         "failures": failures,
