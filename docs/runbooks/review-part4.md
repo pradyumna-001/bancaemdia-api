@@ -5,7 +5,9 @@ Esta entrega reúne os apontamentos dos PRs #164 (#108), #171 (#113) e
 
 ## Composição e ordem administrativa
 
-Base conferida: `8d5aea6bf4c9c99581910a8b1a2ed8c19edc65b8`.
+Base aceita e conciliada em 06/10/2026: `78b322ad7a2b27eae782d89404f85e7b30021864`.
+O administrador integrou #163, #168 e #177 nessa main; não há gate de merge
+pendente dessas entregas. Os SHAs abaixo identificam suas origens históricas.
 Dependências intrínsecas incluídas e testadas, sem overlays de CI:
 
 | Origem | SHA | Motivo |
@@ -18,14 +20,17 @@ Dependências intrínsecas incluídas e testadas, sem overlays de CI:
 
 O #164 foi mesclado em uma branch intermediária e posteriormente revertido
 para isolar a entrega da #107. Sua implementação é reaplicada nesta composição;
-isso não significa que ela já esteja em main. Administrador deve revisar/mesclar
-#163 e #177 antes desta entrega, ou coordenar sua integração. Todos os PRs têm
-base main; os diffs podem compartilhar os pré-requisitos até esses merges.
+isso não significa que a coleta v2 já esteja em main. #163 e #177 já foram
+integrados pelo administrador. Todos os PRs têm base main; a parte 5 inclui
+esta parte 4 e a parte 6 contém a composição completa dos HEADs atuais.
+Coordenar os escopos sobrepostos na revisão; nenhuma base aponta a outro PR.
 Não mesclar os PRs históricos de catálogo/readers separadamente.
 
 `h4review2026` une as pontas publicadas `f107main2026`, `c108v22026`,
 `h2review2026`, `c113catalog2026` e `c114reader2026`, preservando seus IDs e
-guards. Upgrade/downgrade vazio e recusa de downgrade com dados são exercitados
+guards. `j168base2026` e `j4main2026` acrescentam a convergência com a main
+aceita, sem alterar pais publicados; a ponta atual da parte 4 é `j4main2026`.
+Upgrade/downgrade vazio e recusa de downgrade com dados são exercitados
 em PostgreSQL. Rollback com histórico segue os runbooks de cada contrato;
 nunca apagar histórico para permitir downgrade.
 

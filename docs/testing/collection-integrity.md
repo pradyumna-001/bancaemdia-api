@@ -11,7 +11,10 @@ Isso evita interferência entre fixtures sem eliminar nenhuma corrida do produto
 A parte 5 testa o próprio código de produto entregue diretamente à main.
 Ela incorpora as partes 1/2/4 do PR #179 e as origens #165/#166/#169/#170.
 Não há montagem de código fora da branch, correção aplicada só em ensaio nem
-necessidade de aplicar patches depois do merge. `h5review2026` é a ponta completa.
+necessidade de aplicar patches depois do merge. A main aceita em 06/10/2026
+já inclui #163/#168/#177. `h5review2026` é preservada; as convergências
+`j168base2026`, `j4main2026` e `j5main2026` acrescentam essa main.
+A ponta atual da parte 5 é `j5main2026`.
 
 ```sh
 pip install -e '.[dev]'

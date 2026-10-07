@@ -12,8 +12,10 @@ A parte 4 parte diretamente da main e incorpora o pareamento revisado #163
 (`8d727d2fd1acb941552b49d0d60829cf3df9c3ce`). A autenticação, rotação e revogação
 usam o repositório real de instalações. A CI testa esta mesma árvore de produto,
 sem overlays ou patches externos. `h4review2026` converge as migrations publicadas
-de pareamento, coleta v2, contas, catálogo e quarentena. Estes pré-requisitos não
-são alegados como integrados à main enquanto seus PRs permanecem abertos.
+de pareamento, coleta v2, contas, catálogo e quarentena. #163/#168/#177 já
+foram integrados pelo administrador à main aceita em 06/10/2026.
+`j168base2026`/`j4main2026` acrescentam a convergência com essa main e
+preservam as revisões publicadas. A ponta atual da parte 4 é `j4main2026`.
 
 A assinatura Ed25519 autentica uma publicação técnica global por ambiente, versão e
 host exato. Ela não contém `(issuer, sub, installation_id)`: essas identidades são
@@ -186,7 +188,7 @@ O middleware da árvore de produto permite somente GET exato do catálogo com os
 parâmetros documentados, sem duplicatas e com valores limitados. Cache privado somente
 para 200/304 autenticados com ETag; demais endpoints conservam HTTPS, proibição de
 redirects e no-store. A CI executa os testes do catálogo e ciclo real de instalações
-sobre `h4review2026`, além de coleta, contas, quarentena, gate de revisão humana,
+sobre a ponta conciliada `j4main2026`, além de coleta, contas, quarentena, gate de revisão humana,
 suíte completa, segurança, contratos e Docker.
 
 Há provas de dry run/persistência/rollback/idempotência/concorrência real, separação de fontes,

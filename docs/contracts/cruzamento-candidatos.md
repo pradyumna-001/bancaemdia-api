@@ -117,7 +117,7 @@ totais. Um ensaio de downgrade vazio/upgrade e recusa com dados roda em banco
 descartável separado, nunca no banco compartilhado dos outros testes.
 
 A parte 5 integra coleta, matching e consolidação no próprio código, com base
-main e ponta `h5review2026`. A consolidação relê fontes e reavalia versão,
+main e ponta conciliada `j5main2026`, preservando `h5review2026` e incorporando a main aceita em 06/10/2026. A consolidação relê fontes e reavalia versão,
 concorrentes e saturação sob locks antes de criar um fato financeiro.
 
 ## Privacidade e evidência

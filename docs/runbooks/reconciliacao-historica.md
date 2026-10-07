@@ -12,8 +12,10 @@ matriz #112 na própria árvore. As partes 1/2/4 entram como pré-requisitos
 intrínsecos pelo PR #179; não há dependência de checkout temporário da CI.
 
 A ponta `h5review2026` reúne `h4review2026`, `c110fact2026` e `r111journal2026`.
-Os IDs e relações de ancestralidade publicados permanecem intactos. Atualizar
-até essa ponta antes de executar a CLI; preservar journal/evidência no rollback.
+Os IDs e relações de ancestralidade publicados permanecem intactos. A
+convergência adicional `j5main2026` incorpora `j4main2026` e a main aceita
+em 06/10/2026, incluindo #163/#168/#177. Atualizar até `j5main2026` antes
+de executar a CLI; preservar journal/evidência no rollback.
 
 ```bash
 pip install -e '.[dev]'

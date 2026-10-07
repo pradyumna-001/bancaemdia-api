@@ -26,7 +26,7 @@ Erros públicos possuem somente `error_code` e razão enumerada: `schema_drift`,
 
 A chave única usuário + digest + código + razão torna retry concorrente idempotente. A tabela tem RLS forçada com políticas SELECT/INSERT do proprietário; a aplicação não atualiza nem apaga evidência. Retenção legítima exige procedimento administrativo privilegiado. Métrica `reader_capture_outcomes_total{outcome,error_code}` e log `reader_capture_quarantined` usam apenas valores enumerados, nunca ticket, usuário, token, hostname ou conteúdo como label.
 
-Migration `c114reader2026` segue a main `a9d6e3f1c210`, sem reescrever revisões publicadas. Downgrade só remove tabela vazia; havendo evidência, recusa. Rollback operacional: voltar a aplicação e conservar schema/evidência. A parte 4 fornece h4review2026, que converge coleta, contas, catálogo e quarentena preservando IDs. A acceptance PostgreSQL é repetida diretamente nesta árvore; resultados anteriores não a substituem.
+Migration `c114reader2026` segue a main `a9d6e3f1c210`, sem reescrever revisões publicadas. Downgrade só remove tabela vazia; havendo evidência, recusa. Rollback operacional: voltar a aplicação e conservar schema/evidência. A parte 4 preserva h4review2026 e acrescenta j168base2026/j4main2026 para convergir com a main aceita em 06/10/2026; a ponta atual é j4main2026. IDs e pais publicados são preservados. A acceptance PostgreSQL é repetida diretamente nesta árvore; resultados anteriores não a substituem.
 
 ## Adicionar um domínio exato
 
