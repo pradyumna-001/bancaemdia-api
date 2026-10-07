@@ -127,7 +127,8 @@ jobs:
           baseline="$GITHUB_WORKSPACE/.openapi-main.json"
           git fetch --no-tags --depth=1 origin "$BASE_SHA"
 
-          if git show "$BASE_SHA:tests/contract/schemas/openapi.json" > "$baseline" 2>/dev/null; then
+          if git cat-file -e "$BASE_SHA:tests/contract/schemas/openapi.json" 2>/dev/null; then
+            python scripts/prepare_openapi_baseline.py --ref "$BASE_SHA" --output "$baseline"
             echo "Using the checked-in pull request base OpenAPI snapshot."
             echo "available=true" >> "$GITHUB_OUTPUT"
           else
