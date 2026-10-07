@@ -1,6 +1,7 @@
 from bancaemdia.db.models import Base
 from bancaemdia.models.apelido import Apelido
 from bancaemdia.models.aposta import Aposta
+from bancaemdia.models.aposta_consolidacao import ApostaConsolidacao
 from bancaemdia.models.assinatura import Assinatura
 from bancaemdia.models.audit_log import AuditLog
 from bancaemdia.models.banca import Banca
@@ -10,6 +11,15 @@ from bancaemdia.models.billing_price import BillingPrice
 from bancaemdia.models.billing_price_audit import BillingPriceAudit
 from bancaemdia.models.billing_rollout import BillingRollout
 from bancaemdia.models.casa import Casa
+from bancaemdia.models.casa_dominio import (
+    CasaDominio,
+    CatalogoAuditoria,
+    CatalogoConfirmacao,
+    CatalogoFonte,
+    CatalogoOperador,
+    CatalogoPublicacao,
+    CatalogoSnapshot,
+)
 from bancaemdia.models.chamada_ia import ChamadaIA
 from bancaemdia.models.coleta_casa import ColetaCasa
 from bancaemdia.models.coleta_instalacao import (
@@ -17,20 +27,24 @@ from bancaemdia.models.coleta_instalacao import (
     ColetaPairingCode,
     ColetaPairingQuota,
 )
+from bancaemdia.models.coleta_sessao import ColetaEntrega, ColetaSessao
 from bancaemdia.models.coleta_token import ColetaToken
 from bancaemdia.models.competicao import Competicao
 from bancaemdia.models.conta_casa import ContaCasa
+from bancaemdia.models.cruzamento_candidato import CruzamentoCandidato, CruzamentoEntrada
 from bancaemdia.models.esporte import Esporte
 from bancaemdia.models.evento import Evento
 from bancaemdia.models.extracao_cache import ExtracaoCache
 from bancaemdia.models.mensagem import Mensagem
 from bancaemdia.models.mensagem_versao import MensagemVersao
 from bancaemdia.models.mercado import Mercado
+from bancaemdia.models.meta_desempenho import MetaDesempenho
 from bancaemdia.models.midia import Midia
 from bancaemdia.models.midia_arquivo import MidiaArquivo
 from bancaemdia.models.movimento import Movimento
 from bancaemdia.models.movimento_requisicao import MovimentoRequisicao
 from bancaemdia.models.rascunho_aposta import RascunhoAposta, RascunhoCorrecao
+from bancaemdia.models.reader_quarantine import ReaderQuarantine
 from bancaemdia.models.revisao_pendente import RevisaoPendente
 from bancaemdia.models.telegram_link import (
     TelegramLink,
@@ -52,6 +66,7 @@ from bancaemdia.models.usuario import Usuario
 __all__ = [
     "Apelido",
     "Aposta",
+    "ApostaConsolidacao",
     "Assinatura",
     "AuditLog",
     "Banca",
@@ -60,26 +75,39 @@ __all__ = [
     "BillingPriceAudit",
     "BillingRollout",
     "Casa",
+    "CasaDominio",
+    "CatalogoAuditoria",
+    "CatalogoConfirmacao",
+    "CatalogoFonte",
+    "CatalogoOperador",
+    "CatalogoPublicacao",
+    "CatalogoSnapshot",
     "ChamadaIA",
     "ColetaCasa",
+    "ColetaEntrega",
     "ColetaInstalacao",
     "ColetaPairingCode",
     "ColetaPairingQuota",
+    "ColetaSessao",
     "ColetaToken",
     "Competicao",
     "ContaCasa",
+    "CruzamentoCandidato",
+    "CruzamentoEntrada",
     "Esporte",
     "Evento",
     "ExtracaoCache",
     "Mensagem",
     "MensagemVersao",
     "Mercado",
+    "MetaDesempenho",
     "Midia",
     "MidiaArquivo",
     "Movimento",
     "MovimentoRequisicao",
     "RascunhoAposta",
     "RascunhoCorrecao",
+    "ReaderQuarantine",
     "RevisaoPendente",
     "TelegramInbox",
     "TelegramLink",

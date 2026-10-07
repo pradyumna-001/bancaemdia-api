@@ -14,6 +14,7 @@ import pytest
 import structlog
 from fastapi import FastAPI, Request
 from opentelemetry.context import Context
+from opentelemetry.instrumentation.fastapi import FastAPIInstrumentor
 from opentelemetry.sdk.trace import TracerProvider
 from starlette.middleware.base import BaseHTTPMiddleware
 
@@ -315,14 +316,25 @@ async def test_unhandled_error_is_correlated_and_context_is_cleared() -> None:
     app = _application(stream)
     request_id = "37086c30-6fa6-4f59-b525-3ca244bf2ee2"
     provider = TracerProvider()
+    FastAPIInstrumentor.instrument_app(app, tracer_provider=provider)
     tracer = provider.get_tracer("test")
-    with tracer.start_as_current_span("server", context=Context()):
+    with tracer.start_as_current_span("server", context=Context()) as span:
+        expected_span = span.get_span_context()
         async with httpx.AsyncClient(
             transport=httpx.ASGITransport(app=app, raise_app_exceptions=True),
             base_url="http://test",
         ) as client:
             response = await client.get(
-                "/failure", headers={REQUEST_ID_HEADER: request_id, "X-User-ID": "7"}
+                "/failure",
+                headers={
+                    REQUEST_ID_HEADER: request_id,
+                    "X-User-ID": "7",
+                    # Cross the HTTP boundary explicitly. Ambient HTTPX instrumentation
+                    # depends on test order and cannot be the propagation fixture.
+                    "traceparent": (
+                        f"00-{expected_span.trace_id:032x}-{expected_span.span_id:016x}-01"
+                    ),
+                },
             )
 
     assert response.status_code == 500
@@ -330,16 +342,13 @@ async def test_unhandled_error_is_correlated_and_context_is_cleared() -> None:
     assert response.json() == {"detail": "Internal server error"}
     (failure,) = _payloads(stream, "unhandled_request_error")
     assert (failure["request_id"], failure["usuario_id"]) == (request_id, 7)
-    # Another test module may globally instrument FastAPI in the same xdist worker; the request
-    # then runs under a NEW server root trace, which is what the log must honestly report.
-    # Ambient-trace propagation is pinned deterministically by
-    # test_active_otel_span_is_copied_to_the_log.
-    assert isinstance(failure["trace_id"], str) and len(failure["trace_id"]) == 32
+    assert failure["trace_id"] == f"{expected_span.trace_id:032x}"
     assert isinstance(failure["span_id"], str) and len(failure["span_id"]) == 16
     assert failure["error_type"] == "RuntimeError"
     assert failure["error_code"] is None
     assert "failure" not in failure.values()
     assert structlog.contextvars.get_contextvars() == {}
+    FastAPIInstrumentor.uninstrument_app(app)
     provider.shutdown()
 
 

@@ -26,7 +26,20 @@ async def _current_user(request: Request, session: AsyncSession) -> Usuario:
         ("POST", "/api/v1/telegram/link-codes"),
         ("DELETE", "/api/v1/telegram/link"),
         ("DELETE", "/api/v1/usuario/me"),
+        ("POST", "/api/v1/coleta/pairing-codes"),
     }
+    installation_path = path.split("/")
+    if installation_path[:5] == ["", "api", "v1", "coleta", "installations"]:
+        control_operation |= (
+            len(installation_path) == 6
+            and installation_path[5].isdigit()
+            and request.method == "DELETE"
+        ) or (
+            len(installation_path) == 7
+            and installation_path[5].isdigit()
+            and installation_path[6] == "rotate"
+            and request.method == "POST"
+        )
     if (
         not control_operation
         and request.method not in {"GET", "HEAD", "OPTIONS"}

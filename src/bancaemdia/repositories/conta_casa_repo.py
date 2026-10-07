@@ -1,6 +1,6 @@
 from datetime import datetime
 
-from sqlalchemy import insert, or_, select, update
+from sqlalchemy import insert, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from bancaemdia import models
@@ -117,23 +117,14 @@ class ContaCasaRepo:
     async def get_vigente_by_nome_da_casa(
         self, session: AsyncSession, usuario_id: int, nome: str, data: datetime | None = None
     ) -> ContaCasa | None:
-        stmt = (
-            select(models.ContaCasa)
-            .join(models.Casa, models.Casa.id == models.ContaCasa.casa_id)
-            .where(
-                models.ContaCasa.usuario_id == usuario_id,
-                models.Casa.nome == nome,
-                models.ContaCasa.ativa.is_(True),
-            )
-            .limit(2)
-        )
-        if data is not None:
-            stmt = stmt.where(
-                or_(models.ContaCasa.desde.is_(None), models.ContaCasa.desde <= data),
-                or_(models.ContaCasa.ate.is_(None), models.ContaCasa.ate >= data),
-            )
-        matches = list((await session.execute(stmt)).scalars())
-        return ContaCasa(**colunas(matches[0])) if len(matches) == 1 else None
+        # Compatibility entry point: data is the game instant, never placement or "now".
+        # Use the same usage intervals and ambiguity rules as every materialization path.
+        from bancaemdia.domain.account_attribution_service import attribute_account
+
+        resolution = await attribute_account(session, usuario_id, nome, data)
+        if resolution.conta_casa_id is None:
+            return None
+        return await self.get_by_id(session, usuario_id, resolution.conta_casa_id)
 
     async def create(self, session: AsyncSession, dados: dict[str, object]) -> ContaCasa:
         obj = (

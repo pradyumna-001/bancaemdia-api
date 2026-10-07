@@ -39,10 +39,12 @@ from bancaemdia.api.v1 import coleta
 from bancaemdia.auth import jwt as auth_jwt
 from bancaemdia.auth import middleware as auth_middleware
 from bancaemdia.cache.extracao_cache import ExtracaoCache
+from bancaemdia.cli.refresh_painel import refresh_painel
 from bancaemdia.config import get_settings
 from bancaemdia.db.seed import seed_canonical
 from bancaemdia.db.session import get_db
 from bancaemdia.domain.materializar import casa_canonica
+from bancaemdia.domain.painel import FiltrosPainel
 from bancaemdia.extracao.cliente import LeitorDeBilhetes, calcular_custo
 from bancaemdia.extracao.precos import USD_POR_BILHETE_REFERENCIA
 from bancaemdia.rate_limit.anthropic_limiter import AnthropicLimiter
@@ -50,6 +52,7 @@ from bancaemdia.repositories.aposta_repo import ApostaRepo
 from bancaemdia.repositories.casa_repo import CasaRepo
 from bancaemdia.repositories.coleta_casa_repo import ColetaCasaRepo
 from bancaemdia.repositories.evento_repo import EventoRepo
+from bancaemdia.repositories.painel_repo import PainelRepo
 from bancaemdia.repositories.revisao_pendente_repo import RevisaoPendenteRepo
 from bancaemdia.resilience.circuit_breaker import new_anthropic_breaker
 from bancaemdia.workers import celery_app, extraction, materialization
@@ -657,5 +660,44 @@ async def test_a_telegram_export_uploaded_to_the_api_is_read_and_reported_comple
     )
 
 
-def test_painel_totals_match_the_conferir_numeros_logic() -> None:
-    pytest.skip("GET /painel arrives with issue #30; conferir_numeros.py has not been ported")
+async def test_painel_totals_match_the_conferir_numeros_logic(isolated_banco, monkeypatch) -> None:
+    import sys
+    from runpy import run_path
+
+    from bancaemdia.cli import replay
+    from bancaemdia.repositories.usuario_repo import UsuarioRepo
+
+    # This case crosses the Redis and replay boundaries. Its own migrated database
+    # prevents its real writes/refresh from racing the NOWAIT replay acceptance cases.
+    database = isolated_banco
+    engine_app = create_async_engine(database.url_app, poolclass=NullPool)
+    engine_admin = create_async_engine(database.url_admin, poolclass=NullPool)
+    checker_engine = create_async_engine(database.url_app, poolclass=NullPool)
+    try:
+        helpers = run_path(str(Path(__file__).parent / "cruzamento/test_consolidacao.py"))
+        async with AsyncSession(engine_admin) as session:
+            user = (await UsuarioRepo().create(session, f"{uuid4().hex}@teste.local", "Teste")).id
+            await session.commit()
+        house, _ = await helpers["accounts"](engine_admin, engine_app, user)
+        ticket = uuid4().hex
+        await helpers["intake_telegram"](engine_app, user, helpers["telegram_payload"](ticket))
+        await helpers["intake_house"](engine_app, user, house, helpers["house_payload"](ticket))
+        await helpers["intake_house"](
+            engine_app, user, house, helpers["house_payload"](ticket, state="Win")
+        )
+        await refresh_painel(engine_admin)
+        async with AsyncSession(engine_app) as session:
+            await helpers["owner"](session, user)
+            panel = await PainelRepo().consultar(session, user, FiltrosPainel.criar("all"))
+            assert panel.resumo.total_apostas == 1
+            assert panel.resumo.giro_centavos == 10000
+            assert panel.resumo.lucro_centavos == 10000
+            assert panel.resumo.roi_basis_points == 10000
+        checker = run_path(str(Path(__file__).parents[2] / "scripts/conferir_numeros.py"))
+        monkeypatch.setattr(replay, "get_engine", lambda: checker_engine)
+        monkeypatch.setattr(sys, "argv", ["conferir_numeros.py", "--usuario-id", str(user)])
+        assert await asyncio.to_thread(checker["main"]) == 0
+    finally:
+        await checker_engine.dispose()
+        await engine_app.dispose()
+        await engine_admin.dispose()

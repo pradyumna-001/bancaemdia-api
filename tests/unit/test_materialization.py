@@ -290,7 +290,7 @@ def test_resend_keeps_the_account_and_the_image_it_cannot_see(monkeypatch) -> No
 
     primeira, segunda = banco.upserts
     assert (primeira["conta_casa_id"], primeira["midia_hash"]) == (3, "hash-da-foto")
-    assert "conta_casa_id" not in segunda
+    assert "conta_casa_id" not in segunda  # unchanged projection retains its original account
     assert "midia_hash" not in segunda
 
 
@@ -656,6 +656,8 @@ def _guardada(monkeypatch, bruto, nome="Betano"):
                 usuario_id=usuario_id,
                 casa_id=1,
                 bruto_json=guardada.bruto,
+                v2_fonte_em=None,
+                v2_hash=None,
                 recebido_em=datetime(2026, 8, 4, tzinfo=UTC),
             )
 
@@ -773,7 +775,7 @@ def test_open_house_bet_that_settles_gets_the_result_the_house_paid(monkeypatch)
     assert [e["tipo"] for e in banco.eventos] == ["APOSTA_CRIADA", "RESULTADO_REGISTRADO"]
     assert banco.eventos[1]["payload_json"]["retorno_centavos"] == 30400
     assert (banco.upserts[-1]["estado"], banco.upserts[-1]["retorno_centavos"]) == ("GREEN", 30400)
-    assert "conta_casa_id" not in banco.upserts[-1]
+    assert "conta_casa_id" not in banco.upserts[-1]  # settlement retains the existing account
     assert len(banco.publicados) == 1
 
 
@@ -842,6 +844,8 @@ def _historico_guardado(monkeypatch, *linhas):
                     usuario_id=7,
                     casa_id=1,
                     bruto_json=bruto,
+                    v2_fonte_em=None,
+                    v2_hash=None,
                     recebido_em=datetime(2026, 8, 4, tzinfo=UTC) + timedelta(hours=horas),
                 )
                 for id_, bruto, horas in linhas

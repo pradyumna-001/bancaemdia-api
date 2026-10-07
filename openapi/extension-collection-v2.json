@@ -1,0 +1,1694 @@
+{
+  "components": {
+    "schemas": {
+      "BatchAck": {
+        "additionalProperties": false,
+        "properties": {
+          "batch_id": {
+            "format": "uuid",
+            "title": "Batch Id",
+            "type": "string"
+          },
+          "contrato": {
+            "const": 2,
+            "default": 2,
+            "title": "Contrato",
+            "type": "integer"
+          },
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/SubmissionAck"
+            },
+            "title": "Items",
+            "type": "array"
+          }
+        },
+        "required": [
+          "batch_id",
+          "items"
+        ],
+        "title": "BatchAck",
+        "type": "object"
+      },
+      "Capture": {
+        "additionalProperties": false,
+        "properties": {
+          "capturado_em": {
+            "format": "date-time",
+            "title": "Capturado Em",
+            "type": "string"
+          },
+          "client_event_id": {
+            "format": "uuid",
+            "title": "Client Event Id",
+            "type": "string"
+          },
+          "conta_casa_ref": {
+            "anyOf": [
+              {
+                "exclusiveMinimum": 0.0,
+                "maximum": 9.223372036854776e+18,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Conta Casa Ref"
+          },
+          "content_hash": {
+            "pattern": "^[0-9a-f]{64}$",
+            "title": "Content Hash",
+            "type": "string"
+          },
+          "hostname": {
+            "maxLength": 253,
+            "minLength": 1,
+            "pattern": "^[a-z0-9]+(?:[.-][a-z0-9]+)*$",
+            "title": "Hostname",
+            "type": "string"
+          },
+          "observado": {
+            "$ref": "#/components/schemas/ObservedTransport"
+          },
+          "payload": {
+            "additionalProperties": {
+              "$ref": "#/components/schemas/JsonValue"
+            },
+            "title": "Payload",
+            "type": "object"
+          }
+        },
+        "required": [
+          "client_event_id",
+          "hostname",
+          "observado",
+          "capturado_em",
+          "payload",
+          "content_hash"
+        ],
+        "title": "Capture",
+        "type": "object"
+      },
+      "CollectionBatch": {
+        "additionalProperties": false,
+        "properties": {
+          "batch_id": {
+            "format": "uuid",
+            "title": "Batch Id",
+            "type": "string"
+          },
+          "contrato": {
+            "const": 2,
+            "title": "Contrato",
+            "type": "integer"
+          },
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/Capture"
+            },
+            "maxItems": 100,
+            "minItems": 1,
+            "title": "Items",
+            "type": "array"
+          },
+          "sessao_id": {
+            "format": "uuid",
+            "title": "Sessao Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "contrato",
+          "batch_id",
+          "sessao_id",
+          "items"
+        ],
+        "title": "CollectionBatch",
+        "type": "object"
+      },
+      "CollectionRejectedItem": {
+        "additionalProperties": false,
+        "properties": {
+          "identidade": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Identidade"
+          },
+          "motivo": {
+            "title": "Motivo",
+            "type": "string"
+          },
+          "posicao": {
+            "minimum": 0.0,
+            "title": "Posicao",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "posicao",
+          "motivo"
+        ],
+        "title": "CollectionRejectedItem",
+        "type": "object"
+      },
+      "CollectionResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "antes_do_inicio": {
+            "minimum": 0.0,
+            "title": "Antes Do Inicio",
+            "type": "integer"
+          },
+          "atualizadas": {
+            "minimum": 0.0,
+            "title": "Atualizadas",
+            "type": "integer"
+          },
+          "em_duvida": {
+            "minimum": 0.0,
+            "title": "Em Duvida",
+            "type": "integer"
+          },
+          "iguais_a_existentes": {
+            "minimum": 0.0,
+            "title": "Iguais A Existentes",
+            "type": "integer"
+          },
+          "ja_conhecidas": {
+            "minimum": 0.0,
+            "title": "Ja Conhecidas",
+            "type": "integer"
+          },
+          "novas_contando": {
+            "minimum": 0.0,
+            "title": "Novas Contando",
+            "type": "integer"
+          },
+          "recusadas": {
+            "items": {
+              "$ref": "#/components/schemas/CollectionRejectedItem"
+            },
+            "title": "Recusadas",
+            "type": "array"
+          },
+          "sem_leitor": {
+            "items": {
+              "$ref": "#/components/schemas/CollectionWithoutReaderItem"
+            },
+            "title": "Sem Leitor",
+            "type": "array"
+          }
+        },
+        "required": [
+          "antes_do_inicio",
+          "novas_contando",
+          "iguais_a_existentes",
+          "em_duvida",
+          "atualizadas",
+          "ja_conhecidas",
+          "recusadas",
+          "sem_leitor"
+        ],
+        "title": "CollectionResponse",
+        "type": "object"
+      },
+      "CollectionWithoutReaderItem": {
+        "additionalProperties": false,
+        "properties": {
+          "casa": {
+            "title": "Casa",
+            "type": "string"
+          },
+          "guardadas": {
+            "minimum": 0.0,
+            "title": "Guardadas",
+            "type": "integer"
+          },
+          "recado": {
+            "title": "Recado",
+            "type": "string"
+          }
+        },
+        "required": [
+          "casa",
+          "guardadas",
+          "recado"
+        ],
+        "title": "CollectionWithoutReaderItem",
+        "type": "object"
+      },
+      "ErrorOrValidationResponse": {
+        "anyOf": [
+          {
+            "$ref": "#/components/schemas/ErrorResponse"
+          },
+          {
+            "$ref": "#/components/schemas/ValidationErrorResponse"
+          }
+        ]
+      },
+      "ErrorResponse": {
+        "additionalProperties": false,
+        "description": "Structured errors emitted by application and cross-cutting middleware.",
+        "properties": {
+          "detail": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Detail"
+          },
+          "erro": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Erro"
+          },
+          "error": {
+            "anyOf": [
+              {
+                "const": "rate_limited",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Error"
+          },
+          "retry_after": {
+            "anyOf": [
+              {
+                "minimum": 0.0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Retry After"
+          }
+        },
+        "title": "ErrorResponse",
+        "type": "object"
+      },
+      "JobStatus": {
+        "additionalProperties": false,
+        "properties": {
+          "aposta_chave": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Aposta Chave"
+          },
+          "client_event_id": {
+            "format": "uuid",
+            "title": "Client Event Id",
+            "type": "string"
+          },
+          "job_id": {
+            "format": "uuid",
+            "title": "Job Id",
+            "type": "string"
+          },
+          "reason": {
+            "title": "Reason",
+            "type": "string"
+          },
+          "status": {
+            "enum": [
+              "pending",
+              "materialized",
+              "updated",
+              "ignored_before_boundary",
+              "needs_review",
+              "failed",
+              "duplicate"
+            ],
+            "title": "Status",
+            "type": "string"
+          }
+        },
+        "required": [
+          "job_id",
+          "client_event_id",
+          "status",
+          "reason",
+          "aposta_chave"
+        ],
+        "title": "JobStatus",
+        "type": "object"
+      },
+      "JsonValue": {
+        "description": "A recursively typed JSON value; never an unconstrained Any schema.",
+        "oneOf": [
+          {
+            "type": "string"
+          },
+          {
+            "type": "number"
+          },
+          {
+            "type": "boolean"
+          },
+          {
+            "items": {
+              "$ref": "#/components/schemas/JsonValue"
+            },
+            "type": "array"
+          },
+          {
+            "additionalProperties": {
+              "$ref": "#/components/schemas/JsonValue"
+            },
+            "type": "object"
+          },
+          {
+            "type": "null"
+          }
+        ],
+        "title": "JsonValue"
+      },
+      "ObservedTransport": {
+        "additionalProperties": false,
+        "properties": {
+          "adapter_version": {
+            "maxLength": 32,
+            "minLength": 1,
+            "pattern": "^[a-zA-Z0-9._-]+$",
+            "title": "Adapter Version",
+            "type": "string"
+          },
+          "content_type": {
+            "const": "application/json",
+            "title": "Content Type",
+            "type": "string"
+          },
+          "method": {
+            "enum": [
+              "GET",
+              "POST"
+            ],
+            "title": "Method",
+            "type": "string"
+          },
+          "path": {
+            "maxLength": 256,
+            "minLength": 1,
+            "pattern": "^/[^?#\\\\\\s]*$",
+            "title": "Path",
+            "type": "string"
+          },
+          "sanitization_version": {
+            "const": 1,
+            "title": "Sanitization Version",
+            "type": "integer"
+          },
+          "source": {
+            "const": "observed_response",
+            "title": "Source",
+            "type": "string"
+          },
+          "status": {
+            "const": 200,
+            "title": "Status",
+            "type": "integer"
+          },
+          "transport": {
+            "enum": [
+              "fetch",
+              "xhr"
+            ],
+            "title": "Transport",
+            "type": "string"
+          }
+        },
+        "required": [
+          "source",
+          "transport",
+          "method",
+          "path",
+          "status",
+          "content_type",
+          "adapter_version",
+          "sanitization_version"
+        ],
+        "title": "ObservedTransport",
+        "type": "object"
+      },
+      "SessionRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "coletar_desde": {
+            "format": "date-time",
+            "title": "Coletar Desde",
+            "type": "string"
+          },
+          "retomar_sessao_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Retomar Sessao Id"
+          }
+        },
+        "required": [
+          "coletar_desde"
+        ],
+        "title": "SessionRequest",
+        "type": "object"
+      },
+      "SessionResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "coletar_desde": {
+            "format": "date-time",
+            "title": "Coletar Desde",
+            "type": "string"
+          },
+          "encerrada_em": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Encerrada Em"
+          },
+          "sessao_id": {
+            "format": "uuid",
+            "title": "Sessao Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "sessao_id",
+          "coletar_desde",
+          "encerrada_em"
+        ],
+        "title": "SessionResponse",
+        "type": "object"
+      },
+      "SubmissionAck": {
+        "additionalProperties": false,
+        "properties": {
+          "ack": {
+            "enum": [
+              "accepted",
+              "duplicate",
+              "rejected"
+            ],
+            "title": "Ack",
+            "type": "string"
+          },
+          "client_event_id": {
+            "format": "uuid",
+            "title": "Client Event Id",
+            "type": "string"
+          },
+          "content_hash": {
+            "title": "Content Hash",
+            "type": "string"
+          },
+          "job_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Job Id"
+          },
+          "reason": {
+            "title": "Reason",
+            "type": "string"
+          },
+          "retryable": {
+            "title": "Retryable",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "client_event_id",
+          "content_hash",
+          "ack",
+          "reason",
+          "retryable",
+          "job_id"
+        ],
+        "title": "SubmissionAck",
+        "type": "object"
+      },
+      "ValidationErrorResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "detail": {
+            "items": {
+              "$ref": "#/components/schemas/ValidationIssueResponse"
+            },
+            "title": "Detail",
+            "type": "array"
+          }
+        },
+        "required": [
+          "detail"
+        ],
+        "title": "ValidationErrorResponse",
+        "type": "object"
+      },
+      "ValidationIssueResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "ctx": {
+            "anyOf": [
+              {
+                "additionalProperties": {
+                  "$ref": "#/components/schemas/JsonValue"
+                },
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Ctx"
+          },
+          "input": {
+            "$ref": "#/components/schemas/JsonValue"
+          },
+          "loc": {
+            "items": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "integer"
+                }
+              ]
+            },
+            "title": "Loc",
+            "type": "array"
+          },
+          "msg": {
+            "title": "Msg",
+            "type": "string"
+          },
+          "type": {
+            "title": "Type",
+            "type": "string"
+          }
+        },
+        "required": [
+          "loc",
+          "msg",
+          "type"
+        ],
+        "title": "ValidationIssueResponse",
+        "type": "object"
+      }
+    },
+    "securitySchemes": {
+      "CollectionToken": {
+        "description": "Token opaco da extensão; armazenado no servidor somente como HMAC.",
+        "in": "header",
+        "name": "X-Coleta-Token",
+        "type": "apiKey"
+      }
+    }
+  },
+  "info": {
+    "title": "Bancaemdia Collection",
+    "version": "2.0.0"
+  },
+  "openapi": "3.1.0",
+  "paths": {
+    "/api/v1/coleta": {
+      "post": {
+        "description": "Alias versionado para receber um lote bruto e agendar sua materialização idempotente.",
+        "operationId": "receber_coleta_api_v1_coleta_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "examples": {
+                "default": {
+                  "summary": "Lote da extensão",
+                  "value": {
+                    "apostas": [
+                      {
+                        "id": "BET-123",
+                        "odd": 1.95,
+                        "status": "open"
+                      }
+                    ],
+                    "capturado_em": "2026-09-22T14:30:00-03:00",
+                    "casa": "betano",
+                    "contrato": 1
+                  }
+                }
+              },
+              "schema": {
+                "additionalProperties": {
+                  "$ref": "#/components/schemas/JsonValue"
+                },
+                "properties": {
+                  "apostas": {
+                    "items": {
+                      "$ref": "#/components/schemas/JsonValue"
+                    },
+                    "maxItems": 1000,
+                    "type": "array"
+                  },
+                  "capturado_em": {
+                    "$ref": "#/components/schemas/JsonValue",
+                    "description": "Metadado informativo enviado pela extensão; o servidor o ignora para ordenação e aceita clientes legados."
+                  },
+                  "casa": {
+                    "maxLength": 40,
+                    "minLength": 2,
+                    "type": "string"
+                  },
+                  "contrato": {
+                    "const": 1,
+                    "type": "integer"
+                  }
+                },
+                "required": [
+                  "contrato",
+                  "casa",
+                  "apostas"
+                ],
+                "type": "object"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CollectionResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Malformed collection payload."
+          },
+          "402": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "account_read_only: retain the extension outbox."
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Invalid collection token."
+          },
+          "413": {
+            "content": {
+              "text/plain": {
+                "example": "Content Too Large",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            },
+            "description": "The request body exceeds this endpoint's streaming limit."
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "The collection rate or daily limit was exceeded."
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unexpected internal failure with no sensitive exception details."
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "The collection was saved but could not be queued."
+          }
+        },
+        "security": [
+          {
+            "CollectionToken": []
+          }
+        ],
+        "summary": "Receber coleta da extensão"
+      }
+    },
+    "/api/v1/coleta/batches": {
+      "post": {
+        "description": "Persiste um ACK estável por item antes de responder; resultado financeiro é consultado pelo job.",
+        "operationId": "receive_batch_api_v1_coleta_batches_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "examples": {
+                "default": {
+                  "summary": "Captura sintética",
+                  "value": {
+                    "batch_id": "00000000-0000-4000-8000-000000000001",
+                    "contrato": 2,
+                    "items": [
+                      {
+                        "capturado_em": "2026-08-02T00:00:00Z",
+                        "client_event_id": "00000000-0000-4000-8000-000000000003",
+                        "conta_casa_ref": null,
+                        "content_hash": "44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a",
+                        "hostname": "betano.bet.br",
+                        "observado": {
+                          "adapter_version": "1.0.0",
+                          "content_type": "application/json",
+                          "method": "GET",
+                          "path": "/synthetic/history",
+                          "sanitization_version": 1,
+                          "source": "observed_response",
+                          "status": 200,
+                          "transport": "fetch"
+                        },
+                        "payload": {}
+                      }
+                    ],
+                    "sessao_id": "00000000-0000-4000-8000-000000000002"
+                  }
+                }
+              },
+              "schema": {
+                "$ref": "#/components/schemas/CollectionBatch"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BatchAck"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Malformed collection payload."
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Missing, expired, or invalid bearer token."
+          },
+          "402": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "account_read_only: retain the extension outbox."
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Invalid collection token."
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Collection resource unavailable"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Explicit session selection required"
+          },
+          "413": {
+            "content": {
+              "text/plain": {
+                "example": "Content Too Large",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            },
+            "description": "The request body exceeds this endpoint's streaming limit."
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorOrValidationResponse"
+                }
+              }
+            },
+            "description": "The request does not satisfy the published contract or a domain rule."
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "The collection rate or daily limit was exceeded."
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unexpected internal failure with no sensitive exception details."
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "The collection was saved but could not be queued."
+          }
+        },
+        "security": [
+          {
+            "CollectionToken": []
+          }
+        ],
+        "summary": "Receber lote v2"
+      }
+    },
+    "/api/v1/coleta/jobs/{job_id}": {
+      "get": {
+        "description": "Retorna estado terminal ou pendente, restrito à instalação dona da captura.",
+        "operationId": "job_status_api_v1_coleta_jobs__job_id__get",
+        "parameters": [
+          {
+            "description": "UUID público retornado quando o upload foi aceito.",
+            "in": "path",
+            "name": "job_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Job Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/JobStatus"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Malformed collection payload."
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Missing, expired, or invalid bearer token."
+          },
+          "402": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "account_read_only: retain the extension outbox."
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Invalid collection token."
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Collection resource unavailable"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Explicit session selection required"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorOrValidationResponse"
+                }
+              }
+            },
+            "description": "The request does not satisfy the published contract or a domain rule."
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "The collection rate or daily limit was exceeded."
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unexpected internal failure with no sensitive exception details."
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "The collection was saved but could not be queued."
+          }
+        },
+        "security": [
+          {
+            "CollectionToken": []
+          }
+        ],
+        "summary": "Consultar entrega v2"
+      }
+    },
+    "/api/v1/coleta/sessions": {
+      "post": {
+        "description": "Cria uma fronteira imutável por instalação ou retoma o UUID explícito sem ampliar o corte.",
+        "operationId": "open_session_api_v1_coleta_sessions_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "examples": {
+                "default": {
+                  "summary": "Nova sessão explícita",
+                  "value": {
+                    "coletar_desde": "2026-08-01T00:00:00Z",
+                    "retomar_sessao_id": null
+                  }
+                }
+              },
+              "schema": {
+                "$ref": "#/components/schemas/SessionRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SessionResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Malformed collection payload."
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Missing, expired, or invalid bearer token."
+          },
+          "402": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "account_read_only: retain the extension outbox."
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Invalid collection token."
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Collection resource unavailable"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Explicit session selection required"
+          },
+          "413": {
+            "content": {
+              "text/plain": {
+                "example": "Content Too Large",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            },
+            "description": "The request body exceeds this endpoint's streaming limit."
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorOrValidationResponse"
+                }
+              }
+            },
+            "description": "The request does not satisfy the published contract or a domain rule."
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "The collection rate or daily limit was exceeded."
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unexpected internal failure with no sensitive exception details."
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "The collection was saved but could not be queued."
+          }
+        },
+        "security": [
+          {
+            "CollectionToken": []
+          }
+        ],
+        "summary": "Abrir ou retomar sessão"
+      }
+    },
+    "/api/v1/coleta/sessions/{sessao_id}": {
+      "delete": {
+        "description": "Impede novas capturas sem perder entregas já aceitas.",
+        "operationId": "close_session_api_v1_coleta_sessions__sessao_id__delete",
+        "parameters": [
+          {
+            "description": "UUID opaco da sessão pertencente à instalação autenticada.",
+            "in": "path",
+            "name": "sessao_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Sessao Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Malformed collection payload."
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Missing, expired, or invalid bearer token."
+          },
+          "402": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "account_read_only: retain the extension outbox."
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Invalid collection token."
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Collection resource unavailable"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Explicit session selection required"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorOrValidationResponse"
+                }
+              }
+            },
+            "description": "The request does not satisfy the published contract or a domain rule."
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "The collection rate or daily limit was exceeded."
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unexpected internal failure with no sensitive exception details."
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "The collection was saved but could not be queued."
+          }
+        },
+        "security": [
+          {
+            "CollectionToken": []
+          }
+        ],
+        "summary": "Encerrar sessão"
+      },
+      "get": {
+        "description": "Consulta somente sessão da instalação autenticada no primário.",
+        "operationId": "read_session_api_v1_coleta_sessions__sessao_id__get",
+        "parameters": [
+          {
+            "description": "UUID opaco da sessão pertencente à instalação autenticada.",
+            "in": "path",
+            "name": "sessao_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Sessao Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SessionResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Malformed collection payload."
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Missing, expired, or invalid bearer token."
+          },
+          "402": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "account_read_only: retain the extension outbox."
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Invalid collection token."
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Collection resource unavailable"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Explicit session selection required"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorOrValidationResponse"
+                }
+              }
+            },
+            "description": "The request does not satisfy the published contract or a domain rule."
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "The collection rate or daily limit was exceeded."
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unexpected internal failure with no sensitive exception details."
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "The collection was saved but could not be queued."
+          }
+        },
+        "security": [
+          {
+            "CollectionToken": []
+          }
+        ],
+        "summary": "Consultar sessão"
+      }
+    },
+    "/coleta": {
+      "post": {
+        "description": "Recebe um lote bruto capturado pela extensão e agenda a materialização idempotente.",
+        "operationId": "receber_coleta_coleta_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "examples": {
+                "default": {
+                  "summary": "Lote da extensão",
+                  "value": {
+                    "apostas": [
+                      {
+                        "id": "BET-123",
+                        "odd": 1.95,
+                        "status": "open"
+                      }
+                    ],
+                    "capturado_em": "2026-09-22T14:30:00-03:00",
+                    "casa": "betano",
+                    "contrato": 1
+                  }
+                }
+              },
+              "schema": {
+                "additionalProperties": {
+                  "$ref": "#/components/schemas/JsonValue"
+                },
+                "properties": {
+                  "apostas": {
+                    "items": {
+                      "$ref": "#/components/schemas/JsonValue"
+                    },
+                    "maxItems": 1000,
+                    "type": "array"
+                  },
+                  "capturado_em": {
+                    "$ref": "#/components/schemas/JsonValue",
+                    "description": "Metadado informativo enviado pela extensão; o servidor o ignora para ordenação e aceita clientes legados."
+                  },
+                  "casa": {
+                    "maxLength": 40,
+                    "minLength": 2,
+                    "type": "string"
+                  },
+                  "contrato": {
+                    "const": 1,
+                    "type": "integer"
+                  }
+                },
+                "required": [
+                  "contrato",
+                  "casa",
+                  "apostas"
+                ],
+                "type": "object"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CollectionResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Malformed collection payload."
+          },
+          "402": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "account_read_only: retain the extension outbox."
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Invalid collection token."
+          },
+          "413": {
+            "content": {
+              "text/plain": {
+                "example": "Content Too Large",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            },
+            "description": "The request body exceeds this endpoint's streaming limit."
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "The collection rate or daily limit was exceeded."
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unexpected internal failure with no sensitive exception details."
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "The collection was saved but could not be queued."
+          }
+        },
+        "security": [
+          {
+            "CollectionToken": []
+          }
+        ],
+        "summary": "Receber coleta da extensão"
+      }
+    }
+  }
+}

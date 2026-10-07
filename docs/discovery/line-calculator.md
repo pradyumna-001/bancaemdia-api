@@ -1,5 +1,7 @@
 # Line calculator discovery (#104)
 
+**Archived for post-launch (2026-10-06, owner decision).** Historical research only; acquisition, probes, benchmarks and implementation are paused. [Archive and reactivation requirements](../archive/post-launch/line-calculator.md). Not a launch or #118 dependency.
+
 Status: **research in progress; no market approved**. This document does not authorize an API or a prediction model. The product owner wants the broadest defensible market coverage, can evaluate a paid source, and specifically wants estimates learned from large sets of real neighboring-line quotes, including throw-ins if available. A market called “other” may be catalogued, but cannot receive a generic price without validation.
 
 ## Exact product question

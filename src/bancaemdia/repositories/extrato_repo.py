@@ -16,6 +16,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from bancaemdia import models
 from bancaemdia.domain.registros import LinhaExtrato
+from bancaemdia.repositories.aposta_consolidacao import financial_predicate
 
 
 class ExtratoRepo:
@@ -72,6 +73,7 @@ class ExtratoRepo:
         ).where(
             models.Aposta.usuario_id == usuario_id,
             models.Aposta.selecionada.is_(True),
+            financial_predicate(),
             models.Aposta.estado != "PENDENTE",
         )
 

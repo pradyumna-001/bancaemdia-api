@@ -15,6 +15,7 @@ from fastapi.testclient import TestClient
 from hypothesis import given, settings
 from hypothesis import strategies as st
 from hypothesis.strategies import SearchStrategy
+from schemathesis.config import HealthCheck
 from starlette.types import ASGIApp, Message, Receive, Scope, Send
 
 from bancaemdia.api.contracts import ReadinessResponse
@@ -91,6 +92,9 @@ def _collection_backend() -> Generator[CollectionContractBackend]:
             return CollectionIdentity(7, 17) if token_hash == expected else None
 
     class CollectionRepository:
+        async def lock_daily_admission(self, _session: object, _usuario_id: int) -> None:
+            pass
+
         async def count_received_since(
             self, _session: object, _usuario_id: int, _desde: object
         ) -> int:
@@ -214,7 +218,7 @@ def test_openapi_endpoint_matches_checked_in_snapshot(openapi_document: JsonObje
 @pytest.mark.contract
 def test_every_operation_has_human_documentation(openapi_document: JsonObject) -> None:
     operations = list(_operations(openapi_document))
-    assert len(operations) == 64
+    assert len(operations) == 89
     for method, path, operation in operations:
         location = f"{method.upper()} {path}"
         assert str(operation.get("summary", "")).strip(), location
@@ -239,7 +243,7 @@ def test_request_bodies_have_examples(openapi_document: JsonObject) -> None:
             assert media.get("example") is not None or media.get("examples"), (
                 f"{method.upper()} {path}: {media_type} lacks an example"
             )
-    assert bodies == 20
+    assert bodies == 32
 
 
 @pytest.mark.contract
@@ -266,6 +270,9 @@ def test_responses_cover_success_and_failures_with_schemas(openapi_document: Jso
             if path in {"/auth/start", "/auth/callback"} and str(code) == "302":
                 assert not content, f"{location}: redirect must have no JSON body"
                 assert response["headers"]["Location"]["schema"]["type"] == "string"
+                continue
+            if code == "304":
+                assert content is None, "HTTP 304 cannot carry a response body"
                 continue
             assert isinstance(content, dict) and content, f"{location}: {code} content"
             for media_type, media_value in content.items():
@@ -375,6 +382,16 @@ def test_security_and_binary_media_are_explicit(openapi_document: JsonObject) ->
     paths = _as_object(openapi_document["paths"])
     for path in ("/coleta", "/api/v1/coleta"):
         assert _as_object(_as_object(paths[path])["post"])["security"] == [{"CollectionToken": []}]
+    assert _as_object(_as_object(paths["/api/v1/coleta/catalogo"])["get"])["security"] == [
+        {"InstallationToken": []}
+    ]
+    assert _as_object(schemes["InstallationToken"])["name"] == "X-Coleta-Token"
+    for method, path in (
+        ("post", "/api/v1/catalogo/candidatos"),
+        ("get", "/api/v1/admin/casas"),
+        ("get", "/api/v1/admin/casas/export"),
+    ):
+        assert _as_object(_as_object(paths[path])[method])["security"] == [{"BearerAuth": []}]
 
     metrics = _as_object(_as_object(_as_object(paths["/metrics"])["get"])["responses"])
     assert "text/plain" in _as_object(_as_object(metrics["200"])["content"])
@@ -424,13 +441,15 @@ def test_collection_envelope_and_body_limit_match_runtime(openapi_document: Json
 
 
 @pytest.mark.contract
-def test_ci_rejects_breaking_changes_after_the_initial_main_baseline() -> None:
+def test_ci_rejects_breaking_changes_against_the_pull_request_base() -> None:
     workflow = WORKFLOW.read_text(encoding="utf-8")
-    assert "origin/main:tests/contract/schemas/openapi.json" in workflow
+    assert "github.event.pull_request.base.sha" in workflow
+    assert '"$BASE_SHA:tests/contract/schemas/openapi.json"' in workflow
     assert "id: openapi_baseline" in workflow
     assert 'echo "available=true" >> "$GITHUB_OUTPUT"' in workflow
-    assert 'echo "available=false" >> "$GITHUB_OUTPUT"' in workflow
-    assert "this PR establishes the initial baseline" in workflow
+    assert 'git archive "$BASE_SHA"' in workflow
+    assert '--source-root "$baseline_dir/src" --schema-only --schema-output "$baseline"' in workflow
+    assert 'echo "available=false"' not in workflow
     assert "steps.openapi_baseline.outputs.available == 'true'" in workflow
     assert "oasdiff/oasdiff-action/breaking@5e81b5c380accc6b523f9d32a637ca630e33620b" in workflow
     assert "fail-on: WARN" in workflow
@@ -572,7 +591,7 @@ def test_schemathesis_invalid_collection_requests_match_contract(
         assert collection_backend.queued == []
 
 
-negative_config = schemathesis.Config()
+negative_config = schemathesis.Config(suppress_health_check=[HealthCheck.filter_too_much])
 negative_config.projects.default.generation.update(
     modes=[schemathesis.GenerationMode.NEGATIVE],
     max_examples=5,
@@ -586,6 +605,8 @@ negative_schema = (
     .include(path_regex=r"^/api/v1/(?!coleta$)")
     .exclude(path="/api/v1/coleta/pairing-exchange")
     .exclude(path="/api/v1/coleta/status")
+    .exclude(path="/api/v1/coleta/catalogo")
+    .exclude(path_regex=r"^/api/v1/coleta/(sessions|batches|jobs|contract)(/|$)")
     .exclude(
         # `chave` is an intentionally opaque, unconstrained string. There is no serializable
         # negative string value for that path parameter, so Schemathesis correctly has no strategy.
@@ -621,4 +642,10 @@ def invalid_upload_job_cases(
 @negative_schema.parametrize()
 def test_schemathesis_invalid_protected_requests(case: schemathesis.Case) -> None:
     response = case.call_and_validate(base_url="https://testserver")
+    from bancaemdia.auth.middleware import CATALOG_METHODS
+
+    if case.path in CATALOG_METHODS and case.method.upper() != CATALOG_METHODS[case.path]:
+        assert response.status_code == 405
+        assert response.headers["allow"][0] == CATALOG_METHODS[case.path]
+        return
     assert response.status_code == 401

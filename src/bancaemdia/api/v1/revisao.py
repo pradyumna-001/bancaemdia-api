@@ -298,7 +298,14 @@ async def resolver_revisao(
 
     # A trava é a mesma do trabalhador e vem antes das duas linhas: uma releitura nunca passa por
     # cima da decisão humana, e duas resoluções não esperam o timeout de cinco segundos do primário.
-    if not await apostas_api._travar(session, usuario.id, chave):
+    pair_action = pedido.acao == "MESMA" or isinstance(
+        (revisao.extracao_bruta or {}).get("candidato_id"), int
+    )
+    if pair_action:
+        from bancaemdia.repositories.cruzamento_candidato import CruzamentoCandidatoRepo
+
+        await CruzamentoCandidatoRepo().lock(session, usuario.id)
+    elif not await apostas_api._travar(session, usuario.id, chave):
         await session.rollback()
         return erro(status.HTTP_409_CONFLICT, OCUPADA)
     travada = await repositorio.get_by_id_for_update(session, usuario.id, revisao_id)
@@ -308,7 +315,9 @@ async def resolver_revisao(
     if travada.resolvido_em is not None:
         await session.rollback()
         return erro(status.HTTP_409_CONFLICT, JA_RESOLVIDA)
-    aposta_atual = await ApostaRepo().get_by_chave_for_update(session, usuario.id, chave)
+    aposta_atual = await (
+        ApostaRepo().get_by_chave if pair_action else ApostaRepo().get_by_chave_for_update
+    )(session, usuario.id, chave)
     if aposta_atual is None:
         await session.rollback()
         return erro(status.HTTP_409_CONFLICT, ORFA)
@@ -328,7 +337,9 @@ async def resolver_revisao(
         )
         if (
             pedido.aposta_corrigida is not None
-            or not antes.get("duvida_de_par")
+            or not (
+                antes.get("duvida_de_par") or (revisao.extracao_bruta or {}).get("candidato_id")
+            )
             or not isinstance(candidata, str)
         ):
             await session.rollback()
@@ -342,7 +353,7 @@ async def resolver_revisao(
         if not livre:
             await session.rollback()
             return erro(status.HTTP_409_CONFLICT, OCUPADA)
-        parceira = await ApostaRepo().get_by_chave_for_update(session, usuario.id, candidata)
+        parceira = await ApostaRepo().get_by_chave(session, usuario.id, candidata)
         if parceira is None:
             await session.rollback()
             return erro(status.HTTP_409_CONFLICT, "a aposta candidata não existe mais")
@@ -364,6 +375,9 @@ async def resolver_revisao(
                 },
             )
             resolvida = await repositorio.resolve(session, usuario.id, revisao_id)
+            if resolvida is None:
+                # Consolidation invalidation may close this same locked matching review.
+                resolvida = await repositorio.get_by_id(session, usuario.id, revisao_id)
             if resolvida is None:
                 await session.rollback()
                 return erro(status.HTTP_409_CONFLICT, JA_RESOLVIDA)
@@ -447,15 +461,42 @@ async def resolver_revisao(
             )
 
     try:
+        candidate_id = (travada.extracao_bruta or {}).get("candidato_id")
+        if isinstance(candidate_id, int) and pedido.acao in {"CORRIGIR", "DESCARTAR"}:
+            from sqlalchemy import select
+
+            from bancaemdia import models
+            from bancaemdia.domain.consolidacao_aposta import reject_pair
+
+            pair = await session.scalar(
+                select(models.CruzamentoCandidato).where(
+                    models.CruzamentoCandidato.usuario_id == usuario.id,
+                    models.CruzamentoCandidato.id == candidate_id,
+                )
+            )
+            if pair is not None:
+                await reject_pair(
+                    session,
+                    usuario.id,
+                    pair.casa_aposta_id,
+                    pair.telegram_aposta_id,
+                    actor_id=usuario.id,
+                    reason=f"revisão {pedido.acao}",
+                )
         gravada = await apostas_api._aplicar(session, usuario, chave, novos, depois)
         if gravada is None:
             await session.rollback()
             return erro(status.HTTP_409_CONFLICT, OCUPADA)
         resolvida = await repositorio.resolve(session, usuario.id, revisao_id)
+        if resolvida is None and isinstance(candidate_id, int):
+            resolvida = await repositorio.get_by_id(session, usuario.id, revisao_id)
         if resolvida is None:
             await session.rollback()
             return erro(status.HTTP_409_CONFLICT, JA_RESOLVIDA)
         await session.commit()
+    except ValueError as recusa:
+        await session.rollback()
+        return erro(status.HTTP_422_UNPROCESSABLE_ENTITY, str(recusa))
     except Exception:
         await session.rollback()
         raise

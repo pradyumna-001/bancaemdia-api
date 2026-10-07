@@ -57,6 +57,42 @@ services:
       - ./alembic:/app/alembic
       - ./alembic.ini:/app/alembic.ini
 
+  extraction-worker:
+    profiles: ["workers"]
+    build:
+      context: .
+      dockerfile: Dockerfile
+    command: ["celery", "-A", "bancaemdia.workers.celery_app:app", "worker", "-Q", "extraction", "--concurrency=1", "--loglevel=INFO"]
+    env_file:
+      - .env
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    networks:
+      - bancaemdia-network
+    volumes:
+      - ./src:/app/src
+
+  materialization-worker:
+    profiles: ["workers"]
+    build:
+      context: .
+      dockerfile: Dockerfile
+    command: ["celery", "-A", "bancaemdia.workers.celery_app:app", "worker", "-Q", "materialization", "--concurrency=1", "--loglevel=INFO"]
+    env_file:
+      - .env
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    networks:
+      - bancaemdia-network
+    volumes:
+      - ./src:/app/src
+
 volumes:
   postgres_data:
   redis_data:

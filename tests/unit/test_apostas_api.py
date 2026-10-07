@@ -265,6 +265,13 @@ def _cliente(monkeypatch, chave_rsa, banco, usuario_id=USUARIO):
                 return None
             return Usuario(id=id_, email="p@teste.local", nome="P", criado_em=AGORA, ativo=True)
 
+    async def no_relations(*args, **kwargs):
+        await asyncio.sleep(0)
+        return []
+
+    from bancaemdia.repositories.aposta_consolidacao import ApostaConsolidacaoRepo
+
+    monkeypatch.setattr(ApostaConsolidacaoRepo, "history", no_relations)
     for nome, classe in banco.repos.items():
         monkeypatch.setattr(rota, nome, classe)
 

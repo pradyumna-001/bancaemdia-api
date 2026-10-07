@@ -97,6 +97,9 @@ async def _preparar_papel(url_admin: str) -> None:
                 await conn.execute(text(f"CREATE ROLE {PAPEL} LOGIN PASSWORD '{SENHA}'"))
             await conn.execute(text(f"GRANT USAGE ON SCHEMA public TO {PAPEL}"))
             await conn.execute(
+                text(f"GRANT EXECUTE ON FUNCTION coleta_pending_deliveries(integer) TO {PAPEL}")
+            )
+            await conn.execute(
                 text(
                     f"GRANT EXECUTE ON FUNCTION coleta_pairing_limit(text,integer,integer) TO {PAPEL}"
                 )
@@ -162,6 +165,17 @@ def _docker_disponivel() -> bool:
     return True
 
 
+@pytest.fixture
+def isolated_postgres_database() -> Iterator[Banco]:
+    """Private database for tests that start their own threads/workers."""
+    if not _docker_disponivel():
+        pytest.skip("isolated worker tests require disposable Docker services")
+    from testcontainers.community.postgres import PostgresContainer
+
+    with PostgresContainer(IMAGEM, driver="asyncpg") as container:
+        yield _preparar(container.get_connection_url())
+
+
 @pytest.fixture(scope="session")
 def banco() -> Iterator[Banco]:
     url = os.environ.get("TEST_DATABASE_URL")
@@ -207,6 +221,32 @@ async def engine_admin(banco: Banco) -> AsyncIterator[AsyncEngine]:
     engine = create_async_engine(banco.url_admin)
     yield engine
     await engine.dispose()
+
+
+@pytest.fixture
+def isolated_database(banco: Banco) -> Iterator[str]:
+    """Migrations must never downgrade the shared test database's populated feature tables."""
+    name = "matching_test_" + uuid4().hex
+
+    async def execute(sql: str) -> None:
+        admin = create_async_engine(banco.url_admin, isolation_level="AUTOCOMMIT")
+        try:
+            async with admin.connect() as connection:
+                await connection.execute(text(sql))
+        finally:
+            await admin.dispose()
+
+    asyncio.run(execute(f'CREATE DATABASE "{name}"'))
+    try:
+        yield make_url(banco.url_admin).set(database=name).render_as_string(hide_password=False)
+    finally:
+        asyncio.run(execute(f'DROP DATABASE "{name}" WITH (FORCE)'))
+
+
+@pytest.fixture
+def isolated_banco(isolated_database: str) -> Banco:
+    """Provide an independently migrated database through pytest's fixture namespace."""
+    return _preparar(isolated_database)
 
 
 @pytest.fixture

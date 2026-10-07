@@ -30,9 +30,9 @@
 **Tasks**:
 - [ ] Build one deterministic test environment with PostgreSQL, Redis/workers, fake clock, provider sandbox/contract stub, Telegram webhook fixture, and extension HTTP fixtures
 - [ ] Validate billing: signup starts exactly seven cardless days, duplicate/out-of-order webhooks are idempotent, price is configuration, cancellation/retry reconcile, and expiry blocks new operations while preserving read/export access
-- [ ] Validate holders: manual X → Y switch at effective time `T`, bets resolve by occurrence time, old open bets remain with X, profit/turnover/ROI reconcile by account and holder, and unassigned totals remain visible
+- [ ] Validate holders: manual X → Y switch at effective time `T`, default accounts resolve by game date, explicit multi-account bets retain the actual placing account, profit/turnover/ROI reconcile by account and holder, and unassigned totals remain visible
 - [ ] Validate Telegram intake: one photo creates one draft, missing fields are requested individually without asking for resend, corrections patch the draft, confirm materializes once, and cancel/continue/retry remain idempotent
-- [ ] Validate calculators with Decimal/golden cases, cent allocation, invalid inputs, and deterministic results; include the line calculator only after its separate model/data decision is approved
+- [ ] Validate calculators with Decimal/golden cases, cent allocation, invalid inputs, and deterministic results; line-calculator research #104 is archived for post-launch and excluded from this validation
 - [ ] Validate extension pairing, token rotation/revocation, durable outbox batches, ACK retry, collection boundary, schema-drift quarantine, and the signed-catalog flow from reviewed manifest upper bound through explicit exact-host grant and later revocation
 - [ ] Validate Casa × Telegram matching in both arrival orders so one real bet contributes exactly one financial fact and Telegram remains contextual provenance
 - [ ] Validate the six existing readers, bet365 WebSocket reconstruction, and every currently supported catalog domain against sanitized fixtures

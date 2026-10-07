@@ -137,6 +137,7 @@ def ler(bruto: object) -> Coletada:
     # plataforma em que a data que conta cai na colocação.
     return Coletada(
         identidade=identidade,
+        ocorrido_em=colocada_em,
         casa="altenar",
         tipo=tipo_da_aposta(escolhas),
         odd=float(odd),

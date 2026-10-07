@@ -54,6 +54,7 @@ resource "aws_s3_bucket_policy" "state" {
 }
 
 resource "aws_dynamodb_table" "legacy_lock" {
+  count        = var.create_legacy_lock_table ? 1 : 0
   name         = "bancaemdia-terraform-lock"
   billing_mode = "PAY_PER_REQUEST"
   hash_key     = "LockID"
@@ -66,4 +67,4 @@ resource "aws_dynamodb_table" "legacy_lock" {
 }
 
 output "state_bucket" { value = aws_s3_bucket.state.id }
-output "legacy_lock_table" { value = aws_dynamodb_table.legacy_lock.name }
+output "legacy_lock_table" { value = try(aws_dynamodb_table.legacy_lock[0].name, null) }

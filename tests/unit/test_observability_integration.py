@@ -53,6 +53,9 @@ class RecordingSession:
         self.commits = 0
         self.rollbacks = 0
 
+    async def execute(self, *args: object, **kwargs: object) -> None:
+        await asyncio.sleep(0)
+
     async def commit(self) -> None:
         # A counter increment before this point would report data that can still be rolled back.
         assert self.counter.events == []
@@ -88,8 +91,11 @@ def test_main_wires_observability_around_auth_and_domain_middleware() -> None:
     assert getattr(main.app, "_is_instrumented_by_opentelemetry", False) is True
 
 
+@pytest.mark.parametrize(("prewarm", "fail_prewarm"), [(False, False), (True, False), (True, True)])
 async def test_lifespan_runs_the_replica_lag_monitor_and_cleans_it_up(
     monkeypatch: pytest.MonkeyPatch,
+    prewarm: bool,
+    fail_prewarm: bool,
 ) -> None:
     events: list[str] = []
 
@@ -125,14 +131,39 @@ async def test_lifespan_runs_the_replica_lag_monitor_and_cleans_it_up(
     monkeypatch.setattr(main, "engine", Engine("primary"))
     monkeypatch.setattr(main, "replica_engine", Engine("replica"))
     monkeypatch.setattr(main, "replica_lag_monitor", Monitor())
+    monkeypatch.setattr(main.settings, "DB_POOL_PREWARM", prewarm)
+    monkeypatch.setattr(main.settings, "DB_POOL_SIZE", 3)
+
+    async def warm_pool(target: Engine, size: int) -> None:
+        await asyncio.sleep(0)
+        events.append(f"{target.name}_warmed:{size}")
+        if fail_prewarm and target.name == "replica":
+            raise RuntimeError("standby unavailable")
+
+    monkeypatch.setattr(main, "prewarm_pool", warm_pool)
+    if fail_prewarm:
+        with pytest.raises(RuntimeError, match="standby unavailable"):
+            async with main.app.router.lifespan_context(main.app):
+                raise AssertionError("startup completed despite failed prewarm")
+        assert events == [
+            "primary_ready",
+            "primary_warmed:3",
+            "replica_warmed:3",
+            "primary_disposed",
+            "replica_disposed",
+        ]
+        return
+    startup = ["primary_ready"]
+    if prewarm:
+        startup.extend(["primary_warmed:3", "replica_warmed:3"])
+    startup.append("monitor_started")
 
     async with main.app.router.lifespan_context(main.app):
         await asyncio.sleep(0)
-        assert events == ["primary_ready", "monitor_started"]
+        assert events == startup
 
     assert events == [
-        "primary_ready",
-        "monitor_started",
+        *startup,
         "monitor_stopped",
         "primary_disposed",
         "replica_disposed",
@@ -307,11 +338,17 @@ async def _prepare_manual_bet(
         await asyncio.sleep(0)
         return object()
 
+    from bancaemdia.domain.account_attribution import AccountResolution, ResolutionStatus
+
+    async def account(*args, **kwargs):
+        await asyncio.sleep(0)
+        return AccountResolution(ResolutionStatus.NONE)
+
+    monkeypatch.setattr(apostas, "attribute_account", account)
     monkeypatch.setattr(apostas, "apostas_created_total", counter)
     monkeypatch.setattr(apostas, "casa_canonica", lambda value: value)
     monkeypatch.setattr(apostas.UnidadeRepo, "get_vigente", no_unit)
     monkeypatch.setattr(apostas.CasaRepo, "get_id_by_nome", house_id)
-    from bancaemdia.domain.account_attribution import AccountResolution, ResolutionStatus
 
     async def no_attribution(*args: object, **kwargs: object) -> AccountResolution:
         await asyncio.sleep(0)

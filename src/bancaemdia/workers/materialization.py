@@ -10,11 +10,12 @@ from typing import Any
 
 import asyncpg.exceptions
 from pydantic import BaseModel, Field, ValidationError, field_validator
-from sqlalchemy import text
+from sqlalchemy import text, update
 from sqlalchemy.exc import InterfaceError, OperationalError
 from sqlalchemy.ext.asyncio import AsyncEngine, AsyncSession, create_async_engine
 from sqlalchemy.pool import NullPool
 
+from bancaemdia import models
 from bancaemdia.coleta.leitores import LEITORES
 from bancaemdia.config import get_settings
 from bancaemdia.domain.account_attribution import AccountResolution, ResolutionStatus
@@ -34,6 +35,7 @@ from bancaemdia.domain.coleta_casa import (
     eventos_do_resultado,
     validar,
 )
+from bancaemdia.domain.coleta_provenance import canonical_ticket, source_times
 from bancaemdia.domain.conferencias import GRAVES, Bilhete, Origem, conferir
 from bancaemdia.domain.event_bus import ApostaCriada, get_event_bus
 from bancaemdia.domain.financeiro import Aposta as ApostaFinanceira
@@ -67,6 +69,7 @@ from bancaemdia.repositories.revisao_pendente_repo import RevisaoPendenteRepo
 from bancaemdia.repositories.unidade_repo import UnidadeRepo
 from bancaemdia.repositories.upload_repo import UploadBilheteRepo, UploadRepo
 from bancaemdia.workers.celery_app import MATERIALIZATION_QUEUE, app
+from bancaemdia.workers.coleta_runtime import get_collection_runtime
 from bancaemdia.workers.pairing import parear_criacao
 
 MOTIVO_GRAVE_PADRAO = "conferência grave"
@@ -188,6 +191,9 @@ async def _historico(
 ) -> list[tuple[str, str, dict[str, Any]]]:
     # Entrega "pelo menos uma vez": duas cópias da mesma aposta não podem decidir juntas que
     # ela é nova.
+    from bancaemdia.repositories.cruzamento_candidato import CruzamentoCandidatoRepo
+
+    await CruzamentoCandidatoRepo().lock(session, usuario_id)
     await session.execute(
         text("SELECT pg_advisory_xact_lock(hashtextextended(:chave, 0))"),
         {"chave": f"{usuario_id}:{chave}"},
@@ -339,7 +345,7 @@ async def _gravar(
         aposta = await ApostaRepo().upsert_materializada(session, dados)
     if aposta is None:
         raise GravacaoConcorrenteError(f"outra gravação mais nova de {nova.chave} chegou antes")
-    if criada and getattr(aposta, "id", None) is not None:
+    if getattr(aposta, "id", None) is not None:
         await parear_criacao(session, usuario_id, aposta, estado)
 
     revisao = await _revisar(
@@ -504,11 +510,45 @@ async def _gravar_coletada(
     coletas: Sequence[ColetaCasa],
     casa: str,
     nome_da_casa: str,
+    *,
+    conta_casa_id: int | None = None,
+    explicit_account: bool = True,
 ) -> Gravada:
     lidas = [replace(LEITORES[casa](coleta.bruto_json), casa=casa) for coleta in coletas]
     chave = chave_casa(casa, lidas[-1].identidade)
     historico = await _historico(session, usuario_id, chave)
     existia = any(tipo == "APOSTA_CRIADA" for tipo, _, _ in historico)
+    if coletas[-1].v2_fonte_em is not None and existia:
+        _, revision = source_times(casa, coletas[-1].bruto_json)
+        current_state, _ = projetar(historico)
+        same_content = canonical_ticket(lidas[-1]) == coletas[-1].v2_hash
+        if same_content and revision is not None and revision > coletas[-1].v2_fonte_em:
+            await session.execute(
+                update(models.ColetaCasa)
+                .where(models.ColetaCasa.id == coletas[-1].id)
+                .values(v2_fonte_em=revision)
+            )
+        if (
+            same_content
+            or revision is None
+            or revision <= coletas[-1].v2_fonte_em
+            or (current_state.get("estado") != "PENDENTE" and lidas[-1].estado == "PENDENTE")
+        ):
+            # A delayed v1 task cannot bypass v2 source ordering after client downgrade.
+            return Gravada(
+                chave,
+                "casa",
+                False,
+                0,
+                None,
+                bool(current_state.get("revisao_grave")),
+                str(current_state.get("estado")),
+            )
+        await session.execute(
+            update(models.ColetaCasa)
+            .where(models.ColetaCasa.id == coletas[-1].id)
+            .values(v2_fonte_em=revision, v2_hash=canonical_ticket(lidas[-1]))
+        )
     capturas = list(zip(coletas, lidas, strict=True))
     novos: list[EventoNovo] = []
     data_aposta = None
@@ -556,8 +596,14 @@ async def _gravar_coletada(
     if criada:
         assert captura_da_criacao is not None
         coleta_criacao, coletada_criacao = captura_da_criacao
-        jogo = _data(coletada_criacao.data_aposta)
-        explicit = coleta_criacao.bruto_json.get("conta_casa_id")
+        jogo = game_instant({"data_jogo": coletada_criacao.comeca_em})
+        explicit = (
+            (conta_casa_id if explicit_account else None)
+            if conta_casa_id is not None
+            else coleta_criacao.bruto_json.get(
+                "conta_casa_ref", coleta_criacao.bruto_json.get("conta_casa_id")
+            )
+        )
         try:
             account_resolution = await attribute_account(
                 session,
@@ -639,7 +685,7 @@ async def _gravar_coletada(
         aposta = await ApostaRepo().upsert_materializada(session, dados)
     if aposta is None:
         raise GravacaoConcorrenteError(f"outra gravação mais nova de {chave} chegou antes")
-    if criada and getattr(aposta, "id", None) is not None:
+    if getattr(aposta, "id", None) is not None:
         await parear_criacao(session, usuario_id, aposta, estado)
 
     revisao = await _revisar(
@@ -685,6 +731,9 @@ async def gravar_coletas(
     ):
         async with session.begin():
             await _set_current_user(session, usuario_id)
+            from bancaemdia.repositories.cruzamento_candidato import CruzamentoCandidatoRepo
+
+            await CruzamentoCandidatoRepo().lock(session, usuario_id)
             repo = ColetaCasaRepo()
             # As linhas são travadas antes de serem lidas: uma tarefa atrasada lê o conteúdo atual de
             # cada uma, e a rota só grava outra captura nelas depois deste commit.
@@ -731,7 +780,12 @@ async def gravar_coleta(engine: AsyncEngine, usuario_id: int, coleta_id: int) ->
 
 def _materializar_coletas(usuario_id: int, coleta_ids: list[int]) -> dict[str, object]:
     with observe_stage(MATERIALIZATION_QUEUE):
-        gravada = asyncio.run(gravar_coletas(get_engine(), usuario_id, coleta_ids))
+        runtime = get_collection_runtime()
+        gravada = (
+            asyncio.run(gravar_coletas(get_engine(), usuario_id, coleta_ids))
+            if runtime is None
+            else runtime.run(gravar_coletas(runtime.engine, usuario_id, coleta_ids))
+        )
         if gravada is not None:
             batch_bets_processed.labels(stage=MATERIALIZATION_QUEUE).inc()
     return {

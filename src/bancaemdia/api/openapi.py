@@ -20,6 +20,34 @@ MANUAL_BET_HOUSES = sorted(
 
 
 OPERATION_DOCUMENTATION: dict[OperationKey, tuple[str, str]] = {
+    ("post", "/api/v1/coleta/sessions"): (
+        "Abrir ou retomar sessão",
+        "Cria uma fronteira imutável por instalação ou retoma o UUID explícito sem ampliar o corte.",
+    ),
+    ("get", "/api/v1/coleta/sessions/{sessao_id}"): (
+        "Consultar sessão",
+        "Consulta somente sessão da instalação autenticada no primário.",
+    ),
+    ("delete", "/api/v1/coleta/sessions/{sessao_id}"): (
+        "Encerrar sessão",
+        "Impede novas capturas sem perder entregas já aceitas.",
+    ),
+    ("post", "/api/v1/coleta/batches"): (
+        "Receber lote v2",
+        "Persiste um ACK estável por item antes de responder; resultado financeiro é consultado pelo job.",
+    ),
+    ("get", "/api/v1/coleta/jobs/{job_id}"): (
+        "Consultar entrega v2",
+        "Retorna estado terminal ou pendente, restrito à instalação dona da captura.",
+    ),
+    ("get", "/api/v1/coleta/contract"): (
+        "Consultar versão do contrato",
+        "Publica N/N-1, hashes, faixa de protocolo e política de depreciação.",
+    ),
+    ("get", "/api/v1/coleta/contract/schema"): (
+        "Baixar contrato canônico",
+        "OpenAPI canônico gerado dos mesmos modelos usados pela API.",
+    ),
     ("post", "/api/v1/coleta/pairing-codes"): (
         "Criar código de pareamento",
         "Emite código descartável para uma instalação; requer JWT e HTTPS.",
@@ -88,6 +116,30 @@ OPERATION_DOCUMENTATION: dict[OperationKey, tuple[str, str]] = {
         "Cancel renewal",
         "Idempotently schedule cancellation while preserving the remainder of the trial or paid period.",
     ),
+    ("get", "/api/v1/coleta/catalogo"): (
+        "Consultar catálogo assinado",
+        "Projeção técnica autenticada pela instalação, sem evidência regulatória ou permissões de navegador.",
+    ),
+    ("get", "/api/v1/admin/casas"): (
+        "Consultar catálogo administrativo",
+        "Leitura auditada com autorização explícita de operador e RLS.",
+    ),
+    ("get", "/api/v1/admin/casas/export"): (
+        "Exportar catálogo administrativo",
+        "Exportação JSON auditada da campanha e matriz das 27 jurisdições.",
+    ),
+    ("post", "/api/v1/catalogo/candidatos"): (
+        "Confirmar acesso a domínio exato",
+        "Registra confirmação de acesso do usuário, sem afirmar autorização ou suporte técnico.",
+    ),
+    ("post", "/api/v1/consolidacoes"): (
+        "Consolidar fontes após revisão",
+        "Vincula Casa e Telegram em uma transação: Casa fornece as finanças e Telegram preserva o contexto. Revalida usuário, conta e disponibilidade das fontes.",
+    ),
+    ("post", "/api/v1/consolidacoes/{relacao_id}/desvincular"): (
+        "Desvincular fontes após revisão",
+        "Desfaz a relação financeira sem apagar fontes ou decisões anteriores. Exige motivo e impede nova consolidação automática do mesmo par.",
+    ),
     ("post", "/api/v1/integrations/telegram/webhook"): (
         "Receber atualização do bot Telegram",
         "Valida o segredo do webhook e persiste o update_id antes de responder; o processamento é assíncrono.",
@@ -103,6 +155,22 @@ OPERATION_DOCUMENTATION: dict[OperationKey, tuple[str, str]] = {
     ("delete", "/api/v1/telegram/link"): (
         "Revogar vínculo Telegram",
         "Revoga o vínculo ativo para impedir novo ingresso desta identidade.",
+    ),
+    ("post", "/api/v1/calculadoras/mercado-justo"): (
+        "Normalizar mercado justo",
+        "Normaliza proporcionalmente um mercado completo; os resultados devem ser mutuamente exclusivos e completos. Odds não comprovam completude nem probabilidade verdadeira.",
+    ),
+    ("post", "/api/v1/calculadoras/distribuir-entre-resultados"): (
+        "Distribuir entre resultados",
+        "Equaliza retornos, expõe lucro ou perda após arredondamento em cada resultado e identifica arbitragem quando todos são lucrativos.",
+    ),
+    ("post", "/api/v1/calculadoras/cobertura-ao-vivo"): (
+        "Calcular cobertura ao vivo",
+        "Mercado binário com stakes em dinheiro. Calcula a cobertura que equaliza o lucro dos dois desfechos; a comissão incide sobre o lucro da aposta vencedora. Sem freebet, cashout parcial ou push asiático.",
+    ),
+    ("post", "/api/v1/calculadoras/percentual-banca"): (
+        "Calcular percentual da banca",
+        "Converte percentual em stake ou stake em percentual, com banca fornecida na requisição.",
     ),
     ("post", "/coleta"): (
         "Receber coleta da extensão",
@@ -179,6 +247,38 @@ OPERATION_DOCUMENTATION: dict[OperationKey, tuple[str, str]] = {
     ("get", "/api/v1/painel/metricas"): (
         "Consultar séries para gráficos",
         "Retorna séries temporais já agregadas para os gráficos do painel.",
+    ),
+    ("get", "/api/v1/painel/analises"): (
+        "Consultar análises adicionais",
+        "Recorta as contribuições canônicas por odds, horário, esporte, stake e banca.",
+    ),
+    ("get", "/api/v1/painel/preferencias"): (
+        "Consultar preferências do painel",
+        "Retorna o fuso IANA usado no mapa de horário das apostas.",
+    ),
+    ("patch", "/api/v1/painel/preferencias"): (
+        "Alterar preferências do painel",
+        "Configura o fuso IANA usado no mapa de horário das apostas.",
+    ),
+    ("post", "/api/v1/painel/metas"): (
+        "Criar meta de desempenho",
+        "Cria uma meta privada para uma métrica canônica e um intervalo civil.",
+    ),
+    ("get", "/api/v1/painel/metas"): (
+        "Listar metas de desempenho",
+        "Retorna as metas privadas com progresso calculado sobre apostas incluídas.",
+    ),
+    ("get", "/api/v1/painel/metas/{meta_id}"): (
+        "Consultar meta de desempenho",
+        "Retorna uma meta privada e seu progresso atual.",
+    ),
+    ("patch", "/api/v1/painel/metas/{meta_id}"): (
+        "Alterar meta de desempenho",
+        "Altera os parâmetros ou o estado de uma meta privada.",
+    ),
+    ("delete", "/api/v1/painel/metas/{meta_id}"): (
+        "Arquivar meta de desempenho",
+        "Arquiva a meta mantendo seu histórico e progresso consultáveis.",
     ),
     ("get", "/api/v1/painel/export"): (
         "Exportar painel em Excel",
@@ -280,7 +380,14 @@ OPERATION_DOCUMENTATION: dict[OperationKey, tuple[str, str]] = {
 
 
 PARAMETER_DESCRIPTIONS = {
+    "sessao_id": "UUID opaco da sessão pertencente à instalação autenticada.",
     "instalacao_id": "ID interno da instalação do usuário autenticado.",
+    "client_version": "Versão estável do cliente em três componentes.",
+    "environment": "Ambiente esperado, vinculado à assinatura.",
+    "known_version": "Maior versão já verificada; downgrade é recusado.",
+    "X-Coleta-Token": "Credencial opaca de instalação pareada, não token legado de usuário.",
+    "If-None-Match": "ETag previamente autenticado e verificado.",
+    "relacao_id": "Identificador da decisão de consolidação pertencente ao usuário.",
     "return_to": "Caminho interno do frontend; origens arbitrárias são recusadas.",
     "intent": "login, signup ou recover; use o link real do emissor. Recover revoga sessões locais anteriores após login verificado.",
     "state": "State de uso único vinculado ao cookie de fluxo.",
@@ -306,6 +413,7 @@ PARAMETER_DESCRIPTIONS = {
     "include_archived": "Inclui titulares arquivados na listagem quando verdadeiro.",
     "job_id": "UUID público retornado quando o upload foi aceito.",
     "mercado_id": "Identificador canônico do mercado usado como filtro.",
+    "meta_id": "Identificador de uma meta pertencente ao usuário autenticado.",
     "motivo": "Texto do motivo usado para filtrar a fila de revisões.",
     "origem": "Canal de origem da aposta usado como filtro.",
     "page": "Número da página, começando em 1.",
@@ -321,6 +429,38 @@ PARAMETER_DESCRIPTIONS = {
 
 
 REQUEST_EXAMPLES: dict[OperationKey, tuple[str, JsonObject]] = {
+    ("post", "/api/v1/coleta/sessions"): (
+        "Nova sessão explícita",
+        {"coletar_desde": "2026-08-01T00:00:00Z", "retomar_sessao_id": None},
+    ),
+    ("post", "/api/v1/coleta/batches"): (
+        "Captura sintética",
+        {
+            "contrato": 2,
+            "batch_id": "00000000-0000-4000-8000-000000000001",
+            "sessao_id": "00000000-0000-4000-8000-000000000002",
+            "items": [
+                {
+                    "client_event_id": "00000000-0000-4000-8000-000000000003",
+                    "hostname": "betano.bet.br",
+                    "observado": {
+                        "source": "observed_response",
+                        "transport": "fetch",
+                        "method": "GET",
+                        "path": "/synthetic/history",
+                        "status": 200,
+                        "content_type": "application/json",
+                        "adapter_version": "1.0.0",
+                        "sanitization_version": 1,
+                    },
+                    "capturado_em": "2026-08-02T00:00:00Z",
+                    "payload": {},
+                    "content_hash": "44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a",
+                    "conta_casa_ref": None,
+                }
+            ],
+        },
+    ),
     ("post", "/api/v1/coleta/pairing-exchange"): (
         "Código descartável e instalação opaca",
         {
@@ -345,6 +485,66 @@ REQUEST_EXAMPLES: dict[OperationKey, tuple[str, JsonObject]] = {
     ("patch", "/api/v1/titulares/{titular_id}/contas/{conta_id}"): (
         "Limitar conta",
         {"estado": "LIMITADA"},
+    ),
+    ("post", "/api/v1/catalogo/candidatos"): (
+        "Confirmação sem credenciais",
+        {
+            "brand": "EXEMPLO",
+            "hostname": "exemplo.bet.br",
+            "access_confirmed": True,
+            "confirmed_at": "2026-09-29T12:00:00+00:00",
+            "evidence_sha256": "a" * 64,
+        },
+    ),
+    ("post", "/api/v1/consolidacoes"): (
+        "Confirmar duas fontes",
+        {"casa_aposta_id": 10, "telegram_aposta_id": 11},
+    ),
+    ("post", "/api/v1/consolidacoes/{relacao_id}/desvincular"): (
+        "Corrigir associação",
+        {"motivo": "As fontes representam bilhetes diferentes"},
+    ),
+    ("post", "/api/v1/calculadoras/mercado-justo"): (
+        "Mercado binário completo",
+        {"outcomes": [{"name": "A", "odd": "1.90"}, {"name": "B", "odd": "1.90"}]},
+    ),
+    ("post", "/api/v1/calculadoras/distribuir-entre-resultados"): (
+        "Resultados mutuamente exclusivos",
+        {
+            "outcomes": [{"name": "A", "odd": "2.10"}, {"name": "B", "odd": "2.10"}],
+            "total_stake_centavos": 10000,
+        },
+    ),
+    ("post", "/api/v1/calculadoras/cobertura-ao-vivo"): (
+        "Cobertura binária",
+        {
+            "original_stake_centavos": 10000,
+            "original_odd": "1.50",
+            "opposing_odd": "3.00",
+        },
+    ),
+    ("post", "/api/v1/calculadoras/percentual-banca"): (
+        "Modo direto",
+        {"bankroll_centavos": 100000, "percentage": "5"},
+    ),
+    ("patch", "/api/v1/painel/preferencias"): (
+        "Fuso do painel",
+        {"fuso_horario": "America/Sao_Paulo"},
+    ),
+    ("post", "/api/v1/painel/metas"): (
+        "Meta de lucro",
+        {
+            "titulo": "Lucro mensal",
+            "metrica": "lucro_centavos",
+            "inicio": "2026-09-01",
+            "fim": "2026-09-30",
+            "alvo": "100000",
+            "linha_base": "0",
+        },
+    ),
+    ("patch", "/api/v1/painel/metas/{meta_id}"): (
+        "Alterar alvo",
+        {"alvo": "120000"},
     ),
     ("patch", "/api/v1/caixa/contas/{conta_casa_id}/banca"): (
         "Vincular conta à banca",
@@ -835,17 +1035,21 @@ def _install_collection_security(document: JsonObject) -> None:
                     },
                 }
     paths = _object(document["paths"], context="paths")
+    for path in (
+        "/api/v1/coleta/sessions",
+        "/api/v1/coleta/sessions/{sessao_id}",
+        "/api/v1/coleta/batches",
+        "/api/v1/coleta/jobs/{job_id}",
+    ):
+        for method, operation in paths[path].items():
+            if method in HTTP_METHODS:
+                operation["security"] = [{"CollectionToken": []}]
     for path in COLLECTION_PATHS:
         operation = _object(
             _object(paths[path], context=f"path {path}")["post"],
             context=f"POST {path}",
         )
         operation["security"] = [{"CollectionToken": []}]
-    telegram_operation = _object(
-        _object(paths["/api/v1/integrations/telegram/webhook"], context="telegram webhook")["post"],
-        context="POST telegram webhook",
-    )
-    telegram_operation["security"] = [{"TelegramWebhookSecret": []}]
     _object(
         _object(paths["/api/v1/coleta/status"], context="status")["get"], context="status operation"
     )["security"] = [{"CollectionToken": []}]
@@ -853,6 +1057,33 @@ def _install_collection_security(document: JsonObject) -> None:
         _object(paths["/api/v1/coleta/pairing-exchange"], context="exchange")["post"],
         context="exchange operation",
     )["security"] = []
+    telegram_operation = _object(
+        _object(paths["/api/v1/integrations/telegram/webhook"], context="telegram webhook")["post"],
+        context="POST telegram webhook",
+    )
+    telegram_operation["security"] = [{"TelegramWebhookSecret": []}]
+    _install_catalog_security(document)
+
+
+def _install_catalog_security(document: JsonObject) -> None:
+    components = _object(document.setdefault("components", {}), context="components")
+    schemes = _object(components.setdefault("securitySchemes", {}), context="securitySchemes")
+    schemes["InstallationToken"] = {
+        "type": "apiKey",
+        "in": "header",
+        "name": "X-Coleta-Token",
+        "description": "Credencial de instalação pareada (#107), sujeita a expiração, rotação e revogação; tokens legados não são aceitos.",
+    }
+    schemes["BearerAuth"] = {"type": "http", "scheme": "bearer", "bearerFormat": "JWT"}
+    paths = _object(document["paths"], context="paths")
+    for method, path, scheme in (
+        ("get", "/api/v1/coleta/catalogo", "InstallationToken"),
+        ("get", "/api/v1/admin/casas", "BearerAuth"),
+        ("get", "/api/v1/admin/casas/export", "BearerAuth"),
+        ("post", "/api/v1/catalogo/candidatos", "BearerAuth"),
+    ):
+        operation = _object(_object(paths[path], context=path)[method], context="catalog operation")
+        operation["security"] = [{scheme: []}]
 
 
 def _strictify_schema(schema: JsonObject) -> None:

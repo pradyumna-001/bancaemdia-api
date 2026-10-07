@@ -1,0 +1,24 @@
+{
+  "base": {
+    "usuario_id": 7, "casa": "Betano", "identidade_bilhete": "SYNTHETIC-42",
+    "comeca_em": "2026-09-20T19:30:00-03:00", "stake_centavos": 10000,
+    "moeda": "BRL", "odd": 1.90, "estado": "PENDENTE",
+    "evento": "Azul - Verde", "mercado_bruto": "Total de gols",
+    "descricao": "Mais de 2.5", "tipo_aposta": "SIMPLES",
+    "selecoes": [{"evento": "Azul - Verde", "mercado": "Total de gols", "escolha": "Mais de 2.5", "linha": 2.5}]
+  },
+  "cases": [
+    {"name": "exact", "changes": {}, "class": "exact", "score": 100},
+    {"name": "probable_without_ticket", "changes": {"identidade_bilhete": null}, "class": "probable", "score": 100},
+    {"name": "different_stake", "changes": {"stake_centavos": 20000}, "class": "incompatible", "score": 100},
+    {"name": "currency", "changes": {"moeda": "USD"}, "class": "incompatible", "score": 100},
+    {"name": "cashout", "changes": {"estado": "CASHOUT"}, "class": "exact", "score": 100},
+    {"name": "cancelled", "changes": {"estado": "ANULADA"}, "class": "exact", "score": 100},
+    {"name": "delayed_capture", "changes": {"capturado_em": "2026-09-29T12:00:00Z"}, "class": "exact", "score": 100},
+    {"name": "partial_multiple", "changes": {"tipo_aposta": "MULTIPLA", "selecoes": []}, "class": "probable", "score": 100},
+    {"name": "same_event_same_stake_false_positive", "changes": {"identidade_bilhete": null, "descricao": "Menos de 2.5", "selecoes": [{"evento": "Azul - Verde", "mercado": "Total de gols", "escolha": "Menos de 2.5", "linha": 2.5}]}, "class": "incompatible", "score": 85},
+    {"name": "different_ticket", "changes": {"identidade_bilhete": "SYNTHETIC-99"}, "class": "incompatible", "score": 100},
+    {"name": "other_user", "changes": {"usuario_id": 8}, "class": "incompatible", "score": 100},
+    {"name": "different_house", "changes": {"casa": "Superbet"}, "class": "incompatible", "score": 100}
+  ]
+}

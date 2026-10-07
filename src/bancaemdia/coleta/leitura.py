@@ -41,6 +41,7 @@ class Coletada:
     comeca_em: str | None = None
     estado: str = "PENDENTE"
     retorno_centavos: int | None = None
+    ocorrido_em: str | None = None
     observacao: str | None = None
     motivo_retencao: str | None = None
     bruto: dict[str, Any] = field(default_factory=dict, repr=False)

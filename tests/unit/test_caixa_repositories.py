@@ -251,7 +251,9 @@ async def test_saldo_is_aggregated_in_sql_and_returns_at_most_one_row_per_accoun
         not in sql.split("WHERE apostas.usuario_id", maxsplit=1)[1]
     )
     assert "movimentos.id" not in sql
-    assert "apostas.id" not in sql
+    assert "GROUP BY apostas.id" not in sql
+    assert "aposta_consolidacoes.telegram_aposta_id = apostas.id" in sql
+    assert "NOT (EXISTS" in sql
 
     limites = [
         valor

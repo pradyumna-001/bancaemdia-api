@@ -1,5 +1,7 @@
 import http from 'k6/http';
-import { baseUrl, pauseToInterval, verify } from './common.js';
+import { sleep } from 'k6';
+import { baseUrl, verify } from './common.js';
+import { coletaWaitMs } from './pacing.js';
 
 export function sendColeta(token) {
   const started = Date.now();
@@ -22,5 +24,5 @@ export function sendColeta(token) {
     tags: { name: 'POST /coleta' }, timeout: '15s',
   });
   verify(response, 'coleta accepted', 200);
-  pauseToInterval(started, __ENV.K6_LOCAL_SMOKE === '1' ? 0.5 : 6);
+  sleep(coletaWaitMs(started, Date.now(), response.headers, __ENV.K6_LOCAL_SMOKE === '1') / 1000);
 }

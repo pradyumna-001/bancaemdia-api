@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import asyncio
 from collections.abc import Awaitable, Callable
-from datetime import datetime
+from datetime import UTC, datetime
 from uuid import uuid4
 
 import pytest
@@ -12,6 +12,7 @@ from sqlalchemy.ext.asyncio import AsyncEngine, AsyncSession
 from bancaemdia import models
 from bancaemdia.repositories.aposta_repo import ApostaRepo
 from bancaemdia.repositories.evento_repo import EventoRepo
+from bancaemdia.repositories.uso_conta_casa_repo import UsoContaCasaRepo
 from bancaemdia.workers.pairing import confirmar_par, parear_criacao
 
 pytestmark = pytest.mark.xdist_group("postgres")
@@ -63,12 +64,11 @@ async def _criar(
             },
         )
         assert aposta is not None
-        if origem != "casa":
-            return await parear_criacao(session, usuario, aposta, payload)
+        return await parear_criacao(session, usuario, aposta, payload)
     return "nova"
 
 
-async def test_two_matching_tips_are_serialized_and_only_one_owns_the_house_bet(
+async def test_two_matching_tips_create_reviews_without_changing_financial_selection(
     engine_app: AsyncEngine, novo_usuario: Callable[[], Awaitable[int]]
 ) -> None:
     usuario = await novo_usuario()
@@ -89,7 +89,7 @@ async def test_two_matching_tips_are_serialized_and_only_one_owns_the_house_bet(
         ),
         timeout=10,
     )
-    assert sorted(resultados) == ["duvida", "igual"]
+    assert sorted(resultados) == ["duvida", "duvida"]
     async with AsyncSession(engine_app) as session, session.begin():
         await session.execute(
             text("SELECT set_config('app.current_user_id', :uid, true)"), {"uid": str(usuario)}
@@ -103,15 +103,34 @@ async def test_two_matching_tips_are_serialized_and_only_one_owns_the_house_bet(
             ).scalars()
         }
         assert apostas[casa].selecionada is True
-        assert apostas[casa].parceira_chave in dicas
-        assert sum(apostas[chave].duvida_de_par for chave in dicas) == 1
-        assert all(not apostas[chave].selecionada for chave in dicas)
+        assert apostas[casa].parceira_chave is None
+        assert sum(apostas[chave].duvida_de_par for chave in dicas) == 0
+        assert all(apostas[chave].selecionada for chave in dicas)
 
 
 async def test_manual_confirmation_of_an_uncertain_pair_keeps_the_house_bet(
     engine_app: AsyncEngine, novo_usuario: Callable[[], Awaitable[int]]
 ) -> None:
     usuario = await novo_usuario()
+    async with AsyncSession(engine_app) as session, session.begin():
+        await session.execute(
+            text("SELECT set_config('app.current_user_id', :uid, true)"), {"uid": str(usuario)}
+        )
+        house_id = await session.scalar(select(models.Casa.id).where(models.Casa.nome == "Betano"))
+        if house_id is None:
+            house_row = models.Casa(nome="Betano", dominio="betano.bet.br")
+            session.add(house_row)
+            await session.flush()
+            house_id = house_row.id
+        account = models.ContaCasa(
+            usuario_id=usuario, casa_id=house_id, apelido="synthetic-default"
+        )
+        session.add(account)
+        await session.flush()
+        await UsoContaCasaRepo().open(
+            session, usuario, house_id, account.id, datetime(2020, 1, 1, tzinfo=UTC)
+        )
+
     payload = {
         "casa": "Betano",
         "evento": "Internacional - Corinthians",
@@ -122,10 +141,7 @@ async def test_manual_confirmation_of_an_uncertain_pair_keeps_the_house_bet(
     }
     casa, dica = f"c:betano:{uuid4().hex}", f"t:{uuid4().hex}"
     await _criar(engine_app, usuario, "casa", casa, payload)
-    assert (
-        await _criar(engine_app, usuario, "telegram", dica, {**payload, "descricao": "3+ gols"})
-        == "duvida"
-    )
+    assert await _criar(engine_app, usuario, "telegram", dica, payload) == "duvida"
     async with AsyncSession(engine_app) as session, session.begin():
         await session.execute(
             text("SELECT set_config('app.current_user_id', :uid, true)"), {"uid": str(usuario)}
@@ -141,5 +157,15 @@ async def test_manual_confirmation_of_an_uncertain_pair_keeps_the_house_bet(
         aposta_casa = await ApostaRepo().get_by_chave(session, usuario, casa)
         aposta_dica = await ApostaRepo().get_by_chave(session, usuario, dica)
         assert aposta_casa is not None and aposta_dica is not None
-        assert aposta_casa.selecionada is True and aposta_casa.parceira_chave == dica
-        assert aposta_dica.selecionada is False and aposta_dica.duvida_de_par is False
+        assert aposta_casa.selecionada is True and aposta_casa.parceira_chave is None
+        assert aposta_dica.selecionada is True and aposta_dica.duvida_de_par is False
+        relations = list(
+            await session.scalars(
+                select(models.ApostaConsolidacao).where(
+                    models.ApostaConsolidacao.usuario_id == usuario
+                )
+            )
+        )
+        assert len(relations) == 1 and relations[0].estado == "active"
+        listed, count = await ApostaRepo().list_page(session, usuario, {})
+        assert count == 1 and listed[0].chave == casa

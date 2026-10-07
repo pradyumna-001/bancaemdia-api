@@ -72,6 +72,11 @@ async def trocar_conta(
     pedido = pedido.normalizado()
     tipo = "APPLY" if aplicar else "PREVIEW"
     digest = _digest(pedido)
+    from bancaemdia.repositories.cruzamento_candidato import CruzamentoCandidatoRepo
+
+    # Materialization holds this lock before acquiring account/user FK locks.
+    # Take it before the user/account rows, including preview and retries.
+    await CruzamentoCandidatoRepo().lock(session, usuario_id)
     # The user row serializes concurrent requests, including requests with different keys.
     await session.execute(
         select(models.Usuario.id).where(models.Usuario.id == usuario_id).with_for_update()

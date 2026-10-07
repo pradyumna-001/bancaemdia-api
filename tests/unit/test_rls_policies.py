@@ -21,7 +21,7 @@ REVISAO_RESOLVIDA = "f2a9c4e7b106"
 PAINEL = "d3f6a8c1e209"
 CAIXA_REVISAO_MERGE = "e5a1c7d9b204"
 PAINEL_CAIXA_MERGE = "f8b2d4a6c901"
-HEAD = "j3main2026"
+HEAD = "j6main2026"
 USUARIO_ATUAL = "NULLIF(current_setting('app.current_user_id', true), '')::bigint"
 JOB_OFERECIDO = "NULLIF(current_setting('app.upload_job_id', true), '')::uuid"
 POR_USUARIO = {
@@ -125,14 +125,36 @@ def test_protected_and_shared_tables_cover_the_whole_schema() -> None:
         "billing_checkouts",
         "billing_events",
     }
-    assert protegidas | POR_USUARIO_TITULARES | POR_USUARIO_TELEGRAM | {
-        "coleta_instalacoes",
-        "coleta_pairing_codes",
-        "coleta_pairing_quotas",
-    } | GLOBAIS_TELEGRAM | COMPARTILHADAS | billing | {
-        "usuarios",
-        "audit_log",
-    } == set(Base.metadata.tables)
+    assert (
+        protegidas
+        | POR_USUARIO_TITULARES
+        | POR_USUARIO_TELEGRAM
+        | GLOBAIS_TELEGRAM
+        | COMPARTILHADAS
+        | billing
+        | {
+            "coleta_instalacoes",
+            "coleta_pairing_codes",
+            "coleta_pairing_quotas",
+            "coleta_sessoes",
+            "coleta_entregas",
+            "aposta_consolidacoes",
+            "metas_desempenho",
+            "cruzamento_entradas",
+            "cruzamento_candidatos",
+            "reader_quarantine",
+            "catalogo_operadores",
+            "casa_dominios",
+            "catalogo_fontes",
+            "catalogo_snapshots",
+            "catalogo_publicacoes",
+            "catalogo_confirmacoes",
+            "catalogo_auditoria",
+            "usuarios",
+            "audit_log",
+        }
+        == set(Base.metadata.tables)
+    )
     assert not protegidas & COMPARTILHADAS
     for tabela in protegidas:
         assert "usuario_id" in Base.metadata.tables[tabela].c

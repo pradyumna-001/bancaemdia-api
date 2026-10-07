@@ -25,6 +25,7 @@ ORIGENS = ("telegram", "telegram_bot", "print", "manual", "planilha", "casa")
 class Aposta(Base):
     __tablename__ = "apostas"
     __table_args__ = (
+        UniqueConstraint("id", "usuario_id", name="uq_apostas_matching_owner"),
         UniqueConstraint(
             "usuario_id",
             "chat_id",

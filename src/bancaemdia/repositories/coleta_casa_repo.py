@@ -1,6 +1,6 @@
 from datetime import datetime
 
-from sqlalchemy import func, select, update
+from sqlalchemy import func, select, text, update
 from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -10,6 +10,29 @@ from bancaemdia.repositories.base import colunas
 
 
 class ColetaCasaRepo:
+    async def lock_daily_admission(self, session: AsyncSession, usuario_id: int) -> None:
+        await session.execute(
+            text("SELECT pg_advisory_xact_lock(hashtextextended(:resource, 0))"),
+            {"resource": f"collection-daily:{usuario_id}"},
+        )
+
+    async def matching_counts(
+        self, session: AsyncSession, usuario_id: int, chave: str
+    ) -> dict[str, int]:
+        from bancaemdia.repositories.cruzamento_candidato import CruzamentoCandidatoRepo
+
+        bet_id = await session.scalar(
+            select(models.Aposta.id).where(
+                models.Aposta.usuario_id == usuario_id,
+                models.Aposta.chave == chave,
+            )
+        )
+        return (
+            {}
+            if bet_id is None
+            else await CruzamentoCandidatoRepo().counts(session, usuario_id, bet_id)
+        )
+
     async def get_by_identidade(
         self, session: AsyncSession, usuario_id: int, casa_id: int, identidade: str
     ) -> ColetaCasa | None:
@@ -79,9 +102,17 @@ class ColetaCasaRepo:
     async def count_received_since(
         self, session: AsyncSession, usuario_id: int, desde: datetime
     ) -> int:
-        stmt = select(func.count()).where(
-            models.ColetaCasa.usuario_id == usuario_id, models.ColetaCasa.recebido_em >= desde
+        legacy = select(func.count()).where(
+            models.ColetaCasa.usuario_id == usuario_id,
+            models.ColetaCasa.recebido_em >= desde,
+            models.ColetaCasa.v2_hash.is_(None),
         )
+        inbox = select(func.count()).where(
+            models.ColetaEntrega.usuario_id == usuario_id,
+            models.ColetaEntrega.criada_em >= desde,
+            models.ColetaEntrega.ack != "rejected",
+        )
+        stmt = select(legacy.scalar_subquery() + inbox.scalar_subquery())
         quantas: int = (await session.execute(stmt)).scalar_one()
         return quantas
 

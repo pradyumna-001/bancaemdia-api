@@ -8,6 +8,7 @@ from typing import Any
 
 from bancaemdia.coleta.leitores import LEITORES
 from bancaemdia.coleta.leitura import Coletada, ColetaInvalidaError
+from bancaemdia.domain.coleta_provenance import safe_payload
 from bancaemdia.domain.financeiro import Estado
 from bancaemdia.domain.materializar import EventoNovo, casa_canonica
 
@@ -25,8 +26,9 @@ class ApostaInvalidaError(ValueError):
 
 @dataclass
 class Resultado:
-    # É a resposta que a extensão já conhece. O pareamento é confirmado na transação de
-    # materialização, após esta resposta de ingestão; estas contagens refletem apenas o recebimento.
+    # Matching counts reflect persisted candidates from completed materialization.
+    # First asynchronous intake may return zero; subsequent receipts report current candidates.
+    # "iguais" means eligible exact candidates, never already consolidated financial facts.
     novas_contando: int = 0
     iguais_a_existentes: int = 0
     em_duvida: int = 0
@@ -107,6 +109,9 @@ def conferir_guardavel(bruto: object) -> None:
             " emoji partido ao meio ou número infinito) — só ela ficou de fora"
         )
 
+    if not safe_payload(bruto):
+        raise ColetaInvalidaError("a captura contém dados de sessão ou credenciais não permitidos")
+
 
 def validar(coletada: Coletada, valor_unidade_centavos: int) -> None:
     problemas: list[str] = []
@@ -143,15 +148,26 @@ def eventos_da_criacao(coletada: Coletada, valor_unidade_centavos: int) -> list[
     payload: dict[str, Any] = {
         "origem": "casa",
         "data_aposta": coletada.data_aposta,
-        "data_jogo": coletada.data_aposta,
+        "ocorrido_em": coletada.ocorrido_em,
         "casa": coletada.casa.strip(),
         "tipster": None,
         "evento": coletada.evento,
         "descricao": coletada.descricao,
         "mercado_bruto": coletada.mercado_bruto,
         "tipo_aposta": coletada.tipo,
+        "identidade_bilhete": coletada.identidade,
+        "selecoes": [
+            {
+                "evento": e.evento or coletada.evento,
+                "mercado": e.mercado,
+                "escolha": e.descricao,
+                "linha": e.linha,
+            }
+            for e in coletada.escolhas
+        ],
         "odd": coletada.odd,
         "comeca_em": coletada.comeca_em,
+        "data_jogo": coletada.comeca_em,
         "stake_unidades": coletada.stake_centavos / valor_unidade_centavos,
         "valor_unidade_centavos": valor_unidade_centavos,
         "freebet": False,
@@ -176,6 +192,25 @@ def eventos_da_criacao(coletada: Coletada, valor_unidade_centavos: int) -> list[
 
 def eventos_do_resultado(coletada: Coletada, atual: dict[str, Any]) -> list[EventoNovo]:
     eventos: list[EventoNovo] = []
+    if coletada.odd != atual.get("odd"):
+        eventos.append(
+            EventoNovo("ODD_ALTERADA", FONTE, {"de": atual.get("odd"), "para": coletada.odd})
+        )
+    unit = int(atual.get("valor_unidade_centavos") or 10_000)
+    stake = coletada.stake_centavos / unit
+    if stake != atual.get("stake_unidades"):
+        eventos.append(
+            EventoNovo("STAKE_ALTERADA", FONTE, {"de": atual.get("stake_unidades"), "para": stake})
+        )
+    fields = {
+        "data_jogo": coletada.comeca_em,
+        "comeca_em": coletada.comeca_em,
+        "data_aposta": coletada.data_aposta,
+        "ocorrido_em": coletada.ocorrido_em,
+    }
+    changes = {key: value for key, value in fields.items() if value != atual.get(key)}
+    if changes:
+        eventos.append(EventoNovo("CORRECAO_MANUAL", FONTE, changes))
     # O estado final segue a última captura, na ordem que for: a casa corrige resultado já
     # liquidado e reabre aposta, e congelar na primeira liquidação deixava o resultado velho.
     mudou = coletada.estado != atual.get("estado", Estado.PENDENTE) or (

@@ -1,4 +1,5 @@
 from datetime import datetime
+from typing import cast
 
 from sqlalchemy import distinct, func, select, text, tuple_, update
 from sqlalchemy.dialects.postgresql import insert
@@ -6,6 +7,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from bancaemdia import models
 from bancaemdia.domain.registros import Aposta, ApostasPorOrigem
+from bancaemdia.repositories.aposta_consolidacao import financial_predicate
 from bancaemdia.repositories.base import colunas
 
 IMUTAVEIS = frozenset({"id", "usuario_id", "chave", "criada_em"})
@@ -36,7 +38,9 @@ class ApostaRepo:
         ate: datetime | None = None,
         limite: int | None = None,
     ) -> list[Aposta]:
-        stmt = select(models.Aposta).where(models.Aposta.usuario_id == usuario_id)
+        stmt = select(models.Aposta).where(
+            models.Aposta.usuario_id == usuario_id, financial_predicate()
+        )
         if estado is not None:
             stmt = stmt.where(models.Aposta.estado == estado)
         if origem is not None:
@@ -57,6 +61,9 @@ class ApostaRepo:
     async def get_by_chave_for_update(
         self, session: AsyncSession, usuario_id: int, chave: str
     ) -> Aposta | None:
+        from bancaemdia.repositories.cruzamento_candidato import CruzamentoCandidatoRepo
+
+        await CruzamentoCandidatoRepo().lock(session, usuario_id)
         obj = (
             await session.execute(
                 select(models.Aposta)
@@ -79,7 +86,7 @@ class ApostaRepo:
         )
         # A apagada só aparece quando a pessoa pede: ela saiu das contas por decisão dela.
         if not filtros.get("incluir_apagadas"):
-            stmt = stmt.where(models.Aposta.selecionada)
+            stmt = stmt.where(models.Aposta.selecionada, financial_predicate())
         for campo in ("estado", "origem", "tipster_id", "mercado_id", "competicao_id"):
             if filtros.get(campo) is not None:
                 stmt = stmt.where(getattr(models.Aposta, campo) == filtros[campo])
@@ -150,6 +157,9 @@ class ApostaRepo:
         return [ApostasPorOrigem(*linha) for linha in (await session.execute(stmt)).all()]
 
     async def upsert_idempotent(self, session: AsyncSession, dados: dict[str, object]) -> Aposta:
+        from bancaemdia.repositories.cruzamento_candidato import CruzamentoCandidatoRepo
+
+        await CruzamentoCandidatoRepo().lock(session, cast(int, dados["usuario_id"]))
         stmt = insert(models.Aposta).values(**dados)
         mutaveis = {
             campo: getattr(stmt.excluded, campo) for campo in dados if campo not in IMUTAVEIS
@@ -167,6 +177,9 @@ class ApostaRepo:
     ) -> Aposta | None:
         # Replays can carry their source timestamp. A stale replay must not replace a newer row;
         # live materialization uses the database clock when the source has no timestamp.
+        from bancaemdia.repositories.cruzamento_candidato import CruzamentoCandidatoRepo
+
+        await CruzamentoCandidatoRepo().lock(session, cast(int, dados["usuario_id"]))
         valores = {**dados, "atualizada_em": dados.get("atualizada_em", func.clock_timestamp())}
         stmt = insert(models.Aposta).values(**valores)
         mutaveis = {
@@ -191,6 +204,9 @@ class ApostaRepo:
         estado: str,
         retorno_centavos: int | None = None,
     ) -> Aposta | None:
+        from bancaemdia.repositories.cruzamento_candidato import CruzamentoCandidatoRepo
+
+        await CruzamentoCandidatoRepo().lock(session, usuario_id)
         stmt = (
             update(models.Aposta)
             .where(models.Aposta.usuario_id == usuario_id, models.Aposta.chave == chave)

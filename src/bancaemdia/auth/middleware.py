@@ -1,3 +1,4 @@
+import re
 from collections.abc import Awaitable, Callable
 
 from starlette.middleware.base import BaseHTTPMiddleware
@@ -29,6 +30,11 @@ PUBLIC_PATHS = frozenset({
     "/api/v1/coleta",
     "/api/v1/coleta/pairing-exchange",
     "/api/v1/coleta/status",
+    "/api/v1/coleta/sessions",
+    "/api/v1/coleta/batches",
+    "/api/v1/coleta/contract",
+    "/api/v1/coleta/contract/schema",
+    "/api/v1/coleta/catalogo",
     "/webhook/upload-complete",
     "/api/v1/integrations/telegram/webhook",
     "/openapi.json",
@@ -36,6 +42,13 @@ PUBLIC_PATHS = frozenset({
     "/docs/oauth2-redirect",
     "/redoc",
 })
+
+CATALOG_METHODS = {
+    "/api/v1/coleta/catalogo": "GET",
+    "/api/v1/admin/casas": "GET",
+    "/api/v1/admin/casas/export": "GET",
+    "/api/v1/catalogo/candidatos": "POST",
+}
 
 
 def route_path(request: Request) -> str:
@@ -58,7 +71,16 @@ class JWTAuthMiddleware(BaseHTTPMiddleware):
     async def dispatch(
         self, request: Request, call_next: Callable[[Request], Awaitable[Response]]
     ) -> Response:
-        if route_path(request) in PUBLIC_PATHS:
+        allowed = CATALOG_METHODS.get(route_path(request))
+        if allowed is not None and request.method != allowed:
+            return JSONResponse(
+                status_code=405,
+                content={"detail": "Method not allowed"},
+                headers={"Allow": allowed},
+            )
+        if route_path(request) in PUBLIC_PATHS or re.fullmatch(
+            r"/api/v1/coleta/(sessions|jobs)/[0-9a-fA-F-]{36}", route_path(request)
+        ):
             return await call_next(request)
 
         from bancaemdia.api.identity import failure

@@ -20,6 +20,7 @@ from bancaemdia.repositories.aposta_repo import ApostaRepo
 from bancaemdia.repositories.conta_casa_repo import ContaCasaRepo
 from bancaemdia.repositories.movimento_repo import MovimentoRepo
 from bancaemdia.repositories.unidade_repo import UnidadeRepo
+from bancaemdia.repositories.uso_conta_casa_repo import UsoContaCasaRepo
 from bancaemdia.repositories.usuario_repo import UsuarioRepo
 
 pytestmark = [pytest.mark.edge_cases, pytest.mark.xdist_group("postgres")]
@@ -145,6 +146,7 @@ async def test_house_account_starts_on_january_fifteenth_and_balance_starts_at_f
                 "desde": _quando(1, 15),
             },
         )
+        await UsoContaCasaRepo().open(session, usuario, casa_id, conta.id, _quando(1, 15))
         await MovimentoRepo().append(
             session,
             {

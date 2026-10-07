@@ -3,6 +3,7 @@ import hmac
 import json
 from dataclasses import replace
 from datetime import UTC, datetime
+from functools import partial
 
 from fastapi import APIRouter, Depends, Request, status
 from fastapi.concurrency import run_in_threadpool
@@ -39,6 +40,7 @@ from bancaemdia.repositories.coleta_casa_repo import ColetaCasaRepo
 from bancaemdia.repositories.coleta_instalacao import ColetaInstalacaoRepo
 from bancaemdia.services.coleta_tokens import audit
 from bancaemdia.workers.celery_app import app as celery
+from bancaemdia.workers.publication import ignored_task_result
 
 TOKEN_HEADER = "X-Coleta-Token"
 CONTRATO = 1
@@ -120,6 +122,9 @@ async def registrar(
     if leitor is None:
         return await _guardar_sem_leitor(session, usuario_id, casa, casa_id, apostas), []
 
+    from bancaemdia.repositories.cruzamento_candidato import CruzamentoCandidatoRepo
+
+    await CruzamentoCandidatoRepo().lock(session, usuario_id)
     resultado = Resultado()
     fila: list[int] = []
     coletas = ColetaCasaRepo()
@@ -171,6 +176,10 @@ async def registrar(
                 coleta_received.labels(casa=casa, status="recusada").inc()
                 continue
 
+        matching = await coletas.matching_counts(session, usuario_id, chave)
+        resultado.iguais_a_existentes += int(matching.get("exact", 0) > 0)
+        resultado.em_duvida += int(matching.get("probable", 0) > 0)
+
         if existente is None:
             resultado.novas_contando += 1
             situacao = "nova"
@@ -192,8 +201,14 @@ async def registrar(
 
 
 def _enfileirar(usuario_id: int, fila: list[int]) -> None:
+    # O processamento fica registrado no PostgreSQL; esta rota não consome resultados RPC.
     for coleta_id in fila:
-        celery.send_task(TAREFA, kwargs={"usuario_id": usuario_id, "coleta_id": coleta_id})
+        celery.send_task(
+            TAREFA,
+            kwargs={"usuario_id": usuario_id, "coleta_id": coleta_id},
+            ignore_result=True,
+            result_cls=partial(ignored_task_result, app=celery),
+        )
 
 
 @router.post("/api/v1/coleta", response_model=CollectionResponse)
@@ -222,6 +237,7 @@ async def receber_coleta(request: Request, session: AsyncSession = Depends(get_d
 
     # O teto vem antes de ler o corpo: quem já passou dele não custa nem a memória do envio.
     hoje = datetime.now(UTC).replace(hour=0, minute=0, second=0, microsecond=0)
+    await ColetaCasaRepo().lock_daily_admission(session, usuario_id)
     quantas = await ColetaCasaRepo().count_received_since(session, usuario_id, hoje)
     recado = recado_de_teto(quantas, get_settings().COLETA_DAILY_LIMIT)
     if recado is not None:
@@ -237,7 +253,11 @@ async def receber_coleta(request: Request, session: AsyncSession = Depends(get_d
         envio = json.loads(corpo.decode("utf-8", "replace"))
     except ValueError:
         return erro(status.HTTP_400_BAD_REQUEST, "não entendi o que a extensão mandou")
-    if not isinstance(envio, dict) or envio.get("contrato") != CONTRATO:
+    if (
+        not isinstance(envio, dict)
+        or isinstance(envio.get("contrato"), bool)
+        or envio.get("contrato") != CONTRATO
+    ):
         return erro(
             status.HTTP_400_BAD_REQUEST,
             "esta versão do planilhador não conhece o formato que a extensão mandou — atualize"

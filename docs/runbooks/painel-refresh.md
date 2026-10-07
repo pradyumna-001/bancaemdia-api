@@ -45,6 +45,8 @@ python -m bancaemdia.cli.configure_painel_cron
 
 For a local database without `pg_cron`, schedule
 `python -m bancaemdia.cli.refresh_painel` every 15 seconds using an external scheduler.
+The approved Lightsail Phase 1 Compose runs this command in its dedicated `painel_refresh`
+service; do not configure `pg_cron` at the same time.
 
 Do not run it with the read-only HTTP role or against the replica. The command needs ownership of
 the materialized views. It takes advisory lock `20260930`, opens one repeatable-read transaction,
@@ -76,6 +78,12 @@ if the budget fails, switch to incremental aggregation before claiming that targ
 
 ## Checks
 
+The current `mv_painel_resumo` derives a known balance from the first recorded cash movement.
+If imported or missed-capture bets predate that movement, those earlier stakes/returns are
+excluded even though the account can appear under `contas_saldo_conhecido`. Before relying on a
+known-balance total, inspect affected accounts against the event ledger and first movement date;
+flag or reconcile them manually. Do not treat that classification as proof of complete history.
+
 As the maintenance owner on the primary:
 
 ```sql
@@ -96,7 +104,11 @@ with an old `atualizado_em` is a stale-but-honest response, not evidence that re
 
 ## Performance verification
 
-`scripts/benchmark_painel.py` measures warmed HTTP P50/P95/P99 without printing the bearer token.
+`scripts/benchmark_painel.py` measures warmed HTTP P50/P95/P99 and the largest materialized-view
+age returned by the API without printing the bearer token. Set `PAINEL_BENCH_MIN_BETS` to the
+documented minimum for the measured user's selected period; record the total dataset cardinality
+separately. The command exits unsuccessfully if P95 is at least 500 ms, any measured response
+reports age of at least 30 seconds, the bet count is below the minimum, or freshness is missing.
 Populate a database with representative users, bets and dimension cardinality, record hardware and
-dataset counts, then set `PAINEL_BENCH_TOKEN` and `PAINEL_BENCH_URL`. Do not claim P95 below 500 ms
-from an empty database or from unit-test timings.
+dataset counts, then set `PAINEL_BENCH_TOKEN` and `PAINEL_BENCH_URL`. Do not claim the SLO from an
+empty database or from unit-test timings.

@@ -171,6 +171,7 @@
 **Acceptance**: Movimentos created atomically; balances correct; temporal queries work
 
 **Implementation decision (2026-09-21)**:
+- `BONUS` remains an internal domain/ledger movement type: reads may expose existing bonus rows, but `POST /caixa` accepts only `DEPOSITO`, `SAQUE`, `TRANSFERENCIA` and `AJUSTE`. No user-created bonus endpoint is published.
 - Emit the existing `MOVIMENTO_REGISTRADO` event. `MOVIMENTO_CAIXA` is not part of
   `ck_eventos_tipo` and would be rejected by the database.
 - Keep `domain.temporal.saldo` as the single balance rule instead of adding a cached

@@ -2,7 +2,7 @@
 
 Date: 2026-09-28
 
-Status: **Proposed — No-Go pending dataset and model approval**
+Status: **Archived for post-launch — owner decision, 2026-10-06.** Research remains No-Go; [current archive decision](../archive/post-launch/line-calculator.md) supersedes the acquisition next steps below.
 
 Issue: [#104](https://github.com/pradyumna-001/bancaemdia-api/issues/104)
 

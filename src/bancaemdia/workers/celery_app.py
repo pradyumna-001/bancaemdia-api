@@ -17,6 +17,10 @@ from bancaemdia.observability.metrics import (
     multiprocess_mode,
 )
 from bancaemdia.observability.tracing import configure_tracing, shutdown_owned_tracing
+from bancaemdia.workers.coleta_runtime import (
+    close_collection_runtime,
+    initialize_collection_runtime,
+)
 
 settings = get_settings()
 
@@ -35,6 +39,7 @@ app = Celery(
         "bancaemdia.workers.materialization",
         "bancaemdia.workers.upload",
         "bancaemdia.workers.billing",
+        "bancaemdia.workers.coleta_v2",
         "bancaemdia.workers.telegram",
         "bancaemdia.workers.telegram_privacy",
     ],
@@ -65,6 +70,10 @@ app.conf.update(
     ),
 )
 
+app.conf.beat_schedule = {
+    **(app.conf.beat_schedule or {}),
+    "collection-v2-inbox": {"task": "materialization.collection_v2", "schedule": 10.0},
+}
 # Add schedules without replacing billing or other registered Beat entries.
 app.conf.beat_schedule.update({
     "telegram-privacy-purge": {"task": "telegram.purge", "schedule": 3600.0},
@@ -145,8 +154,9 @@ def configure_worker_observability(**kwargs: object) -> None:
     worker_settings = get_settings()
     clear_request_context()
     configure_logging(worker_settings.LOG_LEVEL)
+    runtime = initialize_collection_runtime()
     configure_tracing(
-        engines=(get_engine(),),
+        engines=(get_engine(),) if runtime is None else (get_engine(), runtime.engine),
         service_name="bancaemdia-worker",
         environment=worker_settings.APP_ENV,
         otlp_endpoint=worker_settings.OTEL_EXPORTER_OTLP_ENDPOINT,
@@ -163,7 +173,10 @@ def configure_worker_logging(**kwargs: object) -> None:
 def shutdown_worker_observability(**kwargs: object) -> None:
     """Drain the child process span batch before billiard terminates it."""
 
-    shutdown_owned_tracing()
+    try:
+        close_collection_runtime()
+    finally:
+        shutdown_owned_tracing()
 
 
 @lru_cache

@@ -7,6 +7,7 @@ from sqlalchemy.sql.ddl import DDLElement
 from bancaemdia.db.models import Base
 from bancaemdia.models.apelido import ENTIDADES, Apelido
 from bancaemdia.models.aposta import Aposta
+from bancaemdia.models.aposta_consolidacao import ApostaConsolidacao
 from bancaemdia.models.assinatura import Assinatura
 from bancaemdia.models.audit_log import AuditLog
 from bancaemdia.models.banca import Banca
@@ -16,6 +17,15 @@ from bancaemdia.models.billing_price import BillingPrice
 from bancaemdia.models.billing_price_audit import BillingPriceAudit
 from bancaemdia.models.billing_rollout import BillingRollout
 from bancaemdia.models.casa import Casa
+from bancaemdia.models.casa_dominio import (
+    CasaDominio,
+    CatalogoAuditoria,
+    CatalogoConfirmacao,
+    CatalogoFonte,
+    CatalogoOperador,
+    CatalogoPublicacao,
+    CatalogoSnapshot,
+)
 from bancaemdia.models.chamada_ia import ChamadaIA
 from bancaemdia.models.coleta_casa import ColetaCasa
 from bancaemdia.models.coleta_instalacao import (
@@ -23,20 +33,24 @@ from bancaemdia.models.coleta_instalacao import (
     ColetaPairingCode,
     ColetaPairingQuota,
 )
+from bancaemdia.models.coleta_sessao import ColetaEntrega, ColetaSessao
 from bancaemdia.models.coleta_token import ColetaToken
 from bancaemdia.models.competicao import Competicao
 from bancaemdia.models.conta_casa import ContaCasa
+from bancaemdia.models.cruzamento_candidato import CruzamentoCandidato, CruzamentoEntrada
 from bancaemdia.models.esporte import Esporte
 from bancaemdia.models.evento import Evento
 from bancaemdia.models.extracao_cache import ExtracaoCache
 from bancaemdia.models.mensagem import Mensagem
 from bancaemdia.models.mensagem_versao import MensagemVersao
 from bancaemdia.models.mercado import FAMILIAS, Mercado
+from bancaemdia.models.meta_desempenho import MetaDesempenho
 from bancaemdia.models.midia import Midia
 from bancaemdia.models.midia_arquivo import MidiaArquivo
 from bancaemdia.models.movimento import Movimento
 from bancaemdia.models.movimento_requisicao import MovimentoRequisicao
 from bancaemdia.models.rascunho_aposta import RascunhoAposta, RascunhoCorrecao
+from bancaemdia.models.reader_quarantine import ReaderQuarantine
 from bancaemdia.models.revisao_pendente import RevisaoPendente
 from bancaemdia.models.telegram_link import (
     TelegramLink,
@@ -57,6 +71,9 @@ from bancaemdia.models.usuario import Usuario
 NUCLEO = (Usuario, Banca, ContaCasa, Unidade, Movimento, Aposta, Evento)
 CANONICOS = (Casa, Esporte, Competicao, Time, Mercado, Tipster, Apelido)
 SUPORTE = (
+    ApostaConsolidacao,
+    CruzamentoCandidato,
+    CruzamentoEntrada,
     Mensagem,
     MensagemVersao,
     Midia,
@@ -67,6 +84,7 @@ SUPORTE = (
     RevisaoPendente,
     MidiaArquivo,
     MovimentoRequisicao,
+    MetaDesempenho,
 )
 UPLOAD = (Upload, UploadBilhete, UploadArquivo)
 BILLING = (
@@ -90,6 +108,7 @@ POR_USUARIO = (
     UploadBilhete,
     UploadArquivo,
     MovimentoRequisicao,
+    MetaDesempenho,
 )
 
 
@@ -118,7 +137,7 @@ def _indexes(modelo: type[Base]) -> dict[str, list[str]]:
     return {i.name: [c.name for c in i.columns] for i in modelo.__table__.indexes}
 
 
-def test_all_fifty_one_tables_are_registered() -> None:
+def test_all_forty_eight_tables_are_registered() -> None:
     esperadas = {
         m.__tablename__
         for m in NUCLEO
@@ -130,10 +149,25 @@ def test_all_fifty_one_tables_are_registered() -> None:
         + TELEGRAM_LINKING
         + TELEGRAM_TRANSPORT
         + TELEGRAM_DRAFTS
-        + (AuditLog, ColetaInstalacao, ColetaPairingCode, ColetaPairingQuota)
+        + (
+            CatalogoOperador,
+            CasaDominio,
+            CatalogoFonte,
+            CatalogoSnapshot,
+            CatalogoPublicacao,
+            CatalogoConfirmacao,
+            CatalogoAuditoria,
+            ReaderQuarantine,
+            AuditLog,
+            ColetaInstalacao,
+            ColetaPairingCode,
+            ColetaPairingQuota,
+            ColetaSessao,
+            ColetaEntrega,
+        )
     }
     esperadas |= {"telegram_media", "telegram_rate_buckets"}
-    assert len(esperadas) == 51
+    assert len(esperadas) == 65
     assert set(Base.metadata.tables) == esperadas
     assert {m.__tablename__ for m in CANONICOS} == {
         "casas",
@@ -145,6 +179,9 @@ def test_all_fifty_one_tables_are_registered() -> None:
         "apelidos",
     }
     assert {m.__tablename__ for m in SUPORTE} == {
+        "aposta_consolidacoes",
+        "cruzamento_candidatos",
+        "cruzamento_entradas",
         "mensagens",
         "mensagem_versoes",
         "midias",
@@ -155,6 +192,7 @@ def test_all_fifty_one_tables_are_registered() -> None:
         "revisao_pendente",
         "midia_arquivos",
         "movimento_requisicoes",
+        "metas_desempenho",
     }
     assert {m.__tablename__ for m in UPLOAD} == {"uploads", "upload_bilhetes", "upload_arquivos"}
 
@@ -315,6 +353,7 @@ def test_revisao_pendente_indexes() -> None:
 
 def test_bigserial_except_composite_and_billing_owner_keys() -> None:
     for nome in set(Base.metadata.tables) - {
+        "cruzamento_entradas",
         "extracoes_cache",
         "assinaturas",
         "billing_rollout",

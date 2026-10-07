@@ -4,18 +4,18 @@ on:
   pull_request:
     paths:
       - infra/terraform/**
+      - infra/lightsail/**
       - .github/workflows/terraform.yml
   push:
     branches: [main]
     tags: ['v*']
     paths:
       - infra/terraform/**
+      - infra/lightsail/**
       - .github/workflows/terraform.yml
 
 permissions:
   contents: read
-  id-token: write
-  pull-requests: write
 
 concurrency:
   group: terraform-${{ github.ref }}
@@ -30,6 +30,11 @@ jobs:
         with:
           terraform_version: 1.14.9
       - run: terraform fmt -check -recursive infra/terraform
+      - run: terraform fmt -check -recursive infra/lightsail
+      - name: Validate approved Phase 1 Lightsail plan
+        run: |
+          terraform -chdir=infra/lightsail init -backend=false -input=false
+          terraform -chdir=infra/lightsail validate
       - name: Validate staging
         run: |
           terraform -chdir=infra/terraform/environments/staging init -backend=false -input=false
@@ -49,6 +54,10 @@ jobs:
           terraform -chdir=infra/terraform/modules/elasticache test
 
   plan-staging:
+    permissions:
+      contents: read
+      id-token: write
+      pull-requests: write
     if: >-
       github.event_name == 'pull_request' &&
       github.event.pull_request.head.repo.full_name == github.repository &&
@@ -100,6 +109,9 @@ jobs:
           gh pr comment "${{ github.event.pull_request.number }}" --body-file "$RUNNER_TEMP/plan-comment.md"
 
   apply-staging:
+    permissions:
+      contents: read
+      id-token: write
     if: >-
       github.event_name == 'push' && github.ref == 'refs/heads/main' &&
       vars.TF_APPLY_ENABLED == 'true'
@@ -129,6 +141,9 @@ jobs:
           terraform -chdir=infra/terraform/environments/staging apply -input=false -auto-approve
 
   apply-production:
+    permissions:
+      contents: read
+      id-token: write
     if: >-
       github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v') &&
       vars.TF_APPLY_ENABLED == 'true'

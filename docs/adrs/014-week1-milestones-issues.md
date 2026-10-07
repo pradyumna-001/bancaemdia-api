@@ -232,7 +232,7 @@
   - `CASHOUT`: valor informado
 - [ ] `saldo(usuario_id, casa_id, data_corte)` — temporal: only bets >= first movimento of that casa
 - [ ] `unidade_vigente(usuario_id, data)` — `vigente_de <= data < vigente_ate`
-- [ ] `conta_casa_vigente(usuario_id, casa_id, data)` — `desde <= data <= ate`
+- [ ] Legacy `conta_casa_vigente` identity boundaries retain `desde <= data_jogo <= ate`, as reviewed in #49. Current default attribution uses the separate authoritative usage interval `vigente_de <= data_jogo < vigente_ate`; multicontas uses an explicit validated account reference. Identity dates are not a fallback for missing usage.
 - [ ] ROI denominator: freebet enters by `valor_aposta_centavos` (face value)
 - [ ] `roi` and `roi_sem_bonus` side by side
 

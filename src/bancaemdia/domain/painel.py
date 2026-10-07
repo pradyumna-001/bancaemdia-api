@@ -96,6 +96,11 @@ COLUNAS_EXPORTACAO: Final[Mapping[SecaoExportacao, tuple[str, ...]]] = {
         "contribuicao_centavos",
         "acumulado_centavos",
         "saldo_centavos",
+        "saldo_inicial_centavos",
+        "depositos_periodo_centavos",
+        "saques_periodo_centavos",
+        "depositos_acumulados_centavos",
+        "saques_acumulados_centavos",
     ),
 }
 
@@ -455,6 +460,10 @@ class ContribuicaoEvolucao:
     banca_nome: str | None = None
     saldo_inicial_centavos: int | None = None
     acumulado_anterior_centavos: int = 0
+    depositos_centavos: int = 0
+    saques_centavos: int = 0
+    depositos_anteriores_centavos: int = 0
+    saques_anteriores_centavos: int = 0
 
     def __post_init__(self) -> None:
         if isinstance(self.contribuicao_centavos, bool) or not isinstance(
@@ -471,6 +480,15 @@ class ContribuicaoEvolucao:
             self.acumulado_anterior_centavos, int
         ):
             raise PainelInvalidoError("acumulado_anterior_centavos precisa ser inteiro")
+        for nome in (
+            "depositos_centavos",
+            "saques_centavos",
+            "depositos_anteriores_centavos",
+            "saques_anteriores_centavos",
+        ):
+            valor = getattr(self, nome)
+            if isinstance(valor, bool) or not isinstance(valor, int) or valor < 0:
+                raise PainelInvalidoError(f"{nome} precisa ser inteiro nao negativo")
 
     @classmethod
     def de_linha(cls, linha: Mapping[str, object]) -> ContribuicaoEvolucao:
@@ -488,6 +506,16 @@ class ContribuicaoEvolucao:
                 linha.get("acumulado_anterior_centavos"),
                 "acumulado_anterior_centavos",
             ),
+            depositos_centavos=_inteiro_exato(
+                linha.get("depositos_centavos"), "depositos_centavos"
+            ),
+            saques_centavos=_inteiro_exato(linha.get("saques_centavos"), "saques_centavos"),
+            depositos_anteriores_centavos=_inteiro_exato(
+                linha.get("depositos_anteriores_centavos"), "depositos_anteriores_centavos"
+            ),
+            saques_anteriores_centavos=_inteiro_exato(
+                linha.get("saques_anteriores_centavos"), "saques_anteriores_centavos"
+            ),
         )
 
 
@@ -499,6 +527,22 @@ class PontoEvolucao:
     banca_id: int | None
     banca_nome: str | None
     saldo_centavos: int | None
+    saldo_inicial_centavos: int | None = None
+    depositos_periodo_centavos: int = 0
+    saques_periodo_centavos: int = 0
+    depositos_acumulados_centavos: int = 0
+    saques_acumulados_centavos: int = 0
+
+    def __post_init__(self) -> None:
+        if self.saldo_inicial_centavos is not None:
+            esperado = (
+                self.saldo_inicial_centavos
+                + self.acumulado_centavos
+                + self.depositos_acumulados_centavos
+                - self.saques_acumulados_centavos
+            )
+            if self.saldo_centavos != esperado:
+                raise PainelInvalidoError("saldo da evolucao nao reconcilia com lucro e caixa")
 
 
 class AcumuladorEvolucaoOrdenada:
@@ -510,7 +554,11 @@ class AcumuladorEvolucaoOrdenada:
         self._banca_nome: str | None = None
         self._saldo_inicial_centavos: int | None = None
         self._acumulado_anterior_centavos = 0
+        self._depositos_anteriores_centavos = 0
+        self._saques_anteriores_centavos = 0
         self._acumulado_centavos = 0
+        self._depositos_acumulados_centavos = 0
+        self._saques_acumulados_centavos = 0
         self._ultimo_periodo: date | None = None
         self._bancas_encerradas: set[int | None] = set()
 
@@ -519,6 +567,8 @@ class AcumuladorEvolucaoOrdenada:
             item.banca_nome,
             item.saldo_inicial_centavos,
             item.acumulado_anterior_centavos,
+            item.depositos_anteriores_centavos,
+            item.saques_anteriores_centavos,
         )
         if not self._iniciado or item.banca_id != self._banca_id:
             if self._iniciado:
@@ -530,12 +580,18 @@ class AcumuladorEvolucaoOrdenada:
             self._banca_nome = item.banca_nome
             self._saldo_inicial_centavos = item.saldo_inicial_centavos
             self._acumulado_anterior_centavos = item.acumulado_anterior_centavos
+            self._depositos_anteriores_centavos = item.depositos_anteriores_centavos
+            self._saques_anteriores_centavos = item.saques_anteriores_centavos
             self._acumulado_centavos = item.acumulado_anterior_centavos
+            self._depositos_acumulados_centavos = item.depositos_anteriores_centavos
+            self._saques_acumulados_centavos = item.saques_anteriores_centavos
             self._ultimo_periodo = None
         elif metadados != (
             self._banca_nome,
             self._saldo_inicial_centavos,
             self._acumulado_anterior_centavos,
+            self._depositos_anteriores_centavos,
+            self._saques_anteriores_centavos,
         ):
             raise PainelInvalidoError("a mesma banca veio com metadados diferentes")
 
@@ -543,10 +599,15 @@ class AcumuladorEvolucaoOrdenada:
             raise PainelInvalidoError("a evolucao precisa estar ordenada por periodo")
         self._ultimo_periodo = item.periodo_inicio
         self._acumulado_centavos += item.contribuicao_centavos
+        self._depositos_acumulados_centavos += item.depositos_centavos
+        self._saques_acumulados_centavos += item.saques_centavos
         saldo = (
             None
             if self._saldo_inicial_centavos is None
-            else self._saldo_inicial_centavos + self._acumulado_centavos
+            else self._saldo_inicial_centavos
+            + self._acumulado_centavos
+            + self._depositos_acumulados_centavos
+            - self._saques_acumulados_centavos
         )
         return PontoEvolucao(
             periodo_inicio=item.periodo_inicio,
@@ -555,6 +616,11 @@ class AcumuladorEvolucaoOrdenada:
             banca_id=item.banca_id,
             banca_nome=item.banca_nome,
             saldo_centavos=saldo,
+            saldo_inicial_centavos=self._saldo_inicial_centavos,
+            depositos_periodo_centavos=item.depositos_centavos,
+            saques_periodo_centavos=item.saques_centavos,
+            depositos_acumulados_centavos=self._depositos_acumulados_centavos,
+            saques_acumulados_centavos=self._saques_acumulados_centavos,
         )
 
 
@@ -567,8 +633,8 @@ def acumular_evolucao(
     saldo das contas das casas, cujo contrato separado e :class:`SaldoPainel`.
     """
 
-    por_banca_dia: dict[tuple[int | None, date], int] = {}
-    metadados: dict[int | None, tuple[str | None, int | None, int]] = {}
+    por_banca_dia: dict[tuple[int | None, date], tuple[int, int, int]] = {}
+    metadados: dict[int | None, tuple[str | None, int | None, int, int, int]] = {}
     for item in contribuicoes:
         atuais = metadados.setdefault(
             item.banca_id,
@@ -576,28 +642,41 @@ def acumular_evolucao(
                 item.banca_nome,
                 item.saldo_inicial_centavos,
                 item.acumulado_anterior_centavos,
+                item.depositos_anteriores_centavos,
+                item.saques_anteriores_centavos,
             ),
         )
         if atuais != (
             item.banca_nome,
             item.saldo_inicial_centavos,
             item.acumulado_anterior_centavos,
+            item.depositos_anteriores_centavos,
+            item.saques_anteriores_centavos,
         ):
             raise PainelInvalidoError("a mesma banca veio com metadados diferentes")
         chave = (item.banca_id, item.periodo_inicio)
-        por_banca_dia[chave] = por_banca_dia.get(chave, 0) + item.contribuicao_centavos
+        anterior = por_banca_dia.get(chave, (0, 0, 0))
+        por_banca_dia[chave] = (
+            anterior[0] + item.contribuicao_centavos,
+            anterior[1] + item.depositos_centavos,
+            anterior[2] + item.saques_centavos,
+        )
 
     pontos: list[PontoEvolucao] = []
     for banca_id in sorted(metadados, key=lambda valor: -1 if valor is None else valor):
-        banca_nome, saldo_inicial, acumulado = metadados[banca_id]
+        banca_nome, saldo_inicial, acumulado, depositos, saques = metadados[banca_id]
         da_banca = sorted(
             (dia, valor)
             for (id_da_banca, dia), valor in por_banca_dia.items()
             if id_da_banca == banca_id
         )
-        for periodo_inicio, contribuicao in da_banca:
+        for periodo_inicio, (contribuicao, deposito, saque) in da_banca:
             acumulado += contribuicao
-            saldo = None if saldo_inicial is None else saldo_inicial + acumulado
+            depositos += deposito
+            saques += saque
+            saldo = (
+                None if saldo_inicial is None else saldo_inicial + acumulado + depositos - saques
+            )
             pontos.append(
                 PontoEvolucao(
                     periodo_inicio,
@@ -606,6 +685,11 @@ def acumular_evolucao(
                     banca_id,
                     banca_nome,
                     saldo,
+                    saldo_inicial,
+                    deposito,
+                    saque,
+                    depositos,
+                    saques,
                 )
             )
     return tuple(pontos)

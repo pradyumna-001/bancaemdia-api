@@ -12,6 +12,7 @@ class Usuario:
     nome: str
     criado_em: datetime
     ativo: bool
+    fuso_horario: str = "America/Sao_Paulo"
 
 
 @dataclass(frozen=True)
@@ -156,6 +157,8 @@ class ColetaCasa:
     bruto_json: dict[str, Any]
     recebido_em: datetime
     processado_em: datetime | None
+    v2_fonte_em: datetime | None = None
+    v2_hash: str | None = None
 
 
 @dataclass(frozen=True)

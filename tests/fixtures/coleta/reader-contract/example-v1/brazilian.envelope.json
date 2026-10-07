@@ -1,0 +1,16 @@
+{
+  "envelope_schema": 1,
+  "brand": "example",
+  "hostname": "reader.example.invalid",
+  "source": {
+    "channel": "fetch",
+    "direction": "observed_response",
+    "endpoint": "/history",
+    "frame_signature": null
+  },
+  "captured_at": "2026-09-22T10:00:00Z",
+  "raw_schema_version": "example-1",
+  "content_type": "application/json",
+  "payload_text": "{\n  \"source_schema\": \"example-1\",\n  \"bets\": [\n    {\n      \"ticket_id\": \"synthetic-ticket-1\",\n      \"placed_at\": \"2026-09-20T09:00:00Z\",\n      \"revised_at\": \"2026-09-22T09:00:00Z\",\n      \"status\": \"WIN\",\n      \"stake\": \"R$ 1.234,56\",\n      \"odds\": \"2,10\",\n      \"returned\": \"R$ 2.592,58\",\n      \"currency\": \"BRL\",\n      \"selections\": [\n        {\n          \"event_id\": \"synthetic-event-1\",\n          \"event\": \"Equipe A - Equipe B\",\n          \"starts_at\": \"2026-09-21T15:00:00Z\",\n          \"selection\": \"Equipe A\",\n          \"market\": \"Resultado final\"\n        }\n      ]\n    }\n  ]\n}\n",
+  "content_hash": "fba019ffd9fcece9f1b003b7e252e6391b1c29c77c293a580392d1bafafaa93e"
+}

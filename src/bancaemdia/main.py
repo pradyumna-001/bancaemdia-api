@@ -21,12 +21,17 @@ from bancaemdia.api.identity import failure
 from bancaemdia.api.identity import router as identity_router
 from bancaemdia.api.openapi import build_openapi
 from bancaemdia.api.v1 import (
+    admin_casas,
     apostas,
     billing,
     billing_webhook,
     caixa,
+    calculators,
     coleta,
+    coleta_catalogo,
     coleta_pairing,
+    coleta_sessoes,
+    metas,
     painel,
     revisao,
     telegram,
@@ -40,9 +45,16 @@ from bancaemdia.auth.middleware import JWTAuthMiddleware, route_path
 from bancaemdia.auth.oidc import IdentityError
 from bancaemdia.auth.transport import IdentityTransportMiddleware
 from bancaemdia.config import get_settings
-from bancaemdia.db.session import LAG_CHECK_SECONDS, engine, replica_engine, replica_lag_seconds
+from bancaemdia.db.session import (
+    LAG_CHECK_SECONDS,
+    engine,
+    prewarm_pool,
+    replica_engine,
+    replica_lag_seconds,
+)
 from bancaemdia.domain.access import AccountReadOnlyError
 from bancaemdia.integrations.telegram import webhook as telegram_webhook
+from bancaemdia.middleware.coleta_body import CollectionBodyLimit
 from bancaemdia.middleware.coleta_credentials import CollectionCredentialMiddleware
 from bancaemdia.middleware.rate_limit import AuthRateLimitMiddleware, RateLimitMiddleware
 from bancaemdia.middleware.rls import RLSMiddleware
@@ -83,20 +95,25 @@ replica_lag_monitor = ReplicaLagMonitor(
 
 @asynccontextmanager
 async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
+    replica_lag_task: asyncio.Task[None] | None = None
     if identity_settings().AUTH_ENABLED:
         await identity_service().verify_database_role()
-    async with engine.begin() as conn:
-        await conn.execute(text("SELECT 1"))
-    replica_lag_task = asyncio.create_task(
-        replica_lag_monitor.run(),
-        name="replica-lag-monitor",
-    )
     try:
+        async with engine.begin() as conn:
+            await conn.execute(text("SELECT 1"))
+        if settings.DB_POOL_PREWARM:
+            await prewarm_pool(engine, settings.DB_POOL_SIZE)
+            await prewarm_pool(replica_engine, settings.DB_POOL_SIZE)
+        replica_lag_task = asyncio.create_task(
+            replica_lag_monitor.run(),
+            name="replica-lag-monitor",
+        )
         yield
     finally:
-        replica_lag_task.cancel()
-        with suppress(asyncio.CancelledError):
-            await replica_lag_task
+        if replica_lag_task is not None:
+            replica_lag_task.cancel()
+            with suppress(asyncio.CancelledError):
+                await replica_lag_task
         await engine.dispose()
         await replica_engine.dispose()
         if identity_settings().AUTH_ENABLED:
@@ -116,12 +133,17 @@ app = BancaemdiaAPI(
 )
 app.include_router(coleta.router)
 app.include_router(coleta_pairing.router)
+app.include_router(coleta_sessoes.router)
+app.include_router(coleta_catalogo.router)
+app.include_router(admin_casas.router)
 app.include_router(upload.router)
 app.include_router(identity_router)
 app.include_router(apostas.router)
 app.include_router(caixa.router)
 app.include_router(painel.router)
+app.include_router(metas.router)
 app.include_router(revisao.router)
+app.include_router(calculators.router)
 app.include_router(billing_webhook.router)
 app.include_router(billing.router)
 app.include_router(titulares.router)
@@ -139,6 +161,7 @@ async def validation_failure(request: Request, error: RequestValidationError) ->
 
 # O teto de tamanho é registrado primeiro para rodar por DENTRO dos outros: por fora de um
 # BaseHTTPMiddleware o 413 dele vira 500 (medido).
+app.add_middleware(CollectionBodyLimit)
 app.add_middleware(EndpointBodyLimitMiddleware)
 # O roteador precisa do usuário que a autenticação põe no pedido: registrado primeiro, ele roda por
 # último, depois da autenticação e do RLS.

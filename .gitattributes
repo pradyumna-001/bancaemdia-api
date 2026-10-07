@@ -1,0 +1,3 @@
+openapi/extension-collection*.json text eol=lf
+# Preserve reviewed raw fixture bytes and SHA-256 across Windows/Linux checkouts.
+tests/fixtures/coleta/reader-contract/** -text
