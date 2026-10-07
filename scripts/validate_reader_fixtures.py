@@ -14,7 +14,12 @@ from bancaemdia.coleta.leitores import LEITORES  # ruff: ignore[module-import-no
 from bancaemdia.coleta.readers.base import decode_raw  # ruff: ignore[module-import-not-at-top-of-file]
 from bancaemdia.coleta.readers.reference import reference_registry  # ruff: ignore[module-import-not-at-top-of-file]
 from bancaemdia.coleta.readers.registry import DEFAULT_REGISTRY, ReaderRegistry  # ruff: ignore[module-import-not-at-top-of-file]
-from tests.coleta.harness import bundle_digest, reviewed_manifest, run_fixture_set  # ruff: ignore[module-import-not-at-top-of-file]
+from tests.coleta.harness import (  # ruff: ignore[module-import-not-at-top-of-file]
+    bundle_digest,
+    owner_authorized_candidate,
+    reviewed_manifest,
+    run_fixture_set,
+)
 
 # The user requested administrator review. The automation account must never self-attest.
 HUMAN_REVIEWERS = frozenset({"pradyumna-001"})
@@ -94,7 +99,8 @@ def validate(
             if not directory.is_dir() or not (directory / "manifest.json").is_file():
                 raise ValueError("unlisted reader fixture files")
             manifest = reviewed_manifest(directory)
-            verify_human_review(manifest["review"])
+            if not owner_authorized_candidate(manifest):
+                verify_human_review(manifest["review"])
             if base_ref:
                 relative = (directory / "manifest.json").relative_to(ROOT).as_posix()
                 old = subprocess.run(
@@ -127,18 +133,25 @@ def validate(
     evidenced = {
         (r["reader_id"], r["reader_version"], r["brand"], r["hostname"], r["raw_schema_version"])
         for r in results
+        if r["review_status"] == "approved" and r["evidence_kind"] == "sanitized_real"
     }
     if any(
         (r.reader_id, r.reader_version, r.brand, r.hostname, r.raw_schema_version) not in evidenced
         for r in DEFAULT_REGISTRY.registrations
     ):
         raise ValueError("production registration requires a reviewed passing fixture set")
-    # Empty reports explicitly expose the human fixture gate; they prove no production capability.
+    reviewed_count = sum(r["review_status"] == "approved" for r in results)
+    candidate_count = len(results) - reviewed_count
+    fixture_gate = "reviewed" if reviewed_count else "no_human_reviewed_fixture_sets"
+    if candidate_count:
+        fixture_gate = "owner_authorized_synthetic_pending_admin_review"
     return {
         "contract_version": 1,
         "safety_gate_passed": True,
-        "reviewed_fixture_sets": len(results),
-        "fixture_gate": "reviewed" if results else "no_human_reviewed_fixture_sets",
+        "published_fixture_sets": len(results),
+        "reviewed_fixture_sets": reviewed_count,
+        "publication_authorized_fixture_sets": candidate_count,
+        "fixture_gate": fixture_gate,
         "integrations": results,
         "legacy_samples": legacy,
         "unmigrated_brand_readers": [

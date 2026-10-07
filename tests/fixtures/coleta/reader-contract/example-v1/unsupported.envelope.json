@@ -1,0 +1,16 @@
+{
+  "envelope_schema": 1,
+  "brand": "example",
+  "hostname": "reader.example.invalid",
+  "source": {
+    "channel": "fetch",
+    "direction": "observed_response",
+    "endpoint": "/history",
+    "frame_signature": null
+  },
+  "captured_at": "2026-09-22T10:00:00Z",
+  "raw_schema_version": "example-1",
+  "content_type": "application/json",
+  "payload_text": "{\n  \"source_schema\": \"example-1\",\n  \"bets\": [\n    {\n      \"ticket_id\": \"synthetic-ticket-1\",\n      \"placed_at\": \"2026-09-20T09:00:00Z\",\n      \"revised_at\": \"2026-09-22T09:00:00Z\",\n      \"status\": \"EXOTIC\",\n      \"stake\": \"100.00\",\n      \"odds\": \"2.00\",\n      \"returned\": null,\n      \"currency\": \"BRL\",\n      \"selections\": [\n        {\n          \"event_id\": \"synthetic-event-1\",\n          \"event\": \"Equipe A - Equipe B\",\n          \"starts_at\": \"2026-09-21T15:00:00Z\",\n          \"selection\": \"Equipe A\",\n          \"market\": \"Resultado final\"\n        }\n      ]\n    }\n  ]\n}\n",
+  "content_hash": "0c38b7aef6dbd60b62ad5aa3f8f2cadc59ee91abe0bd510d11121430e41cc6a7"
+}
