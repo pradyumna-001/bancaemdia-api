@@ -194,14 +194,17 @@ async def criar_grupo(
 
 @router.patch("/api/v1/grupos/{grupo_id}", response_model=OpcaoFiltro)
 async def editar_grupo(
-    grupo_id: Annotated[int, Path(ge=1, le=BIGINT_MAX)],
+    grupo_id: Annotated[IdTexto, Path(description="ID decimal exato do grupo, até BIGINT máximo.")],
     entrada: GrupoEntrada,
     usuario: Annotated[Usuario, Depends(get_current_user)],
     session: Annotated[AsyncSession, Depends(get_db)],
 ) -> OpcaoFiltro:
+    numero = int(grupo_id)
+    if numero > BIGINT_MAX:
+        raise HTTPException(422, "grupo_id precisa ser um BIGINT positivo")
     grupo = await session.scalar(
         select(models.GrupoAposta)
-        .where(models.GrupoAposta.usuario_id == usuario.id, models.GrupoAposta.id == grupo_id)
+        .where(models.GrupoAposta.usuario_id == usuario.id, models.GrupoAposta.id == numero)
         .with_for_update()
     )
     if grupo is None:

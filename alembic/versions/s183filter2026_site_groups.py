@@ -67,6 +67,10 @@ def upgrade() -> None:
     )
     for tabela in ("grupos_aposta", "apostas_grupos"):
         op.execute(
+            f"CREATE TRIGGER billing_write_guard BEFORE INSERT OR UPDATE OR DELETE ON {tabela} "
+            "FOR EACH ROW EXECUTE FUNCTION public.billing_require_write()"
+        )
+        op.execute(
             f"CREATE TRIGGER active_{tabela}_write BEFORE INSERT OR UPDATE ON {tabela} "
             "FOR EACH ROW EXECUTE FUNCTION require_active_tenant()"
         )

@@ -14125,10 +14125,11 @@
             "name": "grupo_id",
             "required": true,
             "schema": {
-              "maximum": 9223372036854775807,
-              "minimum": 1,
+              "description": "ID decimal exato do grupo, até BIGINT máximo.",
+              "maxLength": 19,
+              "pattern": "^[1-9][0-9]{0,18}$",
               "title": "Grupo Id",
-              "type": "integer"
+              "type": "string"
             }
           }
         ],

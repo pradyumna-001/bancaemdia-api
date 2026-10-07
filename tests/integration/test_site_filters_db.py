@@ -17,6 +17,7 @@ import pytest
 from cryptography.hazmat.primitives.asymmetric import rsa
 from openpyxl import load_workbook
 from sqlalchemy import func, select, text
+from sqlalchemy.exc import DBAPIError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from bancaemdia import models
@@ -557,12 +558,31 @@ async def test_catalog_page_search_selected_inactive_and_exact_bigint(
         "/api/v1/filtros/grupos", params={"id": str(id)}, headers=headers(dataset.user)
     )
     assert response.json()["data"][0]["id"] == "9007199254740993"
+    edited = await client.patch(
+        "/api/v1/grupos/9007199254740993",
+        json={"nome": "Z id preciso arquivado", "arquivado": True},
+        headers=headers(dataset.user),
+    )
+    assert edited.status_code == 200
+    assert edited.json() == {
+        "id": "9007199254740993",
+        "nome": "Z id preciso arquivado",
+        "ativa": False,
+    }
+    assert (
+        await client.patch(
+            "/api/v1/grupos/9223372036854775808",
+            json={"nome": "Inválido"},
+            headers=headers(dataset.user),
+        )
+    ).status_code == 422
     missing_page = await client.get(
         "/api/v1/filtros/grupos",
         params={"page": 100, "page_size": 1},
         headers=headers(dataset.user),
     )
-    assert missing_page.json()["data"] == [] and missing_page.json()["pagination"]["total"] == 2
+    # Archiving the exact BIGINT leaves only the fixture's active group in the catalog.
+    assert missing_page.json()["data"] == [] and missing_page.json()["pagination"]["total"] == 1
     injected = await client.get(
         "/api/v1/filtros/grupos", params={"q": "' OR 1=1 --"}, headers=headers(dataset.user)
     )
@@ -1007,3 +1027,48 @@ async def test_consolidated_sources_preserve_visibility_without_double_financial
             assert sum(row[stake_index] for row in rows[1:]) == financial
     finally:
         book.close()
+
+
+async def test_read_only_access_keeps_site_gets_and_blocks_group_writes_in_database(
+    api, dataset, engine_admin, engine_app, como
+):
+    # Activate only the disposable database guard; absence of a confirmed grant is
+    # read-only. Restore the rollout timestamp without creating/changing subscriptions.
+    async with engine_admin.begin() as conn:
+        previous = await conn.scalar(text("SELECT activated_at FROM billing_rollout WHERE id=1"))
+        await conn.execute(text("UPDATE billing_rollout SET activated_at=now() WHERE id=1"))
+    try:
+        client, headers = api
+        auth = headers(dataset.user)
+        for path in [
+            "/api/v1/apostas",
+            "/api/v1/painel/filtrado",
+            "/api/v1/painel/filtrado/metricas",
+            "/api/v1/painel/filtrado/export",
+            "/api/v1/filtros/grupos",
+            "/api/v1/filtros/bancas",
+        ]:
+            assert (await client.get(path, headers=auth)).status_code == 200
+        for method, path, body in [
+            ("POST", "/api/v1/grupos", {"nome": "Bloqueado"}),
+            ("PATCH", "/api/v1/grupos/" + str(dataset.grupos[0]), {"nome": "Bloqueado"}),
+            ("PUT", "/api/v1/apostas/" + dataset.keys[0] + "/grupos", {"grupo_ids": []}),
+        ]:
+            response = await client.request(method, path, json=body, headers=auth)
+            assert response.status_code == 402
+            assert response.json() == {"detail": "account_read_only"}
+        for sql in [
+            "INSERT INTO grupos_aposta(usuario_id,nome) VALUES (:uid,'Negado pelo banco')",
+            "DELETE FROM apostas_grupos WHERE usuario_id=:uid",
+        ]:
+            async with como(engine_app, dataset.user) as session:
+                with pytest.raises(DBAPIError) as error:
+                    await session.execute(text(sql), {"uid": dataset.user})
+                assert error.value.orig.sqlstate == "P0402"
+                await session.rollback()
+    finally:
+        async with engine_admin.begin() as conn:
+            await conn.execute(
+                text("UPDATE billing_rollout SET activated_at=:previous WHERE id=1"),
+                {"previous": previous},
+            )

@@ -24,6 +24,7 @@ REQUIRED = {
     "test_explicit_bank_correction_is_owned_audited_and_replayable": 1,
     "test_catalog_database_timeout_is_503_not_a_successful_empty_list": 1,
     "test_consolidated_sources_preserve_visibility_without_double_financial_count": 6,
+    "test_read_only_access_keeps_site_gets_and_blocks_group_writes_in_database": 1,
 }
 
 
