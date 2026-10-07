@@ -4,20 +4,21 @@ Esta implementação atende à [emergência #183](https://github.com/pradyumna-0
 
 ## Estado revalidado e reutilização
 
-Base independente: `main` em `df5d58043562ca42aa1d422d81f3e08d3e07da6d`; branch `codex/site-filter-contracts-20261007`. A main avançou com o merge do #178 durante o trabalho; esta branch foi reconciliada com a nova base integrada. Nenhum PR aberto é ancestral desta branch.
+Base independente: `main` em `b916f54331f14cf47a3800324bd61d8638043c06`; branch `codex/site-filter-contracts-20261007`. O administrador integrou #178 e #181 durante o trabalho. Esta branch foi reconciliada com ambas as integrações; nenhum PR aberto é ancestral necessário.
 
-| Capacidade antes desta entrega | Estado na main / referência | Lacuna atendida pela #183 |
+| Capacidade antes desta entrega | Estado na main atual | Lacuna atendida pela #183 |
 | --- | --- | --- |
-| Titulares, contas, intervalos de uso e atribuição pelo jogo | Integrada na main | Reutilizados; não há segunda entidade de conta/titular |
-| Banca e `apostas.banca_id` | Integrada na main; campo sem escrita manual disponível | Filtro pelo vínculo gravado; correção explícita validada e replayável |
-| Painel, métricas e XLSX materializados (#30/#105) | Integrados; ampliações de análises no #181 | Reutiliza regras exatas de razão, colunas e gerador XLSX; visão filtrada consulta fatos vivos |
-| Catálogo técnico para instalação (#113) | Implementado no #179, HEAD `9ce5c284ca09549792a752623bc194f4c951523d`; fechado sem merge durante o trabalho | Não atende à sessão do site; nova fachada autenticada para referências existentes |
-| Somente apagadas, seletores do site, grupo e agregados equivalentes | Planejados com aceite explícito frontend #17/#50/#74; contratos backend ausentes | Implementados nesta entrega independente |
-| JSON/OpenAPI e migrações executáveis da base | Reparos antes no #181 agora integrados pelo #178; main atual tem JSON válido e head `j3main2026` | Geração oficial, migração dos grupos sobre esse head e gate estrito contra a base integrada |
+| Titulares, contas, intervalos e atribuição pelo jogo | Integrada | Reutilizados, sem segunda entidade |
+| Banca e `apostas.banca_id` | Integrada; sem correção manual desse vínculo | Filtro pela atribuição gravada e correção auditada/replayável |
+| Painel, métricas, XLSX e análises (#30/#105) | Integrados, incluindo #181 | Reutiliza razão exata, colunas e gerador; nova seleção usa fatos vivos |
+| Catálogo técnico de instalação (#113) | Integrado pela árvore do #181 | Nova fachada autenticada do site, sem credencial de instalação |
+| Consolidação canônica de fontes (#110) | Integrada pela árvore do #181 | Reutiliza `financial_predicate()` na lista ativa e nas somas financeiras de todas as visibilidades |
+| Somente apagadas, opções do site, grupos e agregados equivalentes | Planejados com aceite frontend #17/#50/#74; ausentes na main | Implementados nesta entrega |
+| JSON/OpenAPI, fixtures isoladas, cadeia de migrações e gates | Integrados por #178/#181; head `j6main2026` | Grupos sobre esse head, geração oficial e gates completos preservados |
 
-Reutilização restrita do [#181](https://github.com/pradyumna-001/bancaemdia-api/pull/181), HEAD `81bfa9b77cceba76f2e174ba6c343d2c50b356ca`: fixtures `isolated_database`/`isolated_banco` para a prova real de replay/refresh/conferência, adaptada aos recursos integrados desta base. Os reparos de `j168base2026`, transporte ASGI de identidade, proteção de credenciais, handler comercial, OpenAPI e YAML inicialmente reutilizados já entraram na main pelo #178 e não são reapresentados no diff. Os auxiliares DDL já existiam no commit integrado `bd055417459f796fed960b5b37efb33a9744419f`. Os inventários são atualizados para a árvore executável desta entrega, sem incorporar recursos de outras branches.
+Referências: [#178](https://github.com/pradyumna-001/bancaemdia-api/pull/178) e [#181](https://github.com/pradyumna-001/bancaemdia-api/pull/181), HEAD revisado `81bfa9b77cceba76f2e174ba6c343d2c50b356ca`, estão mesclados. #179 (`9ce5c284ca09549792a752623bc194f4c951523d`) e #180 (`2b4d6f41ba2597a6497d4bdb0b407d08b3009c24`) foram fechados sem merge individual, mas suas capacidades entraram transitivamente pela árvore do #181. Não são pré-requisitos abertos desta entrega.
 
-O [#178](https://github.com/pradyumna-001/bancaemdia-api/pull/178) foi mesclado e compõe a base. [#179](https://github.com/pradyumna-001/bancaemdia-api/pull/179) e [#180](https://github.com/pradyumna-001/bancaemdia-api/pull/180) (`2b4d6f41ba2597a6497d4bdb0b407d08b3009c24`) foram fechados sem merge em 07/10; seu código não está integrado. O #181 permanece aberto e contém sobreposições: antes de integrar as entregas, reconciliar migrações, metadados, middleware, CI e gerar/revalidar o contrato do HEAD resultante. Em particular, caso o fato financeiro consolidado presente no #180/#181 seja integrado, sua elegibilidade canônica deve alcançar a seleção compartilhada. Esta entrega usa as projeções/regras já integradas, não declara a consolidação futura disponível nem duplica sua implementação.
+Reutiliza os modelos/repos e as regras da main atual: consolidação, contas, saldo, razão, exportação, OpenAPI, transporte ASGI, fixtures isoladas e prova real de replay/refresh/conferência. O teste integrado de conferência passa também a verificar o resumo filtrado do fato consolidado. A migração acrescenta apenas o grupo e vínculos; não reapresenta infraestrutura, billing, leitores ou recursos da extensão. A árvore completa é executável, e todos os contratos são gerados dessa mesma aplicação.
 
 ## Recursos e matriz de filtros
 
@@ -51,7 +52,7 @@ A lista conserva `page` (mínimo 1, padrão 1) e `page_size` (1–100, padrão 5
 
 ### Visibilidade e erros
 
-- Omitir ambos → `ativas`: `selecionada=true`.
+- Omitir ambos → `ativas`: `selecionada=true` e elegibilidade canônica integrada; fonte contextual de consolidação ativa fica fora da lista ativa, preservando o comportamento da main.
 - `visibilidade=apagadas` → exclusivamente `selecionada=false`.
 - `visibilidade=todas` → ambos os conjuntos.
 - Legado `incluir_apagadas=false` → ativas; `true` → todas.
@@ -108,7 +109,7 @@ IDs numéricos de opções e grupos agregados são **strings decimais**, 1 até 
 
 ## Financeiro, exportação e frescor
 
-Contagem base inclui todas as apostas selecionadas. Pendentes e anuladas são contadas, mas não entram em giro, base ROI, retorno e lucro. Revisão grave aparece na contagem/revisão e não entra nas somas financeiras. Casos GREEN/RED, MEIO_GREEN/MEIO_RED e CASHOUT usam os valores canônicos já materializados; não há nova fórmula para obter retorno da odd.
+Contagem base inclui todas as linhas da seleção. `todas` e `apagadas` preservam as fontes históricas conforme o contrato legado; contagens refletem essas linhas. Para dinheiro, GREEN/RED e win rate, reutiliza `financial_predicate()`: a fonte Telegram contextual de uma consolidação ativa não contribui, mesmo se restaurada/selecionada. O fato da casa continua elegível conforme a visibilidade solicitada; se excluído da seleção, a fonte contextual não assume seu lugar. Essa distinção entre população histórica e subconjunto financeiro evita dupla contagem e é provada em seis combinações independentes de seleção/visibilidade. Pendentes e anuladas são contadas, mas não entram em giro, base ROI, retorno e lucro. Revisão grave aparece na contagem/revisão e não entra nas somas financeiras. Casos GREEN/RED, MEIO_GREEN/MEIO_RED e CASHOUT usam os valores canônicos já materializados; não há nova fórmula para obter retorno da odd.
 
 Giro é stake desembolsada. Freebet tem stake zero e seu valor facial integra a base de ROI, conforme o domínio existente. Lucro é retorno menos stake. Razões são formatadas exatamente no servidor pelas funções atuais do Painel. Resultado liquidado sem retorno faz `retorno_centavos`, `lucro_centavos` e `roi` ficarem null no grupo/total afetado, com `resultados_desconhecidos>0`; giro/base conhecidos não são apagados. Um subconjunto financeiro vazio possui somas zero efetivamente conhecidas; isso não transforma retorno desconhecido em zero.
 
@@ -129,15 +130,15 @@ pytest -n 0 tests/integration/test_site_filters_db.py --junitxml=site-filter-res
 python scripts/check_site_filter_results.py site-filter-results.xml
 ```
 
-O checker exige os 45 cenários específicos completos, sem failure/error/skip. A suíte usa FastAPI real, PostgreSQL 16, papel de aplicação, RLS, dois usuários, conjuntos/contagens pré-declarados e valores financeiros independentes. Cobre toda a matriz, sete páginas, página vazia, múltiplos grupos, limites de São Paulo, desconhecidos, BIGINT exato, entidades históricas, comandos/auditoria, banco explícito/replay e exclusão/restauração. Um timeout real do PostgreSQL comprova 503 distinto de catálogo vazio. O mock de JWKS somente substitui a rede; assinatura e verificação são reais.
+O checker exige os 51 cenários específicos completos, sem failure/error/skip. A suíte usa FastAPI real, PostgreSQL 16, papel de aplicação, RLS, dois usuários, conjuntos/contagens pré-declarados e valores financeiros independentes. Cobre toda a matriz, sete páginas, página vazia, múltiplos grupos, limites de São Paulo, desconhecidos, BIGINT exato, entidades históricas, comandos/auditoria, banco explícito/replay e exclusão/restauração. Um timeout real do PostgreSQL comprova 503 distinto de catálogo vazio. O mock de JWKS somente substitui a rede; assinatura e verificação são reais.
 
 A jornada obrigatória `tests/identity/journey.py` usa issuer OIDC, e-mail, navegador, cookie HttpOnly e PostgreSQL reais, acessando os nove catálogos e os três agregados filtrados com a mesma sessão do site. Executa na CI com serviços descartáveis, junto às invariantes de identidade existentes, sem skips. Não depende de ativação de produção. Gates anteriores continuam: Ruff, mypy, regressão/cobertura ≥80%, migrations/RLS, segurança, build e OpenAPI/oasdiff `fail-on: WARN`.
 
-Baseline de compatibilidade é o SHA imutável da base do PR. O reparo de sintaxe/referências recuperado do #181 e agora integrado na main aceita somente o hash exato do artefato antigo corrompido; restaura as três definições do pai integrado imutável `00ae1e0b1d5d89224ce5028447767a23f527ad6e`. A base atual válida é usada diretamente. Nenhum schema novo deste PR vira baseline, e o diff estrito continua cobrindo todas as operações. SHA-256 do OpenAPI gerado: `7c0514fbc079cd07e7d7db5073512bbb6015c3b5da2bbdf4380f44b731d0878b`. O SHA final do PR e links dos checks serão registrados no relatório de entrega após a CI final.
+Baseline de compatibilidade é o SHA imutável da base do PR. O reparo de sintaxe/referências recuperado do #181 e agora integrado na main aceita somente o hash exato do artefato antigo corrompido; restaura as três definições do pai integrado imutável `00ae1e0b1d5d89224ce5028447767a23f527ad6e`. A base atual válida é usada diretamente. Nenhum schema novo deste PR vira baseline, e o diff estrito continua cobrindo todas as operações. SHA-256 do OpenAPI gerado: `469a1279875edc87713dca9c8d4138730fede47de630eda4b24b4fd840716004`. O SHA final do PR e links dos checks serão registrados no relatório de entrega após a CI final.
 
 ## Próximos passos exatos do frontend
 
-1. Revisar/mesclar este PR backend e reconciliar os PRs abertos que sobrepõem sua base. Validar migrations (`alembic upgrade head`) e a versão executada, incluindo permissões de aplicação nas novas tabelas pelo processo de implantação vigente.
+1. Revisar/mesclar este PR backend e reconciliar alterações posteriores que sobreponham sua base. Validar migrations (`alembic upgrade head`) e a versão executada, incluindo permissões de aplicação nas novas tabelas pelo processo de implantação vigente.
 2. Confirmar o commit **integrado** que contém esta implementação e os checks verdes; obter os bytes de `tests/contract/schemas/openapi.json` nesse commit e seu SHA-256. Se o merge modificar o artefato, usar o novo hash, não o do HEAD revisado.
 3. Em `config/api-contract.json` do frontend, manter `repository=pradyumna-001/bancaemdia-api` e `schemaPath=tests/contract/schemas/openapi.json`, atualizar `commit` completo e `sha256` validados; executar `pnpm gen-types`. Isso gera `src/api/schema.d.ts` e `src/api/operations.generated.ts` da mesma fonte verificada. Não editar os tipos gerados manualmente.
 4. Atualizar adapters de lista e Painel/métricas/XLSX para os quatro recursos da matriz. Mapear a URL apagadas para `visibilidade=apagadas` omitindo o bool legado; usar os catálogos e `id` para resolver pílulas históricas. Preservar IDs como strings decimais nos params e datas com offset; não fazer cálculos financeiros no cliente.
