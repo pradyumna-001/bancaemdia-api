@@ -14,7 +14,7 @@ from types import SimpleNamespace
 from typing import Any
 from zoneinfo import ZoneInfo
 
-from sqlalchemy import func, insert, select, text
+from sqlalchemy import bindparam, column, func, insert, select, table, text
 from sqlalchemy.ext.asyncio import AsyncEngine, AsyncSession, create_async_engine
 
 from bancaemdia import models
@@ -173,12 +173,20 @@ async def watermark(session: AsyncSession, user: int) -> dict[str, Any]:
         names.append(("usos_conta_casa", True))
     counts: dict[str, int] = {}
     for name, tenant in names:
-        where = " WHERE t.usuario_id=:u" if tenant else ""
-        # Names come exclusively from the constant allowlist, never operator input.
-        order = "aposta_id" if name == "cruzamento_entradas" else "id"
-        if name == "eventos":
-            order = "id, criado_em"
-        query = text(f"SELECT to_jsonb(t) AS row FROM {name} t{where} ORDER BY {order}")
+        # SQLAlchemy quotes the identifiers selected from the constant allowlist.
+        # The table-valued expression retains every original source field in the hash.
+        source = table(
+            name, column("usuario_id"), column("id"), column("aposta_id"), column("criado_em")
+        ).alias("t")
+        query = select(func.to_jsonb(source.table_valued()).label("row")).select_from(source)
+        if tenant:
+            query = query.where(source.c.usuario_id == bindparam("u"))
+        if name == "cruzamento_entradas":
+            query = query.order_by(source.c.aposta_id)
+        elif name == "eventos":
+            query = query.order_by(source.c.id, source.c.criado_em)
+        else:
+            query = query.order_by(source.c.id)
         result = await session.stream(query, {"u": user})
         count = 0
         async for row in result:

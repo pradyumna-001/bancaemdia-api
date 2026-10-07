@@ -11,6 +11,7 @@ from bancaemdia.domain.painel import (
     COLUNAS_EXPORTACAO,
     FiltrosPainel,
     GranularidadePainel,
+    PainelInvalidoError,
     SecaoExportacao,
 )
 from bancaemdia.repositories.painel_repo import (
@@ -227,6 +228,25 @@ def test_filtered_queries_use_the_daily_public_cube_and_every_dimension() -> Non
             "mercado_id": 9,
         }
         assert "painel.mv_" not in sql
+
+
+def test_dynamic_dashboard_sql_binds_values_and_allowlists_identifiers():
+    filters = FiltrosPainel.criar("7d", casa_id=123456789, tipster_id=987654321)
+    for sql, parameters in [
+        _sql_resumo(567890123, filters),
+        _sql_grupo(SecaoExportacao.POR_CASA, 567890123, filters),
+        _sql_por_periodo(567890123, filters),
+        _sql_evolucao(567890123, filters),
+    ]:
+        assert all(str(value) not in sql for value in (123456789, 987654321, 567890123))
+        assert parameters["usuario_id"] == 567890123
+        assert parameters["casa_id"] == 123456789
+    with pytest.raises(KeyError):
+        _sql_grupo("public.usuarios; DROP TABLE usuarios", 42, filters)
+    with pytest.raises(PainelInvalidoError):
+        FiltrosPainel.criar("day'); DROP TABLE usuarios; --")
+    with pytest.raises(PainelInvalidoError):
+        FiltrosPainel.criar("7d", casa_id="1 OR true")
 
 
 def test_evolution_fetches_initial_balance_and_pre_window_history_separately() -> None:

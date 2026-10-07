@@ -388,31 +388,27 @@ async def deliver_outbox_once(
 async def refresh_telegram_metrics(engine: AsyncEngine) -> None:
     async with AsyncSession(engine) as session:
         await _transport_scope(session)
-        for table, pending, depth, age, stage in (
+        for query, depth, age, stage in (
             (
-                "telegram_inbox",
-                "status = 'PENDING'",
+                "SELECT count(*) FILTER (WHERE status = 'PENDING'), "
+                "coalesce(extract(epoch from clock_timestamp() - min(created_at) "
+                "FILTER (WHERE status = 'PENDING')), 0), "
+                "count(*) FILTER (WHERE status = 'DLQ') FROM telegram_inbox",
                 telegram_inbox_depth,
                 telegram_inbox_oldest_age_seconds,
                 "inbox",
             ),
             (
-                "telegram_outbox",
-                "status IN ('PENDING','SENDING')",
+                "SELECT count(*) FILTER (WHERE status IN ('PENDING','SENDING')), "
+                "coalesce(extract(epoch from clock_timestamp() - min(created_at) "
+                "FILTER (WHERE status IN ('PENDING','SENDING'))), 0), "
+                "count(*) FILTER (WHERE status = 'DLQ') FROM telegram_outbox",
                 telegram_outbox_depth,
                 telegram_outbox_oldest_age_seconds,
                 "outbox",
             ),
         ):
-            row = (
-                await session.execute(
-                    text(
-                        f"SELECT count(*) FILTER (WHERE {pending}), "
-                        f"coalesce(extract(epoch from clock_timestamp() - min(created_at) FILTER (WHERE {pending})), 0), "
-                        f"count(*) FILTER (WHERE status = 'DLQ') FROM {table}"
-                    )
-                )
-            ).one()
+            row = (await session.execute(text(query))).one()
             depth.set(int(row[0]))
             age.set(max(0.0, float(row[1])))
             telegram_transport_dlq_count.labels(stage=stage).set(int(row[2]))

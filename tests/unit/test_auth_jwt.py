@@ -389,3 +389,22 @@ def test_the_process_cache_reads_the_jwks_url_from_the_settings(monkeypatch) -> 
     finally:
         get_settings.cache_clear()
         auth_jwt.get_jwks_cache.cache_clear()
+
+
+def test_clearing_configuration_and_jwks_cache_drops_previous_issuer_keys(monkeypatch) -> None:
+    monkeypatch.setenv("JWT_JWKS_URL", URL)
+    get_settings.cache_clear()
+    auth_jwt.get_jwks_cache.cache_clear()
+    try:
+        previous = auth_jwt.get_jwks_cache()
+        previous.keys = {"previous-issuer": {"kid": "previous-issuer"}}
+        monkeypatch.setenv("JWT_JWKS_URL", "https://next-issuer.test/jwks")
+        get_settings.cache_clear()
+        auth_jwt.get_jwks_cache.cache_clear()
+        current = auth_jwt.get_jwks_cache()
+        assert current is not previous
+        assert current.url == "https://next-issuer.test/jwks"
+        assert current.keys == {}
+    finally:
+        get_settings.cache_clear()
+        auth_jwt.get_jwks_cache.cache_clear()

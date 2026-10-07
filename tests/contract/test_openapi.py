@@ -217,7 +217,7 @@ def test_openapi_endpoint_matches_checked_in_snapshot(openapi_document: JsonObje
 @pytest.mark.contract
 def test_every_operation_has_human_documentation(openapi_document: JsonObject) -> None:
     operations = list(_operations(openapi_document))
-    assert len(operations) == 83
+    assert len(operations) == 89
     for method, path, operation in operations:
         location = f"{method.upper()} {path}"
         assert str(operation.get("summary", "")).strip(), location
@@ -251,7 +251,10 @@ def test_responses_cover_success_and_failures_with_schemas(openapi_document: Jso
         location = f"{method.upper()} {path}"
         responses = _as_object(operation["responses"])
         numeric_codes = {int(code) for code in responses if str(code).isdigit()}
-        assert any(200 <= code < 300 for code in numeric_codes), f"{location}: missing 2xx"
+        if path in {"/auth/start", "/auth/callback"}:
+            assert method == "get" and 302 in numeric_codes, location
+        else:
+            assert any(200 <= code < 300 for code in numeric_codes), f"{location}: missing 2xx"
         assert any(500 <= code < 600 for code in numeric_codes), f"{location}: missing 5xx"
         if path.startswith("/api/") or operation.get("requestBody") or operation.get("parameters"):
             assert any(400 <= code < 500 for code in numeric_codes), f"{location}: missing 4xx"
@@ -263,6 +266,10 @@ def test_responses_cover_success_and_failures_with_schemas(openapi_document: Jso
                 assert "content" not in response, f"{location}: 204 must have no body"
                 continue
             content = response.get("content")
+            if path in {"/auth/start", "/auth/callback"} and str(code) == "302":
+                assert not content, f"{location}: redirect must have no JSON body"
+                assert response["headers"]["Location"]["schema"]["type"] == "string"
+                continue
             if code == "304":
                 assert content is None, "HTTP 304 cannot carry a response body"
                 continue
