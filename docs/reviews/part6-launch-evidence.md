@@ -5,8 +5,12 @@ from #146, #148, #155, #156, #158 and #173, together with the intrinsic account,
 collection, reconciliation and Telegram prerequisites from #177, #178 and #180.
 Those PRs overlap this diff; they are not its GitHub base. Review and merge one coherent
 version of the shared code. Published Alembic revision IDs are preserved and converge
-at `h6review2026`. Authentication feature #168 remains a separate review; this change
-uses the current backend JWT contract and does not choose/provision an identity provider.
+at the additional head `j6main2026`, preserving `h6review2026` and its published
+parents. The administrator merged #163, #168 and #177 into main
+`78b322ad7a2b27eae782d89404f85e7b30021864` on 2026-10-06. This composition
+includes that accepted OIDC identity and the exact current heads of #178, #179
+and #180. Their GitHub bases remain main; shared scopes require coordinated
+review. Production issuer configuration remains a launch dependency in #167.
 
 The administrator's [summary #176](https://github.com/pradyumna-001/bancaemdia-api/pull/176)
 is evidence of their review priorities, not an implementation dependency. Its older
@@ -41,7 +45,7 @@ validated actual account references for all five houses, preserving zero-change 
 ## Required evidence on the final HEAD
 
 All applicable GitHub checks must pass, including full tests/coverage, Ruff, mypy,
-OpenAPI contracts (83 operations, 32 request media bodies), security/dependency scans,
+OpenAPI contracts (including the accepted OIDC and collection interfaces), security/dependency scans,
 Docker, Terraform validation, collection integrity, Telegram acceptance, both billing
 integration jobs, Phase 1 recovery/edge acceptance and real k6 staging. The load job
 does not substitute the mock/smoke job for its full run or suppress regression failures.
@@ -54,8 +58,11 @@ the administrator's review is pending. **Esperando lançamento** means only acti
 or evidence requiring the real launch environment remains. Remaining code, tests,
 integration or available evidence belong to **Próximas issues**.
 
-The #114 package of 11 synthetic reader fixtures (33 files) remains outside Git pending
-administrator review. Digest: `4df5308bfc391564e6e2cb0e6ace49e29f7194a640f5c74ce53aec55353de601`.
+The #114 package of 11 synthetic reader fixtures (33 files) is published by the
+owner's explicit authorization on 2026-10-06. Its manifest records
+`publication_authorized`, with null reviewer/reference; administrator approval
+is not inferred. Actual captures and other bundles still require prior human
+review. The mandatory fixture gate runs on this product tree. Digest: `4df5308bfc391564e6e2cb0e6ace49e29f7194a640f5c74ce53aec55353de601`.
 It is not consumed by the k6 cache. No reader approval or complete end-to-end #118
 acceptance is inferred from synthetic backend/billing runs.
 
