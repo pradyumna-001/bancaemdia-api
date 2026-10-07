@@ -19,6 +19,7 @@ from sqlalchemy.engine import make_url
 from sqlalchemy.ext.asyncio import AsyncEngine, AsyncSession, create_async_engine
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "src"))
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
 os.environ.setdefault(
     "DATABASE_URL",
@@ -97,6 +98,11 @@ async def _preparar_papel(url_admin: str) -> None:
             await conn.execute(text(f"GRANT USAGE ON SCHEMA public TO {PAPEL}"))
             await conn.execute(
                 text(
+                    f"GRANT EXECUTE ON FUNCTION coleta_pairing_limit(text,integer,integer) TO {PAPEL}"
+                )
+            )
+            await conn.execute(
+                text(
                     f"GRANT SELECT, INSERT, UPDATE, DELETE ON ALL TABLES IN SCHEMA public TO {PAPEL}"
                 )
             )
@@ -168,6 +174,32 @@ def banco() -> Iterator[Banco]:
 
     with PostgresContainer(IMAGEM, driver="asyncpg") as container:
         yield _preparar(container.get_connection_url())
+
+
+@pytest.fixture
+def banco_migracao(banco: Banco) -> Iterator[Banco]:
+    """Destructive migration roundtrips must not touch other tests' live identities."""
+    name = "migration_" + uuid4().hex
+    url = make_url(banco.url_admin).set(database=name).render_as_string(hide_password=False)
+
+    async def database(*, create: bool) -> None:
+        engine = create_async_engine(banco.url_admin, isolation_level="AUTOCOMMIT")
+        try:
+            async with engine.connect() as conn:
+                statement = (
+                    f'CREATE DATABASE "{name}"'
+                    if create
+                    else f'DROP DATABASE "{name}" WITH (FORCE)'
+                )
+                await conn.execute(text(statement))
+        finally:
+            await engine.dispose()
+
+    _em_outra_thread(lambda: asyncio.run(database(create=True)))
+    try:
+        yield _preparar(url)
+    finally:
+        _em_outra_thread(lambda: asyncio.run(database(create=False)))
 
 
 @pytest.fixture

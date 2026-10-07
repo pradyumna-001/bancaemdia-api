@@ -1,0 +1,25 @@
+{
+  "realm": "bancaemdia-acceptance",
+  "enabled": true,
+  "sslRequired": "none",
+  "registrationAllowed": true,
+  "registrationEmailAsUsername": true,
+  "verifyEmail": true,
+  "resetPasswordAllowed": true,
+  "loginWithEmailAllowed": true,
+  "revokeRefreshToken": true,
+  "refreshTokenMaxReuse": 0,
+  "accessTokenLifespan": 60,
+  "smtpServer": {"host": "mailpit", "port": "1025", "from": "noreply@example.org", "auth": "false", "ssl": "false", "starttls": "false"},
+  "clients": [{
+    "clientId": "bancaemdia-acceptance",
+    "enabled": true,
+    "protocol": "openid-connect",
+    "publicClient": true,
+    "standardFlowEnabled": true,
+    "directAccessGrantsEnabled": false,
+    "redirectUris": ["http://127.0.0.1:58000/auth/callback"],
+    "attributes": {"pkce.code.challenge.method": "S256"},
+    "defaultClientScopes": ["email", "profile", "roles"]
+  }]
+}

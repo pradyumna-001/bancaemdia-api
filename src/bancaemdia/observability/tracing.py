@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import re
-from collections.abc import Generator, Iterable, Mapping
+from collections.abc import Callable, Generator, Iterable, Mapping
 from contextlib import contextmanager
 from dataclasses import dataclass
 from threading import Lock
@@ -30,6 +30,8 @@ from sqlalchemy.engine import Engine
 from sqlalchemy.ext.asyncio import AsyncEngine
 from starlette.datastructures import URL
 from starlette.types import Scope
+
+from bancaemdia.observability.credentials import redact_collection_secrets
 
 type CustomSpanName = Literal[
     "upload.parse",
@@ -102,7 +104,7 @@ def _create_otlp_exporter(endpoint: str) -> SpanExporter | None:
         # spans, and a missing optional exporter must not stop the API from starting.
         from opentelemetry.exporter.otlp.proto.grpc.trace_exporter import OTLPSpanExporter
 
-        return OTLPSpanExporter(endpoint=endpoint)
+        return cast(SpanExporter, OTLPSpanExporter(endpoint=endpoint))
     except Exception as error:
         structlog.get_logger(__name__).warning(
             "otel_exporter_unavailable", error=type(error).__name__
@@ -154,7 +156,7 @@ def _safe_http_url(request: RequestInfo) -> str:
         # Older HTTPX instrumentation can pass a raw URL tuple. Never stringify it: the
         # target can contain credentials or query values.
         return REDACTED
-    return str(url.copy_with(query=None, fragment=None, userinfo=None))
+    return redact_collection_secrets(str(url.copy_with(query=None, fragment=None, userinfo=None)))
 
 
 def _sanitize_httpx_request(span: Span, request: RequestInfo) -> None:
@@ -172,7 +174,7 @@ def _sanitize_httpx_request(span: Span, request: RequestInfo) -> None:
         return
     if url.query:
         span.set_attribute("url.query", REDACTED)
-    span.set_attribute("http.target", url.path)
+    span.set_attribute("http.target", redact_collection_secrets(url.path))
 
 
 async def _sanitize_async_httpx_request(  # ruff: ignore[unused-async] - API requires a coroutine
@@ -182,13 +184,14 @@ async def _sanitize_async_httpx_request(  # ruff: ignore[unused-async] - API req
 
 
 def _sanitize_server_request(span: Span, scope: Scope) -> None:
-    if not span.is_recording() or not scope.get("query_string"):
+    if not span.is_recording():
         return
-    safe_url = str(URL(scope=scope).replace(query=""))
+    safe_url = redact_collection_secrets(str(URL(scope=scope).replace(query="")))
     span.set_attribute("http.url", safe_url)
     span.set_attribute("url.full", safe_url)
-    span.set_attribute("url.query", REDACTED)
-    span.set_attribute("http.target", str(scope.get("path", "")))
+    if scope.get("query_string"):
+        span.set_attribute("url.query", REDACTED)
+    span.set_attribute("http.target", redact_collection_secrets(str(scope.get("path", ""))))
 
 
 def _instrument_app(app: FastAPI, provider: TracerProvider) -> None:
@@ -297,9 +300,9 @@ def _replace_sql_error_handler(engine: Engine) -> None:
                 and identifier == "handle_error"
                 and function is _otel_sql_error_handler
             ):
-                EngineTracer._dispose_of_event_listener(registration)  # type: ignore[no-untyped-call]
+                cast(Callable[..., None], EngineTracer._dispose_of_event_listener)(registration)
     # Use the instrumentor's own bookkeeping so a later `uninstrument()` removes our replacement.
-    EngineTracer._register_event_listener(  # type: ignore[no-untyped-call]
+    cast(Callable[..., None], EngineTracer._register_event_listener)(
         engine, "handle_error", _sanitize_sql_error
     )
 
@@ -360,7 +363,7 @@ def _instrument_dependencies(
     _install_sql_span_sanitizers(sync_engines)
     active.add("sqlalchemy")
 
-    celery = CeleryInstrumentor()  # type: ignore[no-untyped-call]
+    celery = cast(Callable[[], CeleryInstrumentor], CeleryInstrumentor)()
     if not celery.is_instrumented_by_opentelemetry:
         celery.instrument(tracer_provider=provider)
     _replace_sensitive_celery_handlers(celery)

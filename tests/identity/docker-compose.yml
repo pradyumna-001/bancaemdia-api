@@ -1,0 +1,27 @@
+name: bancaemdia-identity-acceptance
+services:
+  postgres:
+    image: postgres:16
+    environment:
+      - POSTGRES_USER=identity_test
+      - POSTGRES_PASSWORD
+      - POSTGRES_DB=bancaemdia_identity
+    ports: ["127.0.0.1:55432:5432"]
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U identity_test -d bancaemdia_identity"]
+      interval: 2s
+      timeout: 5s
+      retries: 30
+  issuer:
+    image: quay.io/keycloak/keycloak:26.7.4
+    command: ["start-dev", "--import-realm", "--http-port=8080"]
+    environment:
+      - KC_BOOTSTRAP_ADMIN_USERNAME
+      - KC_BOOTSTRAP_ADMIN_PASSWORD
+      - KC_HTTP_ENABLED=true
+      - KC_HOSTNAME=http://127.0.0.1:58080
+    ports: ["127.0.0.1:58081:8080"]
+    volumes: ["./realm.json:/opt/keycloak/data/import/realm.json:ro"]
+  mailpit:
+    image: axllent/mailpit:v1.31.3
+    ports: ["127.0.0.1:58025:8025"]

@@ -395,7 +395,7 @@ def _cliente(monkeypatch, chave, relogio):
             APIRoute("/api/v1/teste", rotas.banco, methods=["GET", "POST"]),
         ],
     )
-    return TestClient(main.app), escritas
+    return TestClient(main.app, base_url="https://testserver"), escritas
 
 
 def test_a_user_reads_the_primary_for_five_seconds_after_writing(monkeypatch, chave) -> None:

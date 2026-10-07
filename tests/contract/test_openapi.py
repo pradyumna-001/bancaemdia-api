@@ -22,6 +22,7 @@ from bancaemdia.api.v1 import coleta
 from bancaemdia.db.session import get_db
 from bancaemdia.main import app
 from bancaemdia.middleware import rate_limit as rate_limit_middleware
+from bancaemdia.repositories.coleta_instalacao import CollectionIdentity
 
 ROOT = Path(__file__).resolve().parents[2]
 SNAPSHOT = ROOT / "tests" / "contract" / "schemas" / "openapi.json"
@@ -82,10 +83,12 @@ def _collection_backend() -> Generator[CollectionContractBackend]:
     monkeypatch = pytest.MonkeyPatch()
 
     class TokenRepository:
-        async def get_usuario_id_by_hash(self, _session: object, token_hash: str) -> int | None:
+        async def authenticate(
+            self, _session: object, token_hash: str
+        ) -> CollectionIdentity | None:
             backend.token_hashes.append(token_hash)
             expected = coleta.hash_do_token("contract-token")
-            return 7 if token_hash == expected else None
+            return CollectionIdentity(7, 17) if token_hash == expected else None
 
     class CollectionRepository:
         async def count_received_since(
@@ -211,7 +214,7 @@ def test_openapi_endpoint_matches_checked_in_snapshot(openapi_document: JsonObje
 @pytest.mark.contract
 def test_every_operation_has_human_documentation(openapi_document: JsonObject) -> None:
     operations = list(_operations(openapi_document))
-    assert len(operations) == 52
+    assert len(operations) == 64
     for method, path, operation in operations:
         location = f"{method.upper()} {path}"
         assert str(operation.get("summary", "")).strip(), location
@@ -236,7 +239,7 @@ def test_request_bodies_have_examples(openapi_document: JsonObject) -> None:
             assert media.get("example") is not None or media.get("examples"), (
                 f"{method.upper()} {path}: {media_type} lacks an example"
             )
-    assert bodies == 19
+    assert bodies == 20
 
 
 @pytest.mark.contract
@@ -245,7 +248,10 @@ def test_responses_cover_success_and_failures_with_schemas(openapi_document: Jso
         location = f"{method.upper()} {path}"
         responses = _as_object(operation["responses"])
         numeric_codes = {int(code) for code in responses if str(code).isdigit()}
-        assert any(200 <= code < 300 for code in numeric_codes), f"{location}: missing 2xx"
+        if path in {"/auth/start", "/auth/callback"}:
+            assert method == "get" and 302 in numeric_codes, location
+        else:
+            assert any(200 <= code < 300 for code in numeric_codes), f"{location}: missing 2xx"
         assert any(500 <= code < 600 for code in numeric_codes), f"{location}: missing 5xx"
         if path.startswith("/api/") or operation.get("requestBody") or operation.get("parameters"):
             assert any(400 <= code < 500 for code in numeric_codes), f"{location}: missing 4xx"
@@ -253,7 +259,14 @@ def test_responses_cover_success_and_failures_with_schemas(openapi_document: Jso
         for code, response_value in responses.items():
             response = _as_object(response_value)
             assert str(response.get("description", "")).strip(), f"{location}: {code} description"
+            if str(code) == "204":
+                assert "content" not in response, f"{location}: 204 must have no body"
+                continue
             content = response.get("content")
+            if path in {"/auth/start", "/auth/callback"} and str(code) == "302":
+                assert not content, f"{location}: redirect must have no JSON body"
+                assert response["headers"]["Location"]["schema"]["type"] == "string"
+                continue
             assert isinstance(content, dict) and content, f"{location}: {code} content"
             for media_type, media_value in content.items():
                 schema = _as_object(_as_object(media_value).get("schema"))
@@ -442,7 +455,7 @@ positive_schema = schemathesis.openapi.from_asgi(
 @pytest.mark.contract
 @positive_schema.parametrize()
 def test_schemathesis_valid_public_requests(case: schemathesis.Case) -> None:
-    response = case.call_and_validate()
+    response = case.call_and_validate(base_url="https://testserver")
     assert response.status_code == 200
 
 
@@ -519,7 +532,7 @@ def test_schemathesis_valid_collection_requests_match_contract(
             "apostas": [],
         }
 
-        response = case.call_and_validate()
+        response = case.call_and_validate(base_url="https://testserver")
 
         assert response.status_code == 200
         assert response.json() == {
@@ -547,7 +560,7 @@ def test_schemathesis_invalid_collection_requests_match_contract(
 ) -> None:
     case = _collection_case(body)
     with _collection_backend() as collection_backend:
-        response = case.call_and_validate()
+        response = case.call_and_validate(base_url="https://testserver")
 
         assert 400 <= response.status_code < 500
         assert "erro" in response.json()
@@ -571,6 +584,8 @@ negative_schema = (
     schemathesis.openapi
     .from_asgi("/openapi.json", contract_app, config=negative_config)
     .include(path_regex=r"^/api/v1/(?!coleta$)")
+    .exclude(path="/api/v1/coleta/pairing-exchange")
+    .exclude(path="/api/v1/coleta/status")
     .exclude(
         # `chave` is an intentionally opaque, unconstrained string. There is no serializable
         # negative string value for that path parameter, so Schemathesis correctly has no strategy.
@@ -605,5 +620,5 @@ def invalid_upload_job_cases(
 @pytest.mark.contract
 @negative_schema.parametrize()
 def test_schemathesis_invalid_protected_requests(case: schemathesis.Case) -> None:
-    response = case.call_and_validate()
+    response = case.call_and_validate(base_url="https://testserver")
     assert response.status_code == 401

@@ -20,6 +20,54 @@ MANUAL_BET_HOUSES = sorted(
 
 
 OPERATION_DOCUMENTATION: dict[OperationKey, tuple[str, str]] = {
+    ("post", "/api/v1/coleta/pairing-codes"): (
+        "Criar código de pareamento",
+        "Emite código descartável para uma instalação; requer JWT e HTTPS.",
+    ),
+    ("post", "/api/v1/coleta/pairing-exchange"): (
+        "Parear instalação",
+        "Troca código uma única vez por credencial restrita; requer HTTPS, sem Bearer.",
+    ),
+    ("get", "/api/v1/coleta/installations"): (
+        "Listar instalações",
+        "Lista somente instalações do usuário, sem hashes ou segredos.",
+    ),
+    ("post", "/api/v1/coleta/installations/{instalacao_id}/rotate"): (
+        "Rotacionar credencial",
+        "Invalida atomicamente o token anterior desta instalação.",
+    ),
+    ("delete", "/api/v1/coleta/installations/{instalacao_id}"): (
+        "Revogar instalação",
+        "Revoga somente a instalação selecionada. Novo pareamento permite reconexão.",
+    ),
+    ("get", "/api/v1/coleta/status"): (
+        "Consultar credencial da instalação",
+        "Autentica X-Coleta-Token no primário e retorna somente a identidade validada.",
+    ),
+    ("get", "/auth/start"): (
+        "Iniciar login hospedado",
+        "Inicia Authorization Code + S256 PKCE com state de uso único e nonce; cadastro, confirmação de e-mail e recuperação usam a interface real do emissor.",
+    ),
+    ("get", "/auth/callback"): (
+        "Concluir identidade verificada",
+        "Valida identidade e e-mail confirmado, vincula (issuer, sub) ao usuário interno e cria sessão HttpOnly; redireciona somente ao destino interno armazenado.",
+    ),
+    ("get", "/auth/session"): (
+        "Consultar sessão",
+        "Retorna identidade, versão e prova CSRF, sem tokens. Sessão ainda válida pode exigir renovação do acesso.",
+    ),
+    ("post", "/auth/refresh"): (
+        "Renovar sessão",
+        "Exige cookie, Origin exata e X-CSRF-Token; renova no emissor e rotaciona cookie e geração. Reuso de cookie retirado revoga a família. Serialize renovação.",
+    ),
+    ("post", "/auth/logout"): (
+        "Revogar sessão",
+        "Exige cookie, Origin exata e X-CSRF-Token; revoga imediatamente acesso local, incluindo JWT emitido, e persiste revogação do refresh externo para tentativas posteriores.",
+    ),
+    ("get", "/auth/jwks"): (
+        "Consultar chaves públicas",
+        "Publica somente chaves RSA públicas; segredos de assinatura e criptografia permanecem no servidor.",
+    ),
     ("post", "/api/v1/billing/webhook"): (
         "Receive Stripe events",
         "Verify the raw body signature and persist a minimal deduplicated test-mode inbox; worker fetches current state.",
@@ -232,6 +280,13 @@ OPERATION_DOCUMENTATION: dict[OperationKey, tuple[str, str]] = {
 
 
 PARAMETER_DESCRIPTIONS = {
+    "instalacao_id": "ID interno da instalação do usuário autenticado.",
+    "return_to": "Caminho interno do frontend; origens arbitrárias são recusadas.",
+    "intent": "login, signup ou recover; use o link real do emissor. Recover revoga sessões locais anteriores após login verificado.",
+    "state": "State de uso único vinculado ao cookie de fluxo.",
+    "code": "Código de autorização de uso único do emissor.",
+    "error": "Recusa do emissor; nunca refletida em destinos nem logs.",
+    "all_sessions": "Revogar todas as sessões locais desta identidade confirmada.",
     "Idempotency-Key": (
         "Chave opaca obrigatória do cliente; reutilizá-la com o mesmo corpo reproduz a resposta "
         "original sem repetir a operação."
@@ -266,6 +321,14 @@ PARAMETER_DESCRIPTIONS = {
 
 
 REQUEST_EXAMPLES: dict[OperationKey, tuple[str, JsonObject]] = {
+    ("post", "/api/v1/coleta/pairing-exchange"): (
+        "Código descartável e instalação opaca",
+        {
+            "codigo": "synthetic-code",
+            "instalacao_publica_id": "91b643c0-46e6-4b1b-b488-6254247128fd",
+            "nome_dispositivo": "Meu dispositivo",
+        },
+    ),
     ("post", "/api/v1/billing/subscribe"): (
         "Configured currency and cadence",
         {"currency": "BRL", "frequency": "MONTHLY"},
@@ -733,6 +796,44 @@ def _install_collection_security(document: JsonObject) -> None:
         "name": "X-Telegram-Bot-Api-Secret-Token",
         "description": "Secret configured through Telegram setWebhook; never log it.",
     }
+    schemes["SessionCookie"] = {
+        "type": "apiKey",
+        "in": "cookie",
+        "name": "__Host-bancaemdia_session",
+        "description": "Cookie HttpOnly Secure SameSite=Lax. Somente em teste loopback: bancaemdia_session. AUTH_ENABLED ativa este transporte e exige JWT interno vinculado à sessão para Bearer.",
+    }
+    schemes["CsrfProof"] = {
+        "type": "apiKey",
+        "in": "header",
+        "name": "X-CSRF-Token",
+        "description": "Prova de GET /auth/session mantida em memória, com Origin exata; obrigatória em mutações por cookie.",
+    }
+    for method, path, operation in _operations(document):
+        if path in {"/auth/session", "/auth/refresh", "/auth/logout"}:
+            operation["security"] = [
+                {"SessionCookie": [], **({"CsrfProof": []} if method == "post" else {})}
+            ]
+        elif path.startswith("/auth/"):
+            operation["security"] = []
+        elif operation.get("security") == [{"HTTPBearer": []}]:
+            operation["security"].append({
+                "SessionCookie": [],
+                **({"CsrfProof": []} if method not in {"get", "head"} else {}),
+            })
+            for status in ("401", "503"):
+                operation["responses"][status].setdefault("headers", {})["X-Auth-Error"] = {
+                    "description": "Identity error code when AUTH_ENABLED; legacy response body is preserved.",
+                    "schema": {"type": "string"},
+                }
+            if method not in {"get", "head"}:
+                operation["responses"]["403"] = {
+                    "description": "Cookie mutation requires exact Origin and current CSRF proof.",
+                    "content": {
+                        "application/json": {
+                            "schema": {"$ref": "#/components/schemas/ErrorResponse"}
+                        }
+                    },
+                }
     paths = _object(document["paths"], context="paths")
     for path in COLLECTION_PATHS:
         operation = _object(
@@ -745,6 +846,13 @@ def _install_collection_security(document: JsonObject) -> None:
         context="POST telegram webhook",
     )
     telegram_operation["security"] = [{"TelegramWebhookSecret": []}]
+    _object(
+        _object(paths["/api/v1/coleta/status"], context="status")["get"], context="status operation"
+    )["security"] = [{"CollectionToken": []}]
+    _object(
+        _object(paths["/api/v1/coleta/pairing-exchange"], context="exchange")["post"],
+        context="exchange operation",
+    )["security"] = []
 
 
 def _strictify_schema(schema: JsonObject) -> None:

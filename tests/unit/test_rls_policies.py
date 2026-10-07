@@ -21,7 +21,7 @@ REVISAO_RESOLVIDA = "f2a9c4e7b106"
 PAINEL = "d3f6a8c1e209"
 CAIXA_REVISAO_MERGE = "e5a1c7d9b204"
 PAINEL_CAIXA_MERGE = "f8b2d4a6c901"
-HEAD = "h3review2026"
+HEAD = "j3main2026"
 USUARIO_ATUAL = "NULLIF(current_setting('app.current_user_id', true), '')::bigint"
 JOB_OFERECIDO = "NULLIF(current_setting('app.upload_job_id', true), '')::uuid"
 POR_USUARIO = {
@@ -125,19 +125,14 @@ def test_protected_and_shared_tables_cover_the_whole_schema() -> None:
         "billing_checkouts",
         "billing_events",
     }
-    assert (
-        protegidas
-        | POR_USUARIO_TITULARES
-        | POR_USUARIO_TELEGRAM
-        | GLOBAIS_TELEGRAM
-        | COMPARTILHADAS
-        | billing
-        | {
-            "usuarios",
-            "audit_log",
-        }
-        == set(Base.metadata.tables)
-    )
+    assert protegidas | POR_USUARIO_TITULARES | POR_USUARIO_TELEGRAM | {
+        "coleta_instalacoes",
+        "coleta_pairing_codes",
+        "coleta_pairing_quotas",
+    } | GLOBAIS_TELEGRAM | COMPARTILHADAS | billing | {
+        "usuarios",
+        "audit_log",
+    } == set(Base.metadata.tables)
     assert not protegidas & COMPARTILHADAS
     for tabela in protegidas:
         assert "usuario_id" in Base.metadata.tables[tabela].c
@@ -336,3 +331,15 @@ def test_head_upgrade_chains_every_revision() -> None:
         f" WHERE alembic_version.version_num = '{BASELINE}'"
     ) in sql
     assert sql.index("CREATE TABLE apostas (") < sql.index("CREATE POLICY apostas_por_usuario")
+
+
+def test_integrated_pairing_tables_keep_dedicated_rls_and_quota_boundary() -> None:
+    sql = _upgrade_sql("a9d6e3f1c210:c107pair2026")
+    for table in ("coleta_instalacoes", "coleta_pairing_codes", "coleta_pairing_quotas"):
+        assert f"ALTER TABLE {table} ENABLE ROW LEVEL SECURITY" in sql
+        assert f"ALTER TABLE {table} FORCE ROW LEVEL SECURITY" in sql
+    for table in ("coleta_instalacoes", "coleta_pairing_codes"):
+        assert f"CREATE POLICY {table}_owner ON {table}" in sql
+        assert "usuario_id=NULLIF(current_setting('app.current_user_id',true),'')::bigint" in sql
+    assert "REVOKE ALL ON FUNCTION coleta_pairing_limit(text,integer,integer) FROM PUBLIC" in sql
+    assert "SET search_path=pg_catalog,public" in sql

@@ -12,6 +12,11 @@ from bancaemdia.models.billing_rollout import BillingRollout
 from bancaemdia.models.casa import Casa
 from bancaemdia.models.chamada_ia import ChamadaIA
 from bancaemdia.models.coleta_casa import ColetaCasa
+from bancaemdia.models.coleta_instalacao import (
+    ColetaInstalacao,
+    ColetaPairingCode,
+    ColetaPairingQuota,
+)
 from bancaemdia.models.coleta_token import ColetaToken
 from bancaemdia.models.competicao import Competicao
 from bancaemdia.models.conta_casa import ContaCasa
@@ -57,6 +62,9 @@ __all__ = [
     "Casa",
     "ChamadaIA",
     "ColetaCasa",
+    "ColetaInstalacao",
+    "ColetaPairingCode",
+    "ColetaPairingQuota",
     "ColetaToken",
     "Competicao",
     "ContaCasa",

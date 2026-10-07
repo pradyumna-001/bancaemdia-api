@@ -87,7 +87,7 @@ def _cliente(monkeypatch, cache, usuarios=()):
     monkeypatch.setattr(auth_middleware, "get_jwks_cache", lambda: cache)
     monkeypatch.setattr(deps, "UsuarioRepo", UsuarioRepo)
     monkeypatch.setitem(main.app.dependency_overrides, get_db, Sessoes().abrir)
-    return TestClient(main.app)
+    return TestClient(main.app, base_url="https://testserver")
 
 
 def _chaves(jwk_publica):
