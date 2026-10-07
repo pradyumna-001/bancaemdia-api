@@ -638,6 +638,39 @@ def invalid_upload_job_cases(
     )
 
 
+@negative_schema.hook("before_generate_case")
+def invalid_account_path_cases(
+    context: schemathesis.HookContext,
+    strategy: SearchStrategy[schemathesis.Case],
+) -> SearchStrategy[schemathesis.Case]:
+    assert context.operation is not None
+    operation = context.operation
+    if (
+        operation.path != "/api/v1/titulares/{titular_id}/contas/{conta_id}"
+        or operation.method.upper() != "PATCH"
+    ):
+        return strategy
+
+    # Numeric type negations can become valid integers after URL serialization.
+    # Generate an unparsable decimal path value directly, varying either ID; keep
+    # the other ID and JSON body valid. The protected route must still return 401.
+    def case(values: tuple[str, str, int]) -> schemathesis.Case:
+        invalid_field, invalid_value, valid_id = values
+        parameters = {"titular_id": str(valid_id), "conta_id": str(valid_id)}
+        parameters[invalid_field] = invalid_value
+        return operation.Case(
+            path_parameters=parameters,
+            body={"apelido": "Contrato sintético"},
+            media_type="application/json",
+        )
+
+    return st.tuples(
+        st.sampled_from(["titular_id", "conta_id"]),
+        st.text(alphabet="abcdefghijklmnopqrstuvwxyz", min_size=1, max_size=40),
+        st.integers(min_value=1, max_value=2**63 - 1),
+    ).map(case)
+
+
 @pytest.mark.contract
 @negative_schema.parametrize()
 def test_schemathesis_invalid_protected_requests(case: schemathesis.Case) -> None:
