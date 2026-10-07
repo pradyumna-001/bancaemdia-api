@@ -1,4 +1,5 @@
 import asyncio
+import math
 import re
 import time
 from collections.abc import Callable
@@ -112,7 +113,7 @@ class JWKSCache:
             self.fetched_at = now
 
 
-async def verify_token(token: str, cache: JWKSCache) -> int:
+async def verified_claims(token: str, cache: JWKSCache) -> dict[str, Any]:
     settings = get_settings()
     try:
         header = jwt.get_unverified_header(token)
@@ -134,11 +135,22 @@ async def verify_token(token: str, cache: JWKSCache) -> int:
     except (jwt.PyJWTError, TypeError, ValueError, OverflowError) as error:
         raise InvalidTokenError("the token is not valid") from error
     subject = claims["sub"]
+    for name in ("exp", "iat", "nbf"):
+        if name in claims and (
+            not isinstance(claims[name], (int, float))
+            or isinstance(claims[name], bool)
+            or not math.isfinite(claims[name])
+        ):
+            raise InvalidTokenError("NumericDate claim is not valid")
     # O RLS compara `app.current_user_id` com usuario_id bigint: um sub que não cabe viraria erro do
     # banco, não 401.
     if not isinstance(subject, str) or not SUBJECT.fullmatch(subject) or int(subject) > BIGINT_MAX:
         raise InvalidTokenError("the token subject is not a user id")
-    return int(subject)
+    return claims
+
+
+async def verify_token(token: str, cache: JWKSCache) -> int:
+    return int((await verified_claims(token, cache))["sub"])
 
 
 @lru_cache

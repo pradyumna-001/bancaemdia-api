@@ -17,7 +17,7 @@ REVISAO_RESOLVIDA = "f2a9c4e7b106"
 CAIXA_REVISAO_MERGE = "e5a1c7d9b204"
 PAINEL = "d3f6a8c1e209"
 PAINEL_CAIXA_MERGE = "f8b2d4a6c901"
-HEAD = "h4review2026"
+HEAD = "j4main2026"
 PARTICIONADAS = {
     "eventos": "criado_em",
     "movimentos": "ocorrido_em",
@@ -85,7 +85,7 @@ def test_upgrade_creates_every_model_table_once() -> None:
         assert sql.count(f"\nCREATE TABLE {nome} (") == 1
     # Alembic's own version table and the private dashboard refresh state are intentionally not
     # SQLAlchemy models.
-    assert sql.count("\nCREATE TABLE ") == len(Base.metadata.tables) + 2
+    assert sql.count("\nCREATE TABLE ") == len(Base.metadata.tables) + 8
     assert "CREATE TABLE alembic_version" in sql
     assert "CREATE TABLE painel.estado_refresh" in sql
     assert f"INSERT INTO alembic_version (version_num) VALUES ('{BASELINE}')" in sql
