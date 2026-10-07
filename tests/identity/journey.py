@@ -457,10 +457,17 @@ async def test_real_registration_refresh_recovery_isolation_and_revocation(harne
             "titulares",
             "contas",
         ]:
-            opcoes = await fetch(pa, "/api/v1/filtros/" + dimensao)
+            url = API + "/api/v1/filtros/" + dimensao
+            async with pa.expect_response(lambda response: response.url == url) as received:
+                opcoes = await fetch(pa, "/api/v1/filtros/" + dimensao)
             assert opcoes["status"] == 200
             assert opcoes["headers"]["cache-control"] == "private, no-store"
-            assert "Cookie" in opcoes["headers"]["vary"]
+            # Vary controls HTTP caches; it is not a CORS-exposed JS header.
+            # Inspect the actual browser network response without weakening CORS.
+            wire_headers = await (await received.value).all_headers()
+            assert {"Authorization", "Cookie", "Origin"} <= {
+                item.strip() for item in wire_headers["vary"].split(",")
+            }
         grupo = await fetch(
             pa,
             "/api/v1/grupos",
