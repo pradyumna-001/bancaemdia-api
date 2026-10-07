@@ -1,11 +1,11 @@
 """Exact CORS, cookie CSRF and strict private response headers."""
 
 import secrets
-from collections.abc import Awaitable, Callable
 
-from starlette.middleware.base import BaseHTTPMiddleware
+from starlette.datastructures import MutableHeaders
 from starlette.requests import Request
 from starlette.responses import Response
+from starlette.types import ASGIApp, Message, Receive, Scope, Send
 
 from bancaemdia.api.identity import failure
 from bancaemdia.auth.identity_config import identity_settings
@@ -23,18 +23,29 @@ ALLOWED_HEADERS = frozenset({
 })
 
 
-class IdentityTransportMiddleware(BaseHTTPMiddleware):
-    async def dispatch(
-        self, request: Request, call_next: Callable[[Request], Awaitable[Response]]
-    ) -> Response:
+class IdentityTransportMiddleware:
+    def __init__(self, app: ASGIApp) -> None:
+        self.app = app
+
+    async def __call__(self, scope: Scope, receive: Receive, send: Send) -> None:
+        if scope["type"] != "http":
+            await self.app(scope, receive, send)
+            return
         settings = identity_settings()
+        request = Request(scope)
+        path = request_path(request)
+        if not settings.AUTH_ENABLED and not path.startswith("/auth/"):
+            # Disabled identity has no transport policy on these routes. Do not
+            # create a task group or buffer a streaming collection response.
+            await self.app(scope, receive, send)
+            return
         origin = request.headers.get("origin")
         origins = {
             settings.AUTH_FRONTEND_ORIGIN.rstrip("/"),
             settings.AUTH_PUBLIC_URL.rstrip("/"),
         } - {""}
-        path = request_path(request)
         legacy = path.startswith("/api/")
+        response: Response | None = None
         if settings.AUTH_ENABLED and request.method == "OPTIONS" and origin is not None:
             requested = {
                 h.strip().lower()
@@ -42,9 +53,7 @@ class IdentityTransportMiddleware(BaseHTTPMiddleware):
                 if h.strip()
             }
             if origin not in origins or not requested <= ALLOWED_HEADERS:
-                response: Response = failure(
-                    IdentityError("origin_not_allowed", 403), legacy=legacy
-                )
+                response = failure(IdentityError("origin_not_allowed", 403), legacy=legacy)
             else:
                 response = Response(
                     status_code=204,
@@ -73,25 +82,30 @@ class IdentityTransportMiddleware(BaseHTTPMiddleware):
                     )
                 ):
                     response = failure(IdentityError("csrf_failed", 403), legacy=legacy)
-                else:
-                    response = await call_next(request)
-            else:
-                response = await call_next(request)
-        if settings.AUTH_ENABLED and origin in origins:
-            response.headers["Access-Control-Allow-Origin"] = str(origin)
-            response.headers["Access-Control-Allow-Credentials"] = "true"
-            response.headers["Access-Control-Expose-Headers"] = (
-                "X-Auth-Error, X-Request-ID, Retry-After"
-            )
-            response.headers["Vary"] = ", ".join(
-                filter(None, [response.headers.get("Vary"), "Origin"])
-            )
-        if path.startswith("/auth/") or (settings.AUTH_ENABLED and path.startswith("/api/")):
-            response.headers["Cache-Control"] = "private, no-store"
-            response.headers["Pragma"] = "no-cache"
-            response.headers["Referrer-Policy"] = "no-referrer"
-            response.headers["X-Content-Type-Options"] = "nosniff"
-            response.headers["Content-Security-Policy"] = (
-                "default-src 'none'; frame-ancestors 'none'; base-uri 'none'; form-action 'none'"
-            )
-        return response
+
+        async def send_response(message: Message) -> None:
+            if message["type"] == "http.response.start":
+                headers = MutableHeaders(scope=message)
+                if settings.AUTH_ENABLED and origin in origins:
+                    headers["Access-Control-Allow-Origin"] = str(origin)
+                    headers["Access-Control-Allow-Credentials"] = "true"
+                    headers["Access-Control-Expose-Headers"] = (
+                        "X-Auth-Error, X-Request-ID, Retry-After"
+                    )
+                    headers["Vary"] = ", ".join(filter(None, [headers.get("Vary"), "Origin"]))
+                if path.startswith("/auth/") or (
+                    settings.AUTH_ENABLED and path.startswith("/api/")
+                ):
+                    headers["Cache-Control"] = "private, no-store"
+                    headers["Pragma"] = "no-cache"
+                    headers["Referrer-Policy"] = "no-referrer"
+                    headers["X-Content-Type-Options"] = "nosniff"
+                    headers["Content-Security-Policy"] = (
+                        "default-src 'none'; frame-ancestors 'none'; base-uri 'none'; form-action 'none'"
+                    )
+            await send(message)
+
+        if response is not None:
+            await response(scope, receive, send_response)
+        else:
+            await self.app(scope, receive, send_response)
