@@ -458,7 +458,7 @@ async def test_real_registration_refresh_recovery_isolation_and_revocation(harne
             "contas",
         ]:
             url = API + "/api/v1/filtros/" + dimensao
-            async with pa.expect_response(lambda response: response.url == url) as received:
+            async with pa.expect_response(url) as received:
                 opcoes = await fetch(pa, "/api/v1/filtros/" + dimensao)
             assert opcoes["status"] == 200
             assert opcoes["headers"]["cache-control"] == "private, no-store"
