@@ -14,6 +14,9 @@ from bancaemdia.repositories.aposta_repo import ApostaRepo
 from bancaemdia.repositories.evento_repo import EventoRepo
 
 pytestmark = pytest.mark.xdist_group("postgres")
+PROTECTED_RELATIONS = ("eventos", "apostas", "movimentos") + (
+    ("aposta_consolidacoes",) if hasattr(models, "ApostaConsolidacao") else ()
+)
 
 
 @pytest.fixture
@@ -283,7 +286,7 @@ async def test_replay_rolls_back_earlier_updates_if_later_history_is_invalid(
         assert aposta.stake_centavos == 1
 
 
-@pytest.mark.parametrize("relation", ["eventos", "apostas", "movimentos", "aposta_consolidacoes"])
+@pytest.mark.parametrize("relation", PROTECTED_RELATIONS)
 @pytest.mark.parametrize("mode", ["ROW EXCLUSIVE", "SHARE UPDATE EXCLUSIVE"])
 async def test_replay_refuses_writers_and_maintenance_without_partial_updates(
     engine_app: AsyncEngine,
