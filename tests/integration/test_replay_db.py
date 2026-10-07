@@ -1,11 +1,12 @@
 from __future__ import annotations
 
-from collections.abc import Awaitable, Callable
+from collections.abc import AsyncIterator, Awaitable, Callable
 from uuid import uuid4
 
 import pytest
 from sqlalchemy import select, text, update
-from sqlalchemy.ext.asyncio import AsyncEngine, AsyncSession
+from sqlalchemy.exc import DBAPIError
+from sqlalchemy.ext.asyncio import AsyncEngine, AsyncSession, create_async_engine
 
 from bancaemdia import models
 from bancaemdia.cli.replay import ReplayInseguroError, reconstruir_usuario
@@ -13,6 +14,17 @@ from bancaemdia.repositories.aposta_repo import ApostaRepo
 from bancaemdia.repositories.evento_repo import EventoRepo
 
 pytestmark = pytest.mark.xdist_group("postgres")
+
+
+@pytest.fixture
+async def engine_app(banco_migracao) -> AsyncIterator[AsyncEngine]:
+    # Replay locks whole tables, so unrelated suite writes/maintenance must not interfere.
+    # Keep actual conflicting transactions in this private database for the safety regressions.
+    engine = create_async_engine(banco_migracao.url_app)
+    try:
+        yield engine
+    finally:
+        await engine.dispose()
 
 
 async def _aposta(engine: AsyncEngine, usuario_id: int, prefixo: str = "m:") -> str:
@@ -269,3 +281,45 @@ async def test_replay_rolls_back_earlier_updates_if_later_history_is_invalid(
             )
         ).scalar_one()
         assert aposta.stake_centavos == 1
+
+
+@pytest.mark.parametrize("relation", ["eventos", "apostas", "movimentos", "aposta_consolidacoes"])
+@pytest.mark.parametrize("mode", ["ROW EXCLUSIVE", "SHARE UPDATE EXCLUSIVE"])
+async def test_replay_refuses_writers_and_maintenance_without_partial_updates(
+    engine_app: AsyncEngine,
+    novo_usuario: Callable[[], Awaitable[int]],
+    relation: str,
+    mode: str,
+) -> None:
+    usuario = await novo_usuario()
+    chave = await _aposta(engine_app, usuario)
+    async with AsyncSession(engine_app) as session, session.begin():
+        await session.execute(
+            text("SELECT set_config('app.current_user_id', :uid, true)"), {"uid": str(usuario)}
+        )
+        await session.execute(
+            update(models.Aposta)
+            .where(models.Aposta.usuario_id == usuario, models.Aposta.chave == chave)
+            .values(stake_centavos=1)
+        )
+
+    async with AsyncSession(engine_app) as competing, competing.begin():
+        # Match the locks taken by ordinary writes and VACUUM/ANALYZE, respectively.
+        await competing.execute(text(f"LOCK TABLE {relation} IN {mode} MODE"))
+        with pytest.raises(DBAPIError) as refused:
+            await reconstruir_usuario(usuario, engine=engine_app)
+        assert getattr(refused.value.orig, "sqlstate", None) == "55P03"
+        async with AsyncSession(engine_app) as session, session.begin():
+            await session.execute(
+                text("SELECT set_config('app.current_user_id', :uid, true)"), {"uid": str(usuario)}
+            )
+            assert (
+                await session.scalar(
+                    select(models.Aposta.stake_centavos).where(
+                        models.Aposta.usuario_id == usuario, models.Aposta.chave == chave
+                    )
+                )
+                == 1
+            )
+
+    assert (await reconstruir_usuario(usuario, engine=engine_app)).alteradas == 1
