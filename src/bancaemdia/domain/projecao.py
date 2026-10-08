@@ -38,6 +38,7 @@ CAMPOS_DA_CRIACAO = (
     "comissao_centavos",
     "mercado_bruto",
     "conta_casa_id",
+    "banca_id",
     "conta_referencia_explicita",
     "conta_casa_ref",
     "conta_atribuicao",

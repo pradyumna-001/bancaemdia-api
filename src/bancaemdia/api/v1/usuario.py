@@ -25,6 +25,8 @@ router = APIRouter(responses=AUTHENTICATED_ERROR_RESPONSES)
 # messages/photos have no tenant owner in the present schema and cannot be safely
 # attributed to one account; see docs/SECURITY.md before calling this a full export.
 EXPORT_TABLES = (
+    "grupos_aposta",
+    "apostas_grupos",
     "apostas",
     "eventos",
     "movimentos",

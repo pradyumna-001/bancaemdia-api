@@ -21,7 +21,7 @@ REVISAO_RESOLVIDA = "f2a9c4e7b106"
 PAINEL = "d3f6a8c1e209"
 CAIXA_REVISAO_MERGE = "e5a1c7d9b204"
 PAINEL_CAIXA_MERGE = "f8b2d4a6c901"
-HEAD = "j6main2026"
+HEAD = "s183filter2026"
 USUARIO_ATUAL = "NULLIF(current_setting('app.current_user_id', true), '')::bigint"
 JOB_OFERECIDO = "NULLIF(current_setting('app.upload_job_id', true), '')::uuid"
 POR_USUARIO = {
@@ -150,6 +150,8 @@ def test_protected_and_shared_tables_cover_the_whole_schema() -> None:
             "catalogo_publicacoes",
             "catalogo_confirmacoes",
             "catalogo_auditoria",
+            "grupos_aposta",
+            "apostas_grupos",
             "usuarios",
             "audit_log",
         }

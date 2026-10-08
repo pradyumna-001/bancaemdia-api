@@ -2301,6 +2301,17 @@
         "additionalProperties": false,
         "description": "Campos de domínio que podem ser corrigidos; campos desconhecidos são recusados.",
         "properties": {
+          "banca_id": {
+            "anyOf": [
+              {
+                "minimum": 1,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
           "casa": {
             "anyOf": [
               {
@@ -2468,6 +2479,17 @@
         "additionalProperties": false,
         "description": "Campos de domínio que podem ser corrigidos; campos desconhecidos são recusados.",
         "properties": {
+          "banca_id": {
+            "anyOf": [
+              {
+                "minimum": 1,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
           "casa": {
             "anyOf": [
               {
@@ -2616,6 +2638,49 @@
           }
         },
         "title": "CorrecaoDaRevisao",
+        "type": "object"
+      },
+      "DatasetFiltrado": {
+        "additionalProperties": false,
+        "properties": {
+          "chave": {
+            "enum": [
+              "lucro_centavos",
+              "giro_centavos",
+              "total_apostas"
+            ],
+            "title": "Chave",
+            "type": "string"
+          },
+          "data": {
+            "items": {
+              "anyOf": [
+                {
+                  "type": "integer"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "title": "Data",
+            "type": "array"
+          },
+          "unidade": {
+            "enum": [
+              "centavos",
+              "quantidade"
+            ],
+            "title": "Unidade",
+            "type": "string"
+          }
+        },
+        "required": [
+          "chave",
+          "unidade",
+          "data"
+        ],
+        "title": "DatasetFiltrado",
         "type": "object"
       },
       "DatasetSaida": {
@@ -3017,6 +3082,136 @@
         "title": "FusoEntrada",
         "type": "object"
       },
+      "GraficosFiltradosSaida": {
+        "additionalProperties": false,
+        "properties": {
+          "criterio_temporal": {
+            "const": "data_aposta",
+            "default": "data_aposta",
+            "title": "Criterio Temporal",
+            "type": "string"
+          },
+          "datasets": {
+            "items": {
+              "$ref": "#/components/schemas/DatasetFiltrado"
+            },
+            "title": "Datasets",
+            "type": "array"
+          },
+          "fonte_dados": {
+            "const": "apostas_ao_vivo",
+            "default": "apostas_ao_vivo",
+            "title": "Fonte Dados",
+            "type": "string"
+          },
+          "fuso_horario": {
+            "const": "America/Sao_Paulo",
+            "default": "America/Sao_Paulo",
+            "title": "Fuso Horario",
+            "type": "string"
+          },
+          "granularidade": {
+            "const": "dia",
+            "default": "dia",
+            "title": "Granularidade",
+            "type": "string"
+          },
+          "labels": {
+            "items": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "title": "Labels",
+            "type": "array"
+          },
+          "respondido_em": {
+            "format": "date-time",
+            "title": "Respondido Em",
+            "type": "string"
+          },
+          "snapshot_em": {
+            "format": "date-time",
+            "title": "Snapshot Em",
+            "type": "string"
+          },
+          "total_periodo": {
+            "$ref": "#/components/schemas/MetricasFiltradas"
+          }
+        },
+        "required": [
+          "snapshot_em",
+          "respondido_em",
+          "labels",
+          "datasets",
+          "total_periodo"
+        ],
+        "title": "GraficosFiltradosSaida",
+        "type": "object"
+      },
+      "GrupoEntrada": {
+        "additionalProperties": false,
+        "properties": {
+          "arquivado": {
+            "default": false,
+            "title": "Arquivado",
+            "type": "boolean"
+          },
+          "nome": {
+            "maxLength": 160,
+            "minLength": 1,
+            "title": "Nome",
+            "type": "string"
+          }
+        },
+        "required": [
+          "nome"
+        ],
+        "title": "GrupoEntrada",
+        "type": "object"
+      },
+      "GrupoFiltrado": {
+        "additionalProperties": false,
+        "properties": {
+          "id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Id"
+          },
+          "metricas": {
+            "$ref": "#/components/schemas/MetricasFiltradas"
+          },
+          "nome": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Nome"
+          }
+        },
+        "required": [
+          "id",
+          "nome",
+          "metricas"
+        ],
+        "title": "GrupoFiltrado",
+        "type": "object"
+      },
       "GrupoSaida": {
         "additionalProperties": false,
         "properties": {
@@ -3064,6 +3259,26 @@
           "metricas"
         ],
         "title": "GrupoSaida",
+        "type": "object"
+      },
+      "GruposDaAposta": {
+        "additionalProperties": false,
+        "properties": {
+          "grupo_ids": {
+            "items": {
+              "maxLength": 19,
+              "pattern": "^[1-9][0-9]{0,18}$",
+              "type": "string"
+            },
+            "maxItems": 100,
+            "title": "Grupo Ids",
+            "type": "array"
+          }
+        },
+        "required": [
+          "grupo_ids"
+        ],
+        "title": "GruposDaAposta",
         "type": "object"
       },
       "HTTPValidationError": {
@@ -4010,6 +4225,106 @@
         "title": "MetaSaida",
         "type": "object"
       },
+      "MetricasFiltradas": {
+        "additionalProperties": false,
+        "properties": {
+          "anuladas": {
+            "title": "Anuladas",
+            "type": "integer"
+          },
+          "base_roi_centavos": {
+            "title": "Base Roi Centavos",
+            "type": "integer"
+          },
+          "em_revisao": {
+            "title": "Em Revisao",
+            "type": "integer"
+          },
+          "freebets": {
+            "title": "Freebets",
+            "type": "integer"
+          },
+          "giro_centavos": {
+            "title": "Giro Centavos",
+            "type": "integer"
+          },
+          "greens": {
+            "title": "Greens",
+            "type": "integer"
+          },
+          "lucro_centavos": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Lucro Centavos"
+          },
+          "pendentes": {
+            "title": "Pendentes",
+            "type": "integer"
+          },
+          "reds": {
+            "title": "Reds",
+            "type": "integer"
+          },
+          "resultados_desconhecidos": {
+            "title": "Resultados Desconhecidos",
+            "type": "integer"
+          },
+          "retorno_centavos": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Retorno Centavos"
+          },
+          "roi": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Roi"
+          },
+          "total_apostas": {
+            "title": "Total Apostas",
+            "type": "integer"
+          },
+          "win_rate": {
+            "title": "Win Rate",
+            "type": "string"
+          }
+        },
+        "required": [
+          "total_apostas",
+          "pendentes",
+          "greens",
+          "reds",
+          "em_revisao",
+          "anuladas",
+          "resultados_desconhecidos",
+          "giro_centavos",
+          "base_roi_centavos",
+          "retorno_centavos",
+          "lucro_centavos",
+          "freebets",
+          "roi",
+          "win_rate"
+        ],
+        "title": "MetricasFiltradas",
+        "type": "object"
+      },
       "MetricasGraficosSaida": {
         "additionalProperties": false,
         "properties": {
@@ -4616,6 +4931,67 @@
         "title": "ObservedTransport",
         "type": "object"
       },
+      "OpcaoFiltro": {
+        "additionalProperties": false,
+        "properties": {
+          "ativa": {
+            "title": "Ativa",
+            "type": "boolean"
+          },
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "nome": {
+            "title": "Nome",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "nome",
+          "ativa"
+        ],
+        "title": "OpcaoFiltro",
+        "type": "object"
+      },
+      "OpcoesFiltro": {
+        "additionalProperties": false,
+        "properties": {
+          "data": {
+            "items": {
+              "$ref": "#/components/schemas/OpcaoFiltro"
+            },
+            "title": "Data",
+            "type": "array"
+          },
+          "dimensao": {
+            "enum": [
+              "casas",
+              "tipsters",
+              "mercados",
+              "competicoes",
+              "origens",
+              "grupos",
+              "bancas",
+              "titulares",
+              "contas"
+            ],
+            "title": "Dimensao",
+            "type": "string"
+          },
+          "pagination": {
+            "$ref": "#/components/schemas/PaginationResponse"
+          }
+        },
+        "required": [
+          "dimensao",
+          "data",
+          "pagination"
+        ],
+        "title": "OpcoesFiltro",
+        "type": "object"
+      },
       "Outcome": {
         "additionalProperties": false,
         "properties": {
@@ -4687,6 +5063,73 @@
           "total"
         ],
         "title": "PaginationResponse",
+        "type": "object"
+      },
+      "PainelFiltradoSaida": {
+        "additionalProperties": false,
+        "properties": {
+          "criterio_temporal": {
+            "const": "data_aposta",
+            "default": "data_aposta",
+            "title": "Criterio Temporal",
+            "type": "string"
+          },
+          "fonte_dados": {
+            "const": "apostas_ao_vivo",
+            "default": "apostas_ao_vivo",
+            "title": "Fonte Dados",
+            "type": "string"
+          },
+          "fuso_horario": {
+            "const": "America/Sao_Paulo",
+            "default": "America/Sao_Paulo",
+            "title": "Fuso Horario",
+            "type": "string"
+          },
+          "por_casa": {
+            "items": {
+              "$ref": "#/components/schemas/GrupoFiltrado"
+            },
+            "title": "Por Casa",
+            "type": "array"
+          },
+          "por_mercado": {
+            "items": {
+              "$ref": "#/components/schemas/GrupoFiltrado"
+            },
+            "title": "Por Mercado",
+            "type": "array"
+          },
+          "por_tipster": {
+            "items": {
+              "$ref": "#/components/schemas/GrupoFiltrado"
+            },
+            "title": "Por Tipster",
+            "type": "array"
+          },
+          "respondido_em": {
+            "format": "date-time",
+            "title": "Respondido Em",
+            "type": "string"
+          },
+          "resumo": {
+            "$ref": "#/components/schemas/MetricasFiltradas"
+          },
+          "snapshot_em": {
+            "format": "date-time",
+            "title": "Snapshot Em",
+            "type": "string"
+          }
+        },
+        "required": [
+          "snapshot_em",
+          "respondido_em",
+          "resumo",
+          "por_casa",
+          "por_tipster",
+          "por_mercado"
+        ],
+        "title": "PainelFiltradoSaida",
         "type": "object"
       },
       "PainelSaida": {
@@ -6509,6 +6952,15 @@
         "title": "VinculoBancaSaida",
         "type": "object"
       },
+      "VisibilidadeApostas": {
+        "enum": [
+          "ativas",
+          "apagadas",
+          "todas"
+        ],
+        "title": "VisibilidadeApostas",
+        "type": "string"
+      },
       "bancaemdia__api__v1__caixa__SaldoSaida": {
         "additionalProperties": false,
         "properties": {
@@ -6910,7 +7362,50 @@
         "operationId": "listar_apostas_api_v1_apostas_get",
         "parameters": [
           {
-            "description": "Limite inicial inclusivo do intervalo, em ISO 8601.",
+            "description": "Número da página, começando em 1.",
+            "in": "query",
+            "name": "page",
+            "required": false,
+            "schema": {
+              "default": 1,
+              "minimum": 1,
+              "title": "Page",
+              "type": "integer"
+            }
+          },
+          {
+            "description": "Quantidade máxima de itens retornados na página.",
+            "in": "query",
+            "name": "page_size",
+            "required": false,
+            "schema": {
+              "default": 50,
+              "maximum": 100,
+              "minimum": 1,
+              "title": "Page Size",
+              "type": "integer"
+            }
+          },
+          {
+            "description": "Janela civil no fuso America/Sao_Paulo, aplicada a data_aposta. Lista/visão filtrada: omissão inclui todo o histórico, não combinar com desde/ate. Painel materializado legado: padrão 30d.",
+            "in": "query",
+            "name": "periodo",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "$ref": "#/components/schemas/PeriodoPainel"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Janela civil de São Paulo; não combinar com desde/ate. Sem janela: todo o histórico.",
+              "title": "Periodo"
+            }
+          },
+          {
+            "description": "data_aposta: limite inicial inclusivo, ISO 8601 com offset; legado sem offset significa UTC. Não combinar com periodo na lista/visão filtrada.",
             "in": "query",
             "name": "desde",
             "required": false,
@@ -6924,11 +7419,12 @@
                   "type": "null"
                 }
               ],
+              "description": "data_aposta inclusiva. ISO com offset; legado sem offset é UTC.",
               "title": "Desde"
             }
           },
           {
-            "description": "Limite final exclusivo do intervalo, em ISO 8601.",
+            "description": "data_aposta: limite final exclusivo, ISO 8601 com offset; legado sem offset significa UTC. Não combinar com periodo na lista/visão filtrada.",
             "in": "query",
             "name": "ate",
             "required": false,
@@ -6942,24 +7438,8 @@
                   "type": "null"
                 }
               ],
+              "description": "data_aposta exclusiva; datas ausentes não são incluídas em intervalos.",
               "title": "Ate"
-            }
-          },
-          {
-            "description": "Estado de liquidação da aposta usado como filtro.",
-            "in": "query",
-            "name": "estado",
-            "required": false,
-            "schema": {
-              "anyOf": [
-                {
-                  "type": "string"
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "title": "Estado"
             }
           },
           {
@@ -6970,49 +7450,20 @@
             "schema": {
               "anyOf": [
                 {
+                  "maximum": 9223372036854775807,
+                  "minimum": 1,
                   "type": "integer"
+                },
+                {
+                  "maxLength": 19,
+                  "pattern": "^[1-9][0-9]{0,18}$",
+                  "type": "string"
                 },
                 {
                   "type": "null"
                 }
               ],
               "title": "Casa Id"
-            }
-          },
-          {
-            "description": "Identificador do titular pertencente ao usuário.",
-            "in": "query",
-            "name": "titular_id",
-            "required": false,
-            "schema": {
-              "anyOf": [
-                {
-                  "minimum": 1,
-                  "type": "integer"
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "title": "Titular Id"
-            }
-          },
-          {
-            "description": "Identificador da conta da casa usada como filtro.",
-            "in": "query",
-            "name": "conta_casa_id",
-            "required": false,
-            "schema": {
-              "anyOf": [
-                {
-                  "minimum": 1,
-                  "type": "integer"
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "title": "Conta Casa Id"
             }
           },
           {
@@ -7023,7 +7474,14 @@
             "schema": {
               "anyOf": [
                 {
+                  "maximum": 9223372036854775807,
+                  "minimum": 1,
                   "type": "integer"
+                },
+                {
+                  "maxLength": 19,
+                  "pattern": "^[1-9][0-9]{0,18}$",
+                  "type": "string"
                 },
                 {
                   "type": "null"
@@ -7040,7 +7498,14 @@
             "schema": {
               "anyOf": [
                 {
+                  "maximum": 9223372036854775807,
+                  "minimum": 1,
                   "type": "integer"
+                },
+                {
+                  "maxLength": 19,
+                  "pattern": "^[1-9][0-9]{0,18}$",
+                  "type": "string"
                 },
                 {
                   "type": "null"
@@ -7057,13 +7522,134 @@
             "schema": {
               "anyOf": [
                 {
+                  "maximum": 9223372036854775807,
+                  "minimum": 1,
                   "type": "integer"
+                },
+                {
+                  "maxLength": 19,
+                  "pattern": "^[1-9][0-9]{0,18}$",
+                  "type": "string"
                 },
                 {
                   "type": "null"
                 }
               ],
               "title": "Competicao Id"
+            }
+          },
+          {
+            "description": "Identificador do titular pertencente ao usuário.",
+            "in": "query",
+            "name": "titular_id",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "maximum": 9223372036854775807,
+                  "minimum": 1,
+                  "type": "integer"
+                },
+                {
+                  "maxLength": 19,
+                  "pattern": "^[1-9][0-9]{0,18}$",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Titular Id"
+            }
+          },
+          {
+            "description": "Identificador da conta da casa usada como filtro.",
+            "in": "query",
+            "name": "conta_casa_id",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "maximum": 9223372036854775807,
+                  "minimum": 1,
+                  "type": "integer"
+                },
+                {
+                  "maxLength": 19,
+                  "pattern": "^[1-9][0-9]{0,18}$",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Conta Casa Id"
+            }
+          },
+          {
+            "description": "ID BIGINT do grupo privado, vínculo explícito por aposta. Ausente ou de outro usuário produz seleção vazia.",
+            "in": "query",
+            "name": "grupo_id",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "maximum": 9223372036854775807,
+                  "minimum": 1,
+                  "type": "integer"
+                },
+                {
+                  "maxLength": 19,
+                  "pattern": "^[1-9][0-9]{0,18}$",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Grupo Id"
+            }
+          },
+          {
+            "description": "ID BIGINT da banca gravada na aposta; não usa a banca atual da conta. Ausente ou de outro usuário produz seleção vazia.",
+            "in": "query",
+            "name": "banca_id",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "maximum": 9223372036854775807,
+                  "minimum": 1,
+                  "type": "integer"
+                },
+                {
+                  "maxLength": 19,
+                  "pattern": "^[1-9][0-9]{0,18}$",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Banca Id"
+            }
+          },
+          {
+            "description": "Estado de liquidação da aposta usado como filtro.",
+            "in": "query",
+            "name": "estado",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "maxLength": 64,
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Estado"
             }
           },
           {
@@ -7074,6 +7660,7 @@
             "schema": {
               "anyOf": [
                 {
+                  "maxLength": 128,
                   "type": "string"
                 },
                 {
@@ -7101,39 +7688,39 @@
             }
           },
           {
-            "description": "Inclui apostas retiradas da apuração quando verdadeiro.",
+            "description": "ativas/apagadas/todas; padrão ativas. Legado incluir_apagadas=true significa todas; combinação conflitante retorna 422.",
+            "in": "query",
+            "name": "visibilidade",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "$ref": "#/components/schemas/VisibilidadeApostas"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "ativas/apagadas/todas. Combinação conflitante com o legado retorna 422.",
+              "title": "Visibilidade"
+            }
+          },
+          {
+            "description": "Compatibilidade: false=ativas, true=todas. Omitir ao pedir visibilidade=apagadas; combinações conflitantes retornam 422.",
             "in": "query",
             "name": "incluir_apagadas",
             "required": false,
             "schema": {
-              "default": false,
-              "title": "Incluir Apagadas",
-              "type": "boolean"
-            }
-          },
-          {
-            "description": "Número da página, começando em 1.",
-            "in": "query",
-            "name": "page",
-            "required": false,
-            "schema": {
-              "default": 1,
-              "minimum": 1,
-              "title": "Page",
-              "type": "integer"
-            }
-          },
-          {
-            "description": "Quantidade máxima de itens retornados na página.",
-            "in": "query",
-            "name": "page_size",
-            "required": false,
-            "schema": {
-              "default": 50,
-              "maximum": 100,
-              "minimum": 1,
-              "title": "Page Size",
-              "type": "integer"
+              "anyOf": [
+                {
+                  "type": "boolean"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Legado: false=ativas, true=todas. Omitir ao usar visibilidade=apagadas.",
+              "title": "Incluir Apagadas"
             }
           }
         ],
@@ -7996,6 +8583,164 @@
           }
         ],
         "summary": "Corrigir aposta"
+      }
+    },
+    "/api/v1/apostas/{chave}/grupos": {
+      "put": {
+        "description": "Substitui vínculos explícitos, privados e auditados da aposta estável. Não altera contas nem valores; sem associação histórica presumida.",
+        "operationId": "vincular_grupos_api_v1_apostas__chave__grupos_put",
+        "parameters": [
+          {
+            "description": "Chave estável e opaca da aposta.",
+            "in": "path",
+            "name": "chave",
+            "required": true,
+            "schema": {
+              "title": "Chave",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "examples": {
+                "default": {
+                  "summary": "Substituir vínculos explícitos",
+                  "value": {
+                    "grupo_ids": [
+                      "12",
+                      "34"
+                    ]
+                  }
+                }
+              },
+              "schema": {
+                "$ref": "#/components/schemas/GruposDaAposta"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GruposDaAposta"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Missing, expired, or invalid bearer token.",
+            "headers": {
+              "X-Auth-Error": {
+                "description": "Identity error code when AUTH_ENABLED; legacy response body is preserved.",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "402": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "account_read_only: writes require confirmed trial or paid access."
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Cookie mutation requires exact Origin and current CSRF proof."
+          },
+          "413": {
+            "content": {
+              "text/plain": {
+                "example": "Content Too Large",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            },
+            "description": "The request body exceeds this endpoint's streaming limit."
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorOrValidationResponse"
+                }
+              }
+            },
+            "description": "The request does not satisfy the published contract or a domain rule."
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "The caller exceeded an applicable request limit."
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unexpected internal failure with no sensitive exception details."
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "A required dependency is temporarily unavailable.",
+            "headers": {
+              "X-Auth-Error": {
+                "description": "Identity error code when AUTH_ENABLED; legacy response body is preserved.",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          },
+          {
+            "CsrfProof": [],
+            "SessionCookie": []
+          }
+        ],
+        "summary": "Atribuir grupos à aposta"
       }
     },
     "/api/v1/apostas/{chave}/restaurar": {
@@ -9014,7 +9759,7 @@
             }
           },
           {
-            "description": "Limite inicial inclusivo do intervalo, em ISO 8601.",
+            "description": "data_aposta: limite inicial inclusivo, ISO 8601 com offset; legado sem offset significa UTC. Não combinar com periodo na lista/visão filtrada.",
             "in": "query",
             "name": "desde",
             "required": false,
@@ -9032,7 +9777,7 @@
             }
           },
           {
-            "description": "Limite final exclusivo do intervalo, em ISO 8601.",
+            "description": "data_aposta: limite final exclusivo, ISO 8601 com offset; legado sem offset significa UTC. Não combinar com periodo na lista/visão filtrada.",
             "in": "query",
             "name": "ate",
             "required": false,
@@ -9564,7 +10309,7 @@
             }
           },
           {
-            "description": "Limite inicial inclusivo do intervalo, em ISO 8601.",
+            "description": "data_aposta: limite inicial inclusivo, ISO 8601 com offset; legado sem offset significa UTC. Não combinar com periodo na lista/visão filtrada.",
             "in": "query",
             "name": "desde",
             "required": false,
@@ -9582,7 +10327,7 @@
             }
           },
           {
-            "description": "Limite final exclusivo do intervalo, em ISO 8601.",
+            "description": "data_aposta: limite final exclusivo, ISO 8601 com offset; legado sem offset significa UTC. Não combinar com periodo na lista/visão filtrada.",
             "in": "query",
             "name": "ate",
             "required": false,
@@ -13027,6 +13772,507 @@
         "summary": "Desvincular fontes após revisão"
       }
     },
+    "/api/v1/filtros/{dimensao}": {
+      "get": {
+        "description": "IDs canônicos em texto decimal; id resolve inclusive inativas fora da página. Referências globais públicas e entidades privadas do usuário. Vazio=200; indisponibilidade=503.",
+        "operationId": "consultar_opcoes_api_v1_filtros__dimensao__get",
+        "parameters": [
+          {
+            "description": "casas/tipsters/mercados/competicoes/origens/grupos/bancas/titulares/contas; sessão normal do site.",
+            "in": "path",
+            "name": "dimensao",
+            "required": true,
+            "schema": {
+              "enum": [
+                "casas",
+                "tipsters",
+                "mercados",
+                "competicoes",
+                "origens",
+                "grupos",
+                "bancas",
+                "titulares",
+                "contas"
+              ],
+              "title": "Dimensao",
+              "type": "string"
+            }
+          },
+          {
+            "description": "ID canônico exato em texto decimal (BIGINT 1..9223372036854775807); origens usa o valor textual do domínio. Resolve inativas; não combinar com q ou page diferente de 1.",
+            "in": "query",
+            "name": "id",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "maxLength": 128,
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Id"
+            }
+          },
+          {
+            "description": "Busca textual literal por nome, sem curingas SQL; limite 160 caracteres.",
+            "in": "query",
+            "name": "q",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "maxLength": 160,
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Q"
+            }
+          },
+          {
+            "description": "Inclui opções arquivadas/inativas; resolução por id sempre preserva histórico.",
+            "in": "query",
+            "name": "incluir_inativas",
+            "required": false,
+            "schema": {
+              "default": false,
+              "title": "Incluir Inativas",
+              "type": "boolean"
+            }
+          },
+          {
+            "description": "Número da página, começando em 1.",
+            "in": "query",
+            "name": "page",
+            "required": false,
+            "schema": {
+              "default": 1,
+              "minimum": 1,
+              "title": "Page",
+              "type": "integer"
+            }
+          },
+          {
+            "description": "Quantidade máxima de itens retornados na página.",
+            "in": "query",
+            "name": "page_size",
+            "required": false,
+            "schema": {
+              "default": 50,
+              "maximum": 100,
+              "minimum": 1,
+              "title": "Page Size",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OpcoesFiltro"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Missing, expired, or invalid bearer token.",
+            "headers": {
+              "X-Auth-Error": {
+                "description": "Identity error code when AUTH_ENABLED; legacy response body is preserved.",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "402": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "account_read_only: writes require confirmed trial or paid access."
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorOrValidationResponse"
+                }
+              }
+            },
+            "description": "The request does not satisfy the published contract or a domain rule."
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "The caller exceeded an applicable request limit."
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unexpected internal failure with no sensitive exception details."
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "A required dependency is temporarily unavailable.",
+            "headers": {
+              "X-Auth-Error": {
+                "description": "Identity error code when AUTH_ENABLED; legacy response body is preserved.",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          },
+          {
+            "SessionCookie": []
+          }
+        ],
+        "summary": "Opções autenticadas dos filtros"
+      }
+    },
+    "/api/v1/grupos": {
+      "post": {
+        "description": "Cria grupo explicitamente pertencente ao usuário; não infere vínculos de tipsters ou nomes. Escrita auditada e sujeita ao acesso vigente.",
+        "operationId": "criar_grupo_api_v1_grupos_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "examples": {
+                "default": {
+                  "summary": "Grupo privado",
+                  "value": {
+                    "arquivado": false,
+                    "nome": "Apostas acompanhadas"
+                  }
+                }
+              },
+              "schema": {
+                "$ref": "#/components/schemas/GrupoEntrada"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OpcaoFiltro"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Missing, expired, or invalid bearer token.",
+            "headers": {
+              "X-Auth-Error": {
+                "description": "Identity error code when AUTH_ENABLED; legacy response body is preserved.",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "402": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "account_read_only: writes require confirmed trial or paid access."
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Cookie mutation requires exact Origin and current CSRF proof."
+          },
+          "413": {
+            "content": {
+              "text/plain": {
+                "example": "Content Too Large",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            },
+            "description": "The request body exceeds this endpoint's streaming limit."
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorOrValidationResponse"
+                }
+              }
+            },
+            "description": "The request does not satisfy the published contract or a domain rule."
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "The caller exceeded an applicable request limit."
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unexpected internal failure with no sensitive exception details."
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "A required dependency is temporarily unavailable.",
+            "headers": {
+              "X-Auth-Error": {
+                "description": "Identity error code when AUTH_ENABLED; legacy response body is preserved.",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          },
+          {
+            "CsrfProof": [],
+            "SessionCookie": []
+          }
+        ],
+        "summary": "Criar grupo privado de apostas"
+      }
+    },
+    "/api/v1/grupos/{grupo_id}": {
+      "patch": {
+        "description": "Arquivamento preserva vínculos históricos e consultas; impede novas associações. Escrita auditada.",
+        "operationId": "editar_grupo_api_v1_grupos__grupo_id__patch",
+        "parameters": [
+          {
+            "description": "ID BIGINT do grupo privado, vínculo explícito por aposta. Ausente ou de outro usuário produz seleção vazia.",
+            "in": "path",
+            "name": "grupo_id",
+            "required": true,
+            "schema": {
+              "description": "ID decimal exato do grupo, até BIGINT máximo.",
+              "maxLength": 19,
+              "pattern": "^[1-9][0-9]{0,18}$",
+              "title": "Grupo Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "examples": {
+                "default": {
+                  "summary": "Arquivar preservando histórico",
+                  "value": {
+                    "arquivado": true,
+                    "nome": "Apostas acompanhadas"
+                  }
+                }
+              },
+              "schema": {
+                "$ref": "#/components/schemas/GrupoEntrada"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OpcaoFiltro"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Missing, expired, or invalid bearer token.",
+            "headers": {
+              "X-Auth-Error": {
+                "description": "Identity error code when AUTH_ENABLED; legacy response body is preserved.",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "402": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "account_read_only: writes require confirmed trial or paid access."
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Cookie mutation requires exact Origin and current CSRF proof."
+          },
+          "413": {
+            "content": {
+              "text/plain": {
+                "example": "Content Too Large",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            },
+            "description": "The request body exceeds this endpoint's streaming limit."
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorOrValidationResponse"
+                }
+              }
+            },
+            "description": "The request does not satisfy the published contract or a domain rule."
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "The caller exceeded an applicable request limit."
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unexpected internal failure with no sensitive exception details."
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "A required dependency is temporarily unavailable.",
+            "headers": {
+              "X-Auth-Error": {
+                "description": "Identity error code when AUTH_ENABLED; legacy response body is preserved.",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          },
+          {
+            "CsrfProof": [],
+            "SessionCookie": []
+          }
+        ],
+        "summary": "Editar ou arquivar grupo"
+      }
+    },
     "/api/v1/integrations/telegram/webhook": {
       "post": {
         "description": "Valida o segredo do webhook e persiste o update_id antes de responder; o processamento é assíncrono.",
@@ -13182,7 +14428,7 @@
         "operationId": "consultar_painel_api_v1_painel_get",
         "parameters": [
           {
-            "description": "Janela civil de agregação no fuso America/Sao_Paulo.",
+            "description": "Janela civil no fuso America/Sao_Paulo, aplicada a data_aposta. Lista/visão filtrada: omissão inclui todo o histórico, não combinar com desde/ate. Painel materializado legado: padrão 30d.",
             "in": "query",
             "name": "periodo",
             "required": false,
@@ -13367,7 +14613,7 @@
         "operationId": "consultar_analises_api_v1_painel_analises_get",
         "parameters": [
           {
-            "description": "Janela civil de agregação no fuso America/Sao_Paulo.",
+            "description": "Janela civil no fuso America/Sao_Paulo, aplicada a data_aposta. Lista/visão filtrada: omissão inclui todo o histórico, não combinar com desde/ate. Painel materializado legado: padrão 30d.",
             "in": "query",
             "name": "periodo",
             "required": false,
@@ -13540,7 +14786,7 @@
         "operationId": "exportar_painel_api_v1_painel_export_get",
         "parameters": [
           {
-            "description": "Janela civil de agregação no fuso America/Sao_Paulo.",
+            "description": "Janela civil no fuso America/Sao_Paulo, aplicada a data_aposta. Lista/visão filtrada: omissão inclui todo o histórico, não combinar com desde/ate. Painel materializado legado: padrão 30d.",
             "in": "query",
             "name": "periodo",
             "required": false,
@@ -13706,6 +14952,1366 @@
           }
         ],
         "summary": "Exportar painel em Excel"
+      }
+    },
+    "/api/v1/painel/filtrado": {
+      "get": {
+        "description": "Mesma seleção do GET apostas, antes de qualquer paginação; agregados ao vivo em snapshot. Revisão grave não contribui financeiramente; retorno desconhecido produz null. Não usa materialized views.",
+        "operationId": "consultar_painel_filtrado_api_v1_painel_filtrado_get",
+        "parameters": [
+          {
+            "description": "Lê no primário quando verdadeiro, sem forçar refresh das materialized views.",
+            "in": "query",
+            "name": "fresh",
+            "required": false,
+            "schema": {
+              "default": false,
+              "title": "Fresh",
+              "type": "boolean"
+            }
+          },
+          {
+            "description": "Janela civil no fuso America/Sao_Paulo, aplicada a data_aposta. Lista/visão filtrada: omissão inclui todo o histórico, não combinar com desde/ate. Painel materializado legado: padrão 30d.",
+            "in": "query",
+            "name": "periodo",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "$ref": "#/components/schemas/PeriodoPainel"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Janela civil de São Paulo; não combinar com desde/ate. Sem janela: todo o histórico.",
+              "title": "Periodo"
+            }
+          },
+          {
+            "description": "data_aposta: limite inicial inclusivo, ISO 8601 com offset; legado sem offset significa UTC. Não combinar com periodo na lista/visão filtrada.",
+            "in": "query",
+            "name": "desde",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "format": "date-time",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "data_aposta inclusiva. ISO com offset; legado sem offset é UTC.",
+              "title": "Desde"
+            }
+          },
+          {
+            "description": "data_aposta: limite final exclusivo, ISO 8601 com offset; legado sem offset significa UTC. Não combinar com periodo na lista/visão filtrada.",
+            "in": "query",
+            "name": "ate",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "format": "date-time",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "data_aposta exclusiva; datas ausentes não são incluídas em intervalos.",
+              "title": "Ate"
+            }
+          },
+          {
+            "description": "Identificador canônico da casa usada como filtro.",
+            "in": "query",
+            "name": "casa_id",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "maximum": 9223372036854775807,
+                  "minimum": 1,
+                  "type": "integer"
+                },
+                {
+                  "maxLength": 19,
+                  "pattern": "^[1-9][0-9]{0,18}$",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Casa Id"
+            }
+          },
+          {
+            "description": "Identificador canônico do tipster usado como filtro.",
+            "in": "query",
+            "name": "tipster_id",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "maximum": 9223372036854775807,
+                  "minimum": 1,
+                  "type": "integer"
+                },
+                {
+                  "maxLength": 19,
+                  "pattern": "^[1-9][0-9]{0,18}$",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Tipster Id"
+            }
+          },
+          {
+            "description": "Identificador canônico do mercado usado como filtro.",
+            "in": "query",
+            "name": "mercado_id",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "maximum": 9223372036854775807,
+                  "minimum": 1,
+                  "type": "integer"
+                },
+                {
+                  "maxLength": 19,
+                  "pattern": "^[1-9][0-9]{0,18}$",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Mercado Id"
+            }
+          },
+          {
+            "description": "Identificador canônico da competição usada como filtro.",
+            "in": "query",
+            "name": "competicao_id",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "maximum": 9223372036854775807,
+                  "minimum": 1,
+                  "type": "integer"
+                },
+                {
+                  "maxLength": 19,
+                  "pattern": "^[1-9][0-9]{0,18}$",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Competicao Id"
+            }
+          },
+          {
+            "description": "Identificador do titular pertencente ao usuário.",
+            "in": "query",
+            "name": "titular_id",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "maximum": 9223372036854775807,
+                  "minimum": 1,
+                  "type": "integer"
+                },
+                {
+                  "maxLength": 19,
+                  "pattern": "^[1-9][0-9]{0,18}$",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Titular Id"
+            }
+          },
+          {
+            "description": "Identificador da conta da casa usada como filtro.",
+            "in": "query",
+            "name": "conta_casa_id",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "maximum": 9223372036854775807,
+                  "minimum": 1,
+                  "type": "integer"
+                },
+                {
+                  "maxLength": 19,
+                  "pattern": "^[1-9][0-9]{0,18}$",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Conta Casa Id"
+            }
+          },
+          {
+            "description": "ID BIGINT do grupo privado, vínculo explícito por aposta. Ausente ou de outro usuário produz seleção vazia.",
+            "in": "query",
+            "name": "grupo_id",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "maximum": 9223372036854775807,
+                  "minimum": 1,
+                  "type": "integer"
+                },
+                {
+                  "maxLength": 19,
+                  "pattern": "^[1-9][0-9]{0,18}$",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Grupo Id"
+            }
+          },
+          {
+            "description": "ID BIGINT da banca gravada na aposta; não usa a banca atual da conta. Ausente ou de outro usuário produz seleção vazia.",
+            "in": "query",
+            "name": "banca_id",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "maximum": 9223372036854775807,
+                  "minimum": 1,
+                  "type": "integer"
+                },
+                {
+                  "maxLength": 19,
+                  "pattern": "^[1-9][0-9]{0,18}$",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Banca Id"
+            }
+          },
+          {
+            "description": "Estado de liquidação da aposta usado como filtro.",
+            "in": "query",
+            "name": "estado",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "maxLength": 64,
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Estado"
+            }
+          },
+          {
+            "description": "Canal de origem da aposta usado como filtro.",
+            "in": "query",
+            "name": "origem",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "maxLength": 128,
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Origem"
+            }
+          },
+          {
+            "description": "Filtra apostas pela marca de revisão grave.",
+            "in": "query",
+            "name": "revisao_grave",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "boolean"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Revisao Grave"
+            }
+          },
+          {
+            "description": "ativas/apagadas/todas; padrão ativas. Legado incluir_apagadas=true significa todas; combinação conflitante retorna 422.",
+            "in": "query",
+            "name": "visibilidade",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "$ref": "#/components/schemas/VisibilidadeApostas"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "ativas/apagadas/todas. Combinação conflitante com o legado retorna 422.",
+              "title": "Visibilidade"
+            }
+          },
+          {
+            "description": "Compatibilidade: false=ativas, true=todas. Omitir ao pedir visibilidade=apagadas; combinações conflitantes retornam 422.",
+            "in": "query",
+            "name": "incluir_apagadas",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "boolean"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Legado: false=ativas, true=todas. Omitir ao usar visibilidade=apagadas.",
+              "title": "Incluir Apagadas"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PainelFiltradoSaida"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Missing, expired, or invalid bearer token.",
+            "headers": {
+              "X-Auth-Error": {
+                "description": "Identity error code when AUTH_ENABLED; legacy response body is preserved.",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "402": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "account_read_only: writes require confirmed trial or paid access."
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorOrValidationResponse"
+                }
+              }
+            },
+            "description": "The request does not satisfy the published contract or a domain rule."
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "The caller exceeded an applicable request limit."
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unexpected internal failure with no sensitive exception details."
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "A required dependency is temporarily unavailable.",
+            "headers": {
+              "X-Auth-Error": {
+                "description": "Identity error code when AUTH_ENABLED; legacy response body is preserved.",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          },
+          {
+            "SessionCookie": []
+          }
+        ],
+        "summary": "Resumo da seleção de apostas do site"
+      }
+    },
+    "/api/v1/painel/filtrado/export": {
+      "get": {
+        "description": "XLSX streaming com as seis seções e cabeçalhos existentes do Painel. Conjunto-base idêntico ao resumo, gráficos e lista. Campos sem atribuição/conhecimento permanecem vazios; não é exportação de IDs de apostas.",
+        "operationId": "exportar_painel_filtrado_api_v1_painel_filtrado_export_get",
+        "parameters": [
+          {
+            "description": "Lê no primário quando verdadeiro, sem forçar refresh das materialized views.",
+            "in": "query",
+            "name": "fresh",
+            "required": false,
+            "schema": {
+              "default": false,
+              "title": "Fresh",
+              "type": "boolean"
+            }
+          },
+          {
+            "description": "Janela civil no fuso America/Sao_Paulo, aplicada a data_aposta. Lista/visão filtrada: omissão inclui todo o histórico, não combinar com desde/ate. Painel materializado legado: padrão 30d.",
+            "in": "query",
+            "name": "periodo",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "$ref": "#/components/schemas/PeriodoPainel"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Janela civil de São Paulo; não combinar com desde/ate. Sem janela: todo o histórico.",
+              "title": "Periodo"
+            }
+          },
+          {
+            "description": "data_aposta: limite inicial inclusivo, ISO 8601 com offset; legado sem offset significa UTC. Não combinar com periodo na lista/visão filtrada.",
+            "in": "query",
+            "name": "desde",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "format": "date-time",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "data_aposta inclusiva. ISO com offset; legado sem offset é UTC.",
+              "title": "Desde"
+            }
+          },
+          {
+            "description": "data_aposta: limite final exclusivo, ISO 8601 com offset; legado sem offset significa UTC. Não combinar com periodo na lista/visão filtrada.",
+            "in": "query",
+            "name": "ate",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "format": "date-time",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "data_aposta exclusiva; datas ausentes não são incluídas em intervalos.",
+              "title": "Ate"
+            }
+          },
+          {
+            "description": "Identificador canônico da casa usada como filtro.",
+            "in": "query",
+            "name": "casa_id",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "maximum": 9223372036854775807,
+                  "minimum": 1,
+                  "type": "integer"
+                },
+                {
+                  "maxLength": 19,
+                  "pattern": "^[1-9][0-9]{0,18}$",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Casa Id"
+            }
+          },
+          {
+            "description": "Identificador canônico do tipster usado como filtro.",
+            "in": "query",
+            "name": "tipster_id",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "maximum": 9223372036854775807,
+                  "minimum": 1,
+                  "type": "integer"
+                },
+                {
+                  "maxLength": 19,
+                  "pattern": "^[1-9][0-9]{0,18}$",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Tipster Id"
+            }
+          },
+          {
+            "description": "Identificador canônico do mercado usado como filtro.",
+            "in": "query",
+            "name": "mercado_id",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "maximum": 9223372036854775807,
+                  "minimum": 1,
+                  "type": "integer"
+                },
+                {
+                  "maxLength": 19,
+                  "pattern": "^[1-9][0-9]{0,18}$",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Mercado Id"
+            }
+          },
+          {
+            "description": "Identificador canônico da competição usada como filtro.",
+            "in": "query",
+            "name": "competicao_id",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "maximum": 9223372036854775807,
+                  "minimum": 1,
+                  "type": "integer"
+                },
+                {
+                  "maxLength": 19,
+                  "pattern": "^[1-9][0-9]{0,18}$",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Competicao Id"
+            }
+          },
+          {
+            "description": "Identificador do titular pertencente ao usuário.",
+            "in": "query",
+            "name": "titular_id",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "maximum": 9223372036854775807,
+                  "minimum": 1,
+                  "type": "integer"
+                },
+                {
+                  "maxLength": 19,
+                  "pattern": "^[1-9][0-9]{0,18}$",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Titular Id"
+            }
+          },
+          {
+            "description": "Identificador da conta da casa usada como filtro.",
+            "in": "query",
+            "name": "conta_casa_id",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "maximum": 9223372036854775807,
+                  "minimum": 1,
+                  "type": "integer"
+                },
+                {
+                  "maxLength": 19,
+                  "pattern": "^[1-9][0-9]{0,18}$",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Conta Casa Id"
+            }
+          },
+          {
+            "description": "ID BIGINT do grupo privado, vínculo explícito por aposta. Ausente ou de outro usuário produz seleção vazia.",
+            "in": "query",
+            "name": "grupo_id",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "maximum": 9223372036854775807,
+                  "minimum": 1,
+                  "type": "integer"
+                },
+                {
+                  "maxLength": 19,
+                  "pattern": "^[1-9][0-9]{0,18}$",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Grupo Id"
+            }
+          },
+          {
+            "description": "ID BIGINT da banca gravada na aposta; não usa a banca atual da conta. Ausente ou de outro usuário produz seleção vazia.",
+            "in": "query",
+            "name": "banca_id",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "maximum": 9223372036854775807,
+                  "minimum": 1,
+                  "type": "integer"
+                },
+                {
+                  "maxLength": 19,
+                  "pattern": "^[1-9][0-9]{0,18}$",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Banca Id"
+            }
+          },
+          {
+            "description": "Estado de liquidação da aposta usado como filtro.",
+            "in": "query",
+            "name": "estado",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "maxLength": 64,
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Estado"
+            }
+          },
+          {
+            "description": "Canal de origem da aposta usado como filtro.",
+            "in": "query",
+            "name": "origem",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "maxLength": 128,
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Origem"
+            }
+          },
+          {
+            "description": "Filtra apostas pela marca de revisão grave.",
+            "in": "query",
+            "name": "revisao_grave",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "boolean"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Revisao Grave"
+            }
+          },
+          {
+            "description": "ativas/apagadas/todas; padrão ativas. Legado incluir_apagadas=true significa todas; combinação conflitante retorna 422.",
+            "in": "query",
+            "name": "visibilidade",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "$ref": "#/components/schemas/VisibilidadeApostas"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "ativas/apagadas/todas. Combinação conflitante com o legado retorna 422.",
+              "title": "Visibilidade"
+            }
+          },
+          {
+            "description": "Compatibilidade: false=ativas, true=todas. Omitir ao pedir visibilidade=apagadas; combinações conflitantes retornam 422.",
+            "in": "query",
+            "name": "incluir_apagadas",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "boolean"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Legado: false=ativas, true=todas. Omitir ao usar visibilidade=apagadas.",
+              "title": "Incluir Apagadas"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet": {
+                "schema": {
+                  "format": "binary",
+                  "type": "string"
+                }
+              }
+            },
+            "description": "XLSX agregado da seleção filtrada, não uma lista de apostas."
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Missing, expired, or invalid bearer token.",
+            "headers": {
+              "X-Auth-Error": {
+                "description": "Identity error code when AUTH_ENABLED; legacy response body is preserved.",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "402": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "account_read_only: writes require confirmed trial or paid access."
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorOrValidationResponse"
+                }
+              }
+            },
+            "description": "The request does not satisfy the published contract or a domain rule."
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "The caller exceeded an applicable request limit."
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unexpected internal failure with no sensitive exception details."
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "A required dependency is temporarily unavailable.",
+            "headers": {
+              "X-Auth-Error": {
+                "description": "Identity error code when AUTH_ENABLED; legacy response body is preserved.",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          },
+          {
+            "SessionCookie": []
+          }
+        ],
+        "summary": "Exportação agregada da seleção do site"
+      }
+    },
+    "/api/v1/painel/filtrado/metricas": {
+      "get": {
+        "description": "Mesma seleção e regras do resumo. Dia civil de São Paulo; labels null identificam data_aposta ausente. Dias sem fatos não são inventados. Total fornecido pelo servidor; fresh só escolhe primário.",
+        "operationId": "consultar_graficos_filtrados_api_v1_painel_filtrado_metricas_get",
+        "parameters": [
+          {
+            "description": "Lê no primário quando verdadeiro, sem forçar refresh das materialized views.",
+            "in": "query",
+            "name": "fresh",
+            "required": false,
+            "schema": {
+              "default": false,
+              "title": "Fresh",
+              "type": "boolean"
+            }
+          },
+          {
+            "description": "Janela civil no fuso America/Sao_Paulo, aplicada a data_aposta. Lista/visão filtrada: omissão inclui todo o histórico, não combinar com desde/ate. Painel materializado legado: padrão 30d.",
+            "in": "query",
+            "name": "periodo",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "$ref": "#/components/schemas/PeriodoPainel"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Janela civil de São Paulo; não combinar com desde/ate. Sem janela: todo o histórico.",
+              "title": "Periodo"
+            }
+          },
+          {
+            "description": "data_aposta: limite inicial inclusivo, ISO 8601 com offset; legado sem offset significa UTC. Não combinar com periodo na lista/visão filtrada.",
+            "in": "query",
+            "name": "desde",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "format": "date-time",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "data_aposta inclusiva. ISO com offset; legado sem offset é UTC.",
+              "title": "Desde"
+            }
+          },
+          {
+            "description": "data_aposta: limite final exclusivo, ISO 8601 com offset; legado sem offset significa UTC. Não combinar com periodo na lista/visão filtrada.",
+            "in": "query",
+            "name": "ate",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "format": "date-time",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "data_aposta exclusiva; datas ausentes não são incluídas em intervalos.",
+              "title": "Ate"
+            }
+          },
+          {
+            "description": "Identificador canônico da casa usada como filtro.",
+            "in": "query",
+            "name": "casa_id",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "maximum": 9223372036854775807,
+                  "minimum": 1,
+                  "type": "integer"
+                },
+                {
+                  "maxLength": 19,
+                  "pattern": "^[1-9][0-9]{0,18}$",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Casa Id"
+            }
+          },
+          {
+            "description": "Identificador canônico do tipster usado como filtro.",
+            "in": "query",
+            "name": "tipster_id",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "maximum": 9223372036854775807,
+                  "minimum": 1,
+                  "type": "integer"
+                },
+                {
+                  "maxLength": 19,
+                  "pattern": "^[1-9][0-9]{0,18}$",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Tipster Id"
+            }
+          },
+          {
+            "description": "Identificador canônico do mercado usado como filtro.",
+            "in": "query",
+            "name": "mercado_id",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "maximum": 9223372036854775807,
+                  "minimum": 1,
+                  "type": "integer"
+                },
+                {
+                  "maxLength": 19,
+                  "pattern": "^[1-9][0-9]{0,18}$",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Mercado Id"
+            }
+          },
+          {
+            "description": "Identificador canônico da competição usada como filtro.",
+            "in": "query",
+            "name": "competicao_id",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "maximum": 9223372036854775807,
+                  "minimum": 1,
+                  "type": "integer"
+                },
+                {
+                  "maxLength": 19,
+                  "pattern": "^[1-9][0-9]{0,18}$",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Competicao Id"
+            }
+          },
+          {
+            "description": "Identificador do titular pertencente ao usuário.",
+            "in": "query",
+            "name": "titular_id",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "maximum": 9223372036854775807,
+                  "minimum": 1,
+                  "type": "integer"
+                },
+                {
+                  "maxLength": 19,
+                  "pattern": "^[1-9][0-9]{0,18}$",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Titular Id"
+            }
+          },
+          {
+            "description": "Identificador da conta da casa usada como filtro.",
+            "in": "query",
+            "name": "conta_casa_id",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "maximum": 9223372036854775807,
+                  "minimum": 1,
+                  "type": "integer"
+                },
+                {
+                  "maxLength": 19,
+                  "pattern": "^[1-9][0-9]{0,18}$",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Conta Casa Id"
+            }
+          },
+          {
+            "description": "ID BIGINT do grupo privado, vínculo explícito por aposta. Ausente ou de outro usuário produz seleção vazia.",
+            "in": "query",
+            "name": "grupo_id",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "maximum": 9223372036854775807,
+                  "minimum": 1,
+                  "type": "integer"
+                },
+                {
+                  "maxLength": 19,
+                  "pattern": "^[1-9][0-9]{0,18}$",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Grupo Id"
+            }
+          },
+          {
+            "description": "ID BIGINT da banca gravada na aposta; não usa a banca atual da conta. Ausente ou de outro usuário produz seleção vazia.",
+            "in": "query",
+            "name": "banca_id",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "maximum": 9223372036854775807,
+                  "minimum": 1,
+                  "type": "integer"
+                },
+                {
+                  "maxLength": 19,
+                  "pattern": "^[1-9][0-9]{0,18}$",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Banca Id"
+            }
+          },
+          {
+            "description": "Estado de liquidação da aposta usado como filtro.",
+            "in": "query",
+            "name": "estado",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "maxLength": 64,
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Estado"
+            }
+          },
+          {
+            "description": "Canal de origem da aposta usado como filtro.",
+            "in": "query",
+            "name": "origem",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "maxLength": 128,
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Origem"
+            }
+          },
+          {
+            "description": "Filtra apostas pela marca de revisão grave.",
+            "in": "query",
+            "name": "revisao_grave",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "boolean"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Revisao Grave"
+            }
+          },
+          {
+            "description": "ativas/apagadas/todas; padrão ativas. Legado incluir_apagadas=true significa todas; combinação conflitante retorna 422.",
+            "in": "query",
+            "name": "visibilidade",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "$ref": "#/components/schemas/VisibilidadeApostas"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "ativas/apagadas/todas. Combinação conflitante com o legado retorna 422.",
+              "title": "Visibilidade"
+            }
+          },
+          {
+            "description": "Compatibilidade: false=ativas, true=todas. Omitir ao pedir visibilidade=apagadas; combinações conflitantes retornam 422.",
+            "in": "query",
+            "name": "incluir_apagadas",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "boolean"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Legado: false=ativas, true=todas. Omitir ao usar visibilidade=apagadas.",
+              "title": "Incluir Apagadas"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GraficosFiltradosSaida"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Missing, expired, or invalid bearer token.",
+            "headers": {
+              "X-Auth-Error": {
+                "description": "Identity error code when AUTH_ENABLED; legacy response body is preserved.",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "402": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "account_read_only: writes require confirmed trial or paid access."
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorOrValidationResponse"
+                }
+              }
+            },
+            "description": "The request does not satisfy the published contract or a domain rule."
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "The caller exceeded an applicable request limit."
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unexpected internal failure with no sensitive exception details."
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "A required dependency is temporarily unavailable.",
+            "headers": {
+              "X-Auth-Error": {
+                "description": "Identity error code when AUTH_ENABLED; legacy response body is preserved.",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          },
+          {
+            "SessionCookie": []
+          }
+        ],
+        "summary": "Séries diárias da seleção do site"
       }
     },
     "/api/v1/painel/metas": {
@@ -14359,7 +16965,7 @@
         "operationId": "consultar_metricas_api_v1_painel_metricas_get",
         "parameters": [
           {
-            "description": "Janela civil de agregação no fuso America/Sao_Paulo.",
+            "description": "Janela civil no fuso America/Sao_Paulo, aplicada a data_aposta. Lista/visão filtrada: omissão inclui todo o histórico, não combinar com desde/ate. Painel materializado legado: padrão 30d.",
             "in": "query",
             "name": "periodo",
             "required": false,
@@ -14793,7 +17399,7 @@
             }
           },
           {
-            "description": "Limite inicial inclusivo do intervalo, em ISO 8601.",
+            "description": "data_aposta: limite inicial inclusivo, ISO 8601 com offset; legado sem offset significa UTC. Não combinar com periodo na lista/visão filtrada.",
             "in": "query",
             "name": "desde",
             "required": false,
@@ -14811,7 +17417,7 @@
             }
           },
           {
-            "description": "Limite final exclusivo do intervalo, em ISO 8601.",
+            "description": "data_aposta: limite final exclusivo, ISO 8601 com offset; legado sem offset significa UTC. Não combinar com periodo na lista/visão filtrada.",
             "in": "query",
             "name": "ate",
             "required": false,
@@ -16274,7 +18880,7 @@
         "operationId": "consultar_financeiro_api_v1_titulares_financeiro_get",
         "parameters": [
           {
-            "description": "Limite inicial inclusivo do intervalo, em ISO 8601.",
+            "description": "data_aposta: limite inicial inclusivo, ISO 8601 com offset; legado sem offset significa UTC. Não combinar com periodo na lista/visão filtrada.",
             "in": "query",
             "name": "desde",
             "required": false,
@@ -16292,7 +18898,7 @@
             }
           },
           {
-            "description": "Limite final exclusivo do intervalo, em ISO 8601.",
+            "description": "data_aposta: limite final exclusivo, ISO 8601 com offset; legado sem offset significa UTC. Não combinar com periodo na lista/visão filtrada.",
             "in": "query",
             "name": "ate",
             "required": false,
@@ -18223,6 +20829,15 @@
                       },
                       "type": "array"
                     },
+                    "apostas_grupos": {
+                      "items": {
+                        "additionalProperties": {
+                          "$ref": "#/components/schemas/JsonValue"
+                        },
+                        "type": "object"
+                      },
+                      "type": "array"
+                    },
                     "assinaturas": {
                       "items": {
                         "additionalProperties": {
@@ -18287,6 +20902,15 @@
                       "type": "array"
                     },
                     "eventos": {
+                      "items": {
+                        "additionalProperties": {
+                          "$ref": "#/components/schemas/JsonValue"
+                        },
+                        "type": "object"
+                      },
+                      "type": "array"
+                    },
+                    "grupos_aposta": {
                       "items": {
                         "additionalProperties": {
                           "$ref": "#/components/schemas/JsonValue"
@@ -18457,6 +21081,8 @@
                   },
                   "required": [
                     "usuario",
+                    "grupos_aposta",
+                    "apostas_grupos",
                     "apostas",
                     "eventos",
                     "movimentos",

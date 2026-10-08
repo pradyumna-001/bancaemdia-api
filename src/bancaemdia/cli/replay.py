@@ -32,6 +32,7 @@ from bancaemdia.workers.materialization import get_engine
 FUSO = ZoneInfo("America/Sao_Paulo")
 PAGE_SIZE = 1000
 COLUNAS = (
+    "banca_id",
     "origem",
     "chat_id",
     "message_id",
@@ -58,6 +59,7 @@ COLUNAS = (
     "parceira_chave",
 )
 IDENTIFICADORES = (
+    "banca_id",
     "conta_casa_id",
     "tipster_id",
     "time_casa_id",
