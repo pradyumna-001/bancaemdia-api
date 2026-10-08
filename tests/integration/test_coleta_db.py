@@ -205,6 +205,37 @@ async def test_another_user_sees_neither_the_raw_bet_nor_the_bet(
     assert (cruas, apostas) == ([], [])
 
 
+async def test_repeated_upsert_keeps_same_identity_and_distinct_payloads_per_owner(
+    engine_admin: AsyncEngine, engine_app: AsyncEngine, como: Como, novo_usuario: NovoUsuario
+) -> None:
+    first = await novo_usuario()
+    second = await novo_usuario()
+    house = await _casa(engine_admin)
+    identity = str(uuid4().int)[:11]
+    first_payload = _bilhete(identity, resultado=None)
+    second_payload = _bilhete(identity, resultado="Lose", ganho=0.0)
+    updated_payload = _bilhete(identity, resultado="Win", ganho=304.0)
+
+    first_result, (first_id,) = await _enviar(engine_app, como, first, house, [first_payload])
+    second_result, (second_id,) = await _enviar(engine_app, como, second, house, [second_payload])
+    updated, updated_ids = await _enviar(engine_app, como, first, house, [updated_payload])
+    repeated, repeated_ids = await _enviar(engine_app, como, second, house, [second_payload])
+
+    assert first_id != second_id
+    assert (first_result.novas_contando, second_result.novas_contando) == (1, 1)
+    assert (updated.atualizadas, updated_ids) == (1, [first_id])
+    assert (repeated.ja_conhecidas, repeated_ids) == (1, [second_id])
+    for owner, expected_id, expected_payload in (
+        (first, first_id, updated_payload),
+        (second, second_id, second_payload),
+    ):
+        async with como(engine_app, owner) as session:
+            rows = (await session.execute(select(models.ColetaCasa))).scalars().all()
+        assert [(row.id, row.usuario_id, row.identidade, row.bruto_json) for row in rows] == [
+            (expected_id, owner, identity, expected_payload)
+        ]
+
+
 async def test_concurrent_processing_of_one_row_creates_the_bet_once(
     engine_admin: AsyncEngine, engine_app: AsyncEngine, como: Como, novo_usuario: NovoUsuario
 ) -> None:

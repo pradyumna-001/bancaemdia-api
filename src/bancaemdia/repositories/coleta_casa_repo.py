@@ -1,12 +1,38 @@
 from datetime import datetime
 
-from sqlalchemy import func, select, text, update
+from sqlalchemy import bindparam, func, lambda_stmt, select, text, update
 from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from bancaemdia import models
 from bancaemdia.domain.registros import ColetaCasa
 from bancaemdia.repositories.base import colunas
+
+# This hot-path upsert always has the same SQL structure. Lambda SQL caches its
+# construction and compilation; all tenant IDs and raw payloads stay per-call
+# bound parameters, never part of the cached statement.
+_collection_insert = insert(models.ColetaCasa).values(
+    usuario_id=bindparam("usuario_id"),
+    casa_id=bindparam("casa_id"),
+    identidade=bindparam("identidade"),
+    hash_conteudo=bindparam("hash_conteudo"),
+    bruto_json=bindparam("bruto_json"),
+)
+_collection_upsert = _collection_insert.on_conflict_do_update(
+    constraint="uq_coletas_casa_identidade",
+    set_={
+        "hash_conteudo": _collection_insert.excluded.hash_conteudo,
+        "bruto_json": _collection_insert.excluded.bruto_json,
+        "recebido_em": _collection_insert.excluded.recebido_em,
+        "processado_em": None,
+    },
+    where=models.ColetaCasa.hash_conteudo.is_distinct_from(
+        _collection_insert.excluded.hash_conteudo
+    ),
+).returning(models.ColetaCasa)
+_cached_collection_upsert = lambda_stmt(lambda: _collection_upsert).execution_options(
+    dml_strategy="orm"
+)
 
 
 class ColetaCasaRepo:
@@ -115,6 +141,9 @@ class ColetaCasaRepo:
     async def upsert_idempotent(
         self, session: AsyncSession, dados: dict[str, object]
     ) -> ColetaCasa | None:
+        if set(dados) == {"usuario_id", "casa_id", "identidade", "hash_conteudo", "bruto_json"}:
+            obj = (await session.execute(_cached_collection_upsert, dados)).scalar_one_or_none()
+            return None if obj is None else ColetaCasa(**colunas(obj))
         stmt = insert(models.ColetaCasa).values(**dados)
         stmt = stmt.on_conflict_do_update(
             constraint="uq_coletas_casa_identidade",
