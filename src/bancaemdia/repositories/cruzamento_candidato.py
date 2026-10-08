@@ -140,17 +140,25 @@ class CruzamentoCandidatoRepo:
                 .returning(Pair.revisao_id)
             )
         ).all()
+        review_ids = [review for review in reviews if review is not None]
+        if not review_ids:
+            return
         await session.execute(
             update(models.RevisaoPendente)
             .where(
                 models.RevisaoPendente.usuario_id == user,
-                models.RevisaoPendente.id.in_([r for r in reviews if r is not None]),
+                models.RevisaoPendente.id.in_(review_ids),
             )
             .values(resolvido_em=func.now())
         )
 
     async def adjudicate(self, session: AsyncSession, user: int, candidates: list[Pair]) -> None:
         """Demote previously exact edges when a new competing edge appears on either side."""
+        if not candidates:
+            # No edges/endpoints can be affected. Keep the original flush boundary
+            # for the updated source snapshot without building empty IN queries.
+            await session.flush()
+            return
         other = aliased(Pair)
         competing = exists(
             select(other.id).where(
