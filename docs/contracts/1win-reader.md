@@ -144,3 +144,11 @@ Regressões PostgreSQL verificam reutilização da mesma chave entre usuários c
 valores distintos, atualização sem perder conta e snapshot sem alterar pares
 ou revisões existentes. Verificação de desempenho é repetida no novo HEAD;
 aprovação do #184 ou resultados antigos não substituem essa execução.
+
+Na segunda execução (`5179f83`, run `37784055368`), p95 API caiu para 1066,71 ms
+e p99 para 1742,66 ms; o p95 ainda falhou. O staging mantinha keep-alive ocioso
+de 30 segundos, diferente dos 5 segundos padrão do Uvicorn usado pelo Dockerfile.
+O staging passa a usar esses mesmos 5 segundos e registrar CPU numérica por
+worker. Isso inclui reconexão/TLS na cadência real de seis segundos e permite
+verificar distribuição de trabalho. Não muda quantidade de workers, usuários,
+pool, duração, pacing, endpoints, limites, nem remove qualquer verificação.
