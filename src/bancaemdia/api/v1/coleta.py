@@ -9,7 +9,6 @@ from fastapi import APIRouter, Depends, Request, status
 from fastapi.concurrency import run_in_threadpool
 from fastapi.responses import JSONResponse
 from kombu.exceptions import OperationalError
-from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from bancaemdia.api.contracts import COLETA_ERROR_RESPONSES, CollectionResponse
@@ -66,12 +65,6 @@ def erro(status_code: int, mensagem: str) -> JSONResponse:
     # A extensão mostra o campo `erro` e trata tudo que não é 200 como falha, guardando o que
     # capturou para o próximo envio.
     return JSONResponse(status_code=status_code, content={"erro": mensagem})
-
-
-async def _set_current_user(session: AsyncSession, usuario_id: int) -> None:
-    await session.execute(
-        text("SELECT set_config('app.current_user_id', :uid, true)"), {"uid": str(usuario_id)}
-    )
 
 
 async def _guardar_sem_leitor(
@@ -233,7 +226,7 @@ async def receber_coleta(request: Request, session: AsyncSession = Depends(get_d
     usuario_id = identity.usuario_id
     request.state.usuario_id = usuario_id
     request.state.instalacao_id = identity.instalacao_id
-    await _set_current_user(session, usuario_id)
+    # authenticate() already installed the owner's transaction-local RLS scope.
     from bancaemdia.domain.access import require_write_access
 
     await require_write_access(session, usuario_id)

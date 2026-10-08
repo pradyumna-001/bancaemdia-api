@@ -1,7 +1,7 @@
 from dataclasses import dataclass
 from datetime import UTC, datetime
 
-from sqlalchemy import func, or_, select, text
+from sqlalchemy import func, or_, select, text, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from bancaemdia.models.coleta_instalacao import ColetaInstalacao
@@ -33,22 +33,24 @@ class ColetaInstalacaoRepo:
         if owner is None:
             return None
         await owner_scope(session, owner)
-        # Hold the credential row until collection commit. Rotation/revocation waits
-        # for accepted writes; once either returns, the previous hash cannot start work.
+        # Updating last-use acquires the credential's row lock until commit, just
+        # like the former SELECT FOR UPDATE + flush. Check the active owner in
+        # that same statement; rotation/revocation still waits for accepted work.
         row = await session.scalar(
-            select(ColetaInstalacao)
+            update(ColetaInstalacao)
             .where(
                 ColetaInstalacao.token_hash == token_hash,
                 ColetaInstalacao.revogado_em.is_(None),
                 or_(ColetaInstalacao.expira_em.is_(None), ColetaInstalacao.expira_em > func.now()),
+                Usuario.id == ColetaInstalacao.usuario_id,
+                Usuario.ativo,
             )
-            .with_for_update()
+            .values(ultimo_uso_em=datetime.now(UTC))
+            .returning(ColetaInstalacao)
+            .execution_options(synchronize_session=False, populate_existing=True)
         )
-        active = await session.scalar(select(Usuario.ativo).where(Usuario.id == owner))
-        if row is None or not active:
+        if row is None:
             return None
-        row.ultimo_uso_em = datetime.now(UTC)
-        await session.flush()
         return CollectionIdentity(owner, row.id)
 
     async def owned(
