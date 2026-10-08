@@ -10,6 +10,7 @@ import io
 import ipaddress
 import json
 import os
+import pstats
 import re
 import secrets
 import signal
@@ -181,6 +182,28 @@ async def prepare(directory: Path) -> None:
         raise RuntimeError("Refusing to reuse a previous staging runtime")
     directory.mkdir(mode=0o700, parents=True)
     prepare_tls(directory)
+    # Temporary CPU measurement only in this disposable runner; no application edits.
+    (directory / "k6_profiled_api.py").write_text(
+        """import cProfile
+import os
+from pathlib import Path
+import threading
+import time
+
+def create_app():
+    from bancaemdia.main import app
+    profile = cProfile.Profile(timer=time.process_time)
+    profile.enable()
+    destination = Path(os.environ["K6_STAGING_DIR"]) / f"api-{os.getpid()}.prof"
+    def persist():
+        while True:
+            time.sleep(10)
+            profile.dump_stats(str(destination))
+    threading.Thread(target=persist, daemon=True).start()
+    return app
+""",
+        encoding="utf-8",
+    )
     info = {
         "name": f"k6-{secrets.token_hex(8)}",
         "admin_password": secrets.token_hex(32),
@@ -277,7 +300,7 @@ async def prepare(directory: Path) -> None:
         # A cache miss must fail locally; it must never reach a paid AI provider.
         "ANTHROPIC_API_KEY": secrets.token_hex(32),
         "ANTHROPIC_BASE_URL": "http://127.0.0.1:18999",
-        "PYTHONPATH": str(ROOT / "src"),
+        "PYTHONPATH": str(directory) + os.pathsep + str(ROOT / "src"),
         "K6_STAGING_DIR": str(directory),
     }
     mask(admin_url)
@@ -676,7 +699,8 @@ async def start(directory: Path) -> None:
             sys.executable,
             "-m",
             "uvicorn",
-            "bancaemdia.main:app",
+            "k6_profiled_api:create_app",
+            "--factory",
             "--host",
             "127.0.0.1",
             "--port",
@@ -925,6 +949,25 @@ async def diagnose(directory: Path) -> None:
         sys.stdout.write(json.dumps({"postgres_query_measurements": measurements}) + "\n")
     finally:
         await statistics.close()
+    for path in directory.glob("api-*.prof"):
+        profile = pstats.Stats(str(path))
+        hottest = sorted(profile.stats.items(), key=lambda entry: entry[1][2], reverse=True)[:20]
+        sys.stdout.write(
+            json.dumps({
+                "api_cpu_profile": [
+                    {
+                        "module": Path(key[0]).name,
+                        "line": key[1],
+                        "function": key[2],
+                        "calls": value[1],
+                        "cpu_self_seconds": value[2],
+                        "cpu_total_seconds": value[3],
+                    }
+                    for key, value in hottest
+                ]
+            })
+            + "\n"
+        )
     # Only exception classes and known routine names, never task arguments,
     # exception reprs, SQL parameters or identifiers, enter public diagnostics.
     import redis

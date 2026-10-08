@@ -14,7 +14,6 @@ depends_on = None
 
 
 def upgrade() -> None:
-    op.create_unique_constraint("uq_apostas_usuario_id", "apostas", ["usuario_id", "id"])
     op.create_table(
         "grupos_aposta",
         sa.Column("id", sa.BigInteger(), primary_key=True),
@@ -43,8 +42,8 @@ def upgrade() -> None:
             name="fk_apostas_grupos_grupo_usuario",
         ),
         sa.ForeignKeyConstraint(
-            ["usuario_id", "aposta_id"],
-            ["apostas.usuario_id", "apostas.id"],
+            ["aposta_id", "usuario_id"],
+            ["apostas.id", "apostas.usuario_id"],
             name="fk_apostas_grupos_aposta_usuario",
         ),
     )
@@ -108,4 +107,3 @@ def downgrade() -> None:
     op.drop_table("apostas_grupos")
     op.execute("DROP FUNCTION audit_site_group_link()")
     op.drop_table("grupos_aposta")
-    op.drop_constraint("uq_apostas_usuario_id", "apostas", type_="unique")

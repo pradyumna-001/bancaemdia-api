@@ -45,8 +45,8 @@ class ApostaGrupo(Base):
             name="fk_apostas_grupos_grupo_usuario",
         ),
         ForeignKeyConstraint(
-            ["usuario_id", "aposta_id"],
-            ["apostas.usuario_id", "apostas.id"],
+            ["aposta_id", "usuario_id"],
+            ["apostas.id", "apostas.usuario_id"],
             name="fk_apostas_grupos_aposta_usuario",
         ),
         Index("idx_apostas_grupos_selecao", "usuario_id", "grupo_id", "aposta_id"),
