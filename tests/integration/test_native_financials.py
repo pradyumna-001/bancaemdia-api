@@ -121,11 +121,35 @@ async def test_native_http_lossless_capture_report_and_replay(native_http):
         ],
         "combined_monetary_total": None,
     }
+    own_totals = response.json()
+    filtered = await system.http.get(
+        "/api/v1/financeiro/nativo/resumo",
+        params={"account_id": system.account_id},
+        headers=system.headers(),
+    )
+    assert filtered.status_code == 200, filtered.text
+    assert filtered.json() == own_totals
+    unknown = await system.http.get(
+        "/api/v1/financeiro/nativo/resumo",
+        params={"account_id": 2**63 - 1},
+        headers=system.headers(),
+    )
+    assert unknown.status_code == 200, unknown.text
+    assert unknown.json()["totals_by_currency"] == []
+    invalid = await system.http.get(
+        "/api/v1/financeiro/nativo/resumo",
+        params={"account_id": "1.5"},
+        headers=system.headers(),
+    )
+    assert invalid.status_code == 422
     response = await system.http.get("/api/v1/financeiro/nativo/apostas", headers=system.headers())
     assert response.json()[0]["stake"] == "12.34"
     foreign = await system.http.get(
-        "/api/v1/financeiro/nativo/resumo", headers=system.headers(system.other)
+        "/api/v1/financeiro/nativo/resumo",
+        params={"account_id": system.account_id},
+        headers=system.headers(system.other),
     )
+    assert foreign.status_code == 200, foreign.text
     assert foreign.json()["totals_by_currency"] == []
 
 

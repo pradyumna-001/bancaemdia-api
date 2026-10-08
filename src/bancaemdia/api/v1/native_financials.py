@@ -158,7 +158,7 @@ async def list_accounts(
 async def summary(
     since: AwareDatetime | None = None,
     until: AwareDatetime | None = None,
-    account_id: ID | None = None,
+    account_id: Annotated[int | None, Query(gt=0, le=2**63 - 1)] = None,
     user: Usuario = Depends(get_current_user),
     session: AsyncSession = Depends(get_db),
 ) -> dict[str, object]:
