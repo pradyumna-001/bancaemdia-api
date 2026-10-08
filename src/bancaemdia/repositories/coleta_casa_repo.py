@@ -17,20 +17,16 @@ class ColetaCasaRepo:
         )
 
     async def matching_counts(
-        self, session: AsyncSession, usuario_id: int, chave: str
+        self, session: AsyncSession, usuario_id: int, aposta_id: int | None
     ) -> dict[str, int]:
         from bancaemdia.repositories.cruzamento_candidato import CruzamentoCandidatoRepo
 
-        bet_id = await session.scalar(
-            select(models.Aposta.id).where(
-                models.Aposta.usuario_id == usuario_id,
-                models.Aposta.chave == chave,
-            )
-        )
+        # The collection route already resolved this bet while holding the tenant
+        # pairing lock. Reuse its ID instead of querying the same key twice.
         return (
             {}
-            if bet_id is None
-            else await CruzamentoCandidatoRepo().counts(session, usuario_id, bet_id)
+            if aposta_id is None
+            else await CruzamentoCandidatoRepo().counts(session, usuario_id, aposta_id)
         )
 
     async def get_by_identidade(
