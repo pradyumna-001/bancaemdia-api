@@ -63,6 +63,10 @@ def _banco(recebidas_hoje=0):
 
     class ColetaInstalacaoRepo:
         async def authenticate(self, session, token_hash):
+            if token_hash == coleta.hash_do_token(TOKEN):
+                await session.execute(
+                    "SELECT set_config('app.current_user_id', :uid, true)", {"uid": "7"}
+                )
             return (
                 SimpleNamespace(usuario_id=7, instalacao_id=17)
                 if token_hash == coleta.hash_do_token(TOKEN)
