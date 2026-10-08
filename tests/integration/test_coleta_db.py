@@ -98,6 +98,63 @@ async def _aposta(engine: AsyncEngine, como: Como, usuario: int, chave: str):
         return await ApostaRepo().get_by_chave(session, usuario, chave)
 
 
+async def test_collected_upsert_keeps_owner_values_and_account_on_later_result(
+    engine_admin: AsyncEngine, engine_app: AsyncEngine, como: Como, novo_usuario: NovoUsuario
+) -> None:
+    users = [await novo_usuario(), await novo_usuario()]
+    casa_id = await _casa(engine_admin)
+    key = f"c:betano:{uuid4().hex}"
+    instant = datetime(2026, 10, 1, tzinfo=UTC)
+    facts = []
+    for index, user in enumerate(users, start=1):
+        async with como(engine_app, user) as session:
+            account = models.ContaCasa(usuario_id=user, casa_id=casa_id, apelido="synthetic")
+            session.add(account)
+            await session.flush()
+            data = {
+                "usuario_id": user,
+                "chave": key,
+                "origem": "casa",
+                "data_aposta": instant,
+                "data_jogo": instant + timedelta(days=index),
+                "stake_unidades": float(index),
+                "stake_centavos": 10000 * index,
+                "valor_aposta_centavos": 10000 * index,
+                "odd": 1.9,
+                "freebet": False,
+                "estado": "PENDENTE",
+                "retorno_centavos": None,
+                "revisao_grave": False,
+                "conta_casa_id": account.id,
+            }
+            fact = await ApostaRepo().upsert_materializada(session, data)
+            assert fact is not None
+            facts.append((fact.id, account.id, data))
+            await session.commit()
+    first_id, first_account, first_data = facts[0]
+    result = {**first_data, "estado": "GREEN", "retorno_centavos": 19000}
+    del result["conta_casa_id"]
+    async with como(engine_app, users[0]) as session:
+        changed = await ApostaRepo().upsert_materializada(session, result)
+        assert changed is not None and changed.id == first_id
+        assert changed.conta_casa_id == first_account
+        await session.commit()
+    for index, user in enumerate(users, start=1):
+        fact = await _aposta(engine_app, como, user, key)
+        assert fact is not None
+        assert (fact.id, fact.usuario_id, fact.conta_casa_id) == (
+            facts[index - 1][0],
+            user,
+            facts[index - 1][1],
+        )
+        assert fact.data_jogo == instant + timedelta(days=index)
+        assert fact.stake_centavos == 10000 * index
+        assert (fact.estado, fact.retorno_centavos) == (
+            ("GREEN", 19000) if index == 1 else ("PENDENTE", None)
+        )
+    assert facts[0][0] != facts[1][0] and first_account != facts[1][1]
+
+
 async def test_token_is_found_by_its_hash_before_there_is_a_current_user(
     engine_app: AsyncEngine, como: Como, novo_usuario: NovoUsuario
 ) -> None:

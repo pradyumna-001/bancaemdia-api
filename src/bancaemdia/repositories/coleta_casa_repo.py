@@ -33,6 +33,27 @@ _collection_upsert = _collection_insert.on_conflict_do_update(
 _cached_collection_upsert = lambda_stmt(lambda: _collection_upsert).execution_options(
     dml_strategy="orm"
 )
+_collection_identity = lambda_stmt(
+    lambda: select(models.ColetaCasa).where(
+        models.ColetaCasa.usuario_id == bindparam("usuario_id_1"),
+        models.ColetaCasa.casa_id == bindparam("casa_id_1"),
+        models.ColetaCasa.identidade == bindparam("identidade_1"),
+    )
+)
+_legacy_daily_count = select(func.count()).where(
+    models.ColetaCasa.usuario_id == bindparam("usuario_id_1"),
+    models.ColetaCasa.recebido_em >= bindparam("recebido_em_1"),
+    models.ColetaCasa.v2_hash.is_(None),
+)
+_inbox_daily_count = select(func.count()).where(
+    models.ColetaEntrega.usuario_id == bindparam("usuario_id_1"),
+    models.ColetaEntrega.criada_em >= bindparam("recebido_em_1"),
+    models.ColetaEntrega.ack != "rejected",
+)
+_daily_count_query = select(
+    _legacy_daily_count.scalar_subquery() + _inbox_daily_count.scalar_subquery()
+)
+_daily_count = lambda_stmt(lambda: _daily_count_query)
 
 
 class ColetaCasaRepo:
@@ -58,12 +79,12 @@ class ColetaCasaRepo:
     async def get_by_identidade(
         self, session: AsyncSession, usuario_id: int, casa_id: int, identidade: str
     ) -> ColetaCasa | None:
-        stmt = select(models.ColetaCasa).where(
-            models.ColetaCasa.usuario_id == usuario_id,
-            models.ColetaCasa.casa_id == casa_id,
-            models.ColetaCasa.identidade == identidade,
-        )
-        obj = (await session.execute(stmt)).scalar_one_or_none()
+        obj = (
+            await session.execute(
+                _collection_identity,
+                {"usuario_id_1": usuario_id, "casa_id_1": casa_id, "identidade_1": identidade},
+            )
+        ).scalar_one_or_none()
         return None if obj is None else ColetaCasa(**colunas(obj))
 
     async def get_by_identidade_for_update(
@@ -124,18 +145,11 @@ class ColetaCasaRepo:
     async def count_received_since(
         self, session: AsyncSession, usuario_id: int, desde: datetime
     ) -> int:
-        legacy = select(func.count()).where(
-            models.ColetaCasa.usuario_id == usuario_id,
-            models.ColetaCasa.recebido_em >= desde,
-            models.ColetaCasa.v2_hash.is_(None),
-        )
-        inbox = select(func.count()).where(
-            models.ColetaEntrega.usuario_id == usuario_id,
-            models.ColetaEntrega.criada_em >= desde,
-            models.ColetaEntrega.ack != "rejected",
-        )
-        stmt = select(legacy.scalar_subquery() + inbox.scalar_subquery())
-        quantas: int = (await session.execute(stmt)).scalar_one()
+        quantas: int = (
+            await session.execute(
+                _daily_count, {"usuario_id_1": usuario_id, "recebido_em_1": desde}
+            )
+        ).scalar_one()
         return quantas
 
     async def upsert_idempotent(
