@@ -10,5 +10,9 @@ class CollectionBodyLimit:
         self.bounded = RequestBodyLimitMiddleware(app, max_body_size=MAX_BATCH_BYTES)
 
     async def __call__(self, scope: Scope, receive: Receive, send: Send) -> None:
-        target = self.bounded if scope.get("path", "").endswith("/coleta/batches") else self.app
+        target = (
+            self.bounded
+            if scope.get("path", "").endswith(("/coleta/batches", "/coleta/reader-captures"))
+            else self.app
+        )
         await target(scope, receive, send)

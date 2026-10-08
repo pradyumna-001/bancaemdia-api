@@ -121,6 +121,33 @@ async def test_exact_candidate_is_persisted_and_repeated_without_financial_mutat
         )
 
 
+async def test_unmatched_source_keeps_snapshot_without_changing_existing_pairs_or_reviews(
+    engine_app, novo_usuario
+):
+    user = await novo_usuario()
+    await create(engine_app, user, "casa")
+    await create(engine_app, user, "telegram")
+    original = (await pairs(engine_app, user))[0]
+    unmatched, raw, verdict = await create(
+        engine_app, user, "casa", {"comeca_em": "2027-01-01T12:00:00Z"}
+    )
+    assert verdict == "nova"
+    assert (
+        await refresh(engine_app, user, unmatched, {**raw, "identidade_bilhete": "SYNTHETIC-NEW"})
+        == "nova"
+    )
+    current = await pairs(engine_app, user)
+    assert [(row.id, row.status, row.revisao_id) for row in current] == [
+        (original.id, "exact", original.revisao_id)
+    ]
+    async with AsyncSession(engine_app) as session:
+        await owner(session, user)
+        snapshot = await session.scalar(select(Entry).where(Entry.aposta_id == unmatched))
+        assert snapshot.dados["original"]["identidade_bilhete"] == "SYNTHETIC-NEW"
+        review = await session.get(models.RevisaoPendente, original.revisao_id)
+        assert review.resolvido_em is None
+
+
 @pytest.mark.parametrize("competing_origin", ["telegram", "casa"])
 async def test_concurrent_competitors_demote_both_sides_and_create_one_review_each(
     engine_app, novo_usuario, competing_origin

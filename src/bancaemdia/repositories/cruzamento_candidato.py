@@ -1,7 +1,7 @@
 from datetime import timedelta
-from typing import Any
+from typing import Any, cast
 
-from sqlalchemy import exists, func, or_, select, text, update
+from sqlalchemy import bindparam, exists, func, lambda_stmt, or_, select, text, update
 from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import aliased
@@ -12,6 +12,24 @@ from bancaemdia.models.cruzamento_candidato import CruzamentoCandidato as Pair
 from bancaemdia.models.cruzamento_candidato import CruzamentoEntrada as Entry
 from bancaemdia.repositories.aposta_consolidacao import available_predicate
 
+_snapshot_fields = frozenset({"usuario_id", "aposta_id", "casa", "origem", "ocorrido_em", "dados"})
+_snapshot_insert = insert(Entry).values(**{
+    field: bindparam(field) for field in sorted(_snapshot_fields)
+})
+_snapshot_upsert = _snapshot_insert.on_conflict_do_update(
+    index_elements=["aposta_id"],
+    set_={
+        **{
+            field: getattr(_snapshot_insert.excluded, field)
+            for field in _snapshot_fields - {"usuario_id", "aposta_id"}
+        },
+        "atualizada_em": func.now(),
+    },
+).returning(Entry)
+_cached_snapshot = lambda_stmt(lambda: _snapshot_upsert).execution_options(
+    dml_strategy="orm", populate_existing=True
+)
+
 
 class CruzamentoCandidatoRepo:
     async def lock(self, session: AsyncSession, user: int) -> None:
@@ -21,6 +39,8 @@ class CruzamentoCandidatoRepo:
         )
 
     async def snapshot(self, session: AsyncSession, values: dict[str, Any]) -> Entry:
+        if frozenset(values) == _snapshot_fields:
+            return cast(Entry, (await session.execute(_cached_snapshot, values)).scalar_one())
         stmt = insert(Entry).values(**values)
         stmt = stmt.on_conflict_do_update(
             index_elements=["aposta_id"],
@@ -140,17 +160,25 @@ class CruzamentoCandidatoRepo:
                 .returning(Pair.revisao_id)
             )
         ).all()
+        review_ids = [review for review in reviews if review is not None]
+        if not review_ids:
+            return
         await session.execute(
             update(models.RevisaoPendente)
             .where(
                 models.RevisaoPendente.usuario_id == user,
-                models.RevisaoPendente.id.in_([r for r in reviews if r is not None]),
+                models.RevisaoPendente.id.in_(review_ids),
             )
             .values(resolvido_em=func.now())
         )
 
     async def adjudicate(self, session: AsyncSession, user: int, candidates: list[Pair]) -> None:
         """Demote previously exact edges when a new competing edge appears on either side."""
+        if not candidates:
+            # No edges/endpoints can be affected. Keep the original flush boundary
+            # for the updated source snapshot without building empty IN queries.
+            await session.flush()
+            return
         other = aliased(Pair)
         competing = exists(
             select(other.id).where(

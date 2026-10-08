@@ -167,7 +167,8 @@ def check_safe(value: object, *, field: str = "", depth: int = 0) -> None:
             raise UnsafePayloadError("invalid_unicode") from None
         if "\x00" in value or any(ord(c) < 32 and c not in "\n\r\t" for c in value):
             raise UnsafePayloadError("control_character")
-        if VALUE.search(value) or _phone(value) or _cpf(value):
+        sha256_metadata = field in HASH_FIELDS and re.fullmatch(r"[0-9a-f]{64}", value) is not None
+        if VALUE.search(value) or (not sha256_metadata and (_phone(value) or _cpf(value))):
             raise UnsafePayloadError("sensitive_value")
         if "://" in value:
             try:
@@ -178,7 +179,7 @@ def check_safe(value: object, *, field: str = "", depth: int = 0) -> None:
                 raise UnsafePayloadError("credential_url")
         if (
             _entropy(value)
-            and not (field in HASH_FIELDS and re.fullmatch(r"[0-9a-f]{64}", value))
+            and not sha256_metadata
             and not (field == "__typename" and value in PUBLIC_TYPE_NAMES)
         ):
             raise UnsafePayloadError("session_like_value")

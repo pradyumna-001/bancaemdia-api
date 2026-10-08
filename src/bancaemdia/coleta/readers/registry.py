@@ -138,6 +138,6 @@ class ReaderRegistry:
         )
 
 
-# The six inherited brand-based readers are migrated with fresh captures in #115.
+# #115 advances the user's chosen exact domain with reviewed source evidence.
 # An empty production registry is intentional: a vendor name is not exact-host evidence.
 DEFAULT_REGISTRY = ReaderRegistry()

@@ -2618,6 +2618,44 @@
         "title": "CorrecaoDaRevisao",
         "type": "object"
       },
+      "CurrencyTotals": {
+        "additionalProperties": false,
+        "properties": {
+          "bets": {
+            "title": "Bets",
+            "type": "integer"
+          },
+          "currency": {
+            "enum": [
+              "BRL",
+              "USDT"
+            ],
+            "title": "Currency",
+            "type": "string"
+          },
+          "profit": {
+            "title": "Profit",
+            "type": "string"
+          },
+          "returned": {
+            "title": "Returned",
+            "type": "string"
+          },
+          "stake": {
+            "title": "Stake",
+            "type": "string"
+          }
+        },
+        "required": [
+          "currency",
+          "bets",
+          "stake",
+          "returned",
+          "profit"
+        ],
+        "title": "CurrencyTotals",
+        "type": "object"
+      },
       "DatasetSaida": {
         "additionalProperties": false,
         "properties": {
@@ -4549,6 +4587,286 @@
         "title": "MovimentosPaginaSaida",
         "type": "object"
       },
+      "NativeAccountCreate": {
+        "additionalProperties": false,
+        "properties": {
+          "casa_id": {
+            "exclusiveMinimum": 0.0,
+            "maximum": 9.223372036854776e+18,
+            "title": "Casa Id",
+            "type": "integer"
+          },
+          "currency": {
+            "enum": [
+              "BRL",
+              "USDT"
+            ],
+            "title": "Currency",
+            "type": "string"
+          },
+          "label": {
+            "maxLength": 120,
+            "minLength": 1,
+            "title": "Label",
+            "type": "string"
+          },
+          "valid_from": {
+            "format": "date-time",
+            "title": "Valid From",
+            "type": "string"
+          },
+          "valid_to": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Valid To"
+          }
+        },
+        "required": [
+          "casa_id",
+          "currency",
+          "label",
+          "valid_from"
+        ],
+        "title": "NativeAccountCreate",
+        "type": "object"
+      },
+      "NativeAccountResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "active": {
+            "title": "Active",
+            "type": "boolean"
+          },
+          "casa_id": {
+            "exclusiveMinimum": 0.0,
+            "maximum": 9.223372036854776e+18,
+            "title": "Casa Id",
+            "type": "integer"
+          },
+          "currency": {
+            "enum": [
+              "BRL",
+              "USDT"
+            ],
+            "title": "Currency",
+            "type": "string"
+          },
+          "id": {
+            "title": "Id",
+            "type": "integer"
+          },
+          "label": {
+            "maxLength": 120,
+            "minLength": 1,
+            "title": "Label",
+            "type": "string"
+          },
+          "valid_from": {
+            "format": "date-time",
+            "title": "Valid From",
+            "type": "string"
+          },
+          "valid_to": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Valid To"
+          }
+        },
+        "required": [
+          "casa_id",
+          "currency",
+          "label",
+          "valid_from",
+          "id",
+          "active"
+        ],
+        "title": "NativeAccountResponse",
+        "type": "object"
+      },
+      "NativeBetResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "account_id": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Account Id"
+          },
+          "currency": {
+            "enum": [
+              "BRL",
+              "USDT"
+            ],
+            "title": "Currency",
+            "type": "string"
+          },
+          "game_at": {
+            "format": "date-time",
+            "title": "Game At",
+            "type": "string"
+          },
+          "id": {
+            "title": "Id",
+            "type": "integer"
+          },
+          "needs_review": {
+            "title": "Needs Review",
+            "type": "boolean"
+          },
+          "placed_at": {
+            "format": "date-time",
+            "title": "Placed At",
+            "type": "string"
+          },
+          "profit": {
+            "title": "Profit",
+            "type": "string"
+          },
+          "returned": {
+            "title": "Returned",
+            "type": "string"
+          },
+          "stake": {
+            "title": "Stake",
+            "type": "string"
+          },
+          "state": {
+            "enum": [
+              "GREEN",
+              "RED"
+            ],
+            "title": "State",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "account_id",
+          "currency",
+          "state",
+          "stake",
+          "returned",
+          "profit",
+          "game_at",
+          "placed_at",
+          "needs_review"
+        ],
+        "title": "NativeBetResponse",
+        "type": "object"
+      },
+      "NativeCapture": {
+        "additionalProperties": false,
+        "properties": {
+          "envelope": {
+            "$ref": "#/components/schemas/SourceTextEnvelope"
+          },
+          "explicit_account_id": {
+            "anyOf": [
+              {
+                "exclusiveMinimum": 0.0,
+                "maximum": 9.223372036854776e+18,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Explicit Account Id"
+          },
+          "multicontas": {
+            "default": false,
+            "title": "Multicontas",
+            "type": "boolean"
+          },
+          "transport_contract": {
+            "const": "reader-capture-1",
+            "title": "Transport Contract",
+            "type": "string"
+          }
+        },
+        "required": [
+          "transport_contract",
+          "envelope"
+        ],
+        "title": "NativeCapture",
+        "type": "object"
+      },
+      "NativeCaptureResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "bet_id": {
+            "title": "Bet Id",
+            "type": "integer"
+          },
+          "needs_review": {
+            "title": "Needs Review",
+            "type": "boolean"
+          },
+          "result": {
+            "enum": [
+              "created",
+              "account_review",
+              "noop",
+              "conflict_review"
+            ],
+            "title": "Result",
+            "type": "string"
+          }
+        },
+        "required": [
+          "bet_id",
+          "result",
+          "needs_review"
+        ],
+        "title": "NativeCaptureResponse",
+        "type": "object"
+      },
+      "NativeSummaryResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "combined_monetary_total": {
+            "title": "Combined Monetary Total",
+            "type": "null"
+          },
+          "money_contract": {
+            "const": 2,
+            "default": 2,
+            "title": "Money Contract",
+            "type": "integer"
+          },
+          "totals_by_currency": {
+            "items": {
+              "$ref": "#/components/schemas/CurrencyTotals"
+            },
+            "title": "Totals By Currency",
+            "type": "array"
+          }
+        },
+        "required": [
+          "totals_by_currency"
+        ],
+        "title": "NativeSummaryResponse",
+        "type": "object"
+      },
       "ObservedTransport": {
         "additionalProperties": false,
         "properties": {
@@ -5748,6 +6066,118 @@
           "refresh_required"
         ],
         "title": "SessionStatus",
+        "type": "object"
+      },
+      "SourceLocation": {
+        "additionalProperties": false,
+        "properties": {
+          "channel": {
+            "enum": [
+              "fetch",
+              "xhr",
+              "websocket"
+            ],
+            "title": "Channel",
+            "type": "string"
+          },
+          "direction": {
+            "enum": [
+              "observed_response",
+              "received_frame"
+            ],
+            "title": "Direction",
+            "type": "string"
+          },
+          "endpoint": {
+            "maxLength": 256,
+            "minLength": 1,
+            "pattern": "^/[^?#\\\\\\s]*$",
+            "title": "Endpoint",
+            "type": "string"
+          },
+          "frame_signature": {
+            "anyOf": [
+              {
+                "pattern": "^[a-zA-Z0-9._:-]{1,64}$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Frame Signature"
+          }
+        },
+        "required": [
+          "channel",
+          "direction",
+          "endpoint"
+        ],
+        "title": "SourceLocation",
+        "type": "object"
+      },
+      "SourceTextEnvelope": {
+        "additionalProperties": false,
+        "description": "Distinct OpenAPI name preserves the existing collection-v2 ReaderEnvelope schema.",
+        "properties": {
+          "brand": {
+            "pattern": "^[a-z0-9][a-z0-9_-]{1,39}$",
+            "title": "Brand",
+            "type": "string"
+          },
+          "captured_at": {
+            "format": "date-time",
+            "title": "Captured At",
+            "type": "string"
+          },
+          "content_hash": {
+            "pattern": "^[0-9a-f]{64}$",
+            "title": "Content Hash",
+            "type": "string"
+          },
+          "content_type": {
+            "maxLength": 80,
+            "minLength": 1,
+            "title": "Content Type",
+            "type": "string"
+          },
+          "envelope_schema": {
+            "maximum": 1000.0,
+            "minimum": 1.0,
+            "title": "Envelope Schema",
+            "type": "integer"
+          },
+          "hostname": {
+            "title": "Hostname",
+            "type": "string"
+          },
+          "payload_text": {
+            "maxLength": 131072,
+            "minLength": 1,
+            "title": "Payload Text",
+            "type": "string"
+          },
+          "raw_schema_version": {
+            "pattern": "^[a-zA-Z0-9._-]{1,40}$",
+            "title": "Raw Schema Version",
+            "type": "string"
+          },
+          "source": {
+            "$ref": "#/components/schemas/SourceLocation"
+          }
+        },
+        "required": [
+          "envelope_schema",
+          "brand",
+          "hostname",
+          "source",
+          "captured_at",
+          "raw_schema_version",
+          "content_type",
+          "payload_text",
+          "content_hash"
+        ],
+        "title": "SourceTextEnvelope",
         "type": "object"
       },
       "StakeMarketRequest": {
@@ -12193,6 +12623,157 @@
         "summary": "Parear instalação"
       }
     },
+    "/api/v1/coleta/reader-captures": {
+      "post": {
+        "description": "ReaderEnvelope lossless reader-capture-1 por X-Coleta-Token/HTTPS. Preserva USDT exato; conta pelo jogo e multicontas explícita. Duplicatas são no-op; conflitos sem versão vão à revisão. Admissão fechada até corpus financeiro aprovado e ativação explícita. Não altera coleta-v2.",
+        "operationId": "capture_api_v1_coleta_reader_captures_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "examples": {
+                "default": {
+                  "summary": "Envelope sintético; não é evidência real",
+                  "value": {
+                    "envelope": {
+                      "brand": "1win",
+                      "captured_at": "2026-01-05T00:00:00Z",
+                      "content_hash": "18038eeeaee199652b7bf7f5cb10bcae1a6ede405d40f7e2af6258473b14ec3e",
+                      "content_type": "application/json",
+                      "envelope_schema": 1,
+                      "hostname": "api-gateway.top-parser.com",
+                      "payload_text": "{\"bet\":{\"id\":\"example-native-bet\",\"createdAt\":\"2026-01-02T02:00:00Z\",\"currencyCode\":\"USDT\",\"wallet\":\"example-wallet\",\"status\":2,\"amount\":12.34,\"cf\":2.5,\"profitAmount\":30.85,\"freebetAmount\":0,\"bonusAmount\":0,\"bonusPercent\":0,\"betType\":\"ordinary\"},\"selections\":[{\"match\":{\"id\":\"example-event\",\"startAt\":1767484800,\"competitors\":[{\"name\":\"Example A\"},{\"name\":\"Example B\"}]},\"odd\":{\"id\":\"example-odd\",\"name\":\"Example selection\",\"groupName\":\"Example market\",\"cf\":2.5},\"status\":2,\"isHalfReturn\":false}]}",
+                      "raw_schema_version": "1win-history-game-v2",
+                      "source": {
+                        "channel": "fetch",
+                        "direction": "observed_response",
+                        "endpoint": "/bets/history/get-many",
+                        "frame_signature": null
+                      }
+                    },
+                    "explicit_account_id": null,
+                    "multicontas": false,
+                    "transport_contract": "reader-capture-1"
+                  }
+                }
+              },
+              "schema": {
+                "$ref": "#/components/schemas/NativeCapture"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/NativeCaptureResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Malformed collection payload."
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Missing, expired, or invalid bearer token."
+          },
+          "402": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "account_read_only: retain the extension outbox."
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Invalid collection token."
+          },
+          "413": {
+            "content": {
+              "text/plain": {
+                "example": "Content Too Large",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            },
+            "description": "The request body exceeds this endpoint's streaming limit."
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unprocessable Entity"
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "The collection rate or daily limit was exceeded."
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unexpected internal failure with no sensitive exception details."
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Native corpus admission is closed; retain capture without claiming ingestion."
+          }
+        },
+        "security": [
+          {
+            "InstallationToken": []
+          }
+        ],
+        "summary": "Receber fonte textual com moeda nativa"
+      }
+    },
     "/api/v1/coleta/sessions": {
       "post": {
         "description": "Cria uma fronteira imutável por instalação ou retoma o UUID explícito sem ampliar o corte.",
@@ -13025,6 +13606,561 @@
           }
         ],
         "summary": "Desvincular fontes após revisão"
+      }
+    },
+    "/api/v1/financeiro/nativo/apostas": {
+      "get": {
+        "description": "Lista fatos do ledger nativo, incluindo os pendentes de revisão, por jogo/id decrescente. Valores exatos em texto, moeda explícita e retorno bruto; lucro calculado no servidor.",
+        "operationId": "list_bets_api_v1_financeiro_nativo_apostas_get",
+        "parameters": [
+          {
+            "description": "Máximo de apostas nativas, entre 1 e 100; padrão 50.",
+            "in": "query",
+            "name": "limit",
+            "required": false,
+            "schema": {
+              "default": 50,
+              "maximum": 100,
+              "minimum": 1,
+              "title": "Limit",
+              "type": "integer"
+            }
+          },
+          {
+            "description": "Moeda nativa explícita, BRL ou USDT; sem conversão.",
+            "in": "query",
+            "name": "currency",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "enum": [
+                    "BRL",
+                    "USDT"
+                  ],
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Currency"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/NativeBetResponse"
+                  },
+                  "title": "Response List Bets Api V1 Financeiro Nativo Apostas Get",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Missing, expired, or invalid bearer token.",
+            "headers": {
+              "X-Auth-Error": {
+                "description": "Identity error code when AUTH_ENABLED; legacy response body is preserved.",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "402": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "account_read_only: writes require confirmed trial or paid access."
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorOrValidationResponse"
+                }
+              }
+            },
+            "description": "The request does not satisfy the published contract or a domain rule."
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "The caller exceeded an applicable request limit."
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unexpected internal failure with no sensitive exception details."
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "A required dependency is temporarily unavailable.",
+            "headers": {
+              "X-Auth-Error": {
+                "description": "Identity error code when AUTH_ENABLED; legacy response body is preserved.",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          },
+          {
+            "SessionCookie": []
+          }
+        ],
+        "summary": "Listar apostas com moeda nativa"
+      }
+    },
+    "/api/v1/financeiro/nativo/contas": {
+      "get": {
+        "description": "Lista até 100 contas nativas do usuário, incluindo intervalos históricos. As contas legadas em reais permanecem em seu contrato vigente.",
+        "operationId": "list_accounts_api_v1_financeiro_nativo_contas_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/NativeAccountResponse"
+                  },
+                  "title": "Response List Accounts Api V1 Financeiro Nativo Contas Get",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Missing, expired, or invalid bearer token.",
+            "headers": {
+              "X-Auth-Error": {
+                "description": "Identity error code when AUTH_ENABLED; legacy response body is preserved.",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "402": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "account_read_only: writes require confirmed trial or paid access."
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorOrValidationResponse"
+                }
+              }
+            },
+            "description": "The request does not satisfy the published contract or a domain rule."
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "The caller exceeded an applicable request limit."
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unexpected internal failure with no sensitive exception details."
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "A required dependency is temporarily unavailable.",
+            "headers": {
+              "X-Auth-Error": {
+                "description": "Identity error code when AUTH_ENABLED; legacy response body is preserved.",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          },
+          {
+            "SessionCookie": []
+          }
+        ],
+        "summary": "Listar contas com moeda explícita"
+      },
+      "post": {
+        "description": "Cria conta do usuário autenticado em BRL ou USDT, com intervalo do jogo [valid_from, valid_to). Não converte nem movimenta saldo.",
+        "operationId": "create_account_api_v1_financeiro_nativo_contas_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "examples": {
+                "default": {
+                  "summary": "Conta sintética em USDT",
+                  "value": {
+                    "casa_id": 1,
+                    "currency": "USDT",
+                    "label": "Conta exemplo",
+                    "valid_from": "2026-01-01T00:00:00Z",
+                    "valid_to": null
+                  }
+                }
+              },
+              "schema": {
+                "$ref": "#/components/schemas/NativeAccountCreate"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/NativeAccountResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Missing, expired, or invalid bearer token.",
+            "headers": {
+              "X-Auth-Error": {
+                "description": "Identity error code when AUTH_ENABLED; legacy response body is preserved.",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "402": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "account_read_only: writes require confirmed trial or paid access."
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Cookie mutation requires exact Origin and current CSRF proof."
+          },
+          "413": {
+            "content": {
+              "text/plain": {
+                "example": "Content Too Large",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            },
+            "description": "The request body exceeds this endpoint's streaming limit."
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorOrValidationResponse"
+                }
+              }
+            },
+            "description": "The request does not satisfy the published contract or a domain rule."
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "The caller exceeded an applicable request limit."
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unexpected internal failure with no sensitive exception details."
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "A required dependency is temporarily unavailable.",
+            "headers": {
+              "X-Auth-Error": {
+                "description": "Identity error code when AUTH_ENABLED; legacy response body is preserved.",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          },
+          {
+            "CsrfProof": [],
+            "SessionCookie": []
+          }
+        ],
+        "summary": "Criar conta com moeda explícita"
+      }
+    },
+    "/api/v1/financeiro/nativo/resumo": {
+      "get": {
+        "description": "Agrupa somente fatos do ledger nativo por moeda, com decimais em texto. Exclui revisão/conta não atribuída; filtra pelo jogo [since, until). Não soma BRL com USDT nem inclui o ledger legado de centavos.",
+        "operationId": "summary_api_v1_financeiro_nativo_resumo_get",
+        "parameters": [
+          {
+            "description": "Início inclusivo pelo instante do jogo, com fuso explícito.",
+            "in": "query",
+            "name": "since",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "format": "date-time",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Since"
+            }
+          },
+          {
+            "description": "Fim exclusivo pelo instante do jogo, com fuso explícito.",
+            "in": "query",
+            "name": "until",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "format": "date-time",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Until"
+            }
+          },
+          {
+            "description": "ID da conta nativa do próprio usuário; inexistente ou de terceiro retorna conjunto vazio.",
+            "in": "query",
+            "name": "account_id",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "exclusiveMinimum": 0,
+                  "maximum": 9223372036854775807,
+                  "type": "integer"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Account Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/NativeSummaryResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Missing, expired, or invalid bearer token.",
+            "headers": {
+              "X-Auth-Error": {
+                "description": "Identity error code when AUTH_ENABLED; legacy response body is preserved.",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "402": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "account_read_only: writes require confirmed trial or paid access."
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorOrValidationResponse"
+                }
+              }
+            },
+            "description": "The request does not satisfy the published contract or a domain rule."
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "The caller exceeded an applicable request limit."
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unexpected internal failure with no sensitive exception details."
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "A required dependency is temporarily unavailable.",
+            "headers": {
+              "X-Auth-Error": {
+                "description": "Identity error code when AUTH_ENABLED; legacy response body is preserved.",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          },
+          {
+            "SessionCookie": []
+          }
+        ],
+        "summary": "Consultar totais por moeda"
       }
     },
     "/api/v1/integrations/telegram/webhook": {
@@ -18322,6 +19458,33 @@
                       },
                       "type": "array"
                     },
+                    "native_accounts": {
+                      "items": {
+                        "additionalProperties": {
+                          "$ref": "#/components/schemas/JsonValue"
+                        },
+                        "type": "object"
+                      },
+                      "type": "array"
+                    },
+                    "native_bet_evidence": {
+                      "items": {
+                        "additionalProperties": {
+                          "$ref": "#/components/schemas/JsonValue"
+                        },
+                        "type": "object"
+                      },
+                      "type": "array"
+                    },
+                    "native_bets": {
+                      "items": {
+                        "additionalProperties": {
+                          "$ref": "#/components/schemas/JsonValue"
+                        },
+                        "type": "object"
+                      },
+                      "type": "array"
+                    },
                     "rascunho_correcoes": {
                       "items": {
                         "additionalProperties": {
@@ -18482,7 +19645,10 @@
                     "chamadas_ia",
                     "audit_log",
                     "assinaturas",
-                    "metas_desempenho"
+                    "metas_desempenho",
+                    "native_accounts",
+                    "native_bets",
+                    "native_bet_evidence"
                   ],
                   "type": "object"
                 }
