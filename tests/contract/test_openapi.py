@@ -466,9 +466,12 @@ positive_config.projects.default.generation.update(
     max_examples=10,
     deterministic=True,
 )
-positive_schema = schemathesis.openapi.from_asgi(
-    "/openapi.json", contract_app, config=positive_config
-).include(path="/health", method="GET")
+# Collect from the immutable published artifact, without timed HTTP requests in
+# each xdist worker. The snapshot equality test still checks the live endpoint,
+# and every generated request below exercises the real ASGI application.
+published_positive_schema = schemathesis.openapi.from_path(SNAPSHOT, config=positive_config)
+published_positive_schema.app = contract_app
+positive_schema = published_positive_schema.include(path="/health", method="GET")
 
 
 @pytest.mark.contract
@@ -485,9 +488,13 @@ collection_positive_config.projects.default.generation.update(
     deterministic=True,
 )
 collection_positive_config.projects.default.phases.update(phases=["fuzzing"])
-collection_positive_schema = schemathesis.openapi.from_asgi(
-    "/openapi.json", contract_app, config=collection_positive_config
-).include(path="/api/v1/coleta", method="POST")
+published_collection_schema = schemathesis.openapi.from_path(
+    SNAPSHOT, config=collection_positive_config
+)
+published_collection_schema.app = contract_app
+collection_positive_schema = published_collection_schema.include(
+    path="/api/v1/coleta", method="POST"
+)
 collection_operation = collection_positive_schema["/api/v1/coleta"]["POST"]
 
 
@@ -599,9 +606,10 @@ negative_config.projects.default.generation.update(
     allow_extra_parameters=False,
     with_security_parameters=False,
 )
+published_negative_schema = schemathesis.openapi.from_path(SNAPSHOT, config=negative_config)
+published_negative_schema.app = contract_app
 negative_schema = (
-    schemathesis.openapi
-    .from_asgi("/openapi.json", contract_app, config=negative_config)
+    published_negative_schema
     .include(path_regex=r"^/api/v1/(?!coleta$)")
     .exclude(path="/api/v1/coleta/pairing-exchange")
     .exclude(path="/api/v1/coleta/status")

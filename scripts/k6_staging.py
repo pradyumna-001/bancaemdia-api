@@ -10,7 +10,6 @@ import io
 import ipaddress
 import json
 import os
-import pstats
 import re
 import secrets
 import signal
@@ -182,36 +181,6 @@ async def prepare(directory: Path) -> None:
         raise RuntimeError("Refusing to reuse a previous staging runtime")
     directory.mkdir(mode=0o700, parents=True)
     prepare_tls(directory)
-    # Temporary CPU measurement only in this disposable runner; no application edits.
-    (directory / "k6_profiled_api.py").write_text(
-        """import asyncio
-import cProfile
-import marshal
-import os
-from pathlib import Path
-import threading
-import time
-
-def create_app():
-    from bancaemdia.main import app
-    profile = cProfile.Profile(timer=time.process_time)
-    destination = Path(os.environ["K6_STAGING_DIR"]) / f"api-{os.getpid()}.prof"
-    async def activate():
-        while not (destination.parent / "profile.enabled").exists():
-            await asyncio.sleep(0.1)
-        profile.enable()
-    asyncio.get_running_loop().create_task(activate())
-    def persist():
-        while True:
-            time.sleep(10)
-            profile.snapshot_stats()
-            with destination.open("wb") as handle:
-                marshal.dump(profile.stats, handle)
-    threading.Thread(target=persist, daemon=True).start()
-    return app
-""",
-        encoding="utf-8",
-    )
     info = {
         "name": f"k6-{secrets.token_hex(8)}",
         "admin_password": secrets.token_hex(32),
@@ -250,10 +219,6 @@ def create_app():
             "wal_keep_size=256MB",
             "-c",
             "max_connections=200",
-            "-c",
-            "shared_preload_libraries=pg_stat_statements",
-            "-c",
-            "pg_stat_statements.track=all",
         ],
         env={**os.environ, "POSTGRES_PASSWORD": info["admin_password"]},
     )
@@ -272,11 +237,6 @@ def create_app():
         ],
     )
     await wait_database(15432, info["admin_password"])
-    statistics = await connect(15432, info["admin_password"])
-    try:
-        await statistics.execute("CREATE EXTENSION pg_stat_statements")
-    finally:
-        await statistics.close()
     admin_url = f"postgresql+asyncpg://k6_admin:{info['admin_password']}@127.0.0.1:15432/k6"
     app_url = f"postgresql+asyncpg://k6_app:{info['app_password']}@127.0.0.1:15432/k6"
     env = {
@@ -308,7 +268,7 @@ def create_app():
         # A cache miss must fail locally; it must never reach a paid AI provider.
         "ANTHROPIC_API_KEY": secrets.token_hex(32),
         "ANTHROPIC_BASE_URL": "http://127.0.0.1:18999",
-        "PYTHONPATH": str(directory) + os.pathsep + str(ROOT / "src"),
+        "PYTHONPATH": str(ROOT / "src"),
         "K6_STAGING_DIR": str(directory),
     }
     mask(admin_url)
@@ -576,7 +536,6 @@ async def upload_preflight(directory: Path) -> None:
     finally:
         await conn.close()
     info["upload_preflight_bets"] = 1
-    (directory / "profile.enabled").touch()
     write_private(directory / "state.json", info)
     evidence = {
         "sha": os.environ["TESTED_HEAD_SHA"],
@@ -708,8 +667,7 @@ async def start(directory: Path) -> None:
             sys.executable,
             "-m",
             "uvicorn",
-            "k6_profiled_api:create_app",
-            "--factory",
+            "bancaemdia.main:app",
             "--host",
             "127.0.0.1",
             "--port",
@@ -758,11 +716,6 @@ async def start(directory: Path) -> None:
         handle.write(f"COLETA_TOKENS_JSON={json.dumps(tokens['coleta'])}\n")
     info = state(directory)
     info["cpu_baseline"] = process_cpu(info)
-    statistics = await connect(15432, info["admin_password"])
-    try:
-        await statistics.execute("SELECT pg_stat_statements_reset()")
-    finally:
-        await statistics.close()
     write_private(directory / "state.json", info)
 
 
@@ -920,7 +873,7 @@ def cleanup(directory: Path) -> None:
         command(["docker", "network", "rm", network])
 
 
-async def diagnose(directory: Path) -> None:
+def diagnose(directory: Path) -> None:
     """Write sanitized tails to the job log, never upload private runtime files."""
     if not (directory / "state.json").exists():
         return
@@ -928,60 +881,6 @@ async def diagnose(directory: Path) -> None:
         json.dumps({"live_process_cpu_seconds_since_ready": cpu_since_ready(state(directory))})
         + "\n"
     )
-    info = state(directory)
-    statistics = await connect(15432, info["admin_password"])
-    try:
-        # Never print query text: only numeric measurements and known schema names.
-        from bancaemdia import models
-
-        known = set(models.Aposta.metadata.tables) | {
-            "billing_require_write",
-            "require_active_tenant",
-            "audit_tenant_write",
-            "set_config",
-            "pg_advisory_xact_lock",
-            "clock_timestamp",
-        }
-        measurements = []
-        for row in await statistics.fetch(
-            "SELECT query,calls,total_exec_time,mean_exec_time,max_exec_time,rows,"
-            "shared_blks_hit,shared_blks_read,temp_blks_written FROM pg_stat_statements "
-            "ORDER BY total_exec_time DESC LIMIT 25"
-        ):
-            values = dict(row)
-            query = values.pop("query")
-            values["query_sha256"] = hashlib.sha256(query.encode()).hexdigest()
-            values["schema_names"] = sorted(
-                name for name in known if re.search(rf"\b{re.escape(name)}\b", query)
-            )
-            measurements.append(values)
-        sys.stdout.write(json.dumps({"postgres_query_measurements": measurements}) + "\n")
-    finally:
-        await statistics.close()
-    for path in directory.glob("api-*.prof"):
-        profile = pstats.Stats(str(path))
-        hottest = sorted(profile.stats.items(), key=lambda entry: entry[1][2], reverse=True)[:20]
-        hottest += sorted(
-            (entry for entry in profile.stats.items() if "bancaemdia" in entry[0][0]),
-            key=lambda entry: entry[1][3],
-            reverse=True,
-        )[:20]
-        sys.stdout.write(
-            json.dumps({
-                "api_cpu_profile": [
-                    {
-                        "module": Path(key[0]).name,
-                        "line": key[1],
-                        "function": key[2],
-                        "calls": value[1],
-                        "cpu_self_seconds": value[2],
-                        "cpu_total_seconds": value[3],
-                    }
-                    for key, value in hottest
-                ]
-            })
-            + "\n"
-        )
     # Only exception classes and known routine names, never task arguments,
     # exception reprs, SQL parameters or identifiers, enter public diagnostics.
     import redis
@@ -1036,7 +935,7 @@ async def main() -> None:
     if operation == "cleanup":
         cleanup(directory)
     elif operation == "diagnose":
-        await diagnose(directory)
+        diagnose(directory)
     else:
         await {
             "prepare": prepare,
