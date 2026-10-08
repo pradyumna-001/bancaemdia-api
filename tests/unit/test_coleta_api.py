@@ -70,7 +70,7 @@ def _banco(recebidas_hoje=0):
             )
 
     class ColetaCasaRepo:
-        async def matching_counts(self, session, usuario_id, chave):
+        async def matching_counts(self, session, usuario_id, aposta_id):
             return {}
 
         async def lock_daily_admission(self, session, usuario_id):
@@ -374,7 +374,7 @@ def test_new_capture_of_an_existing_bet_skips_the_creation_rules(monkeypatch) ->
     banco = _banco()
     cliente = _cliente(monkeypatch, banco)
     _enviar(cliente, [_bilhete(resultado=None)])
-    banco.apostas[7, "c:betano:20753556039"] = SimpleNamespace(estado="PENDENTE")
+    banco.apostas[7, "c:betano:20753556039"] = SimpleNamespace(id=23, estado="PENDENTE")
 
     resposta = _enviar(cliente, [_bilhete(odd=1.0)])
 
