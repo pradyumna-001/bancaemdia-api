@@ -12,6 +12,7 @@ import json
 import os
 import re
 import secrets
+import shutil
 import signal
 import ssl
 import subprocess
@@ -617,6 +618,8 @@ async def regressions(directory: Path) -> None:
 
 
 async def start(directory: Path) -> None:
+    # Temporary sampling in this disposable runner; removed before final delivery.
+    command([sys.executable, "-m", "pip", "install", "py-spy==0.4.2"])
     env = json.loads((directory / "env.json").read_text(encoding="utf-8"))
     sys.stdout.write(
         json.dumps({"runner_cpus": os.cpu_count(), "http_workers": min(4, os.cpu_count() or 1)})
@@ -716,6 +719,33 @@ async def start(directory: Path) -> None:
         handle.write(f"COLETA_TOKENS_JSON={json.dumps(tokens['coleta'])}\n")
     info = state(directory)
     info["cpu_baseline"] = process_cpu(info)
+    info["samplers"] = {}
+    profiler = shutil.which("py-spy")
+    if profiler is None:
+        raise RuntimeError("CPU sampler is unavailable")
+    for name, index in (("materialization", 2), ("api", 3)):
+        with (directory / f"sampling-{name}.log").open("w", encoding="utf-8") as log:
+            process = subprocess.Popen(
+                [
+                    "sudo",
+                    profiler,
+                    "record",
+                    "--format",
+                    "speedscope",
+                    "--rate",
+                    "49",
+                    "--gil",
+                    "--subprocesses",
+                    "--pid",
+                    str(info["processes"][index]),
+                    "--output",
+                    str(directory / f"sampling-{name}.json"),
+                ],
+                stdout=log,
+                stderr=log,
+                start_new_session=True,
+            )
+        info["samplers"][name] = process.pid
     write_private(directory / "state.json", info)
 
 
@@ -881,6 +911,43 @@ def diagnose(directory: Path) -> None:
         json.dumps({"live_process_cpu_seconds_since_ready": cpu_since_ready(state(directory))})
         + "\n"
     )
+    for name, pid in state(directory).get("samplers", {}).items():
+        subprocess.run(["sudo", "kill", "-INT", str(pid)], check=False)
+        path = directory / f"sampling-{name}.json"
+        for _ in range(100):
+            if path.exists():
+                break
+            time.sleep(0.1)
+        if not path.exists():
+            sys.stdout.write(f"CPU sampling unavailable: {name}\n")
+            continue
+        profile = json.loads(path.read_text(encoding="utf-8"))
+        frames = profile["shared"]["frames"]
+        own: Counter[tuple[str, str]] = Counter()
+        cumulative: Counter[tuple[str, str]] = Counter()
+        total = 0
+        for thread in profile["profiles"]:
+            for sample in thread["samples"]:
+                if not any("/bancaemdia/" in frames[index].get("file", "") for index in sample):
+                    continue
+                total += 1
+                labels = [
+                    (Path(frames[index].get("file", "")).name, frames[index]["name"])
+                    for index in sample
+                    if frames[index].get("file")
+                ]
+                cumulative.update(set(labels))
+                if labels:
+                    own.update([labels[-1]])
+        sys.stdout.write(
+            json.dumps({
+                "cpu_sampling": name,
+                "application_samples": total,
+                "own": own.most_common(40),
+                "cumulative": cumulative.most_common(60),
+            })
+            + "\n"
+        )
     # Only exception classes and known routine names, never task arguments,
     # exception reprs, SQL parameters or identifiers, enter public diagnostics.
     import redis
