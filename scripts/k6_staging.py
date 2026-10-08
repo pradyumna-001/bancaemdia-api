@@ -185,6 +185,7 @@ async def prepare(directory: Path) -> None:
     # Temporary CPU measurement only in this disposable runner; no application edits.
     (directory / "k6_profiled_api.py").write_text(
         """import cProfile
+import marshal
 import os
 from pathlib import Path
 import threading
@@ -198,7 +199,9 @@ def create_app():
     def persist():
         while True:
             time.sleep(10)
-            profile.dump_stats(str(destination))
+            profile.snapshot_stats()
+            with destination.open("wb") as handle:
+                marshal.dump(profile.stats, handle)
     threading.Thread(target=persist, daemon=True).start()
     return app
 """,
