@@ -184,7 +184,8 @@ async def prepare(directory: Path) -> None:
     prepare_tls(directory)
     # Temporary CPU measurement only in this disposable runner; no application edits.
     (directory / "k6_profiled_api.py").write_text(
-        """import cProfile
+        """import asyncio
+import cProfile
 import marshal
 import os
 from pathlib import Path
@@ -194,8 +195,12 @@ import time
 def create_app():
     from bancaemdia.main import app
     profile = cProfile.Profile(timer=time.process_time)
-    profile.enable()
     destination = Path(os.environ["K6_STAGING_DIR"]) / f"api-{os.getpid()}.prof"
+    async def activate():
+        while not (destination.parent / "profile.enabled").exists():
+            await asyncio.sleep(0.1)
+        profile.enable()
+    asyncio.get_running_loop().create_task(activate())
     def persist():
         while True:
             time.sleep(10)
@@ -571,6 +576,7 @@ async def upload_preflight(directory: Path) -> None:
     finally:
         await conn.close()
     info["upload_preflight_bets"] = 1
+    (directory / "profile.enabled").touch()
     write_private(directory / "state.json", info)
     evidence = {
         "sha": os.environ["TESTED_HEAD_SHA"],
@@ -955,6 +961,11 @@ async def diagnose(directory: Path) -> None:
     for path in directory.glob("api-*.prof"):
         profile = pstats.Stats(str(path))
         hottest = sorted(profile.stats.items(), key=lambda entry: entry[1][2], reverse=True)[:20]
+        hottest += sorted(
+            (entry for entry in profile.stats.items() if "bancaemdia" in entry[0][0]),
+            key=lambda entry: entry[1][3],
+            reverse=True,
+        )[:20]
         sys.stdout.write(
             json.dumps({
                 "api_cpu_profile": [
