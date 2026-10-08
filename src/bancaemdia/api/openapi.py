@@ -759,6 +759,20 @@ def _correction_schema(*, review: bool) -> JsonObject:
 
 
 def _configure_domain_request_schemas(schemas: JsonObject) -> None:
+    # Keep the published Decimal text contract stable across Pydantic emitters.
+    for name in ("MetaEntrada", "MetaAlteracao"):
+        goal = _object(schemas[name], context=f"{name} schema")
+        properties = _object(goal["properties"], context=f"{name} properties")
+        for field in ("alvo", "linha_base"):
+            value = _object(properties[field], context=f"{name}.{field}")
+            variants = value["anyOf"]
+            if not isinstance(variants, list):
+                raise TypeError(f"{name}.{field} alternatives must be a list")
+            for variant in variants:
+                alternative = _object(variant, context=f"{name}.{field} alternative")
+                if alternative.get("type") == "string":
+                    alternative["pattern"] = r"^(?!^[-+.]*$)[+-]?0*\d*\.?\d*$"
+
     manual = _object(schemas["ApostaManual"], context="ApostaManual schema")
     manual["required"] = ["casa", "odd", "stake_unidades"]
     manual_properties = _object(manual["properties"], context="ApostaManual properties")

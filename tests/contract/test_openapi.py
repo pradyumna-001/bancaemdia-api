@@ -216,6 +216,18 @@ def test_openapi_endpoint_matches_checked_in_snapshot(openapi_document: JsonObje
 
 
 @pytest.mark.contract
+def test_goal_decimal_text_preserves_the_published_pattern(openapi_document: JsonObject) -> None:
+    schemas = _as_object(_as_object(openapi_document["components"])["schemas"])
+    for name in ("MetaEntrada", "MetaAlteracao"):
+        properties = _as_object(_as_object(schemas[name])["properties"])
+        for field_name in ("alvo", "linha_base"):
+            alternatives = _as_object(properties[field_name])["anyOf"]
+            strings = [value for value in alternatives if value.get("type") == "string"]
+            assert len(strings) == 1
+            assert strings[0]["pattern"] == r"^(?!^[-+.]*$)[+-]?0*\d*\.?\d*$"
+
+
+@pytest.mark.contract
 def test_every_operation_has_human_documentation(openapi_document: JsonObject) -> None:
     operations = list(_operations(openapi_document))
     assert len(operations) == 94

@@ -49,6 +49,7 @@ from bancaemdia.models.midia import Midia
 from bancaemdia.models.midia_arquivo import MidiaArquivo
 from bancaemdia.models.movimento import Movimento
 from bancaemdia.models.movimento_requisicao import MovimentoRequisicao
+from bancaemdia.models.native_financials import NativeAccount, NativeBet, NativeBetEvidence
 from bancaemdia.models.rascunho_aposta import RascunhoAposta, RascunhoCorrecao
 from bancaemdia.models.reader_quarantine import ReaderQuarantine
 from bancaemdia.models.revisao_pendente import RevisaoPendente
@@ -137,7 +138,7 @@ def _indexes(modelo: type[Base]) -> dict[str, list[str]]:
     return {i.name: [c.name for c in i.columns] for i in modelo.__table__.indexes}
 
 
-def test_all_forty_eight_tables_are_registered() -> None:
+def test_all_registered_models_match_the_schema() -> None:
     esperadas = {
         m.__tablename__
         for m in NUCLEO
@@ -164,10 +165,13 @@ def test_all_forty_eight_tables_are_registered() -> None:
             ColetaPairingQuota,
             ColetaSessao,
             ColetaEntrega,
+            NativeAccount,
+            NativeBet,
+            NativeBetEvidence,
         )
     }
     esperadas |= {"telegram_media", "telegram_rate_buckets"}
-    assert len(esperadas) == 65
+    assert len(esperadas) == 68
     assert set(Base.metadata.tables) == esperadas
     assert {m.__tablename__ for m in CANONICOS} == {
         "casas",
