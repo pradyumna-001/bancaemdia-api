@@ -24,7 +24,7 @@ from cryptography.hazmat.primitives.serialization import (
     PrivateFormat,
 )
 from sqlalchemy import text
-from sqlalchemy.ext.asyncio import AsyncEngine, AsyncSession
+from sqlalchemy.ext.asyncio import AsyncEngine, AsyncSession, create_async_engine
 
 from bancaemdia import main
 from bancaemdia.auth import middleware as auth_middleware
@@ -39,6 +39,24 @@ from bancaemdia.middleware.rate_limit import api_limiter
 
 pytestmark = pytest.mark.xdist_group("postgres")
 TOTAL_BETS = 16_000
+
+
+@pytest.fixture
+async def engine_admin(banco_migracao) -> AsyncIterator[AsyncEngine]:
+    engine = create_async_engine(banco_migracao.url_admin)
+    try:
+        yield engine
+    finally:
+        await engine.dispose()
+
+
+@pytest.fixture
+async def engine_app(banco_migracao) -> AsyncIterator[AsyncEngine]:
+    engine = create_async_engine(banco_migracao.url_app)
+    try:
+        yield engine
+    finally:
+        await engine.dispose()
 
 
 async def _ids(engine: AsyncEngine, usuario_id: int) -> tuple[list[int], list[int], int, int]:
@@ -184,6 +202,15 @@ async def test_synthetic_painel_and_replay_at_16k_bets(
 ) -> None:
     usuario_id = await novo_usuario()
     prefix, published, base = await _seed(engine_admin, usuario_id)
+    # This benchmark requires a quiescent database. Its private migrated database
+    # excludes other tests' writes, and completes real maintenance after the bulk
+    # seed. Replay still refuses writers/maintenance with NOWAIT; dedicated tests
+    # assert that refusal and absence of partial updates for every protected table.
+    async with engine_admin.connect() as conn:
+        await conn.execution_options(isolation_level="AUTOCOMMIT")
+        await conn.execute(
+            text("VACUUM (ANALYZE) eventos, apostas, movimentos, aposta_consolidacoes")
+        )
     record_property("synthetic_bets", TOTAL_BETS)
     record_property("synthetic_bancas", 5)
     record_property("published_bets", published)
