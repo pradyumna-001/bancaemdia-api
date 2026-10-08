@@ -118,3 +118,29 @@ CI executa esses casos junto da acceptance herdada, sem alterar seus gates.
 Fixture gate, lint/formato/tipagem, cobertura, segurança e checks gerais continuam
 obrigatórios no HEAD final. Tests verdes comprovam esta fronteira de leitura e
 retenção; não substituem as dependências financeiras acima.
+
+## Latência da coleta na base main
+
+A primeira execução de CI (`f279094`, run `37781374367`) falhou no preflight de
+100 usuários: p95 da API 1462,46 ms e p99 2081,91 ms, com zero falhas HTTP.
+Os limites continuam p95 < 1000 ms, p99 < 2000 ms e erros < 1%; o teste de 55
+minutos permanece obrigatório. A interpretação candidata não é ativada nesse
+fluxo. A falha revelou custo no caminho herdado da base main.
+
+Esta branch inclui independentemente as otimizações de coleta também presentes
+no #184; não importa seus commits, filtros, modelos ou migrations. SQL de forma
+fixa passa a reutilizar construção/compilação com parâmetros por execução em
+credencial, coleta, aposta e snapshot de conciliação. IDs/valores de usuários
+não são cacheados. Formas dinâmicas e replay com timestamp explícito continuam
+no caminho genérico com comparação contra escrita atrasada.
+
+Autenticação valida o proprietário ativo, expiração e revogação no UPDATE que
+registra uso e mantém o lock da credencial até o commit; rotação/revogação seguem
+aguardando a admissão em curso. A rota reaproveita o escopo RLS já instalado pela
+autenticação e o ID de aposta já consultado. Conciliação sem candidatos preserva
+o flush e evita consultas de conjuntos vazios.
+
+Regressões PostgreSQL verificam reutilização da mesma chave entre usuários com
+valores distintos, atualização sem perder conta e snapshot sem alterar pares
+ou revisões existentes. Verificação de desempenho é repetida no novo HEAD;
+aprovação do #184 ou resultados antigos não substituem essa execução.

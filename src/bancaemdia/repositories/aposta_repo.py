@@ -1,9 +1,10 @@
 from datetime import datetime
 from typing import cast
 
-from sqlalchemy import distinct, func, select, text, tuple_, update
+from sqlalchemy import bindparam, distinct, func, lambda_stmt, select, text, tuple_, update
 from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.sql.dml import ReturningInsert
 
 from bancaemdia import models
 from bancaemdia.domain.registros import Aposta, ApostasPorOrigem
@@ -11,6 +12,55 @@ from bancaemdia.repositories.aposta_consolidacao import financial_predicate
 from bancaemdia.repositories.base import colunas
 
 IMUTAVEIS = frozenset({"id", "usuario_id", "chave", "criada_em"})
+_bet_by_key = lambda_stmt(
+    lambda: select(models.Aposta).where(
+        models.Aposta.usuario_id == bindparam("usuario_id_1"),
+        models.Aposta.chave == bindparam("chave_1"),
+    )
+)
+# Cache fixed collection shapes only. Bound values/tenants remain per execution;
+# source-timestamp replays retain the generic stale-write check below.
+_collected_fields = frozenset({
+    "usuario_id",
+    "chave",
+    "origem",
+    "data_aposta",
+    "data_jogo",
+    "stake_unidades",
+    "stake_centavos",
+    "valor_aposta_centavos",
+    "odd",
+    "freebet",
+    "estado",
+    "retorno_centavos",
+    "revisao_grave",
+})
+
+
+def _collected_upsert(fields: frozenset[str]) -> ReturningInsert[tuple[models.Aposta]]:
+    statement = insert(models.Aposta).values(
+        **{field: bindparam(field) for field in sorted(fields)},
+        atualizada_em=func.clock_timestamp(),
+    )
+    return statement.on_conflict_do_update(
+        index_elements=["usuario_id", "chave"],
+        index_where=text("chave IS NOT NULL"),
+        set_={
+            **{field: getattr(statement.excluded, field) for field in fields - IMUTAVEIS},
+            "atualizada_em": statement.excluded.atualizada_em,
+        },
+        where=statement.excluded.atualizada_em > models.Aposta.atualizada_em,
+    ).returning(models.Aposta)
+
+
+_collected_update = _collected_upsert(_collected_fields)
+_collected_creation = _collected_upsert(_collected_fields | {"conta_casa_id"})
+_cached_collected_update = lambda_stmt(lambda: _collected_update).execution_options(
+    dml_strategy="orm"
+)
+_cached_collected_creation = lambda_stmt(lambda: _collected_creation).execution_options(
+    dml_strategy="orm"
+)
 
 
 class ApostaRepo:
@@ -18,11 +68,7 @@ class ApostaRepo:
         self, session: AsyncSession, usuario_id: int, chave: str
     ) -> Aposta | None:
         obj = (
-            await session.execute(
-                select(models.Aposta).where(
-                    models.Aposta.usuario_id == usuario_id, models.Aposta.chave == chave
-                )
-            )
+            await session.execute(_bet_by_key, {"usuario_id_1": usuario_id, "chave_1": chave})
         ).scalar_one_or_none()
         return None if obj is None else Aposta(**colunas(obj))
 
@@ -180,6 +226,15 @@ class ApostaRepo:
         from bancaemdia.repositories.cruzamento_candidato import CruzamentoCandidatoRepo
 
         await CruzamentoCandidatoRepo().lock(session, cast(int, dados["usuario_id"]))
+        fields = frozenset(dados)
+        if fields in (_collected_fields, _collected_fields | {"conta_casa_id"}):
+            cached = (
+                _cached_collected_update
+                if fields == _collected_fields
+                else _cached_collected_creation
+            )
+            obj = (await session.execute(cached, dados)).scalar_one_or_none()
+            return None if obj is None else Aposta(**colunas(obj))
         valores = {**dados, "atualizada_em": dados.get("atualizada_em", func.clock_timestamp())}
         stmt = insert(models.Aposta).values(**valores)
         mutaveis = {
