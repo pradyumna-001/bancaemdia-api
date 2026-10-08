@@ -219,6 +219,10 @@ async def prepare(directory: Path) -> None:
             "wal_keep_size=256MB",
             "-c",
             "max_connections=200",
+            "-c",
+            "shared_preload_libraries=pg_stat_statements",
+            "-c",
+            "pg_stat_statements.track=all",
         ],
         env={**os.environ, "POSTGRES_PASSWORD": info["admin_password"]},
     )
@@ -237,6 +241,11 @@ async def prepare(directory: Path) -> None:
         ],
     )
     await wait_database(15432, info["admin_password"])
+    statistics = await connect(15432, info["admin_password"])
+    try:
+        await statistics.execute("CREATE EXTENSION pg_stat_statements")
+    finally:
+        await statistics.close()
     admin_url = f"postgresql+asyncpg://k6_admin:{info['admin_password']}@127.0.0.1:15432/k6"
     app_url = f"postgresql+asyncpg://k6_app:{info['app_password']}@127.0.0.1:15432/k6"
     env = {
@@ -716,6 +725,11 @@ async def start(directory: Path) -> None:
         handle.write(f"COLETA_TOKENS_JSON={json.dumps(tokens['coleta'])}\n")
     info = state(directory)
     info["cpu_baseline"] = process_cpu(info)
+    statistics = await connect(15432, info["admin_password"])
+    try:
+        await statistics.execute("SELECT pg_stat_statements_reset()")
+    finally:
+        await statistics.close()
     write_private(directory / "state.json", info)
 
 
@@ -873,7 +887,7 @@ def cleanup(directory: Path) -> None:
         command(["docker", "network", "rm", network])
 
 
-def diagnose(directory: Path) -> None:
+async def diagnose(directory: Path) -> None:
     """Write sanitized tails to the job log, never upload private runtime files."""
     if not (directory / "state.json").exists():
         return
@@ -881,6 +895,36 @@ def diagnose(directory: Path) -> None:
         json.dumps({"live_process_cpu_seconds_since_ready": cpu_since_ready(state(directory))})
         + "\n"
     )
+    info = state(directory)
+    statistics = await connect(15432, info["admin_password"])
+    try:
+        # Never print query text: only numeric measurements and known schema names.
+        from bancaemdia import models
+
+        known = set(models.Aposta.metadata.tables) | {
+            "billing_require_write",
+            "require_active_tenant",
+            "audit_tenant_write",
+            "set_config",
+            "pg_advisory_xact_lock",
+            "clock_timestamp",
+        }
+        measurements = []
+        for row in await statistics.fetch(
+            "SELECT query,calls,total_exec_time,mean_exec_time,max_exec_time,rows,"
+            "shared_blks_hit,shared_blks_read,temp_blks_written FROM pg_stat_statements "
+            "ORDER BY total_exec_time DESC LIMIT 25"
+        ):
+            values = dict(row)
+            query = values.pop("query")
+            values["query_sha256"] = hashlib.sha256(query.encode()).hexdigest()
+            values["schema_names"] = sorted(
+                name for name in known if re.search(rf"\b{re.escape(name)}\b", query)
+            )
+            measurements.append(values)
+        sys.stdout.write(json.dumps({"postgres_query_measurements": measurements}) + "\n")
+    finally:
+        await statistics.close()
     # Only exception classes and known routine names, never task arguments,
     # exception reprs, SQL parameters or identifiers, enter public diagnostics.
     import redis
@@ -935,7 +979,7 @@ async def main() -> None:
     if operation == "cleanup":
         cleanup(directory)
     elif operation == "diagnose":
-        diagnose(directory)
+        await diagnose(directory)
     else:
         await {
             "prepare": prepare,
