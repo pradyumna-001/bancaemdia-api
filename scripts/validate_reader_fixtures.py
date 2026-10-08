@@ -9,6 +9,7 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
+sys.path.insert(0, str(ROOT / "src"))
 
 from bancaemdia.coleta.leitores import LEITORES  # ruff: ignore[module-import-not-at-top-of-file]
 from bancaemdia.coleta.readers.base import decode_raw  # ruff: ignore[module-import-not-at-top-of-file]

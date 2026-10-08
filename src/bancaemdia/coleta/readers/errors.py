@@ -36,6 +36,15 @@ REASONS = frozenset({
     "fractional_centavo",
     "reference_source_shape_changed",
     "reader_failure",
+    "game_time_missing",
+    "invalid_game_time",
+    "unknown_source_state",
+    "game_fields_not_projected",
+    "one_win_source_shape_changed",
+    "invalid_placement_time",
+    "selection_description_missing",
+    "financial_evidence_pending",
+    "duplicate_source_selection",
 })
 
 

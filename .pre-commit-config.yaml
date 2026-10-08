@@ -6,15 +6,16 @@ repos:
         args: [--fix, --exit-non-zero-on-fix]
       - id: ruff-format
 
-  - repo: https://github.com/pre-commit/mirrors-mypy
-    rev: v1.13.0
-    hooks:
-      - id: mypy
-        additional_dependencies: [pydantic, sqlalchemy, types-requests]
-        args: [--strict, --ignore-missing-imports]
-
   - repo: local
     hooks:
+      # Use the project's installed dependencies, just as CI does. An isolated
+      # mirror with only pydantic/sqlalchemy cannot typecheck the application.
+      - id: mypy
+        name: mypy (complete application, CI scope)
+        entry: mypy src/ --strict --ignore-missing-imports
+        language: system
+        pass_filenames: false
+        always_run: true
       - id: reader-fixture-safety
         name: Reviewed reader fixture safety
         entry: python scripts/validate_reader_fixtures.py --base-ref origin/main

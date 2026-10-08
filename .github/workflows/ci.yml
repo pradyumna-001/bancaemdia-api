@@ -311,6 +311,8 @@ jobs:
       - run: pip install -e ".[dev]"
       - name: Required reader acceptance on its own disposable database
         run: pytest tests/coleta/reader_quarantine_acceptance.py -n 0 --junitxml=reader-postgres-results.xml
+      - name: Required 1win source and quarantine acceptance
+        run: pytest tests/coleta/one_win_quarantine_acceptance.py -n 0 --junitxml=one-win-postgres-results.xml
       - name: Inherited integration and historical migration regression in isolated database
         run: |
           createdb -h localhost -U postgres legacy_integrations
@@ -322,9 +324,12 @@ jobs:
           python - <<'PY'
           import xml.etree.ElementTree as ET
           reader = ET.parse('reader-postgres-results.xml').getroot()
+          one_win = ET.parse('one-win-postgres-results.xml').getroot()
           legacy = ET.parse('legacy-postgres-results.xml').getroot()
           assert len(list(reader.iter('testcase'))) == 16, 'reader acceptance inventory missing'
           assert not list(reader.iter('skipped')), 'mandatory reader PostgreSQL tests cannot skip'
+          assert len(list(one_win.iter('testcase'))) == 14, '1win acceptance inventory missing'
+          assert not list(one_win.iter('skipped')), 'mandatory 1win acceptance cannot skip'
           assert len(list(legacy.iter('testcase'))) >= 120, 'inherited regression inventory missing'
           historical = {
             'test_painel_totals_match_the_conferir_numeros_logic',
@@ -334,7 +339,7 @@ jobs:
           }
           skipped = {c.attrib['name'] for c in legacy.iter('testcase') if c.find('skipped') is not None}
           assert skipped <= historical, 'unexpected inherited regression skip'
-          for suites in (reader, legacy):
+          for suites in (reader, one_win, legacy):
             assert not list(suites.iter('failure')) and not list(suites.iter('error'))
           PY
       - uses: actions/upload-artifact@v4
@@ -343,6 +348,7 @@ jobs:
           name: reader-postgres-evidence
           path: |
             reader-postgres-results.xml
+            one-win-postgres-results.xml
             legacy-postgres-results.xml
       - name: Remove disposable database container
         if: always()
