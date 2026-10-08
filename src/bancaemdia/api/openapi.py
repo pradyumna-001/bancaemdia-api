@@ -1,3 +1,4 @@
+import hashlib
 from collections.abc import Iterable
 from typing import Any, cast
 
@@ -20,6 +21,26 @@ MANUAL_BET_HOUSES = sorted(
 
 
 OPERATION_DOCUMENTATION: dict[OperationKey, tuple[str, str]] = {
+    ("post", "/api/v1/coleta/reader-captures"): (
+        "Receber fonte textual com moeda nativa",
+        "ReaderEnvelope lossless reader-capture-1 por X-Coleta-Token/HTTPS. Preserva USDT exato; conta pelo jogo e multicontas explícita. Duplicatas são no-op; conflitos sem versão vão à revisão. Admissão fechada até corpus financeiro aprovado e ativação explícita. Não altera coleta-v2.",
+    ),
+    ("post", "/api/v1/financeiro/nativo/contas"): (
+        "Criar conta com moeda explícita",
+        "Cria conta do usuário autenticado em BRL ou USDT, com intervalo do jogo [valid_from, valid_to). Não converte nem movimenta saldo.",
+    ),
+    ("get", "/api/v1/financeiro/nativo/contas"): (
+        "Listar contas com moeda explícita",
+        "Lista até 100 contas nativas do usuário, incluindo intervalos históricos. As contas legadas em reais permanecem em seu contrato vigente.",
+    ),
+    ("get", "/api/v1/financeiro/nativo/resumo"): (
+        "Consultar totais por moeda",
+        "Agrupa somente fatos do ledger nativo por moeda, com decimais em texto. Exclui revisão/conta não atribuída; filtra pelo jogo [since, until). Não soma BRL com USDT nem inclui o ledger legado de centavos.",
+    ),
+    ("get", "/api/v1/financeiro/nativo/apostas"): (
+        "Listar apostas com moeda nativa",
+        "Lista fatos do ledger nativo, incluindo os pendentes de revisão, por jogo/id decrescente. Valores exatos em texto, moeda explícita e retorno bruto; lucro calculado no servidor.",
+    ),
     ("post", "/api/v1/coleta/sessions"): (
         "Abrir ou retomar sessão",
         "Cria uma fronteira imutável por instalação ou retoma o UUID explícito sem ampliar o corte.",
@@ -380,6 +401,11 @@ OPERATION_DOCUMENTATION: dict[OperationKey, tuple[str, str]] = {
 
 
 PARAMETER_DESCRIPTIONS = {
+    "since": "Início inclusivo pelo instante do jogo, com fuso explícito.",
+    "until": "Fim exclusivo pelo instante do jogo, com fuso explícito.",
+    "account_id": "ID da conta nativa do próprio usuário; inexistente ou de terceiro retorna conjunto vazio.",
+    "currency": "Moeda nativa explícita, BRL ou USDT; sem conversão.",
+    "limit": "Máximo de apostas nativas, entre 1 e 100; padrão 50.",
     "sessao_id": "UUID opaco da sessão pertencente à instalação autenticada.",
     "instalacao_id": "ID interno da instalação do usuário autenticado.",
     "client_version": "Versão estável do cliente em três componentes.",
@@ -428,7 +454,43 @@ PARAMETER_DESCRIPTIONS = {
 }
 
 
+_NATIVE_SOURCE_EXAMPLE = '{"bet":{"id":"example-native-bet","createdAt":"2026-01-02T02:00:00Z","currencyCode":"USDT","wallet":"example-wallet","status":2,"amount":12.34,"cf":2.5,"profitAmount":30.85,"freebetAmount":0,"bonusAmount":0,"bonusPercent":0,"betType":"ordinary"},"selections":[{"match":{"id":"example-event","startAt":1767484800,"competitors":[{"name":"Example A"},{"name":"Example B"}]},"odd":{"id":"example-odd","name":"Example selection","groupName":"Example market","cf":2.5},"status":2,"isHalfReturn":false}]}'
+
 REQUEST_EXAMPLES: dict[OperationKey, tuple[str, JsonObject]] = {
+    ("post", "/api/v1/financeiro/nativo/contas"): (
+        "Conta sintética em USDT",
+        {
+            "casa_id": 1,
+            "currency": "USDT",
+            "label": "Conta exemplo",
+            "valid_from": "2026-01-01T00:00:00Z",
+            "valid_to": None,
+        },
+    ),
+    ("post", "/api/v1/coleta/reader-captures"): (
+        "Envelope sintético; não é evidência real",
+        {
+            "transport_contract": "reader-capture-1",
+            "envelope": {
+                "envelope_schema": 1,
+                "brand": "1win",
+                "hostname": "api-gateway.top-parser.com",
+                "source": {
+                    "channel": "fetch",
+                    "direction": "observed_response",
+                    "endpoint": "/bets/history/get-many",
+                    "frame_signature": None,
+                },
+                "captured_at": "2026-01-05T00:00:00Z",
+                "raw_schema_version": "1win-history-game-v2",
+                "content_type": "application/json",
+                "payload_text": _NATIVE_SOURCE_EXAMPLE,
+                "content_hash": hashlib.sha256(_NATIVE_SOURCE_EXAMPLE.encode("utf-8")).hexdigest(),
+            },
+            "multicontas": False,
+            "explicit_account_id": None,
+        },
+    ),
     ("post", "/api/v1/coleta/sessions"): (
         "Nova sessão explícita",
         {"coletar_desde": "2026-08-01T00:00:00Z", "retomar_sessao_id": None},
@@ -1078,6 +1140,7 @@ def _install_catalog_security(document: JsonObject) -> None:
     paths = _object(document["paths"], context="paths")
     for method, path, scheme in (
         ("get", "/api/v1/coleta/catalogo", "InstallationToken"),
+        ("post", "/api/v1/coleta/reader-captures", "InstallationToken"),
         ("get", "/api/v1/admin/casas", "BearerAuth"),
         ("get", "/api/v1/admin/casas/export", "BearerAuth"),
         ("post", "/api/v1/catalogo/candidatos", "BearerAuth"),

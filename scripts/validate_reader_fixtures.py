@@ -13,6 +13,7 @@ sys.path.insert(0, str(ROOT / "src"))
 
 from bancaemdia.coleta.leitores import LEITORES  # ruff: ignore[module-import-not-at-top-of-file]
 from bancaemdia.coleta.readers.base import decode_raw  # ruff: ignore[module-import-not-at-top-of-file]
+from bancaemdia.coleta.readers.native_admission import REVIEWED_BUNDLE_SHA256  # ruff: ignore[module-import-not-at-top-of-file]
 from bancaemdia.coleta.readers.reference import reference_registry  # ruff: ignore[module-import-not-at-top-of-file]
 from bancaemdia.coleta.readers.registry import DEFAULT_REGISTRY, ReaderRegistry  # ruff: ignore[module-import-not-at-top-of-file]
 from tests.coleta.harness import (  # ruff: ignore[module-import-not-at-top-of-file]
@@ -131,6 +132,22 @@ def validate(
             results.append(report)
     if any(not result["passed"] for result in results):
         raise ValueError("reader golden contract drift")
+    if REVIEWED_BUNDLE_SHA256 is not None:
+        approved_native = [
+            reviewed_manifest(directory)
+            for directory in contract_root.iterdir()
+            if directory.is_dir()
+        ]
+        if not any(
+            manifest.get("money_contract") == 2
+            and manifest["evidence_kind"] == "sanitized_real"
+            and manifest["review"]["status"] == "approved"
+            and manifest["review"]["bundle_sha256"] == REVIEWED_BUNDLE_SHA256
+            and manifest["reader_id"] == "1win_history_candidate"
+            and manifest["reader_version"] == "0.2.0"
+            for manifest in approved_native
+        ):
+            raise ValueError("native admission requires an exact reviewed passing real corpus")
     evidenced = {
         (r["reader_id"], r["reader_version"], r["brand"], r["hostname"], r["raw_schema_version"])
         for r in results

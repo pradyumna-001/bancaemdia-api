@@ -1,5 +1,13 @@
 # Leitor 1win — fonte interpretada e dependências de materialização
 
+**Atualização vigente de 08/10/2026:** o delta real chegou e a #115 agora inclui
+leitura financeira nativa de USDT, contas, relatórios e ingestão lossless.
+Consulte [o contrato vigente e suas dependências](native-financials-115.md).
+O corpus financeiro completo está preparado fora do Git para revisão administrativa;
+a ativação permanece fechada. Não é necessária outra coleta igual da extensão.
+
+<details><summary>Registro anterior: leitura candidata 0.1.0, antes do delta real</summary>
+
 Revisão: 08/10/2026. Relacionado à [#115](https://github.com/pradyumna-001/bancaemdia-api/issues/115).
 Esta entrega implementa a leitura da projeção candidata e sua retenção transacional;
 **não conclui a #115 nem habilita suporte financeiro/produção**. O lote escolhido
@@ -144,6 +152,7 @@ Regressões PostgreSQL verificam reutilização da mesma chave entre usuários c
 valores distintos, atualização sem perder conta e snapshot sem alterar pares
 ou revisões existentes. Verificação de desempenho é repetida no novo HEAD;
 aprovação do #184 ou resultados antigos não substituem essa execução.
+</details>
 
 Na segunda execução (`5179f83`, run `37784055368`), p95 API caiu para 1066,71 ms
 e p99 para 1742,66 ms; o p95 ainda falhou. O staging mantinha keep-alive ocioso

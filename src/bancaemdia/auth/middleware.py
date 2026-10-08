@@ -32,6 +32,7 @@ PUBLIC_PATHS = frozenset({
     "/api/v1/coleta/status",
     "/api/v1/coleta/sessions",
     "/api/v1/coleta/batches",
+    "/api/v1/coleta/reader-captures",
     "/api/v1/coleta/contract",
     "/api/v1/coleta/contract/schema",
     "/api/v1/coleta/catalogo",

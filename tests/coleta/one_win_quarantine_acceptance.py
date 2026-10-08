@@ -78,6 +78,21 @@ async def test_legacy_projection_reports_missing_game_fields(engine_app, como, n
         await assert_no_money(session)
 
 
+async def test_usdt_is_preserved_as_source_evidence_without_brl_financial_rows(
+    engine_app, como, novo_usuario
+):
+    uid = await novo_usuario()
+    raw = source()
+    raw["bet"]["currencyCode"] = "USDT"
+    async with como(engine_app, uid) as session:
+        outcome = await parse_or_quarantine(session, uid, envelope(raw), candidate_registry())
+        assert outcome.reason == "financial_evidence_pending"
+        row = await session.get(ReaderQuarantine, outcome.quarantine_id)
+        assert '"currencyCode":"USDT"' in row.envelope["payload_text"]
+        assert outcome.parsed is None
+        await assert_no_money(session)
+
+
 async def test_private_fields_are_never_persisted_or_logged(engine_app, como, novo_usuario):
     from structlog.testing import capture_logs
 

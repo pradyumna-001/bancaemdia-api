@@ -25,11 +25,12 @@ from bancaemdia.coleta.readers.errors import (
     SchemaDriftError,
     WrongHostError,
 )
+from bancaemdia.coleta.readers.native import NativeCanonicalBet, validated_native
 from bancaemdia.coleta.readers.registry import ReaderRegistration, ReaderRegistry
 from bancaemdia.domain.financeiro import Estado
 
 READER_ID = "1win_history_candidate"
-READER_VERSION = "0.1.0"
+READER_VERSION = "0.2.0"
 RESPONSE_HOST = "api-gateway.top-parser.com"
 ENDPOINT = "/bets/history/get-many"
 V1_SCHEMA = "1win-history-fields-v1"
@@ -76,7 +77,9 @@ class SourceProjection(StrictModel):
 class SourceBet(SourceProjection):
     id: Annotated[str, Field(strict=True, min_length=1, max_length=120)]
     createdAt: Text  # ruff: ignore[mixed-case-variable-in-class-scope] -- exact source names, never wire renames
-    currencyCode: Annotated[str, Field(strict=True, pattern=r"^[A-Z]{3}$")]  # ruff: ignore[mixed-case-variable-in-class-scope]
+    # USDT was observed in the reviewed source. This preserves its denomination;
+    # accepting source data does not authorize posting it to the centavo ledger.
+    currencyCode: Annotated[str, Field(strict=True, pattern=r"^(?:[A-Z]{3}|USDT)$")]  # ruff: ignore[mixed-case-variable-in-class-scope]
     wallet: Text
     status: Annotated[int, Field(strict=True)]
     amount: Number
@@ -170,6 +173,7 @@ class Observation:
     bonus_percent: Decimal
     selections: tuple[CanonicalSelection, ...]
     half_return_flags: tuple[bool | None, ...]
+    bet_type: str | None
 
     @property
     def game_at(self) -> datetime:
@@ -177,6 +181,55 @@ class Observation:
 
 
 class OneWinReader:
+    def parse_native(self, envelope: ReaderEnvelope) -> NativeCanonicalBet:
+        """Interpret only the observed ordinary/express cash GREEN/RED source variants.
+
+        Review/production admission is a separate boundary. The native contract
+        deliberately does not invent an authoritative source revision timestamp.
+        """
+        observation = self.inspect(envelope)
+        if (
+            observation.currency != "USDT"
+            or observation.public_state not in {Estado.GREEN, Estado.RED}
+            or any(
+                value is None or value != 0
+                for value in (
+                    observation.freebet_amount,
+                    observation.bonus_amount,
+                    observation.bonus_percent,
+                )
+            )
+            or any(flag is not False for flag in observation.half_return_flags)
+            or observation.bet_type not in {"ordinary", "express"}
+            or (observation.bet_type == "ordinary" and len(observation.selections) != 1)
+            or (observation.bet_type == "express" and len(observation.selections) < 2)
+            or any(
+                selection.result not in {Estado.GREEN, Estado.RED}
+                for selection in observation.selections
+            )
+            or (
+                observation.public_state == Estado.GREEN
+                and any(selection.result != Estado.GREEN for selection in observation.selections)
+            )
+            or (
+                observation.public_state == Estado.RED
+                and not any(selection.result == Estado.RED for selection in observation.selections)
+            )
+        ):
+            raise IncompletePayloadError("native_source_variant_not_evidenced")
+        return validated_native({
+            "external_identity": observation.external_identity,
+            "brand": envelope.brand,
+            "hostname": envelope.hostname,
+            "currency": observation.currency,
+            "placed_at": observation.placed_at,
+            "state": observation.public_state.value,
+            "stake": observation.displayed_amount,
+            "returned": observation.source_profit_amount,
+            "odds": observation.odds,
+            "selections": observation.selections,
+        })
+
     def inspect(self, envelope: ReaderEnvelope) -> Observation:
         """Extract proved source concepts without asserting a financial settlement."""
         envelope = ReaderEnvelope.model_validate(envelope.model_dump(mode="json"))
@@ -249,6 +302,7 @@ class OneWinReader:
             bonus_percent=bet.bonusPercent,
             selections=tuple(selections),
             half_return_flags=tuple(flags),
+            bet_type=bet.betType,
         )
 
     def parse(self, envelope: ReaderEnvelope) -> list[CanonicalBet]:

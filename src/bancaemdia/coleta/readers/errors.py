@@ -45,6 +45,8 @@ REASONS = frozenset({
     "selection_description_missing",
     "financial_evidence_pending",
     "duplicate_source_selection",
+    "native_money_contract_invalid",
+    "native_source_variant_not_evidenced",
 })
 
 

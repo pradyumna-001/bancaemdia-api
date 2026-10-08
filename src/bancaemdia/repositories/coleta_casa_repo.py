@@ -51,7 +51,20 @@ _inbox_daily_count = select(func.count()).where(
     models.ColetaEntrega.ack != "rejected",
 )
 _daily_count_query = select(
-    _legacy_daily_count.scalar_subquery() + _inbox_daily_count.scalar_subquery()
+    _legacy_daily_count.scalar_subquery()
+    + _inbox_daily_count.scalar_subquery()
+    + select(func.count())
+    .where(
+        models.NativeBetEvidence.usuario_id == bindparam("usuario_id_1"),
+        models.NativeBetEvidence.created_at >= bindparam("recebido_em_1"),
+    )
+    .scalar_subquery()
+    + select(func.count())
+    .where(
+        models.ReaderQuarantine.usuario_id == bindparam("usuario_id_1"),
+        models.ReaderQuarantine.created_at >= bindparam("recebido_em_1"),
+    )
+    .scalar_subquery()
 )
 _daily_count = lambda_stmt(lambda: _daily_count_query)
 

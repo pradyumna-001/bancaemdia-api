@@ -102,6 +102,29 @@ def test_exact_source_values_and_game_day_are_extracted_without_money_claim():
     assert not hasattr(observation, "conta_id")
 
 
+def test_usdt_keeps_native_denomination_and_exact_precision_without_centavo_conversion():
+    raw = source()
+    raw["bet"]["currencyCode"] = "USDT"
+    text = json.dumps(raw, separators=(",", ":")).replace("12.34", "12.340000000000000001")
+    value = ReaderEnvelope.model_validate(envelope(text=text))
+    observation = OneWinReader().inspect(value)
+    assert observation.currency == "USDT"
+    assert observation.displayed_amount == Decimal("12.340000000000000001")
+    assert not hasattr(observation, "stake_centavos")
+    with pytest.raises(ReaderError) as failure:
+        OneWinReader().parse(value)
+    assert failure.value.reason == "financial_evidence_pending"
+
+
+@pytest.mark.parametrize("currency", ["usdt", "USDT ", "USDTT", "USDC", "", 123, None])
+def test_observed_usdt_does_not_open_arbitrary_tokens_or_coerce_source_currency(currency):
+    raw = source()
+    raw["bet"]["currencyCode"] = currency
+    with pytest.raises(ReaderError) as failure:
+        inspect(raw)
+    assert failure.value.reason == "one_win_source_shape_changed"
+
+
 @pytest.mark.parametrize(
     ("status", "state"),
     [

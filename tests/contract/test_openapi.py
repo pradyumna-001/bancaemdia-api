@@ -218,7 +218,7 @@ def test_openapi_endpoint_matches_checked_in_snapshot(openapi_document: JsonObje
 @pytest.mark.contract
 def test_every_operation_has_human_documentation(openapi_document: JsonObject) -> None:
     operations = list(_operations(openapi_document))
-    assert len(operations) == 89
+    assert len(operations) == 94
     for method, path, operation in operations:
         location = f"{method.upper()} {path}"
         assert str(operation.get("summary", "")).strip(), location
@@ -243,7 +243,7 @@ def test_request_bodies_have_examples(openapi_document: JsonObject) -> None:
             assert media.get("example") is not None or media.get("examples"), (
                 f"{method.upper()} {path}: {media_type} lacks an example"
             )
-    assert bodies == 32
+    assert bodies == 34
 
 
 @pytest.mark.contract
@@ -606,6 +606,8 @@ negative_schema = (
     .exclude(path="/api/v1/coleta/pairing-exchange")
     .exclude(path="/api/v1/coleta/status")
     .exclude(path="/api/v1/coleta/catalogo")
+    # Installation-token transport is proved separately in test_native_financials.py.
+    .exclude(path="/api/v1/coleta/reader-captures")
     .exclude(path_regex=r"^/api/v1/coleta/(sessions|batches|jobs|contract)(/|$)")
     .exclude(
         # `chave` is an intentionally opaque, unconstrained string. There is no serializable
