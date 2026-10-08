@@ -42,6 +42,8 @@ Amount = Annotated[Decimal, BeforeValidator(exact_amount)]
 
 
 def money_text(value: Decimal) -> str:
+    if value == 0:
+        return "0"
     text = format(value, "f")
     return text.rstrip("0").rstrip(".") if "." in text else text
 

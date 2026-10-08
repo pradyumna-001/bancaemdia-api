@@ -36,6 +36,13 @@ def test_native_green_and_red_use_source_return_without_deriving_profit_from_odd
     assert native_bet(native_source(1)).returned == 0
 
 
+def test_signed_zero_return_does_not_create_a_different_financial_fact():
+    ordinary = native_bet(native_source(1, profitAmount=0))
+    signed = native_bet(native_source(1, profitAmount=-0.0))
+    assert signed.model_dump(mode="json")["returned"] == "0"
+    assert signed.canonical_hash == ordinary.canonical_hash
+
+
 def test_source_precision_is_retained_and_serialized_as_decimal_text():
     import json
 

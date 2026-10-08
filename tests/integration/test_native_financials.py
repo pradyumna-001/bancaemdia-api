@@ -468,6 +468,22 @@ async def test_equal_native_value_with_different_bytes_keeps_each_source_hash(
             )
             == 2
         )
+        zero_value, zero_bet = captured(native_source(1, id="unit-zero-return", profitAmount=0))
+        signed_value, signed_bet = captured(
+            native_source(1, id="unit-zero-return", profitAmount=-0.0)
+        )
+        assert signed_value.content_hash != zero_value.content_hash
+        await materialize_native(session, uid, hid, zero_bet, zero_value)
+        signed_result = await materialize_native(session, uid, hid, signed_bet, signed_value)
+        assert signed_result.result == "noop" and not signed_result.needs_review
+        assert (
+            await session.scalar(
+                select(func.count())
+                .select_from(NativeBetEvidence)
+                .where(NativeBetEvidence.bet_id == signed_result.bet_id)
+            )
+            == 2
+        )
 
 
 async def test_concurrent_duplicate_native_capture_converges(engine_app, como, novo_usuario):
