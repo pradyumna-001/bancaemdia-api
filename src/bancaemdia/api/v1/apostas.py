@@ -18,8 +18,8 @@ from bancaemdia.api.contracts import (
     BetsPageResponse,
     ErrorResponse,
 )
-from bancaemdia.api.deps import get_current_user
-from bancaemdia.db.session import get_db
+from bancaemdia.api.deps import get_current_user, get_current_user_snapshot
+from bancaemdia.db.session import get_db, get_db_snapshot
 from bancaemdia.domain.account_attribution import (
     AccountResolution,
     ResolutionStatus,
@@ -52,9 +52,10 @@ from bancaemdia.domain.registros import Aposta, Usuario
 from bancaemdia.domain.temporal import VALOR_UNIDADE_PADRAO_CENTAVOS
 from bancaemdia.models import Competicao, Mercado, Time, Tipster
 from bancaemdia.observability.metrics import apostas_created_total
+from bancaemdia.repositories.aposta_contexto_repo import ApostaContextoRepo
 from bancaemdia.repositories.aposta_repo import ApostaRepo
 from bancaemdia.repositories.casa_repo import CasaRepo
-from bancaemdia.repositories.conta_casa_repo import ContaCasaRepo
+from bancaemdia.repositories.conta_casa_repo import ContaCasaRepo as ContaCasaRepo
 from bancaemdia.repositories.evento_repo import EventoRepo
 from bancaemdia.repositories.revisao_pendente_repo import RevisaoPendenteRepo
 from bancaemdia.repositories.unidade_repo import UnidadeRepo
@@ -128,7 +129,11 @@ def _quando(valor: datetime | None) -> str | None:
     return None if valor is None else valor.isoformat()
 
 
-def linha_da_aposta(aposta: Aposta, estado: dict[str, Any] | None = None) -> dict[str, Any]:
+def linha_da_aposta(
+    aposta: Aposta,
+    estado: dict[str, Any] | None = None,
+    contexto: dict[str, Any] | None = None,
+) -> dict[str, Any]:
     atual = estado or {}
     return {
         "chave": aposta.chave,
@@ -149,6 +154,8 @@ def linha_da_aposta(aposta: Aposta, estado: dict[str, Any] | None = None) -> dic
         "freebet": aposta.freebet,
         "conta_casa_id": aposta.conta_casa_id,
         "conta_atribuicao": "UNASSIGNED" if aposta.conta_casa_id is None else "ASSIGNED",
+        "conta_contexto": (contexto or {}).get("conta_contexto"),
+        "banca_contexto": (contexto or {}).get("banca_contexto"),
         "tipster_id": aposta.tipster_id,
         "time_casa_id": aposta.time_casa_id,
         "time_fora_id": aposta.time_fora_id,
@@ -309,8 +316,8 @@ async def _historico(session: AsyncSession, usuario_id: int, chave: str) -> list
 
 @router.get("/api/v1/apostas", response_model=BetsPageResponse)
 async def listar_apostas(
-    usuario: Annotated[Usuario, Depends(get_current_user)],
-    session: Annotated[AsyncSession, Depends(get_db)],
+    usuario: Annotated[Usuario, Depends(get_current_user_snapshot)],
+    session: Annotated[AsyncSession, Depends(get_db_snapshot)],
     desde: datetime | None = None,
     ate: datetime | None = None,
     estado: str | None = None,
@@ -346,8 +353,17 @@ async def listar_apostas(
         page,
         page_size,
     )
+    histories = await EventoRepo().list_by_aposta_chaves(
+        session, usuario.id, [aposta.chave for aposta in apostas if aposta.chave is not None]
+    )
+    contexts = await ApostaContextoRepo().list_by_ids(session, usuario.id, [a.id for a in apostas])
+    linhas = []
+    for aposta in apostas:
+        events = histories.get(aposta.chave, []) if aposta.chave is not None else []
+        atual, _ = projetar([(e.tipo, e.fonte, e.payload_json) for e in events])
+        linhas.append(linha_da_aposta(aposta, atual, contexts.get(aposta.id)))
     return JSONResponse({
-        "data": [linha_da_aposta(aposta) for aposta in apostas],
+        "data": linhas,
         "pagination": {"page": page, "page_size": page_size, "total": total},
     })
 
@@ -359,8 +375,8 @@ async def listar_apostas(
 )
 async def ver_aposta(
     chave: str,
-    usuario: Annotated[Usuario, Depends(get_current_user)],
-    session: Annotated[AsyncSession, Depends(get_db)],
+    usuario: Annotated[Usuario, Depends(get_current_user_snapshot)],
+    session: Annotated[AsyncSession, Depends(get_db_snapshot)],
 ) -> JSONResponse:
     aposta = await ApostaRepo().get_by_chave(session, usuario.id, chave)
     if aposta is None:
@@ -371,13 +387,14 @@ async def ver_aposta(
     from bancaemdia.repositories.aposta_consolidacao import ApostaConsolidacaoRepo
 
     relations = await ApostaConsolidacaoRepo().history(session, usuario.id, aposta.id)
+    contexts = await ApostaContextoRepo().list_by_ids(session, usuario.id, [aposta.id])
     return JSONResponse({
         "consolidacoes": [relation_response(relation) for relation in relations],
         "fonte_contextual": any(
             relation.estado == "active" and relation.telegram_aposta_id == aposta.id
             for relation in relations
         ),
-        "aposta": linha_da_aposta(aposta, atual),
+        "aposta": linha_da_aposta(aposta, atual, contexts.get(aposta.id)),
         # `selecoes` não é tabela: o que o motor guardou das pernas do bilhete é o texto da
         # descrição e o mercado. Vem do histórico dobrado, não do evento de criação, senão a
         # correção da pessoa não apareceria em lugar nenhum.

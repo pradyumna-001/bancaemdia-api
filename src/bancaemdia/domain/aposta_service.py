@@ -17,6 +17,7 @@ CAMPOS_CORRIGIVEIS = frozenset({
     "casa",
     "evento",
     "descricao",
+    "mercado_bruto",
     "odd",
     "stake_unidades",
     "data_aposta",
@@ -39,7 +40,7 @@ CAMPOS_DE_ID = (
     "competicao_id",
 )
 CAMPOS_DE_DATA = ("data_aposta", "data_jogo")
-CAMPOS_DE_TEXTO = ("casa", "evento", "descricao", "revisao_motivo")
+CAMPOS_DE_TEXTO = ("casa", "evento", "descricao", "mercado_bruto", "revisao_motivo")
 ID_BIGINT_MINIMO = -(2**63)
 ID_BIGINT_MAXIMO = 2**63 - 1
 ODD_MINIMA = 1.01

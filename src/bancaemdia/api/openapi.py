@@ -190,7 +190,7 @@ OPERATION_DOCUMENTATION: dict[OperationKey, tuple[str, str]] = {
     ),
     ("get", "/api/v1/apostas"): (
         "Listar apostas",
-        "Lista apostas do usuário com filtros temporais, dimensionais e paginação.",
+        "Lista apostas do usuário com filtros temporais, dimensionais e paginação. Projeta os textos do histórico canônico e rótulos atuais autorizados das referências gravadas, em lote somente para a página. Leitura em snapshot; não reatribui contas nem recalcula finanças no cliente.",
     ),
     ("post", "/api/v1/apostas"): (
         "Criar aposta manual",
@@ -663,6 +663,7 @@ def _correction_schema(*, review: bool) -> JsonObject:
         "casa": text,
         "evento": text,
         "descricao": text,
+        "mercado_bruto": text,
         "odd": {"type": "number", "minimum": 1.01, "maximum": 1000},
         "stake_unidades": {"type": "number", "exclusiveMinimum": 0},
         "data_aposta": _nullable({"type": "string", "format": "date-time"}),
@@ -697,6 +698,20 @@ def _correction_schema(*, review: bool) -> JsonObject:
 
 
 def _configure_domain_request_schemas(schemas: JsonObject) -> None:
+    # Preserve the published Decimal text contract across Pydantic emitters.
+    for name in ("MetaEntrada", "MetaAlteracao"):
+        goal = _object(schemas[name], context=f"{name} schema")
+        properties = _object(goal["properties"], context=f"{name} properties")
+        for field in ("alvo", "linha_base"):
+            value = _object(properties[field], context=f"{name}.{field}")
+            variants = value["anyOf"]
+            if not isinstance(variants, list):
+                raise TypeError(f"{name}.{field} alternatives must be a list")
+            for variant in variants:
+                alternative = _object(variant, context=f"{name}.{field} alternative")
+                if alternative.get("type") == "string":
+                    alternative["pattern"] = r"^(?!^[-+.]*$)[+-]?0*\d*\.?\d*$"
+
     manual = _object(schemas["ApostaManual"], context="ApostaManual schema")
     manual["required"] = ["casa", "odd", "stake_unidades"]
     manual_properties = _object(manual["properties"], context="ApostaManual properties")
