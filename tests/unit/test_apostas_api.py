@@ -4,6 +4,7 @@ import asyncio
 import json
 import time
 from datetime import UTC, datetime, timedelta
+from typing import Any
 
 import httpx
 import jwt
@@ -22,10 +23,11 @@ from bancaemdia.api.v1 import apostas as rota
 from bancaemdia.auth import jwt as auth_jwt
 from bancaemdia.auth import middleware as auth_middleware
 from bancaemdia.config import get_settings
-from bancaemdia.db.session import get_db
+from bancaemdia.db.session import get_db, get_db_snapshot
 from bancaemdia.domain.account_attribution import AccountResolution, ResolutionStatus
 from bancaemdia.domain.materializar import MOTIVO_APAGADA, projetar
 from bancaemdia.domain.registros import Aposta, ContaCasa, Evento, RevisaoPendente, Usuario
+from bancaemdia.workers.materialization import FUSO_DO_BRASIL
 
 USUARIO = 7
 CHAVE = "t:100:5:0"
@@ -49,7 +51,7 @@ CRIACAO = {
 
 
 @pytest.fixture(scope="module")
-def chave_rsa():
+def chave_rsa() -> Any:
     par = rsa.generate_private_key(public_exponent=65537, key_size=2048)
     privada = par.private_bytes(Encoding.PEM, PrivateFormat.PKCS8, NoEncryption()).decode()
     return privada, {
@@ -58,7 +60,7 @@ def chave_rsa():
     }
 
 
-def _token(privada, sub=str(USUARIO)):
+def _token(privada: Any, sub: Any = str(USUARIO)) -> Any:
     settings = get_settings()
     corpo = {
         "sub": sub,
@@ -69,14 +71,14 @@ def _token(privada, sub=str(USUARIO)):
     return jwt.encode(corpo, privada, algorithm="RS256", headers={"kid": "k1"})
 
 
-def _chaves(jwk_publica):
-    def responder(request):
+def _chaves(jwk_publica: Any) -> Any:
+    def responder(request: Any) -> Any:
         return httpx.Response(200, json={"keys": [jwk_publica]})
 
     return auth_jwt.JWKSCache("https://issuer.test/jwks", "RS256", httpx.MockTransport(responder))
 
 
-def _aposta(**extra) -> Aposta:
+def _aposta(**extra: Any) -> Aposta:
     campos = {
         "id": 1,
         "usuario_id": USUARIO,
@@ -114,40 +116,46 @@ def _aposta(**extra) -> Aposta:
 
 
 def _banco(
-    historico=None,
-    aposta=None,
-    trava_livre=True,
-    upsert_vence=True,
-    revisoes=(),
-    total=1,
-    referencias_canonicas_ausentes=(),
-):
+    historico: Any = None,
+    aposta: Any = None,
+    trava_livre: Any = True,
+    upsert_vence: Any = True,
+    revisoes: Any = (),
+    total: Any = 1,
+    referencias_canonicas_ausentes: Any = (),
+) -> Any:
     class Banco:
-        def __init__(self):
+        def __init__(self) -> None:
+            self.filtros: Any = None
+            self.paginacao: Any = None
+            self.repos: Any = None
+            self.sessao: Any = None
             self.eventos = list(historico or [("APOSTA_CRIADA", "ia", dict(CRIACAO))])
-            self.gravados = []
+            self.gravados: list[dict[str, Any]] = []
             self.commits = 0
             self.rollbacks = 0
-            self.sql = []
-            self.consultas_de_conta = []
-            self.resolvidas = []
+            self.sql: list[tuple[str, Any]] = []
+            self.consultas_de_conta: list[tuple[int, int]] = []
+            self.resolvidas: list[tuple[str, str | None]] = []
 
     banco = Banco()
     linha = _aposta() if aposta is None else aposta
 
     class ApostaRepo:
-        async def get_by_chave(self, session, usuario_id, chave):
+        async def get_by_chave(self, session: Any, usuario_id: Any, chave: Any) -> Any:
             return linha if linha is not None and chave == linha.chave else None
 
-        async def get_by_chave_for_update(self, session, usuario_id, chave):
+        async def get_by_chave_for_update(self, session: Any, usuario_id: Any, chave: Any) -> Any:
             return await self.get_by_chave(session, usuario_id, chave)
 
-        async def list_page(self, session, usuario_id, filtros, pagina, tamanho):
+        async def list_page(
+            self, session: Any, usuario_id: Any, filtros: Any, pagina: Any, tamanho: Any
+        ) -> Any:
             banco.filtros = filtros
             banco.paginacao = (pagina, tamanho)
             return ([linha] if linha is not None else []), total
 
-        async def upsert_materializada(self, session, dados):
+        async def upsert_materializada(self, session: Any, dados: Any) -> Any:
             banco.gravados.append(dados)
             if not upsert_vence:
                 return None
@@ -155,7 +163,13 @@ def _banco(
             return _aposta(**campos)
 
     class EventoRepo:
-        async def append(self, session, dados):
+        async def list_by_aposta_chaves(self, session: Any, usuario_id: Any, chaves: Any) -> Any:
+            return {
+                chave: await self.list_by_aposta_chave(session, usuario_id, chave)
+                for chave in chaves
+            }
+
+        async def append(self, session: Any, dados: Any) -> Any:
             banco.eventos.append((dados["tipo"], dados["fonte"], dados["payload_json"]))
             return Evento(
                 id=len(banco.eventos),
@@ -170,7 +184,7 @@ def _banco(
                 aposta_chave=dados.get("aposta_chave"),
             )
 
-        async def list_by_aposta_chave(self, session, usuario_id, chave):
+        async def list_by_aposta_chave(self, session: Any, usuario_id: Any, chave: Any) -> Any:
             return [
                 Evento(
                     id=i,
@@ -188,16 +202,28 @@ def _banco(
             ]
 
     class RevisaoPendenteRepo:
-        async def list_abertas_by_aposta_chave(self, session, usuario_id, chave):
+        async def list_abertas_by_aposta_chave(
+            self, session: Any, usuario_id: Any, chave: Any
+        ) -> Any:
             return list(revisoes)
 
         async def resolve_superseded(
-            self, session, usuario_id, chave, motivo, *, include_account=False
-        ):
+            self,
+            session: Any,
+            usuario_id: Any,
+            chave: Any,
+            motivo: Any,
+            *,
+            include_account: Any = False,
+        ) -> Any:
             banco.resolvidas.append((chave, motivo))
 
+    class ApostaContextoRepo:
+        async def list_by_ids(self, session: Any, usuario_id: Any, ids: Any) -> Any:
+            return {}
+
     class ContaCasaRepo:
-        async def get_by_id(self, session, usuario_id, id_):
+        async def get_by_id(self, session: Any, usuario_id: Any, id_: Any) -> Any:
             banco.consultas_de_conta.append((usuario_id, id_))
             if id_ != 42:
                 return None
@@ -211,22 +237,24 @@ def _banco(
                 ativa=True,
             )
 
-        async def get_vigente_by_nome_da_casa(self, session, usuario_id, nome, data):
+        async def get_vigente_by_nome_da_casa(
+            self, session: Any, usuario_id: Any, nome: Any, data: Any
+        ) -> Any:
             return await self.get_by_id(session, usuario_id, 42)
 
     class CasaRepo:
-        async def get_id_by_nome(self, session, nome):
+        async def get_id_by_nome(self, session: Any, nome: Any) -> Any:
             return 1
 
     class UnidadeRepo:
-        async def get_vigente(self, session, usuario_id, quando):
+        async def get_vigente(self, session: Any, usuario_id: Any, quando: Any) -> Any:
             return None
 
     class Session:
-        async def execute(self, statement, params=None):
+        async def execute(self, statement: Any, params: Any = None) -> Any:
             banco.sql.append((str(statement), params))
 
-        async def scalar(self, statement, params=None):
+        async def scalar(self, statement: Any, params: Any = None) -> Any:
             sql = str(statement)
             banco.sql.append((sql, params))
             for tabela in ("tipsters", "times", "mercados", "competicoes"):
@@ -234,17 +262,18 @@ def _banco(
                     return None if tabela in referencias_canonicas_ausentes else 1
             return trava_livre
 
-        async def commit(self):
+        async def commit(self) -> Any:
             banco.commits += 1
 
-        async def rollback(self):
+        async def rollback(self) -> Any:
             banco.rollbacks += 1
 
     class Sessoes:
-        async def abrir(self):
+        async def abrir(self) -> Any:
             yield Session()
 
     banco.repos = {
+        "ApostaContextoRepo": ApostaContextoRepo,
         "ApostaRepo": ApostaRepo,
         "EventoRepo": EventoRepo,
         "RevisaoPendenteRepo": RevisaoPendenteRepo,
@@ -256,16 +285,18 @@ def _banco(
     return banco
 
 
-def _cliente(monkeypatch, chave_rsa, banco, usuario_id=USUARIO):
+def _cliente(
+    monkeypatch: pytest.MonkeyPatch, chave_rsa: Any, banco: Any, usuario_id: Any = USUARIO
+) -> Any:
     _, publica = chave_rsa
 
     class UsuarioRepo:
-        async def get_by_id(self, session, id_):
+        async def get_by_id(self, session: Any, id_: Any) -> Any:
             if id_ != usuario_id:
                 return None
             return Usuario(id=id_, email="p@teste.local", nome="P", criado_em=AGORA, ativo=True)
 
-    async def no_relations(*args, **kwargs):
+    async def no_relations(*args: Any, **kwargs: Any) -> Any:
         await asyncio.sleep(0)
         return []
 
@@ -275,7 +306,9 @@ def _cliente(monkeypatch, chave_rsa, banco, usuario_id=USUARIO):
     for nome, classe in banco.repos.items():
         monkeypatch.setattr(rota, nome, classe)
 
-    async def attribute_account(session, usuario_id, casa, instant, explicit_id=None):
+    async def attribute_account(
+        session: Any, usuario_id: Any, casa: Any, instant: Any, explicit_id: Any = None
+    ) -> Any:
         conta = await rota.ContaCasaRepo().get_vigente_by_nome_da_casa(
             session, usuario_id, casa, instant
         )
@@ -284,7 +317,7 @@ def _cliente(monkeypatch, chave_rsa, banco, usuario_id=USUARIO):
             None if conta is None else conta.id,
         )
 
-    async def sync_account_review(*args, **kwargs):
+    async def sync_account_review(*args: Any, **kwargs: Any) -> Any:
         await asyncio.sleep(0)
         return None
 
@@ -292,15 +325,19 @@ def _cliente(monkeypatch, chave_rsa, banco, usuario_id=USUARIO):
     monkeypatch.setattr(rota, "sync_account_review", sync_account_review)
     monkeypatch.setattr(auth_middleware, "get_jwks_cache", lambda: _chaves(publica))
     monkeypatch.setattr(deps, "UsuarioRepo", UsuarioRepo)
-    monkeypatch.setitem(main.app.dependency_overrides, get_db, banco.sessao)
+    overrides: dict[Any, Any] = main.app.dependency_overrides
+    monkeypatch.setitem(overrides, get_db, banco.sessao)
+    monkeypatch.setitem(overrides, get_db_snapshot, banco.sessao)
     return TestClient(main.app)
 
 
-def _cabecalho(privada):
+def _cabecalho(privada: Any) -> Any:
     return {"Authorization": f"Bearer {_token(privada)}"}
 
 
-def test_the_list_answers_with_the_bets_and_the_page(monkeypatch, chave_rsa) -> None:
+def test_the_list_answers_with_the_bets_and_the_page(
+    monkeypatch: pytest.MonkeyPatch, chave_rsa: Any
+) -> None:
     privada, _ = chave_rsa
     banco = _banco(total=137)
     cliente = _cliente(monkeypatch, chave_rsa, banco)
@@ -314,7 +351,9 @@ def test_the_list_answers_with_the_bets_and_the_page(monkeypatch, chave_rsa) -> 
     assert banco.paginacao == (2, 25)
 
 
-def test_the_list_passes_every_filter_the_person_asked_for(monkeypatch, chave_rsa) -> None:
+def test_the_list_passes_every_filter_the_person_asked_for(
+    monkeypatch: pytest.MonkeyPatch, chave_rsa: Any
+) -> None:
     privada, _ = chave_rsa
     banco = _banco()
     cliente = _cliente(monkeypatch, chave_rsa, banco)
@@ -335,7 +374,9 @@ def test_the_list_passes_every_filter_the_person_asked_for(monkeypatch, chave_rs
     assert banco.filtros["incluir_apagadas"] is False
 
 
-def test_a_page_bigger_than_the_cap_is_refused(monkeypatch, chave_rsa) -> None:
+def test_a_page_bigger_than_the_cap_is_refused(
+    monkeypatch: pytest.MonkeyPatch, chave_rsa: Any
+) -> None:
     privada, _ = chave_rsa
     cliente = _cliente(monkeypatch, chave_rsa, _banco())
 
@@ -345,14 +386,14 @@ def test_a_page_bigger_than_the_cap_is_refused(monkeypatch, chave_rsa) -> None:
     assert cliente.get("/api/v1/apostas?page=0", headers=_cabecalho(privada)).status_code == 422
 
 
-def test_the_list_needs_a_token(monkeypatch, chave_rsa) -> None:
+def test_the_list_needs_a_token(monkeypatch: pytest.MonkeyPatch, chave_rsa: Any) -> None:
     cliente = _cliente(monkeypatch, chave_rsa, _banco())
 
     assert cliente.get("/api/v1/apostas").status_code == 401
 
 
 def test_the_detail_brings_the_bet_its_picks_its_history_and_its_review(
-    monkeypatch, chave_rsa
+    monkeypatch: pytest.MonkeyPatch, chave_rsa: Any
 ) -> None:
     privada, _ = chave_rsa
     revisao = RevisaoPendente(
@@ -380,7 +421,9 @@ def test_the_detail_brings_the_bet_its_picks_its_history_and_its_review(
     assert corpo["revisao_pendente"]["motivo"] == "coerência das odds"
 
 
-def test_the_bet_of_another_person_is_not_found(monkeypatch, chave_rsa) -> None:
+def test_the_bet_of_another_person_is_not_found(
+    monkeypatch: pytest.MonkeyPatch, chave_rsa: Any
+) -> None:
     privada, _ = chave_rsa
     # Sob a RLS a aposta de outra pessoa é invisível, então ela não existe para quem pergunta.
     banco = _banco(aposta=None)
@@ -392,7 +435,9 @@ def test_the_bet_of_another_person_is_not_found(monkeypatch, chave_rsa) -> None:
     assert resposta.json() == {"detail": "não achei esta aposta"}
 
 
-def test_a_correction_becomes_one_event_with_only_what_changed(monkeypatch, chave_rsa) -> None:
+def test_a_correction_becomes_one_event_with_only_what_changed(
+    monkeypatch: pytest.MonkeyPatch, chave_rsa: Any
+) -> None:
     privada, _ = chave_rsa
     banco = _banco()
     cliente = _cliente(monkeypatch, chave_rsa, banco)
@@ -413,7 +458,9 @@ def test_a_correction_becomes_one_event_with_only_what_changed(monkeypatch, chav
     assert corpo["aposta"]["odd"] == pytest.approx(1.95)
 
 
-def test_a_correction_that_changes_nothing_writes_nothing(monkeypatch, chave_rsa) -> None:
+def test_a_correction_that_changes_nothing_writes_nothing(
+    monkeypatch: pytest.MonkeyPatch, chave_rsa: Any
+) -> None:
     privada, _ = chave_rsa
     banco = _banco()
     cliente = _cliente(monkeypatch, chave_rsa, banco)
@@ -426,7 +473,9 @@ def test_a_correction_that_changes_nothing_writes_nothing(monkeypatch, chave_rsa
     assert [t for t, _, _ in banco.eventos] == ["APOSTA_CRIADA"]
 
 
-def test_a_key_the_person_did_not_send_is_not_a_null(monkeypatch, chave_rsa) -> None:
+def test_a_key_the_person_did_not_send_is_not_a_null(
+    monkeypatch: pytest.MonkeyPatch, chave_rsa: Any
+) -> None:
     privada, _ = chave_rsa
     banco = _banco(historico=[("APOSTA_CRIADA", "ia", dict(CRIACAO, tipster_id=3))])
     cliente = _cliente(monkeypatch, chave_rsa, banco)
@@ -442,7 +491,9 @@ def test_a_key_the_person_did_not_send_is_not_a_null(monkeypatch, chave_rsa) -> 
     assert banco.eventos[-1][2] == {"tipster_id": None}
 
 
-def test_a_field_that_is_not_the_persons_to_change_is_refused(monkeypatch, chave_rsa) -> None:
+def test_a_field_that_is_not_the_persons_to_change_is_refused(
+    monkeypatch: pytest.MonkeyPatch, chave_rsa: Any
+) -> None:
     privada, _ = chave_rsa
     banco = _banco()
     cliente = _cliente(monkeypatch, chave_rsa, banco)
@@ -457,7 +508,9 @@ def test_a_field_that_is_not_the_persons_to_change_is_refused(monkeypatch, chave
     assert [t for t, _, _ in banco.eventos] == ["APOSTA_CRIADA"]
 
 
-def test_an_account_that_is_not_yours_is_refused_before_the_write(monkeypatch, chave_rsa) -> None:
+def test_an_account_that_is_not_yours_is_refused_before_the_write(
+    monkeypatch: pytest.MonkeyPatch, chave_rsa: Any
+) -> None:
     privada, _ = chave_rsa
     banco = _banco()
     cliente = _cliente(monkeypatch, chave_rsa, banco)
@@ -482,7 +535,7 @@ def test_an_account_that_is_not_yours_is_refused_before_the_write(monkeypatch, c
     ],
 )
 def test_an_unknown_shared_reference_is_refused_before_the_write(
-    monkeypatch, chave_rsa, campo, tabela
+    monkeypatch: pytest.MonkeyPatch, chave_rsa: Any, campo: Any, tabela: Any
 ) -> None:
     privada, _ = chave_rsa
     banco = _banco(referencias_canonicas_ausentes={tabela})
@@ -508,7 +561,9 @@ def test_an_unknown_shared_reference_is_refused_before_the_write(
         "competicao_id",
     ],
 )
-def test_a_boolean_is_never_accepted_as_a_reference_id(monkeypatch, chave_rsa, campo) -> None:
+def test_a_boolean_is_never_accepted_as_a_reference_id(
+    monkeypatch: pytest.MonkeyPatch, chave_rsa: Any, campo: Any
+) -> None:
     privada, _ = chave_rsa
     banco = _banco()
     cliente = _cliente(monkeypatch, chave_rsa, banco)
@@ -539,7 +594,7 @@ def test_a_boolean_is_never_accepted_as_a_reference_id(monkeypatch, chave_rsa, c
     ],
 )
 def test_an_id_outside_bigint_is_refused_before_any_database_access(
-    monkeypatch, chave_rsa, campo, valor
+    monkeypatch: pytest.MonkeyPatch, chave_rsa: Any, campo: Any, valor: Any
 ) -> None:
     privada, _ = chave_rsa
     banco = _banco()
@@ -565,7 +620,9 @@ def test_an_id_outside_bigint_is_refused_before_any_database_access(
     assert [t for t, _, _ in banco.eventos] == ["APOSTA_CRIADA"]
 
 
-def test_the_state_is_only_corrected_on_a_bet_marked_for_review(monkeypatch, chave_rsa) -> None:
+def test_the_state_is_only_corrected_on_a_bet_marked_for_review(
+    monkeypatch: pytest.MonkeyPatch, chave_rsa: Any
+) -> None:
     privada, _ = chave_rsa
     banco = _banco()
     cliente = _cliente(monkeypatch, chave_rsa, banco)
@@ -578,7 +635,9 @@ def test_the_state_is_only_corrected_on_a_bet_marked_for_review(monkeypatch, cha
     assert "marcada para revisão" in resposta.json()["detail"]
 
 
-def test_settling_a_bet_writes_the_result_and_the_money_it_implies(monkeypatch, chave_rsa) -> None:
+def test_settling_a_bet_writes_the_result_and_the_money_it_implies(
+    monkeypatch: pytest.MonkeyPatch, chave_rsa: Any
+) -> None:
     privada, _ = chave_rsa
     banco = _banco()
     cliente = _cliente(monkeypatch, chave_rsa, banco)
@@ -594,7 +653,9 @@ def test_settling_a_bet_writes_the_result_and_the_money_it_implies(monkeypatch, 
     assert corpo["aposta"]["lucro_centavos"] == 8_200
 
 
-def test_settling_a_bet_never_writes_a_cashbox_line(monkeypatch, chave_rsa) -> None:
+def test_settling_a_bet_never_writes_a_cashbox_line(
+    monkeypatch: pytest.MonkeyPatch, chave_rsa: Any
+) -> None:
     privada, _ = chave_rsa
     banco = _banco()
     cliente = _cliente(monkeypatch, chave_rsa, banco)
@@ -608,7 +669,9 @@ def test_settling_a_bet_never_writes_a_cashbox_line(monkeypatch, chave_rsa) -> N
     assert not any("movimento" in str(sql).lower() for sql, _ in banco.sql)
 
 
-def test_a_cashout_carries_the_value_the_house_paid(monkeypatch, chave_rsa) -> None:
+def test_a_cashout_carries_the_value_the_house_paid(
+    monkeypatch: pytest.MonkeyPatch, chave_rsa: Any
+) -> None:
     privada, _ = chave_rsa
     banco = _banco()
     cliente = _cliente(monkeypatch, chave_rsa, banco)
@@ -623,7 +686,9 @@ def test_a_cashout_carries_the_value_the_house_paid(monkeypatch, chave_rsa) -> N
     assert corpo["aposta"]["retorno_centavos"] == 12_345
 
 
-def test_a_cashout_without_its_value_is_refused(monkeypatch, chave_rsa) -> None:
+def test_a_cashout_without_its_value_is_refused(
+    monkeypatch: pytest.MonkeyPatch, chave_rsa: Any
+) -> None:
     privada, _ = chave_rsa
     banco = _banco()
     cliente = _cliente(monkeypatch, chave_rsa, banco)
@@ -639,7 +704,7 @@ def test_a_cashout_without_its_value_is_refused(monkeypatch, chave_rsa) -> None:
 
 
 def test_deleting_takes_the_bet_out_and_the_second_click_adds_nothing(
-    monkeypatch, chave_rsa
+    monkeypatch: pytest.MonkeyPatch, chave_rsa: Any
 ) -> None:
     privada, _ = chave_rsa
     banco = _banco()
@@ -654,7 +719,9 @@ def test_deleting_takes_the_bet_out_and_the_second_click_adds_nothing(
     assert segundo["eventos_gravados"] == 0
 
 
-def test_a_deleted_bet_comes_back_when_the_person_undoes_it(monkeypatch, chave_rsa) -> None:
+def test_a_deleted_bet_comes_back_when_the_person_undoes_it(
+    monkeypatch: pytest.MonkeyPatch, chave_rsa: Any
+) -> None:
     privada, _ = chave_rsa
     banco = _banco(
         historico=[
@@ -671,7 +738,9 @@ def test_a_deleted_bet_comes_back_when_the_person_undoes_it(monkeypatch, chave_r
     assert corpo["aposta"]["apagada"] is False
 
 
-def test_a_bet_someone_else_is_writing_answers_that_it_is_busy(monkeypatch, chave_rsa) -> None:
+def test_a_bet_someone_else_is_writing_answers_that_it_is_busy(
+    monkeypatch: pytest.MonkeyPatch, chave_rsa: Any
+) -> None:
     privada, _ = chave_rsa
     banco = _banco(trava_livre=False)
     cliente = _cliente(monkeypatch, chave_rsa, banco)
@@ -686,7 +755,9 @@ def test_a_bet_someone_else_is_writing_answers_that_it_is_busy(monkeypatch, chav
     assert banco.commits == 0
 
 
-def test_a_write_that_lost_the_race_is_not_reported_as_done(monkeypatch, chave_rsa) -> None:
+def test_a_write_that_lost_the_race_is_not_reported_as_done(
+    monkeypatch: pytest.MonkeyPatch, chave_rsa: Any
+) -> None:
     privada, _ = chave_rsa
     banco = _banco(upsert_vence=False)
     cliente = _cliente(monkeypatch, chave_rsa, banco)
@@ -699,7 +770,9 @@ def test_a_write_that_lost_the_race_is_not_reported_as_done(monkeypatch, chave_r
     assert (banco.commits, banco.rollbacks) == (0, 1)
 
 
-def test_every_write_takes_the_same_key_the_worker_takes(monkeypatch, chave_rsa) -> None:
+def test_every_write_takes_the_same_key_the_worker_takes(
+    monkeypatch: pytest.MonkeyPatch, chave_rsa: Any
+) -> None:
     privada, _ = chave_rsa
     banco = _banco()
     cliente = _cliente(monkeypatch, chave_rsa, banco)
@@ -711,7 +784,7 @@ def test_every_write_takes_the_same_key_the_worker_takes(monkeypatch, chave_rsa)
 
 
 def test_a_correction_that_answers_the_review_takes_it_off_the_queue(
-    monkeypatch, chave_rsa
+    monkeypatch: pytest.MonkeyPatch, chave_rsa: Any
 ) -> None:
     privada, _ = chave_rsa
     banco = _banco(
@@ -730,7 +803,9 @@ def test_a_correction_that_answers_the_review_takes_it_off_the_queue(
     assert banco.resolvidas == [(CHAVE, None)]
 
 
-def test_creating_a_bet_by_hand_needs_a_house_it_knows(monkeypatch, chave_rsa) -> None:
+def test_creating_a_bet_by_hand_needs_a_house_it_knows(
+    monkeypatch: pytest.MonkeyPatch, chave_rsa: Any
+) -> None:
     privada, _ = chave_rsa
     cliente = _cliente(monkeypatch, chave_rsa, _banco())
 
@@ -748,7 +823,9 @@ def test_creating_a_bet_by_hand_needs_a_house_it_knows(monkeypatch, chave_rsa) -
     assert "não conheço a casa" in casa_estranha.json()["detail"]
 
 
-def test_a_bet_created_by_hand_is_born_from_its_own_creation_event(monkeypatch, chave_rsa) -> None:
+def test_a_bet_created_by_hand_is_born_from_its_own_creation_event(
+    monkeypatch: pytest.MonkeyPatch, chave_rsa: Any
+) -> None:
     privada, _ = chave_rsa
     banco = _banco()
     cliente = _cliente(monkeypatch, chave_rsa, banco)
@@ -779,7 +856,7 @@ def test_a_bet_created_by_hand_is_born_from_its_own_creation_event(monkeypatch, 
 
 
 def test_manual_account_reference_is_saved_and_cross_house_is_rejected(
-    monkeypatch, chave_rsa
+    monkeypatch: pytest.MonkeyPatch, chave_rsa: Any
 ) -> None:
     privada, _ = chave_rsa
     banco = _banco()
@@ -796,7 +873,7 @@ def test_manual_account_reference_is_saved_and_cross_house_is_rejected(
 
     from bancaemdia.domain.account_attribution_service import InvalidAccountReferenceError
 
-    async def invalid(*args, **kwargs):
+    async def invalid(*args: Any, **kwargs: Any) -> Any:
         await asyncio.sleep(0)
         raise InvalidAccountReferenceError("conta_casa_id não pertence a você nesta casa")
 
@@ -810,15 +887,17 @@ def test_manual_account_reference_is_saved_and_cross_house_is_rejected(
     assert len(banco.eventos) == events_before_rejection
 
 
-def test_a_bet_created_without_a_date_uses_brazil_time(monkeypatch, chave_rsa) -> None:
+def test_a_bet_created_without_a_date_uses_brazil_time(
+    monkeypatch: pytest.MonkeyPatch, chave_rsa: Any
+) -> None:
     privada, _ = chave_rsa
     banco = _banco()
-    instante = datetime(2026, 9, 22, 14, 30, tzinfo=rota.FUSO_DO_BRASIL)
+    instante = datetime(2026, 9, 22, 14, 30, tzinfo=FUSO_DO_BRASIL)
 
     class Relogio(datetime):
         @classmethod
-        def now(cls, tz=None):
-            assert tz is rota.FUSO_DO_BRASIL
+        def now(cls, tz: Any = None) -> Any:
+            assert tz is FUSO_DO_BRASIL
             return instante
 
     monkeypatch.setattr(rota, "datetime", Relogio)
@@ -835,7 +914,9 @@ def test_a_bet_created_without_a_date_uses_brazil_time(monkeypatch, chave_rsa) -
     assert banco.gravados[-1]["data_aposta"] == instante
 
 
-def test_the_bet_written_by_the_route_carries_what_the_history_says(monkeypatch, chave_rsa) -> None:
+def test_the_bet_written_by_the_route_carries_what_the_history_says(
+    monkeypatch: pytest.MonkeyPatch, chave_rsa: Any
+) -> None:
     privada, _ = chave_rsa
     banco = _banco()
     cliente = _cliente(monkeypatch, chave_rsa, banco)
@@ -864,7 +945,9 @@ def test_the_routes_of_this_issue_are_registered() -> None:
     assert "post" in caminhos["/api/v1/apostas/{chave}/restaurar"]
 
 
-def test_a_bet_that_is_not_there_is_not_written(monkeypatch, chave_rsa) -> None:
+def test_a_bet_that_is_not_there_is_not_written(
+    monkeypatch: pytest.MonkeyPatch, chave_rsa: Any
+) -> None:
     privada, _ = chave_rsa
     banco = _banco(aposta=None)
     cliente = _cliente(monkeypatch, chave_rsa, banco)
@@ -877,7 +960,9 @@ def test_a_bet_that_is_not_there_is_not_written(monkeypatch, chave_rsa) -> None:
     assert banco.gravados == []
 
 
-def test_the_person_can_ask_for_the_deleted_ones(monkeypatch, chave_rsa) -> None:
+def test_the_person_can_ask_for_the_deleted_ones(
+    monkeypatch: pytest.MonkeyPatch, chave_rsa: Any
+) -> None:
     privada, _ = chave_rsa
     banco = _banco()
     cliente = _cliente(monkeypatch, chave_rsa, banco)
@@ -887,7 +972,7 @@ def test_the_person_can_ask_for_the_deleted_ones(monkeypatch, chave_rsa) -> None
     assert banco.filtros["incluir_apagadas"] is True
 
 
-def test_an_inactive_account_cannot_write(monkeypatch, chave_rsa) -> None:
+def test_an_inactive_account_cannot_write(monkeypatch: pytest.MonkeyPatch, chave_rsa: Any) -> None:
     privada, _ = chave_rsa
     banco = _banco()
     cliente = _cliente(monkeypatch, chave_rsa, banco, usuario_id=999)
@@ -899,7 +984,7 @@ def test_an_inactive_account_cannot_write(monkeypatch, chave_rsa) -> None:
 
 
 def test_the_answer_of_a_bet_shows_the_money_in_cents_and_the_dates_as_text(
-    monkeypatch, chave_rsa
+    monkeypatch: pytest.MonkeyPatch, chave_rsa: Any
 ) -> None:
     privada, _ = chave_rsa
     banco = _banco(aposta=_aposta(estado="GREEN", retorno_centavos=18_200))
@@ -914,7 +999,9 @@ def test_the_answer_of_a_bet_shows_the_money_in_cents_and_the_dates_as_text(
     assert corpo["apagada"] is False
 
 
-def test_a_settled_bet_can_be_settled_again(monkeypatch, chave_rsa) -> None:
+def test_a_settled_bet_can_be_settled_again(
+    monkeypatch: pytest.MonkeyPatch, chave_rsa: Any
+) -> None:
     privada, _ = chave_rsa
     banco = _banco(
         historico=[
@@ -934,7 +1021,9 @@ def test_a_settled_bet_can_be_settled_again(monkeypatch, chave_rsa) -> None:
     assert corpo["aposta"]["retorno_centavos"] == 0
 
 
-def test_a_date_the_person_sends_keeps_its_hour(monkeypatch, chave_rsa) -> None:
+def test_a_date_the_person_sends_keeps_its_hour(
+    monkeypatch: pytest.MonkeyPatch, chave_rsa: Any
+) -> None:
     privada, _ = chave_rsa
     banco = _banco()
     cliente = _cliente(monkeypatch, chave_rsa, banco)
@@ -952,7 +1041,9 @@ def test_a_date_the_person_sends_keeps_its_hour(monkeypatch, chave_rsa) -> None:
     assert gravado.hour == 21
 
 
-def test_repeating_a_result_does_not_erase_what_the_house_paid(monkeypatch, chave_rsa) -> None:
+def test_repeating_a_result_does_not_erase_what_the_house_paid(
+    monkeypatch: pytest.MonkeyPatch, chave_rsa: Any
+) -> None:
     privada, _ = chave_rsa
     banco = _banco()
     cliente = _cliente(monkeypatch, chave_rsa, banco)
@@ -971,7 +1062,9 @@ def test_repeating_a_result_does_not_erase_what_the_house_paid(monkeypatch, chav
     assert de_novo["aposta"]["retorno_centavos"] == 15_000
 
 
-def test_changing_the_state_goes_back_to_the_formula(monkeypatch, chave_rsa) -> None:
+def test_changing_the_state_goes_back_to_the_formula(
+    monkeypatch: pytest.MonkeyPatch, chave_rsa: Any
+) -> None:
     privada, _ = chave_rsa
     banco = _banco()
     cliente = _cliente(monkeypatch, chave_rsa, banco)
@@ -988,7 +1081,9 @@ def test_changing_the_state_goes_back_to_the_formula(monkeypatch, chave_rsa) -> 
     assert mudou["aposta"]["retorno_centavos"] == 0
 
 
-def test_clearing_an_id_really_clears_it_on_the_bet(monkeypatch, chave_rsa) -> None:
+def test_clearing_an_id_really_clears_it_on_the_bet(
+    monkeypatch: pytest.MonkeyPatch, chave_rsa: Any
+) -> None:
     privada, _ = chave_rsa
     banco = _banco(historico=[("APOSTA_CRIADA", "ia", dict(CRIACAO, tipster_id=3))])
     cliente = _cliente(monkeypatch, chave_rsa, banco)
@@ -1002,7 +1097,9 @@ def test_clearing_an_id_really_clears_it_on_the_bet(monkeypatch, chave_rsa) -> N
     assert banco.gravados[-1]["tipster_id"] is None
 
 
-def test_correcting_the_words_of_a_bet_changes_what_the_person_sees(monkeypatch, chave_rsa) -> None:
+def test_correcting_the_words_of_a_bet_changes_what_the_person_sees(
+    monkeypatch: pytest.MonkeyPatch, chave_rsa: Any
+) -> None:
     privada, _ = chave_rsa
     banco = _banco()
     cliente = _cliente(monkeypatch, chave_rsa, banco)
@@ -1018,9 +1115,13 @@ def test_correcting_the_words_of_a_bet_changes_what_the_person_sees(monkeypatch,
     assert detalhe["selecoes"]["descricao"] == "Menos de 2.5"
     assert detalhe["selecoes"]["casa"] == "KTO"
     assert detalhe["aposta"]["descricao"] == "Menos de 2.5"
+    lista = cliente.get("/api/v1/apostas", headers=_cabecalho(privada)).json()
+    assert lista["data"][0] == detalhe["aposta"]
 
 
-def test_deleting_a_bet_takes_its_review_off_the_queue(monkeypatch, chave_rsa) -> None:
+def test_deleting_a_bet_takes_its_review_off_the_queue(
+    monkeypatch: pytest.MonkeyPatch, chave_rsa: Any
+) -> None:
     privada, _ = chave_rsa
     banco = _banco(
         historico=[("APOSTA_CRIADA", "ia", dict(CRIACAO, revisao_motivo="a foto tem 2 cupons"))]
@@ -1033,7 +1134,9 @@ def test_deleting_a_bet_takes_its_review_off_the_queue(monkeypatch, chave_rsa) -
     assert banco.resolvidas == [(CHAVE, None)]
 
 
-def test_the_profit_agrees_with_the_stake_in_the_same_answer(monkeypatch, chave_rsa) -> None:
+def test_the_profit_agrees_with_the_stake_in_the_same_answer(
+    monkeypatch: pytest.MonkeyPatch, chave_rsa: Any
+) -> None:
     privada, _ = chave_rsa
     banco = _banco(aposta=_aposta(estado="GREEN", retorno_centavos=18_200, stake_centavos=9_999))
     cliente = _cliente(monkeypatch, chave_rsa, banco)
@@ -1044,16 +1147,18 @@ def test_the_profit_agrees_with_the_stake_in_the_same_answer(monkeypatch, chave_
 
 
 def test_a_bet_created_without_an_account_says_it_will_not_show_in_the_house_filter(
-    monkeypatch, chave_rsa
+    monkeypatch: pytest.MonkeyPatch, chave_rsa: Any
 ) -> None:
     privada, _ = chave_rsa
     banco = _banco()
 
     class SemConta:
-        async def get_by_id(self, session, usuario_id, id_):
+        async def get_by_id(self, session: Any, usuario_id: Any, id_: Any) -> Any:
             return None
 
-        async def get_vigente_by_nome_da_casa(self, session, usuario_id, nome, data):
+        async def get_vigente_by_nome_da_casa(
+            self, session: Any, usuario_id: Any, nome: Any, data: Any
+        ) -> Any:
             return None
 
     cliente = _cliente(monkeypatch, chave_rsa, banco)

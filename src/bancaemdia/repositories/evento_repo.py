@@ -7,6 +7,24 @@ from bancaemdia.repositories.base import colunas
 
 
 class EventoRepo:
+    async def list_by_aposta_chaves(
+        self, session: AsyncSession, usuario_id: int, chaves: list[str]
+    ) -> dict[str, list[Evento]]:
+        """Read only the page's histories, in the canonical per-bet event order."""
+        if not chaves:
+            return {}
+        stmt = (
+            select(models.Evento)
+            .where(models.Evento.usuario_id == usuario_id, models.Evento.aposta_chave.in_(chaves))
+            .order_by(models.Evento.id)
+        )
+        histories: dict[str, list[Evento]] = {}
+        for obj in (await session.execute(stmt)).scalars():
+            event = Evento(**colunas(obj))
+            assert event.aposta_chave is not None
+            histories.setdefault(event.aposta_chave, []).append(event)
+        return histories
+
     async def append(self, session: AsyncSession, dados: dict[str, object]) -> Evento:
         obj = (
             await session.execute(insert(models.Evento).values(**dados).returning(models.Evento))

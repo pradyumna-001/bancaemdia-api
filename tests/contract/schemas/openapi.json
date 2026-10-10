@@ -626,6 +626,84 @@
         "title": "BatchAck",
         "type": "object"
       },
+      "BetAccountContextResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "apelido": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Current nickname; empty legacy nickname becomes null.",
+            "title": "Apelido"
+          },
+          "ativa": {
+            "title": "Ativa",
+            "type": "boolean"
+          },
+          "casa_id": {
+            "pattern": "^[1-9][0-9]*$",
+            "title": "Casa Id",
+            "type": "string"
+          },
+          "estado": {
+            "title": "Estado",
+            "type": "string"
+          },
+          "id": {
+            "description": "Exact persisted account BIGINT, as text.",
+            "pattern": "^[1-9][0-9]*$",
+            "title": "Id",
+            "type": "string"
+          },
+          "titular": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/BetHolderContextResponse"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "required": [
+          "id",
+          "casa_id",
+          "apelido",
+          "ativa",
+          "estado",
+          "titular"
+        ],
+        "title": "BetAccountContextResponse",
+        "type": "object"
+      },
+      "BetBankContextResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "id": {
+            "description": "Exact bank reference on the bet, as text.",
+            "pattern": "^[1-9][0-9]*$",
+            "title": "Id",
+            "type": "string"
+          },
+          "nome": {
+            "description": "Current name of the persisted bank, never the account's current bank.",
+            "title": "Nome",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "nome"
+        ],
+        "title": "BetBankContextResponse",
+        "type": "object"
+      },
       "BetChangedResponse": {
         "additionalProperties": false,
         "properties": {
@@ -784,6 +862,33 @@
         "title": "BetEventResponse",
         "type": "object"
       },
+      "BetHolderContextResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "arquivado": {
+            "title": "Arquivado",
+            "type": "boolean"
+          },
+          "id": {
+            "description": "Exact persisted holder BIGINT, as text.",
+            "pattern": "^[1-9][0-9]*$",
+            "title": "Id",
+            "type": "string"
+          },
+          "nome": {
+            "description": "Current name of the holder of the persisted account.",
+            "title": "Nome",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "nome",
+          "arquivado"
+        ],
+        "title": "BetHolderContextResponse",
+        "type": "object"
+      },
       "BetResponse": {
         "additionalProperties": false,
         "properties": {
@@ -802,6 +907,17 @@
               }
             ],
             "title": "Atualizada Em"
+          },
+          "banca_contexto": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/BetBankContextResponse"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "GET list/detail: authorized current label for the bank persisted on this bet. Null if absent/inaccessible; mutations do not hydrate labels."
           },
           "casa": {
             "anyOf": [
@@ -859,6 +975,17 @@
               }
             ],
             "title": "Conta Casa Id"
+          },
+          "conta_contexto": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/BetAccountContextResponse"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "GET list/detail: authorized labels for the persisted account, including inactive accounts. No read-time reassignment; labels are current, identity is the recorded attribution. Null if unassigned/inaccessible; mutations do not hydrate labels."
           },
           "criada_em": {
             "anyOf": [
@@ -2394,6 +2521,16 @@
           "freebet": {
             "type": "boolean"
           },
+          "mercado_bruto": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
           "mercado_id": {
             "anyOf": [
               {
@@ -2560,6 +2697,16 @@
           },
           "freebet": {
             "type": "boolean"
+          },
+          "mercado_bruto": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
           },
           "mercado_id": {
             "anyOf": [
@@ -6906,7 +7053,7 @@
     },
     "/api/v1/apostas": {
       "get": {
-        "description": "Lista apostas do usuário com filtros temporais, dimensionais e paginação.",
+        "description": "Lista apostas do usuário com filtros temporais, dimensionais e paginação. Projeta os textos do histórico canônico e rótulos atuais autorizados das referências gravadas, em lote somente para a página. Leitura em snapshot; não reatribui contas nem recalcula finanças no cliente.",
         "operationId": "listar_apostas_api_v1_apostas_get",
         "parameters": [
           {

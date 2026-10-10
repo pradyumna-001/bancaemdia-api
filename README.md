@@ -189,6 +189,12 @@ restoration. Probable candidates and account/context ambiguity go to review with
 financial mutation. Reviewed linking and unlinking use `/api/v1/consolidacoes`; see
 [the consolidation contract](docs/contracts/consolidacao-apostas.md).
 
+Bet pages and details project readable text from the same canonical event history.
+Only page histories and authorized account/holder/bank references are fetched in batches,
+under a coherent read snapshot. Labels are current; account identity is the recorded
+game-time attribution, including explicit multicontas references and inactive accounts.
+See [the operational page contract](docs/contracts/bet-page-projection.md).
+
 Excel bets can be imported with `POST /api/v1/apostas/importar-planilha` as multipart fields
 `arquivo` (`.xlsx`, up to 5 MB and 1,000 rows) and `origem_id`. Each nonempty worksheet needs
 headers `casa`, `data_aposta`, `odd`, `stake_unidades`, `atualizada_em`; optional headers are

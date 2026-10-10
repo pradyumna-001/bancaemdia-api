@@ -2,6 +2,7 @@ import base64
 import json
 import secrets
 from pathlib import Path
+from typing import Any
 
 from cryptography.hazmat.primitives import serialization
 from cryptography.hazmat.primitives.asymmetric import rsa
@@ -9,7 +10,7 @@ from cryptography.hazmat.primitives.asymmetric import rsa
 from bancaemdia.auth.identity_config import IdentitySettings
 
 
-def key_settings(directory: Path, **overrides) -> IdentitySettings:
+def key_settings(directory: Path, **overrides: Any) -> IdentitySettings:
     signing = directory / "signing.json"
     encryption = directory / "encryption.json"
     key = rsa.generate_private_key(public_exponent=65537, key_size=2048)
