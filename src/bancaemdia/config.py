@@ -143,6 +143,10 @@ class Settings(BaseSettings):
     )
     # Reserved for an issuer that does not exist yet. RS256 verification uses JWT_JWKS_URL,
     # never this secret; do not wire it into the verifier as a fallback.
+    PAINEL_CURSOR_SECRET: SecretStr | None = Field(
+        default=None,
+        description="Optional dedicated private secret for encrypted dashboard pagination; absent derives a purpose-separated key from COLETA_TOKEN_SECRET.",
+    )
     JWT_SECRET_KEY: str = Field(..., description="Reserved issuer signing key, not a verifier key")
     JWT_ALGORITHM: str = Field(default="RS256", description="JWT signing algorithm")
     JWT_JWKS_URL: str | None = Field(

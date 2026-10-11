@@ -21,6 +21,7 @@ import zipfile
 from collections import Counter
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
+from typing import Any, cast
 from uuid import uuid4
 from xml.etree import ElementTree
 
@@ -38,6 +39,7 @@ LABEL = "bancaemdia.k6-run"
 USER_COUNT = 250
 COLLECTION_COUNT = 100
 WORKER_CONCURRENCY = {"extraction": 2, "materialization": 1}
+HTTP_KEEP_ALIVE_SECONDS = 5
 
 
 def prepare_tls(directory: Path) -> None:
@@ -69,8 +71,12 @@ def prepare_tls(directory: Path) -> None:
     (directory / "tls.crt").write_bytes(certificate.public_bytes(Encoding.PEM))
 
 
+def runtime_platform() -> str:
+    return sys.platform
+
+
 def runtime_dir() -> Path:
-    if sys.platform != "linux" or os.environ.get("GITHUB_ACTIONS") != "true":
+    if runtime_platform() != "linux" or os.environ.get("GITHUB_ACTIONS") != "true":
         raise RuntimeError("This seeder requires an isolated GitHub Actions Linux runner")
     runner = Path(os.environ["RUNNER_TEMP"]).resolve()
     directory = Path(os.environ["K6_STAGING_DIR"]).resolve()
@@ -86,11 +92,30 @@ def write_private(path: Path, value: object) -> None:
     path.chmod(0o600)
 
 
-def state(directory: Path) -> dict:
-    return json.loads((directory / "state.json").read_text(encoding="utf-8"))
+def state(directory: Path) -> dict[str, Any]:
+    return cast(dict[str, Any], json.loads((directory / "state.json").read_text(encoding="utf-8")))
 
 
-def process_cpu(info: dict) -> dict[str, float]:
+def process_group(pid: int) -> int:
+    if hasattr(os, "getpgid"):
+        return int(os.getpgid(pid))
+    raise RuntimeError("Process groups require Linux")
+
+
+def terminate_group(pgid: int) -> None:
+    if hasattr(os, "killpg"):
+        os.killpg(pgid, signal.SIGTERM)
+        return
+    raise RuntimeError("Process groups require Linux")
+
+
+def clock_ticks() -> int:
+    if hasattr(os, "sysconf"):
+        return int(os.sysconf("SC_CLK_TCK"))
+    raise RuntimeError("CPU diagnostics require Linux")
+
+
+def process_cpu(info: dict[str, Any]) -> dict[str, float]:
     """Numeric CPU diagnostics for this run's live Python process groups only."""
     groups = dict(
         zip(
@@ -100,7 +125,7 @@ def process_cpu(info: dict) -> dict[str, float]:
         )
     )
     totals = dict.fromkeys(groups.values(), 0.0)
-    ticks = os.sysconf("SC_CLK_TCK")
+    ticks = clock_ticks()
     for path in Path("/proc").glob("[0-9]*/stat"):
         try:
             fields = path.read_text().rsplit(")", 1)[1].split()
@@ -112,12 +137,40 @@ def process_cpu(info: dict) -> dict[str, float]:
     return totals
 
 
-def cpu_since_ready(info: dict) -> dict[str, float]:
+def cpu_since_ready(info: dict[str, Any]) -> dict[str, float]:
     baseline = info.get("cpu_baseline", {})
     return {
         name: round(max(0, value - baseline.get(name, 0)), 3)
         for name, value in process_cpu(info).items()
     }
+
+
+def api_child_cpu(info: dict[str, Any]) -> dict[str, float]:
+    """Numeric child CPU only; never process arguments or request identifiers."""
+    if len(info["processes"]) < 4:
+        return {}
+    parent = info["processes"][3]
+    ticks = clock_ticks()
+    result = {}
+    for path in Path("/proc").glob("[0-9]*/stat"):
+        try:
+            fields = path.read_text().rsplit(")", 1)[1].split()
+            if int(fields[1]) == parent:
+                result[path.parent.name] = (int(fields[11]) + int(fields[12])) / ticks
+        except (OSError, ValueError, IndexError):
+            continue
+    return result
+
+
+def api_child_cpu_since_ready(info: dict[str, Any]) -> list[float]:
+    baseline = info.get("api_child_cpu_baseline", {})
+    return sorted(
+        (
+            round(max(0, value - baseline.get(pid, 0)), 3)
+            for pid, value in api_child_cpu(info).items()
+        ),
+        reverse=True,
+    )
 
 
 def mask(value: str) -> None:
@@ -126,9 +179,9 @@ def mask(value: str) -> None:
     sys.stdout.flush()
 
 
-def command(args: list[str], **kwargs: object) -> str:
+def command(args: list[str], **kwargs: Any) -> str:
     result = subprocess.run(args, check=True, capture_output=True, text=True, **kwargs)
-    return result.stdout.strip()
+    return str(result.stdout.strip())
 
 
 async def connect(port: int, password: str, user: str = "k6_admin") -> asyncpg.Connection:
@@ -158,7 +211,9 @@ async def wait_database(port: int, password: str, *, replica: bool = False) -> N
     raise RuntimeError("PostgreSQL did not reach the required primary/standby state")
 
 
-def docker_run(info: dict, service: str, args: list[str], env: dict | None = None) -> None:
+def docker_run(
+    info: dict[str, Any], service: str, args: list[str], env: dict[str, str] | None = None
+) -> None:
     command(
         [
             "docker",
@@ -181,7 +236,7 @@ async def prepare(directory: Path) -> None:
         raise RuntimeError("Refusing to reuse a previous staging runtime")
     directory.mkdir(mode=0o700, parents=True)
     prepare_tls(directory)
-    info = {
+    info: dict[str, Any] = {
         "name": f"k6-{secrets.token_hex(8)}",
         "admin_password": secrets.token_hex(32),
         "app_password": secrets.token_hex(32),
@@ -345,7 +400,7 @@ async def prepare(directory: Path) -> None:
     await wait_database(15433, info["admin_password"], replica=True)
 
 
-async def seed(directory: Path, info: dict, env: dict) -> None:
+async def seed(directory: Path, info: dict[str, Any], env: dict[str, str]) -> None:
     # Both targets are newly created containers whose ownership is recorded above.
     from sqlalchemy.ext.asyncio import create_async_engine
 
@@ -433,7 +488,7 @@ async def seed(directory: Path, info: dict, env: dict) -> None:
     seed_extraction_cache(env)
 
 
-def seed_extraction_cache(env: dict) -> None:
+def seed_extraction_cache(env: dict[str, str]) -> None:
     # Only the existing, explicitly synthetic k6 archive is cached. No reader-review fixtures.
     from bancaemdia.cache.extracao_cache import chave_de_imagem, get_cache
     from bancaemdia.domain.upload import ExportTelegram
@@ -551,7 +606,7 @@ async def upload_preflight(directory: Path) -> None:
     )
 
 
-def spawn(directory: Path, args: list[str], name: str, env: dict) -> None:
+def spawn(directory: Path, args: list[str], name: str, env: dict[str, str]) -> None:
     info = state(directory)
     with (directory / f"{name}.log").open("w", encoding="utf-8") as log:
         process = subprocess.Popen(
@@ -679,7 +734,9 @@ async def start(directory: Path) -> None:
             "--workers",
             str(min(4, os.cpu_count() or 1)),
             "--timeout-keep-alive",
-            "30",
+            # Match Uvicorn's idle timeout used by the runtime Dockerfile.
+            # Six-second collection users include the real reconnection cost.
+            str(HTTP_KEEP_ALIVE_SECONDS),
             "--log-level",
             "warning",
             "--no-access-log",
@@ -716,6 +773,7 @@ async def start(directory: Path) -> None:
         handle.write(f"COLETA_TOKENS_JSON={json.dumps(tokens['coleta'])}\n")
     info = state(directory)
     info["cpu_baseline"] = process_cpu(info)
+    info["api_child_cpu_baseline"] = api_child_cpu(info)
     write_private(directory / "state.json", info)
 
 
@@ -822,6 +880,8 @@ async def verify(directory: Path) -> None:
         "live_process_cpu_seconds_since_ready": cpu_since_ready(info),
         "runner_cpus": os.cpu_count(),
         "http_workers": min(4, os.cpu_count() or 1),
+        "http_keep_alive_seconds": HTTP_KEEP_ALIVE_SECONDS,
+        "api_child_cpu_seconds_since_ready": api_child_cpu_since_ready(info),
         "celery_concurrency": WORKER_CONCURRENCY,
         "api_pool_per_engine": {
             "retained": 30,
@@ -847,8 +907,8 @@ def cleanup(directory: Path) -> None:
         try:
             environment = Path(f"/proc/{pid}/environ").read_bytes()
             marker = f"K6_STAGING_DIR={directory}".encode()
-            if marker in environment.split(b"\0") and os.getpgid(pid) == pid:
-                os.killpg(pid, signal.SIGTERM)
+            if marker in environment.split(b"\0") and process_group(pid) == pid:
+                terminate_group(pid)
         except (FileNotFoundError, ProcessLookupError):
             pass
     containers = command([
@@ -879,6 +939,12 @@ def diagnose(directory: Path) -> None:
         return
     sys.stdout.write(
         json.dumps({"live_process_cpu_seconds_since_ready": cpu_since_ready(state(directory))})
+        + "\n"
+    )
+    sys.stdout.write(
+        json.dumps({
+            "api_child_cpu_seconds_since_ready": api_child_cpu_since_ready(state(directory))
+        })
         + "\n"
     )
     # Only exception classes and known routine names, never task arguments,

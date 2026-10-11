@@ -34,7 +34,8 @@ class IdentityTransportMiddleware:
         settings = identity_settings()
         request = Request(scope)
         path = request_path(request)
-        if not settings.AUTH_ENABLED and not path.startswith("/auth/"):
+        private_financial = path.startswith("/api/v1/painel/filtrado")
+        if not settings.AUTH_ENABLED and not path.startswith("/auth/") and not private_financial:
             # Disabled identity has no transport policy on these routes. Do not
             # create a task group or buffer a streaming collection response.
             await self.app(scope, receive, send)
@@ -58,7 +59,7 @@ class IdentityTransportMiddleware:
                 response = Response(
                     status_code=204,
                     headers={
-                        "Access-Control-Allow-Methods": "GET,HEAD,POST,PATCH,DELETE,OPTIONS",
+                        "Access-Control-Allow-Methods": "GET,HEAD,POST,PUT,PATCH,DELETE,OPTIONS",
                         "Access-Control-Allow-Headers": ",".join(sorted(ALLOWED_HEADERS)),
                         "Access-Control-Max-Age": "300",
                     },
@@ -93,8 +94,13 @@ class IdentityTransportMiddleware:
                         "X-Auth-Error, X-Request-ID, Retry-After"
                     )
                     headers["Vary"] = ", ".join(filter(None, [headers.get("Vary"), "Origin"]))
-                if path.startswith("/auth/") or (
-                    settings.AUTH_ENABLED and path.startswith("/api/")
+                if private_financial:
+                    vary = {v.strip() for v in headers.get("Vary", "").split(",") if v.strip()}
+                    headers["Vary"] = ", ".join(sorted(vary | {"Authorization", "Cookie"}))
+                if (
+                    private_financial
+                    or path.startswith("/auth/")
+                    or (settings.AUTH_ENABLED and path.startswith("/api/"))
                 ):
                     headers["Cache-Control"] = "private, no-store"
                     headers["Pragma"] = "no-cache"

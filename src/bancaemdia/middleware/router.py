@@ -57,7 +57,10 @@ def needs_primary(request: Request, usuario_id: int | None, writes: RecentWrites
     if (request.headers.get(READ_REPLICA_HEADER) or "").strip().lower() == "false":
         return True
     fresh = (request.query_params.get("fresh") or "").strip().lower()
-    if route_path(request) == PAINEL_PATH and fresh in TRUE_VALUES:
+    if (
+        route_path(request) == PAINEL_PATH
+        or route_path(request).startswith(PAINEL_PATH + "/filtrado")
+    ) and fresh in TRUE_VALUES:
         return True
     # A marca é da pessoa, não da aposta: o roteador não sabe a chave de uma aposta criada, e depois de
     # gravar a pessoa volta à lista e ao saldo, não só ao detalhe (ADR-005, ADR-009).
