@@ -2,6 +2,7 @@
 
 import asyncio
 from datetime import UTC, datetime
+from typing import Any
 from uuid import uuid4
 
 import pytest
@@ -25,15 +26,17 @@ pytestmark = pytest.mark.xdist_group("postgres")
 
 @pytest.mark.parametrize("explicit, game", [(False, True), (True, True), (True, False)])
 async def test_game_clock_selects_default_and_multicontas_preserves_actual_account(
-    engine_admin, engine_app, como, novo_usuario, explicit, game
-):
+    engine_admin: Any, engine_app: Any, como: Any, novo_usuario: Any, explicit: Any, game: Any
+) -> Any:
     user = await novo_usuario()
     old_id = await _account(engine_admin, engine_app, como, user)
     chat = _id()
     async with como(engine_app, user) as session:
         old = await ContaCasaRepo().get_by_id(session, user, old_id)
+        assert old is not None
         usages = UsoContaCasaRepo()
         current = await usages.current_for_update(session, user, old.casa_id)
+        assert current is not None
         switch = datetime(2026, 9, 21, tzinfo=UTC)
         await usages.close(session, current.id, switch)
         new = await ContaCasaRepo().create(
@@ -74,6 +77,7 @@ async def test_game_clock_selects_default_and_multicontas_preserves_actual_accou
         reply = await confirm_draft(session, user_id=user, chat_id=chat, update_id=_id())
         assert reply.queued
         saved = await ApostaRepo().get_by_chave(session, user, draft_bet_key(draft.id))
+        assert saved is not None
         assert saved.conta_casa_id == (old_id if explicit else new.id)
         assert saved.data_aposta == datetime(2026, 9, 20, 15, tzinfo=UTC)
         assert saved.data_jogo == (datetime(2026, 9, 22, 15, tzinfo=UTC) if game else None)
@@ -84,7 +88,7 @@ def _id() -> int:
     return uuid4().int & ((1 << 62) - 1)
 
 
-async def _account(engine_admin: AsyncEngine, engine_app: AsyncEngine, como, user: int) -> int:
+async def _account(engine_admin: AsyncEngine, engine_app: AsyncEngine, como: Any, user: int) -> int:
     async with engine_admin.begin() as conn:
         await conn.execute(insert(models.Casa).values(nome="Betano").on_conflict_do_nothing())
         house_id = await conn.scalar(select(models.Casa.id).where(models.Casa.nome == "Betano"))
@@ -98,14 +102,15 @@ async def _account(engine_admin: AsyncEngine, engine_app: AsyncEngine, como, use
             session, user, house_id, account.id, datetime(2026, 1, 1, tzinfo=UTC)
         )
         await session.commit()
+    assert isinstance(account.id, int)
     return account.id
 
 
 async def _draft(
     engine_admin: AsyncEngine,
     engine_app: AsyncEngine,
-    como,
-    novo_usuario,
+    como: Any,
+    novo_usuario: Any,
     *,
     complete: bool = True,
 ) -> tuple[int, int, models.RascunhoAposta, int]:
@@ -147,7 +152,7 @@ async def _draft(
 
 @pytest.mark.asyncio
 async def test_ten_concurrent_confirmations_create_one_bet_event_and_reply(
-    engine_admin: AsyncEngine, engine_app: AsyncEngine, como, novo_usuario
+    engine_admin: AsyncEngine, engine_app: AsyncEngine, como: Any, novo_usuario: Any
 ) -> None:
     user, chat, draft, account_id = await _draft(engine_admin, engine_app, como, novo_usuario)
     # The export path can own the same positive Telegram coordinates. Bot confirmation uses
@@ -173,6 +178,7 @@ async def test_ten_concurrent_confirmations_create_one_bet_event_and_reply(
             reply = await confirm_draft(session, user_id=user, chat_id=chat, update_id=_id())
             await session.commit()
             assert reply.queued
+            assert isinstance(reply.text, str)
             return reply.text
 
     replies = await asyncio.gather(*(attempt() for _ in range(10)))
@@ -225,7 +231,7 @@ async def test_ten_concurrent_confirmations_create_one_bet_event_and_reply(
 
 @pytest.mark.asyncio
 async def test_inbox_requires_explicit_confirm_and_replay_uses_saved_values(
-    engine_admin: AsyncEngine, engine_app: AsyncEngine, como, novo_usuario
+    engine_admin: AsyncEngine, engine_app: AsyncEngine, como: Any, novo_usuario: Any
 ) -> None:
     user, chat, draft, _ = await _draft(engine_admin, engine_app, como, novo_usuario)
     ambiguous = await handle_text_in_session(engine_app, como, user, chat, "sim")
@@ -263,7 +269,9 @@ async def test_inbox_requires_explicit_confirm_and_replay_uses_saved_values(
         await session.commit()
 
 
-async def handle_text_in_session(engine_app, como, user: int, chat: int, text: str) -> str | None:
+async def handle_text_in_session(
+    engine_app: Any, como: Any, user: int, chat: int, text: str
+) -> str | None:
     async with como(engine_app, user) as session:
         reply = await handle_text(session, user_id=user, chat_id=chat, update_id=_id(), text=text)
         await session.commit()
@@ -272,7 +280,11 @@ async def handle_text_in_session(engine_app, como, user: int, chat: int, text: s
 
 @pytest.mark.asyncio
 async def test_incomplete_draft_and_failed_outbox_never_commit_finance(
-    engine_admin: AsyncEngine, engine_app: AsyncEngine, como, novo_usuario, monkeypatch
+    engine_admin: AsyncEngine,
+    engine_app: AsyncEngine,
+    como: Any,
+    novo_usuario: Any,
+    monkeypatch: Any,
 ) -> None:
     user, chat, draft, _ = await _draft(
         engine_admin, engine_app, como, novo_usuario, complete=False
@@ -291,7 +303,7 @@ async def test_incomplete_draft_and_failed_outbox_never_commit_finance(
 
     from bancaemdia.services import telegram_confirmation
 
-    async def broken_queue(*args, **kwargs):
+    async def broken_queue(*args: Any, **kwargs: Any) -> Any:
         await asyncio.sleep(0)
         raise RuntimeError("outbox unavailable")
 

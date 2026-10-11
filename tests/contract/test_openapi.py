@@ -218,7 +218,7 @@ def test_openapi_endpoint_matches_checked_in_snapshot(openapi_document: JsonObje
 @pytest.mark.contract
 def test_every_operation_has_human_documentation(openapi_document: JsonObject) -> None:
     operations = list(_operations(openapi_document))
-    assert len(operations) == 89
+    assert len(operations) == 100
     for method, path, operation in operations:
         location = f"{method.upper()} {path}"
         assert str(operation.get("summary", "")).strip(), location
@@ -243,7 +243,7 @@ def test_request_bodies_have_examples(openapi_document: JsonObject) -> None:
             assert media.get("example") is not None or media.get("examples"), (
                 f"{method.upper()} {path}: {media_type} lacks an example"
             )
-    assert bodies == 32
+    assert bodies == 35
 
 
 @pytest.mark.contract
@@ -466,14 +466,17 @@ positive_config.projects.default.generation.update(
     max_examples=10,
     deterministic=True,
 )
-positive_schema = schemathesis.openapi.from_asgi(
-    "/openapi.json", contract_app, config=positive_config
-).include(path="/health", method="GET")
+# Collect from the immutable published artifact, without timed HTTP requests in
+# each xdist worker. The snapshot equality test still checks the live endpoint,
+# and every generated request below exercises the real ASGI application.
+published_positive_schema = schemathesis.openapi.from_path(SNAPSHOT, config=positive_config)
+published_positive_schema.app = contract_app
+positive_schema = published_positive_schema.include(path="/health", method="GET")
 
 
 @pytest.mark.contract
 @positive_schema.parametrize()
-def test_schemathesis_valid_public_requests(case: schemathesis.Case) -> None:
+def test_schemathesis_valid_public_requests(case: schemathesis.Case[Any]) -> None:
     response = case.call_and_validate(base_url="https://testserver")
     assert response.status_code == 200
 
@@ -485,9 +488,13 @@ collection_positive_config.projects.default.generation.update(
     deterministic=True,
 )
 collection_positive_config.projects.default.phases.update(phases=["fuzzing"])
-collection_positive_schema = schemathesis.openapi.from_asgi(
-    "/openapi.json", contract_app, config=collection_positive_config
-).include(path="/api/v1/coleta", method="POST")
+published_collection_schema = schemathesis.openapi.from_path(
+    SNAPSHOT, config=collection_positive_config
+)
+published_collection_schema.app = contract_app
+collection_positive_schema = published_collection_schema.include(
+    path="/api/v1/coleta", method="POST"
+)
 collection_operation = collection_positive_schema["/api/v1/coleta"]["POST"]
 
 
@@ -516,19 +523,19 @@ def invalid_collection_bodies() -> SearchStrategy[JsonObject]:
 
 @collection_positive_schema.auth(refresh_interval=None)
 class CollectionTokenAuth:
-    def get(self, _case: schemathesis.Case, _context: schemathesis.AuthContext) -> str:
+    def get(self, _case: schemathesis.Case[Any], _context: schemathesis.AuthContext) -> str:
         return "contract-token"
 
     def set(
         self,
-        case: schemathesis.Case,
+        case: schemathesis.Case[Any],
         token: str,
         _context: schemathesis.AuthContext,
     ) -> None:
         case.headers[coleta.TOKEN_HEADER] = token
 
 
-def _collection_case(body: JsonObject) -> schemathesis.Case:
+def _collection_case(body: JsonObject) -> schemathesis.Case[Any]:
     case = collection_operation.Case(body=body, media_type="application/json")
     collection_positive_schema.auth.set(
         case,
@@ -540,7 +547,7 @@ def _collection_case(body: JsonObject) -> schemathesis.Case:
 @pytest.mark.contract
 @collection_positive_schema.parametrize()
 def test_schemathesis_valid_collection_requests_match_contract(
-    case: schemathesis.Case,
+    case: schemathesis.Case[Any],
 ) -> None:
     with _collection_backend() as collection_backend:
         generated_body = _as_object(case.body)
@@ -599,9 +606,10 @@ negative_config.projects.default.generation.update(
     allow_extra_parameters=False,
     with_security_parameters=False,
 )
+published_negative_schema = schemathesis.openapi.from_path(SNAPSHOT, config=negative_config)
+published_negative_schema.app = contract_app
 negative_schema = (
-    schemathesis.openapi
-    .from_asgi("/openapi.json", contract_app, config=negative_config)
+    published_negative_schema
     .include(path_regex=r"^/api/v1/(?!coleta$)")
     .exclude(path="/api/v1/coleta/pairing-exchange")
     .exclude(path="/api/v1/coleta/status")
@@ -624,8 +632,8 @@ negative_schema = (
 @negative_schema.hook("before_generate_case")
 def invalid_upload_job_cases(
     context: schemathesis.HookContext,
-    _strategy: SearchStrategy[schemathesis.Case],
-) -> SearchStrategy[schemathesis.Case]:
+    _strategy: SearchStrategy[schemathesis.Case[Any]],
+) -> SearchStrategy[schemathesis.Case[Any]]:
     # Negating a UUID schema often changes its JSON type, but path serialization
     # turns the value back into a string. Generate wire-invalid UUIDs directly
     # instead of filtering most of the generated examples or skipping the route.
@@ -638,9 +646,42 @@ def invalid_upload_job_cases(
     )
 
 
+@negative_schema.hook("before_generate_case")
+def invalid_account_path_cases(
+    context: schemathesis.HookContext,
+    strategy: SearchStrategy[schemathesis.Case[Any]],
+) -> SearchStrategy[schemathesis.Case[Any]]:
+    assert context.operation is not None
+    operation = context.operation
+    if (
+        operation.path != "/api/v1/titulares/{titular_id}/contas/{conta_id}"
+        or operation.method.upper() != "PATCH"
+    ):
+        return strategy
+
+    # Numeric type negations can become valid integers after URL serialization.
+    # Generate an unparsable decimal path value directly, varying either ID; keep
+    # the other ID and JSON body valid. The protected route must still return 401.
+    def case(values: tuple[str, str, int]) -> schemathesis.Case[Any]:
+        invalid_field, invalid_value, valid_id = values
+        parameters = {"titular_id": str(valid_id), "conta_id": str(valid_id)}
+        parameters[invalid_field] = invalid_value
+        return operation.Case(
+            path_parameters=parameters,
+            body={"apelido": "Contrato sintético"},
+            media_type="application/json",
+        )
+
+    return st.tuples(
+        st.sampled_from(["titular_id", "conta_id"]),
+        st.text(alphabet="abcdefghijklmnopqrstuvwxyz", min_size=1, max_size=40),
+        st.integers(min_value=1, max_value=2**63 - 1),
+    ).map(case)
+
+
 @pytest.mark.contract
 @negative_schema.parametrize()
-def test_schemathesis_invalid_protected_requests(case: schemathesis.Case) -> None:
+def test_schemathesis_invalid_protected_requests(case: schemathesis.Case[Any]) -> None:
     response = case.call_and_validate(base_url="https://testserver")
     from bancaemdia.auth.middleware import CATALOG_METHODS
 

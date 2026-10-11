@@ -1,6 +1,8 @@
 from __future__ import annotations
 
-from sqlalchemy import Enum, Numeric, create_mock_engine
+from typing import cast
+
+from sqlalchemy import Enum, Numeric, Table, create_mock_engine
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.sql.ddl import DDLElement
 
@@ -41,6 +43,7 @@ from bancaemdia.models.cruzamento_candidato import CruzamentoCandidato, Cruzamen
 from bancaemdia.models.esporte import Esporte
 from bancaemdia.models.evento import Evento
 from bancaemdia.models.extracao_cache import ExtracaoCache
+from bancaemdia.models.grupo_aposta import ApostaGrupo, GrupoAposta
 from bancaemdia.models.mensagem import Mensagem
 from bancaemdia.models.mensagem_versao import MensagemVersao
 from bancaemdia.models.mercado import FAMILIAS, Mercado
@@ -71,6 +74,8 @@ from bancaemdia.models.usuario import Usuario
 NUCLEO = (Usuario, Banca, ContaCasa, Unidade, Movimento, Aposta, Evento)
 CANONICOS = (Casa, Esporte, Competicao, Time, Mercado, Tipster, Apelido)
 SUPORTE = (
+    ApostaGrupo,
+    GrupoAposta,
     ApostaConsolidacao,
     CruzamentoCandidato,
     CruzamentoEntrada,
@@ -100,6 +105,7 @@ TELEGRAM_LINKING = (TelegramLink, TelegramLinkCode, TelegramLinkAttempt, Telegra
 TELEGRAM_TRANSPORT = (TelegramInbox, TelegramOutbox)
 TELEGRAM_DRAFTS = (RascunhoAposta, RascunhoCorrecao)
 POR_USUARIO = (
+    GrupoAposta,
     ChamadaIA,
     ColetaCasa,
     ColetaToken,
@@ -134,7 +140,10 @@ def _fk_targets(modelo: type[Base]) -> dict[str, str]:
 
 
 def _indexes(modelo: type[Base]) -> dict[str, list[str]]:
-    return {i.name: [c.name for c in i.columns] for i in modelo.__table__.indexes}
+    return {
+        cast(str, i.name): [c.name for c in i.columns]
+        for i in cast(Table, modelo.__table__).indexes
+    }
 
 
 def test_all_forty_eight_tables_are_registered() -> None:
@@ -167,7 +176,7 @@ def test_all_forty_eight_tables_are_registered() -> None:
         )
     }
     esperadas |= {"telegram_media", "telegram_rate_buckets"}
-    assert len(esperadas) == 65
+    assert len(esperadas) == 67
     assert set(Base.metadata.tables) == esperadas
     assert {m.__tablename__ for m in CANONICOS} == {
         "casas",
@@ -179,6 +188,8 @@ def test_all_forty_eight_tables_are_registered() -> None:
         "apelidos",
     }
     assert {m.__tablename__ for m in SUPORTE} == {
+        "apostas_grupos",
+        "grupos_aposta",
         "aposta_consolidacoes",
         "cruzamento_candidatos",
         "cruzamento_entradas",
@@ -213,6 +224,12 @@ def test_per_user_support_tables_point_to_usuarios() -> None:
         assert _fk_targets(modelo)["usuario_id"] == "usuarios.id"
     assert ChamadaIA.__table__.c.usuario_id.nullable is True
     assert RevisaoPendente.__table__.c.usuario_id.nullable is False
+    assert {fk.target_fullname for fk in ApostaGrupo.__table__.foreign_keys} == {
+        "apostas.usuario_id",
+        "apostas.id",
+        "grupos_aposta.usuario_id",
+        "grupos_aposta.id",
+    }
 
 
 def test_foreign_keys_match_appendix_a() -> None:
@@ -292,7 +309,10 @@ def test_mensagens_are_unique_per_chat_and_message() -> None:
 
 
 def test_mensagem_versoes_are_partitioned_by_month() -> None:
-    assert [c.name for c in MensagemVersao.__table__.primary_key.columns] == ["id", "criado_em"]
+    assert [c.name for c in cast(Table, MensagemVersao.__table__).primary_key.columns] == [
+        "id",
+        "criado_em",
+    ]
     versoes = _create_table("mensagem_versoes")
     assert "PARTITION BY RANGE (criado_em)" in versoes
     assert "id BIGSERIAL NOT NULL" in versoes
@@ -316,7 +336,7 @@ def test_midias_are_deduplicated_by_hash() -> None:
 
 
 def test_extracoes_cache_has_the_composite_key_of_appendix_b() -> None:
-    chave = [c.name for c in ExtracaoCache.__table__.primary_key.columns]
+    chave = [c.name for c in cast(Table, ExtracaoCache.__table__).primary_key.columns]
     assert chave == ["chat_id", "message_id", "versao_prompt"]
     assert "id" not in ExtracaoCache.__table__.c
     assert "PRIMARY KEY (chat_id, message_id, versao_prompt)" in _create_table("extracoes_cache")
@@ -353,6 +373,7 @@ def test_revisao_pendente_indexes() -> None:
 
 def test_bigserial_except_composite_and_billing_owner_keys() -> None:
     for nome in set(Base.metadata.tables) - {
+        "apostas_grupos",
         "cruzamento_entradas",
         "extracoes_cache",
         "assinaturas",

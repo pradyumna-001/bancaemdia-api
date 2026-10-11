@@ -22,6 +22,7 @@ from bancaemdia.api.identity import router as identity_router
 from bancaemdia.api.openapi import build_openapi
 from bancaemdia.api.v1 import (
     admin_casas,
+    aposta_foto,
     apostas,
     billing,
     billing_webhook,
@@ -31,8 +32,11 @@ from bancaemdia.api.v1 import (
     coleta_catalogo,
     coleta_pairing,
     coleta_sessoes,
+    filtros,
     metas,
     painel,
+    painel_detalhado,
+    painel_filtrado,
     revisao,
     telegram,
     titulares,
@@ -139,9 +143,13 @@ app.include_router(admin_casas.router)
 app.include_router(upload.router)
 app.include_router(identity_router)
 app.include_router(apostas.router)
+app.include_router(aposta_foto.router)
 app.include_router(caixa.router)
 app.include_router(painel.router)
 app.include_router(metas.router)
+app.include_router(painel_filtrado.router)
+app.include_router(painel_detalhado.router)
+app.include_router(filtros.router)
 app.include_router(revisao.router)
 app.include_router(calculators.router)
 app.include_router(billing_webhook.router)
@@ -154,6 +162,10 @@ app.include_router(usuario.router)
 
 @app.exception_handler(RequestValidationError)
 async def validation_failure(request: Request, error: RequestValidationError) -> JSONResponse:
+    from bancaemdia.domain.foto_aposta import photo_path
+
+    if photo_path(route_path(request)):
+        return aposta_foto.photo_error(422, "a chave da aposta é inválida")
     if route_path(request).startswith("/auth/"):
         return failure(IdentityError("invalid_request", 422))
     return await request_validation_exception_handler(request, error)
@@ -249,6 +261,10 @@ def account_read_only_error(request: Request, exc: AccountReadOnlyError) -> JSON
 
 @app.exception_handler(DBAPIError)
 def billing_database_error(request: Request, exc: DBAPIError) -> JSONResponse:
+    from bancaemdia.domain.foto_aposta import photo_path
+
+    if photo_path(route_path(request)):
+        return aposta_foto.photo_error(503, aposta_foto.UNAVAILABLE)
     if getattr(exc.orig, "sqlstate", None) == "P0402":
         return JSONResponse(status_code=402, content={"detail": "account_read_only"})
     raise exc

@@ -4,6 +4,7 @@ from collections.abc import Awaitable, Callable
 from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.requests import Request
 from starlette.responses import JSONResponse, Response
+from starlette.types import Receive, Scope, Send
 
 from bancaemdia.auth.jwt import (
     InvalidTokenError,
@@ -11,6 +12,7 @@ from bancaemdia.auth.jwt import (
     get_jwks_cache,
     verify_token,
 )
+from bancaemdia.domain.foto_aposta import photo_path
 
 # A extensão autentica o /coleta com o próprio token e não manda Bearer; /health, /ready e /metrics
 # são lidos pela infraestrutura, sem usuário. O aviso de fim de upload vem do trabalhador, que tem
@@ -67,7 +69,24 @@ def unauthorized(detail: str, challenge: str) -> JSONResponse:
     )
 
 
+def public_path(path: str) -> bool:
+    return (
+        path in PUBLIC_PATHS
+        or re.fullmatch(r"/api/v1/coleta/(sessions|jobs)/[0-9a-fA-F-]{36}", path) is not None
+    )
+
+
 class JWTAuthMiddleware(BaseHTTPMiddleware):
+    async def __call__(self, scope: Scope, receive: Receive, send: Send) -> None:
+        if scope["type"] == "http":
+            request = Request(scope)
+            path = route_path(request)
+            allowed = CATALOG_METHODS.get(path)
+            if public_path(path) and (allowed is None or request.method == allowed):
+                await self.app(scope, receive, send)
+                return
+        await super().__call__(scope, receive, send)
+
     async def dispatch(
         self, request: Request, call_next: Callable[[Request], Awaitable[Response]]
     ) -> Response:
@@ -78,9 +97,7 @@ class JWTAuthMiddleware(BaseHTTPMiddleware):
                 content={"detail": "Method not allowed"},
                 headers={"Allow": allowed},
             )
-        if route_path(request) in PUBLIC_PATHS or re.fullmatch(
-            r"/api/v1/coleta/(sessions|jobs)/[0-9a-fA-F-]{36}", route_path(request)
-        ):
+        if public_path(route_path(request)):
             return await call_next(request)
 
         from bancaemdia.api.identity import failure
@@ -107,14 +124,29 @@ class JWTAuthMiddleware(BaseHTTPMiddleware):
 
         scheme, _, token = (request.headers.get("Authorization") or "").partition(" ")
         if scheme.lower() != "bearer" or not token.strip():
-            return unauthorized("Not authenticated", "Bearer")
+            return unauthorized(
+                "sessão necessária para consultar a foto"
+                if photo_path(route_path(request))
+                else "Not authenticated",
+                "Bearer",
+            )
         try:
             request.state.usuario_id = await verify_token(token.strip(), get_jwks_cache())
         except InvalidTokenError:
-            return unauthorized("Invalid token", 'Bearer error="invalid_token"')
+            return unauthorized(
+                "sessão inválida ou encerrada"
+                if photo_path(route_path(request))
+                else "Invalid token",
+                'Bearer error="invalid_token"',
+            )
         except KeysUnavailableError:
             # Um 401 faria o cliente jogar fora um token bom enquanto o servidor de chaves está fora.
             return JSONResponse(
-                status_code=503, content={"detail": "Authentication is temporarily unavailable"}
+                status_code=503,
+                content={
+                    "detail": "autenticação indisponível — tente novamente em instantes"
+                    if photo_path(route_path(request))
+                    else "Authentication is temporarily unavailable"
+                },
             )
         return await call_next(request)

@@ -4,11 +4,13 @@ import asyncio
 import copy
 import os
 from datetime import UTC, datetime, timedelta
+from typing import Any
 from uuid import uuid4
 
 import pytest
 from sqlalchemy import func, select, text, update
 from sqlalchemy.dialects.postgresql import insert
+from sqlalchemy.engine import CursorResult
 from sqlalchemy.exc import DBAPIError
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -32,20 +34,20 @@ GAME = datetime(2026, 9, 22, 22, tzinfo=UTC)
 
 
 @pytest.fixture(scope="module", autouse=True)
-def require_postgres():
+def require_postgres() -> Any:
     if not os.environ.get("TEST_DATABASE_URL"):
         from testcontainers.core.docker_client import DockerClient
 
         assert DockerClient().client.ping(), "Consolidation acceptance requires real PostgreSQL"
 
 
-async def owner(session, user):
+async def owner(session: Any, user: Any) -> Any:
     await session.execute(
         text("SELECT set_config('app.current_user_id',:u,true)"), {"u": str(user)}
     )
 
 
-async def accounts(engine_admin, engine_app, user, *, count=1):
+async def accounts(engine_admin: Any, engine_app: Any, user: Any, *, count: Any = 1) -> Any:
     async with engine_admin.begin() as conn:
         await conn.execute(
             insert(models.Casa)
@@ -77,7 +79,7 @@ async def accounts(engine_admin, engine_app, user, *, count=1):
         return house, rows
 
 
-def house_payload(ticket, *, state=None, return_value=200):
+def house_payload(ticket: Any, *, state: Any = None, return_value: Any = 200) -> Any:
     payload = {
         "id": ticket,
         "totalAmount": 100,
@@ -114,7 +116,9 @@ def house_payload(ticket, *, state=None, return_value=200):
     return payload
 
 
-def telegram_payload(ticket, *, identity=True, chat=None, message=None):
+def telegram_payload(
+    ticket: Any, *, identity: Any = True, chat: Any = None, message: Any = None
+) -> Any:
     return {
         "chat_id": chat or uuid4().int % (2**60),
         "message_id": message or uuid4().int % (2**60),
@@ -142,7 +146,7 @@ def telegram_payload(ticket, *, identity=True, chat=None, message=None):
     }
 
 
-async def intake_house(engine, user, house_id, payload):
+async def intake_house(engine: Any, user: Any, house_id: Any, payload: Any) -> Any:
     async with AsyncSession(engine) as session, session.begin():
         await owner(session, user)
         result, jobs = await registrar(session, user, "betano", house_id, [payload])
@@ -157,7 +161,7 @@ async def intake_house(engine, user, house_id, payload):
         )
 
 
-async def intake_telegram(engine, user, payload):
+async def intake_telegram(engine: Any, user: Any, payload: Any) -> Any:
     await gravar_leitura(
         engine, user, ExtracaoDoJson.model_validate(payload), payload, "synthetic-media"
     )
@@ -172,7 +176,7 @@ async def intake_telegram(engine, user, payload):
         )
 
 
-async def financial(engine, user):
+async def financial(engine: Any, user: Any) -> Any:
     async with AsyncSession(engine) as session:
         await owner(session, user)
         bets = list(
@@ -200,9 +204,14 @@ async def financial(engine, user):
 
 
 @pytest.mark.parametrize("order", ["house-first", "telegram-first"])
+def materialized_key(value: str | None) -> str:
+    assert value is not None
+    return value
+
+
 async def test_real_intake_both_orders_one_fact_settlement_and_source_preservation(
-    engine_app, engine_admin, novo_usuario, order
-):
+    engine_app: Any, engine_admin: Any, novo_usuario: Any, order: Any
+) -> Any:
     user = await novo_usuario()
     house_id, account_ids = await accounts(engine_admin, engine_app, user)
     ticket = "synthetic-" + uuid4().hex
@@ -264,8 +273,8 @@ async def test_real_intake_both_orders_one_fact_settlement_and_source_preservati
 
 
 async def test_default_account_follows_game_day_while_explicit_multiaccount_keeps_actual_account(
-    engine_app, engine_admin, novo_usuario
-):
+    engine_app: Any, engine_admin: Any, novo_usuario: Any
+) -> Any:
     user = await novo_usuario()
     house, ids = await accounts(engine_admin, engine_app, user, count=2)
     switch = PLACEMENT + timedelta(days=1)
@@ -302,15 +311,16 @@ async def test_default_account_follows_game_day_while_explicit_multiaccount_keep
     assert totals["count"] == 1 and relations[0].conta_casa_id == ids[1]
     async with AsyncSession(engine_app) as session:
         await owner(session, user)
-        assert (await session.get(models.Aposta, house_bet)).conta_casa_id == ids[1]
+        house_row = await session.get(models.Aposta, house_bet)
+        assert house_row is not None and house_row.conta_casa_id == ids[1]
     await reconstruir_usuario(user, engine=engine_app)
     assert (await financial(engine_app, user))[1][0].conta_casa_id == ids[1]
 
 
 @pytest.mark.parametrize("count", [0, 2])
 async def test_missing_or_ambiguous_account_never_consolidates_or_chooses_first(
-    engine_app, engine_admin, novo_usuario, count
-):
+    engine_app: Any, engine_admin: Any, novo_usuario: Any, count: Any
+) -> Any:
     user = await novo_usuario()
     house, _ = await accounts(engine_admin, engine_app, user, count=count)
     ticket = "synthetic-" + uuid4().hex
@@ -326,22 +336,20 @@ async def test_missing_or_ambiguous_account_never_consolidates_or_chooses_first(
                 select(models.Aposta).where(models.Aposta.usuario_id == user)
             )
         )
-        assert (
-            await session.scalar(
-                select(func.count())
-                .select_from(models.RevisaoPendente)
-                .where(
-                    models.RevisaoPendente.usuario_id == user,
-                    models.RevisaoPendente.resolvido_em.is_(None),
-                )
+        review_count = await session.scalar(
+            select(func.count())
+            .select_from(models.RevisaoPendente)
+            .where(
+                models.RevisaoPendente.usuario_id == user,
+                models.RevisaoPendente.resolvido_em.is_(None),
             )
-            >= 1
         )
+        assert review_count is not None and review_count >= 1
 
 
 async def test_probable_missing_identity_preserves_two_facts_until_explicit_review(
-    engine_app, engine_admin, novo_usuario
-):
+    engine_app: Any, engine_admin: Any, novo_usuario: Any
+) -> Any:
     user = await novo_usuario()
     house, _ = await accounts(engine_admin, engine_app, user)
     ticket = "synthetic-" + uuid4().hex
@@ -372,8 +380,8 @@ async def test_probable_missing_identity_preserves_two_facts_until_explicit_revi
 
 
 async def test_concurrent_same_pair_retry_and_transaction_rollback(
-    engine_app, engine_admin, novo_usuario
-):
+    engine_app: Any, engine_admin: Any, novo_usuario: Any
+) -> Any:
     user = await novo_usuario()
     house, _ = await accounts(engine_admin, engine_app, user)
     ticket = "synthetic-" + uuid4().hex
@@ -386,7 +394,7 @@ async def test_concurrent_same_pair_retry_and_transaction_rollback(
             raise RuntimeError("injected rollback after relation/events/source update")
     assert (await financial(engine_app, user))[1] == []
 
-    async def apply():
+    async def apply() -> Any:
         async with AsyncSession(engine_app) as session, session.begin():
             await owner(session, user)
             relation = await consolidate(
@@ -412,8 +420,8 @@ async def test_concurrent_same_pair_retry_and_transaction_rollback(
 
 
 async def test_cross_tenant_rls_fk_and_explicit_reference_fail_closed(
-    engine_app, engine_admin, novo_usuario
-):
+    engine_app: Any, engine_admin: Any, novo_usuario: Any
+) -> Any:
     user, foreign = await novo_usuario(), await novo_usuario()
     house, ids = await accounts(engine_admin, engine_app, user)
     _, foreign_ids = await accounts(engine_admin, engine_app, foreign)
@@ -425,13 +433,12 @@ async def test_cross_tenant_rls_fk_and_explicit_reference_fail_closed(
     async with AsyncSession(engine_app) as session, session.begin():
         await owner(session, foreign)
         assert await session.get(models.ApostaConsolidacao, relation.id) is None
-        assert (
-            await session.execute(
-                update(models.ApostaConsolidacao)
-                .where(models.ApostaConsolidacao.id == relation.id)
-                .values(estado="unlinked", desvinculada_em=GAME)
-            )
-        ).rowcount == 0
+        updated = await session.execute(
+            update(models.ApostaConsolidacao)
+            .where(models.ApostaConsolidacao.id == relation.id)
+            .values(estado="unlinked", desvinculada_em=GAME)
+        )
+        assert isinstance(updated, CursorResult) and updated.rowcount == 0
     with pytest.raises(InvalidAccountReferenceError):
         async with AsyncSession(engine_app) as session, session.begin():
             await owner(session, user)
@@ -460,7 +467,7 @@ async def test_cross_tenant_rls_fk_and_explicit_reference_fail_closed(
             await consolidate(session, foreign, casa, tip, decision="reviewed", actor_id=foreign)
 
 
-def application(engine, user):
+def application(engine: Any, user: Any) -> Any:
     from types import SimpleNamespace
 
     from fastapi import FastAPI
@@ -473,18 +480,18 @@ def application(engine, user):
     app.include_router(apostas.router)
     app.include_router(revisao.router)
 
-    async def database():
+    async def database() -> Any:
         async with AsyncSession(engine, expire_on_commit=False) as session:
             await owner(session, user)
             yield session
 
-    def identity():
+    def identity() -> Any:
         return SimpleNamespace(id=user)
 
     for dep in (get_current_user, get_current_user_snapshot):
         app.dependency_overrides[dep] = identity
-    for dep in (get_db, get_db_snapshot):
-        app.dependency_overrides[dep] = database
+    for database_dep in (get_db, get_db_snapshot):
+        app.dependency_overrides[database_dep] = database
     return app
 
 
@@ -498,8 +505,8 @@ def application(engine, user):
     ],
 )
 async def test_lifecycle_keeps_one_fact_with_independent_paid_value(
-    engine_app, engine_admin, novo_usuario, state, paid, expected
-):
+    engine_app: Any, engine_admin: Any, novo_usuario: Any, state: Any, paid: Any, expected: Any
+) -> Any:
     user = await novo_usuario()
     house, ids = await accounts(engine_admin, engine_app, user)
     ticket = uuid4().hex
@@ -513,7 +520,8 @@ async def test_lifecycle_keeps_one_fact_with_independent_paid_value(
     assert len(relations) == 1
     async with AsyncSession(engine_app) as session:
         await owner(session, user)
-        assert (await session.get(models.Aposta, casa)).estado == expected
+        actual = await session.get(models.Aposta, casa)
+        assert actual is not None and actual.estado == expected
         from bancaemdia.repositories.movimento_repo import MovimentoRepo
 
         balances = await MovimentoRepo().aggregate_saldos_by_usuario(session, user)
@@ -532,8 +540,8 @@ async def test_lifecycle_keeps_one_fact_with_independent_paid_value(
 
 @pytest.mark.parametrize("action", ["MESMA", "CORRIGIR"])
 async def test_actual_review_api_confirms_or_durably_rejects_the_candidate(
-    engine_app, engine_admin, novo_usuario, action
-):
+    engine_app: Any, engine_admin: Any, novo_usuario: Any, action: Any
+) -> Any:
     import httpx
 
     user = await novo_usuario()
@@ -546,6 +554,7 @@ async def test_actual_review_api_confirms_or_durably_rejects_the_candidate(
         pair = await session.scalar(
             select(models.CruzamentoCandidato).where(models.CruzamentoCandidato.usuario_id == user)
         )
+        assert pair is not None
         assert pair.status == "probable" and pair.revisao_id
         review_id = pair.revisao_id
     async with httpx.AsyncClient(
@@ -573,8 +582,8 @@ async def test_actual_review_api_confirms_or_durably_rejects_the_candidate(
 
 
 async def test_consolidation_diagnostics_keep_sensitive_sentinels_out_of_labels_and_spans(
-    engine_app, engine_admin, novo_usuario, monkeypatch, caplog
-):
+    engine_app: Any, engine_admin: Any, novo_usuario: Any, monkeypatch: Any, caplog: Any
+) -> Any:
     from opentelemetry.sdk.trace import TracerProvider
     from opentelemetry.sdk.trace.export import SimpleSpanProcessor
     from opentelemetry.sdk.trace.export.in_memory_span_exporter import InMemorySpanExporter
@@ -608,8 +617,8 @@ async def test_consolidation_diagnostics_keep_sensitive_sentinels_out_of_labels_
 
 
 async def test_source_edit_delete_restore_and_private_detail_do_not_bypass_relation(
-    engine_app, engine_admin, novo_usuario
-):
+    engine_app: Any, engine_admin: Any, novo_usuario: Any
+) -> Any:
     import httpx
 
     user, foreign = await novo_usuario(), await novo_usuario()
@@ -620,11 +629,12 @@ async def test_source_edit_delete_restore_and_private_detail_do_not_bypass_relat
     async with AsyncSession(engine_app) as session:
         await owner(session, user)
         sources = {
-            bet.id: bet.chave
+            bet.id: materialized_key(bet.chave)
             for bet in await session.scalars(
                 select(models.Aposta).where(models.Aposta.usuario_id == user)
             )
         }
+    assert all(key is not None for key in sources.values())
     async with httpx.AsyncClient(
         transport=httpx.ASGITransport(app=application(engine_app, user)), base_url="http://test"
     ) as client:
@@ -664,8 +674,8 @@ async def test_source_edit_delete_restore_and_private_detail_do_not_bypass_relat
 
 @pytest.mark.parametrize("side", ["casa", "telegram"])
 async def test_symmetric_competition_serializes_reviewed_decisions_without_deadlock(
-    engine_app, engine_admin, novo_usuario, side
-):
+    engine_app: Any, engine_admin: Any, novo_usuario: Any, side: Any
+) -> Any:
     user = await novo_usuario()
     house, _ = await accounts(engine_admin, engine_app, user)
     first, second = uuid4().hex, uuid4().hex
@@ -681,7 +691,7 @@ async def test_symmetric_competition_serializes_reviewed_decisions_without_deadl
         pairs = [(houses[0], t) for t in tips]
     assert (await financial(engine_app, user))[1] == []
 
-    async def apply(c, t):
+    async def apply(c: Any, t: Any) -> Any:
         try:
             async with AsyncSession(engine_app) as session, session.begin():
                 await owner(session, user)
@@ -698,8 +708,8 @@ async def test_symmetric_competition_serializes_reviewed_decisions_without_deadl
 
 
 async def test_context_conflict_requires_choice_and_preserves_both_original_values(
-    engine_app, engine_admin, novo_usuario
-):
+    engine_app: Any, engine_admin: Any, novo_usuario: Any
+) -> Any:
     user = await novo_usuario()
     house, _ = await accounts(engine_admin, engine_app, user)
     ticket = uuid4().hex
@@ -731,8 +741,8 @@ async def test_context_conflict_requires_choice_and_preserves_both_original_valu
 
 
 async def test_manual_account_game_date_and_explicit_reference_survive_api_and_replay(
-    engine_app, engine_admin, novo_usuario
-):
+    engine_app: Any, engine_admin: Any, novo_usuario: Any
+) -> Any:
     import httpx
 
     user = await novo_usuario()
@@ -792,8 +802,8 @@ async def test_manual_account_game_date_and_explicit_reference_survive_api_and_r
 
 @pytest.mark.parametrize("complete", [True, False])
 async def test_multiple_ticket_requires_every_leg_for_automatic_consolidation(
-    engine_app, engine_admin, novo_usuario, complete
-):
+    engine_app: Any, engine_admin: Any, novo_usuario: Any, complete: Any
+) -> Any:
     user = await novo_usuario()
     house, _ = await accounts(engine_admin, engine_app, user)
     ticket = uuid4().hex
@@ -817,8 +827,8 @@ async def test_multiple_ticket_requires_every_leg_for_automatic_consolidation(
 
 @pytest.mark.parametrize("change", ["correction", "deleted", "saturated"])
 async def test_revalidation_refuses_previous_exact_after_source_or_search_changes(
-    engine_app, engine_admin, novo_usuario, change
-):
+    engine_app: Any, engine_admin: Any, novo_usuario: Any, change: Any
+) -> Any:
     user = await novo_usuario()
     house, _ = await accounts(engine_admin, engine_app, user, count=0)
     ticket = uuid4().hex
@@ -829,6 +839,7 @@ async def test_revalidation_refuses_previous_exact_after_source_or_search_change
         candidate = await session.scalar(
             select(models.CruzamentoCandidato).where(models.CruzamentoCandidato.usuario_id == user)
         )
+        assert candidate is not None
         assert candidate.status == "exact"
         ident = candidate.id
     if change == "saturated":
@@ -851,8 +862,8 @@ async def test_revalidation_refuses_previous_exact_after_source_or_search_change
 
 
 async def test_panel_refresh_filters_export_and_cash_use_same_single_fact(
-    engine_app, engine_admin, novo_usuario, tmp_path
-):
+    engine_app: Any, engine_admin: Any, novo_usuario: Any, tmp_path: Any
+) -> Any:
     from openpyxl import load_workbook
 
     from bancaemdia.cli.refresh_painel import refresh_painel
@@ -919,7 +930,7 @@ async def test_panel_refresh_filters_export_and_cash_use_same_single_fact(
             ]
             assert len(rows) == 1 and rows[0].valores["giro_centavos"] == 10000
 
-            async def excel_rows(source_rows=rows):
+            async def excel_rows(source_rows: Any = rows) -> Any:
                 for row in source_rows:
                     await asyncio.sleep(0)
                     yield [row.valores["giro_centavos"], row.valores["lucro_centavos"]]
@@ -934,8 +945,8 @@ async def test_panel_refresh_filters_export_and_cash_use_same_single_fact(
 
 
 async def test_replay_reconstructs_missing_relation_from_audit_without_live_candidates(
-    engine_app, engine_admin, novo_usuario
-):
+    engine_app: Any, engine_admin: Any, novo_usuario: Any
+) -> Any:
     from bancaemdia.services.consolidacao_replay import replay_relations
 
     user = await novo_usuario()
@@ -967,8 +978,8 @@ async def test_replay_reconstructs_missing_relation_from_audit_without_live_cand
 
 
 async def test_concurrent_actual_intakes_converge_without_deadlock(
-    engine_app, engine_admin, novo_usuario
-):
+    engine_app: Any, engine_admin: Any, novo_usuario: Any
+) -> Any:
     user = await novo_usuario()
     house, _ = await accounts(engine_admin, engine_app, user)
     ticket = uuid4().hex
@@ -985,8 +996,8 @@ async def test_concurrent_actual_intakes_converge_without_deadlock(
 
 
 async def test_unlink_preserves_later_manual_context_and_user_deletion(
-    engine_app, engine_admin, novo_usuario
-):
+    engine_app: Any, engine_admin: Any, novo_usuario: Any
+) -> Any:
     import httpx
 
     user = await novo_usuario()
@@ -1002,11 +1013,12 @@ async def test_unlink_preserves_later_manual_context_and_user_deletion(
     async with AsyncSession(engine_app) as session, session.begin():
         await owner(session, user)
         sources = {
-            b.id: b.chave
+            b.id: materialized_key(b.chave)
             for b in await session.scalars(
                 select(models.Aposta).where(models.Aposta.usuario_id == user)
             )
         }
+    assert all(key is not None for key in sources.values())
     async with httpx.AsyncClient(
         transport=httpx.ASGITransport(app=application(engine_app, user)), base_url="http://test"
     ) as client:
@@ -1024,13 +1036,14 @@ async def test_unlink_preserves_later_manual_context_and_user_deletion(
         await owner(session, user)
         actual = await session.get(models.Aposta, casa)
         deleted = await session.get(models.Aposta, tip)
+        assert actual is not None and deleted is not None
         assert actual.tipster_id == context_id and not deleted.selecionada
     assert (await financial(engine_app, user))[0]["count"] == 1
 
 
 async def test_review_media_is_private_and_cross_tenant_ids_cannot_fetch_it(
-    engine_app, engine_admin, novo_usuario
-):
+    engine_app: Any, engine_admin: Any, novo_usuario: Any
+) -> Any:
     import httpx
 
     user, other = await novo_usuario(), await novo_usuario()
@@ -1068,8 +1081,8 @@ async def test_review_media_is_private_and_cross_tenant_ids_cannot_fetch_it(
 
 
 async def test_excel_import_and_update_use_game_date_with_explicit_multiaccount_exception(
-    engine_app, engine_admin, novo_usuario
-):
+    engine_app: Any, engine_admin: Any, novo_usuario: Any
+) -> Any:
     from io import BytesIO
 
     import httpx
@@ -1096,7 +1109,7 @@ async def test_excel_import_and_update_use_game_date_with_explicit_multiaccount_
         await UsoContaCasaRepo().close(session, usage.id, boundary)
         await UsoContaCasaRepo().open(session, user, house, ids[1], boundary)
 
-    def content(revised):
+    def content(revised: Any) -> Any:
         book = Workbook()
         book.active.append([
             "casa",

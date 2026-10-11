@@ -17,6 +17,7 @@ from slowapi.errors import RateLimitExceeded
 from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.requests import Request
 from starlette.responses import JSONResponse, Response
+from starlette.types import Receive, Scope, Send
 
 from bancaemdia.config import get_settings
 from bancaemdia.observability.metrics import rate_limiter_fallback_total
@@ -261,7 +262,15 @@ def policy_for(request: Request) -> RateLimitPolicy | None:
         return COLETA_POLICY if request.method == "POST" else None
     if path == "/api/v1/upload" and request.method == "POST":
         return UPLOAD_POLICY
-    if path == "/api/v1/painel/export" and request.method == "GET":
+    if (
+        path
+        in {
+            "/api/v1/painel/export",
+            "/api/v1/painel/filtrado/export",
+            "/api/v1/painel/filtrado/detalhado/export",
+        }
+        and request.method == "GET"
+    ):
         return PANEL_EXPORT_POLICY
     if path == "/api/v1" or path.startswith("/api/v1/"):
         return API_POLICY
@@ -286,9 +295,19 @@ def _limited_response(
         except (KeyError, ValueError):
             pass
 
+    from bancaemdia.domain.foto_aposta import photo_path
+
     response = JSONResponse(
         status_code=429,
-        content={"error": "rate_limited", "retry_after": retry_after},
+        content={
+            "error": "rate_limited",
+            "retry_after": retry_after,
+            **(
+                {"detail": "Muitas requisições. Tente novamente em instantes."}
+                if photo_path(request_path(request))
+                else {}
+            ),
+        },
     )
     if injected is not None:
         for header in RATE_LIMIT_HEADERS:
@@ -325,15 +344,26 @@ async def _apply_policies(
             active = (policy, current_limit)
 
     response = await call_next(request)
+    dependency_retry = response.headers.get("Retry-After") if response.status_code == 503 else None
     if active is not None:
         policy, current_limit = active
         # Header injection also reads the quota window from Redis.
         await run_in_threadpool(policy.limiter._inject_headers, response, current_limit)
+        if dependency_retry is not None:
+            response.headers["Retry-After"] = dependency_retry
     return response
 
 
 class AuthRateLimitMiddleware(BaseHTTPMiddleware):
     """Throttle pre-authentication endpoints before JWT validation can short-circuit them."""
+
+    async def __call__(self, scope: Scope, receive: Receive, send: Send) -> None:
+        if scope["type"] == "http" and policy_for(Request(scope)) is not AUTH_POLICY:
+            # Keep the auth bucket on every auth operation. Other routes have
+            # their own authenticated or collection policy in the inner limiter.
+            await self.app(scope, receive, send)
+            return
+        await super().__call__(scope, receive, send)
 
     async def dispatch(
         self, request: Request, call_next: Callable[[Request], Awaitable[Response]]

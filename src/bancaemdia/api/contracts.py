@@ -97,6 +97,32 @@ class PaginationResponse(StrictContractModel):
     total: int = Field(ge=0)
 
 
+class BetHolderContextResponse(StrictContractModel):
+    id: str = Field(pattern=r"^[1-9][0-9]*$", description="Exact persisted holder BIGINT, as text.")
+    nome: str = Field(description="Current name of the holder of the persisted account.")
+    arquivado: bool
+
+
+class BetAccountContextResponse(StrictContractModel):
+    id: str = Field(
+        pattern=r"^[1-9][0-9]*$", description="Exact persisted account BIGINT, as text."
+    )
+    casa_id: str = Field(pattern=r"^[1-9][0-9]*$")
+    apelido: str | None = Field(description="Current nickname; empty legacy nickname becomes null.")
+    ativa: bool
+    estado: str
+    titular: BetHolderContextResponse | None
+
+
+class BetBankContextResponse(StrictContractModel):
+    id: str = Field(
+        pattern=r"^[1-9][0-9]*$", description="Exact bank reference on the bet, as text."
+    )
+    nome: str = Field(
+        description="Current name of the persisted bank, never the account's current bank."
+    )
+
+
 class BetResponse(StrictContractModel):
     chave: str
     origem: str
@@ -110,6 +136,14 @@ class BetResponse(StrictContractModel):
     freebet: bool
     conta_casa_id: int | None
     conta_atribuicao: Literal["ASSIGNED", "UNASSIGNED"] = "UNASSIGNED"
+    conta_contexto: BetAccountContextResponse | None = Field(
+        default=None,
+        description="GET list/detail: authorized labels for the persisted account, including inactive accounts. No read-time reassignment; labels are current, identity is the recorded attribution. Null if unassigned/inaccessible; mutations do not hydrate labels.",
+    )
+    banca_contexto: BetBankContextResponse | None = Field(
+        default=None,
+        description="GET list/detail: authorized current label for the bank persisted on this bet. Null if absent/inaccessible; mutations do not hydrate labels.",
+    )
     tipster_id: int | None
     time_casa_id: int | None
     time_fora_id: int | None

@@ -10,6 +10,7 @@ from pydantic import BaseModel, ConfigDict, Field, StrictInt, field_validator
 from sqlalchemy import select, text
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from bancaemdia import models
 from bancaemdia.api.contracts import (
     AUTHENTICATED_ERROR_RESPONSES,
     BetChangedResponse,
@@ -18,8 +19,8 @@ from bancaemdia.api.contracts import (
     BetsPageResponse,
     ErrorResponse,
 )
-from bancaemdia.api.deps import get_current_user
-from bancaemdia.db.session import get_db
+from bancaemdia.api.deps import get_current_user, get_current_user_snapshot
+from bancaemdia.db.session import get_db, get_db_snapshot
 from bancaemdia.domain.account_attribution import (
     AccountResolution,
     ResolutionStatus,
@@ -45,6 +46,7 @@ from bancaemdia.domain.aposta_service import (
     validar_correcao,
     validar_resultado,
 )
+from bancaemdia.domain.filtros_apostas import filtros_do_site
 from bancaemdia.domain.financeiro import Aposta as ApostaFinanceira
 from bancaemdia.domain.materializar import EventoNovo, casa_canonica, projetar
 from bancaemdia.domain.planilha_import import MAX_BYTES, PlanilhaInvalidaError, ler_planilha
@@ -52,9 +54,10 @@ from bancaemdia.domain.registros import Aposta, Usuario
 from bancaemdia.domain.temporal import VALOR_UNIDADE_PADRAO_CENTAVOS
 from bancaemdia.models import Competicao, Mercado, Time, Tipster
 from bancaemdia.observability.metrics import apostas_created_total
+from bancaemdia.repositories.aposta_contexto_repo import ApostaContextoRepo
 from bancaemdia.repositories.aposta_repo import ApostaRepo
 from bancaemdia.repositories.casa_repo import CasaRepo
-from bancaemdia.repositories.conta_casa_repo import ContaCasaRepo
+from bancaemdia.repositories.conta_casa_repo import ContaCasaRepo as ContaCasaRepo
 from bancaemdia.repositories.evento_repo import EventoRepo
 from bancaemdia.repositories.revisao_pendente_repo import RevisaoPendenteRepo
 from bancaemdia.repositories.unidade_repo import UnidadeRepo
@@ -80,7 +83,6 @@ class Correcao(BaseModel):
 
 class Resultado(BaseModel):
     model_config = ConfigDict(extra="forbid")
-
     estado: str
     retorno_centavos: int | None = None
     cashout_valor_centavos: int | None = None
@@ -89,7 +91,6 @@ class Resultado(BaseModel):
 
 class ApostaManual(BaseModel):
     model_config = ConfigDict(extra="forbid")
-
     casa: str | None = None
     data_aposta: str | None = None
     data_jogo: str | None = None
@@ -128,7 +129,11 @@ def _quando(valor: datetime | None) -> str | None:
     return None if valor is None else valor.isoformat()
 
 
-def linha_da_aposta(aposta: Aposta, estado: dict[str, Any] | None = None) -> dict[str, Any]:
+def linha_da_aposta(
+    aposta: Aposta,
+    estado: dict[str, Any] | None = None,
+    contexto: dict[str, Any] | None = None,
+) -> dict[str, Any]:
     atual = estado or {}
     return {
         "chave": aposta.chave,
@@ -149,6 +154,8 @@ def linha_da_aposta(aposta: Aposta, estado: dict[str, Any] | None = None) -> dic
         "freebet": aposta.freebet,
         "conta_casa_id": aposta.conta_casa_id,
         "conta_atribuicao": "UNASSIGNED" if aposta.conta_casa_id is None else "ASSIGNED",
+        "conta_contexto": (contexto or {}).get("conta_contexto"),
+        "banca_contexto": (contexto or {}).get("banca_contexto"),
         "tipster_id": aposta.tipster_id,
         "time_casa_id": aposta.time_casa_id,
         "time_fora_id": aposta.time_fora_id,
@@ -265,7 +272,17 @@ async def _conferir_ids(
     for campo in CAMPOS_DE_ID:
         if campo in pedido and (recado := erro_de_id(campo, pedido[campo])) is not None:
             return recado
-
+    banca_id = pedido.get("banca_id")
+    if (
+        banca_id is not None
+        and await session.scalar(
+            select(models.Banca.id).where(
+                models.Banca.usuario_id == usuario_id, models.Banca.id == banca_id
+            )
+        )
+        is None
+    ):
+        return "banca_id não existe nas suas bancas"
     conta_casa_id = pedido.get("conta_casa_id")
     if (
         conta_casa_id is not None
@@ -276,7 +293,6 @@ async def _conferir_ids(
         # existe. Esta é a única referência deste grupo que pertence a um usuário.
         if await ContaCasaRepo().get_by_id(session, usuario_id, int(conta_casa_id)) is None:
             return "conta_casa_id não existe nas suas contas"
-
     # Estes catálogos são vocabulário canônico compartilhado, deliberadamente sem usuario_id e sem
     # RLS (ADR 014, issue 7). Não há referência cross-tenant possível nesses campos; ainda assim
     # validamos a existência antes de escrever para transformar um FK inválido em 422.
@@ -309,47 +325,35 @@ async def _historico(session: AsyncSession, usuario_id: int, chave: str) -> list
 
 @router.get("/api/v1/apostas", response_model=BetsPageResponse)
 async def listar_apostas(
-    usuario: Annotated[Usuario, Depends(get_current_user)],
-    session: Annotated[AsyncSession, Depends(get_db)],
-    desde: datetime | None = None,
-    ate: datetime | None = None,
-    estado: str | None = None,
-    casa_id: int | None = None,
-    titular_id: Annotated[int | None, Query(ge=1)] = None,
-    conta_casa_id: Annotated[int | None, Query(ge=1)] = None,
-    tipster_id: int | None = None,
-    mercado_id: int | None = None,
-    competicao_id: int | None = None,
-    origem: str | None = None,
-    revisao_grave: bool | None = None,
-    incluir_apagadas: bool = False,
+    usuario: Annotated[Usuario, Depends(get_current_user_snapshot)],
+    session: Annotated[AsyncSession, Depends(get_db_snapshot)],
+    filtros: Annotated[dict[str, object], Depends(filtros_do_site)],
     page: Annotated[int, Query(ge=1)] = 1,
     page_size: Annotated[int, Query(ge=1, le=TAMANHO_MAXIMO_DA_PAGINA)] = TAMANHO_PADRAO_DA_PAGINA,
 ) -> JSONResponse:
     apostas, total = await ApostaRepo().list_page(
         session,
         usuario.id,
-        {
-            "desde": desde,
-            "ate": ate,
-            "estado": estado,
-            "casa_id": casa_id,
-            "titular_id": titular_id,
-            "conta_casa_id": conta_casa_id,
-            "tipster_id": tipster_id,
-            "mercado_id": mercado_id,
-            "competicao_id": competicao_id,
-            "origem": origem,
-            "revisao_grave": revisao_grave,
-            "incluir_apagadas": incluir_apagadas,
-        },
+        filtros,
         page,
         page_size,
     )
-    return JSONResponse({
-        "data": [linha_da_aposta(aposta) for aposta in apostas],
-        "pagination": {"page": page, "page_size": page_size, "total": total},
-    })
+    histories = await EventoRepo().list_by_aposta_chaves(
+        session, usuario.id, [aposta.chave for aposta in apostas if aposta.chave is not None]
+    )
+    contexts = await ApostaContextoRepo().list_by_ids(session, usuario.id, [a.id for a in apostas])
+    linhas = []
+    for aposta in apostas:
+        events = histories.get(aposta.chave, []) if aposta.chave is not None else []
+        atual, _ = projetar([(e.tipo, e.fonte, e.payload_json) for e in events])
+        linhas.append(linha_da_aposta(aposta, atual, contexts.get(aposta.id)))
+    return JSONResponse(
+        {
+            "data": linhas,
+            "pagination": {"page": page, "page_size": page_size, "total": total},
+        },
+        headers={"Cache-Control": "private, no-store", "Vary": "Authorization, Cookie"},
+    )
 
 
 @router.get(
@@ -359,8 +363,8 @@ async def listar_apostas(
 )
 async def ver_aposta(
     chave: str,
-    usuario: Annotated[Usuario, Depends(get_current_user)],
-    session: Annotated[AsyncSession, Depends(get_db)],
+    usuario: Annotated[Usuario, Depends(get_current_user_snapshot)],
+    session: Annotated[AsyncSession, Depends(get_db_snapshot)],
 ) -> JSONResponse:
     aposta = await ApostaRepo().get_by_chave(session, usuario.id, chave)
     if aposta is None:
@@ -371,13 +375,14 @@ async def ver_aposta(
     from bancaemdia.repositories.aposta_consolidacao import ApostaConsolidacaoRepo
 
     relations = await ApostaConsolidacaoRepo().history(session, usuario.id, aposta.id)
+    contexts = await ApostaContextoRepo().list_by_ids(session, usuario.id, [aposta.id])
     return JSONResponse({
         "consolidacoes": [relation_response(relation) for relation in relations],
         "fonte_contextual": any(
             relation.estado == "active" and relation.telegram_aposta_id == aposta.id
             for relation in relations
         ),
-        "aposta": linha_da_aposta(aposta, atual),
+        "aposta": linha_da_aposta(aposta, atual, contexts.get(aposta.id)),
         # `selecoes` não é tabela: o que o motor guardou das pernas do bilhete é o texto da
         # descrição e o mercado. Vem do histórico dobrado, não do evento de criação, senão a
         # correção da pessoa não apareceria em lugar nenhum.
@@ -503,7 +508,6 @@ async def corrigir_aposta(
     # O que a pessoa não mandou não é `None`: é "não falei disso". Campo ausente nunca apaga o
     # que já estava gravado (lição do projeto antigo).
     pedido = correcao.model_dump(exclude_unset=True)
-
     recado = await _conferir_ids(session, usuario.id, pedido)
     if recado is not None:
         return erro(status.HTTP_422_UNPROCESSABLE_ENTITY, recado)
@@ -641,7 +645,6 @@ async def criar_aposta(
         )
     except ApostaInvalidaError as recusa:
         return erro(status.HTTP_422_UNPROCESSABLE_ENTITY, str(recusa))
-
     # A chave manual não vem de mensagem nenhuma; os prefixos `t:` e `c:` já dizem de onde as
     # outras vieram.
     chave = f"m:{uuid4().hex}"
@@ -695,7 +698,6 @@ async def criar_aposta(
     if manual.comissao_centavos is not None:
         payload["comissao_centavos"] = manual.comissao_centavos
     payload["conta_casa_id"] = account.conta_casa_id
-
     payload["snapshot_replay"] = {
         "snapshot_completo": True,
         "origem": "manual",
@@ -709,7 +711,6 @@ async def criar_aposta(
         "data_jogo": _quando(_data_do_estado(manual.data_jogo)),
         "freebet": manual.freebet,
     }
-
     novos = [EventoNovo("APOSTA_CRIADA", "manual", payload)]
     depois, _ = projetar([(e.tipo, e.fonte, e.payload) for e in novos])
     try:
@@ -754,7 +755,6 @@ async def importar_planilha(
         return erro(status.HTTP_422_UNPROCESSABLE_ENTITY, str(recusa))
     if not linhas:
         return erro(status.HTTP_422_UNPROCESSABLE_ENTITY, "a planilha não tem apostas")
-
     criadas = atualizadas = ignoradas = 0
     try:
         # Ordenação estável evita deadlock entre duas planilhas com as mesmas linhas em abas

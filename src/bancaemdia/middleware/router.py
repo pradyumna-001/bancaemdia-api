@@ -1,10 +1,9 @@
 import time
-from collections.abc import Awaitable, Callable
+from collections.abc import Callable
 from functools import lru_cache
 
-from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.requests import Request
-from starlette.responses import Response
+from starlette.types import ASGIApp, Receive, Scope, Send
 
 from bancaemdia.auth.middleware import route_path
 from bancaemdia.core.context import use_primary
@@ -57,22 +56,30 @@ def needs_primary(request: Request, usuario_id: int | None, writes: RecentWrites
     if (request.headers.get(READ_REPLICA_HEADER) or "").strip().lower() == "false":
         return True
     fresh = (request.query_params.get("fresh") or "").strip().lower()
-    if route_path(request) == PAINEL_PATH and fresh in TRUE_VALUES:
+    if (
+        route_path(request) == PAINEL_PATH
+        or route_path(request).startswith(PAINEL_PATH + "/filtrado")
+    ) and fresh in TRUE_VALUES:
         return True
     # A marca é da pessoa, não da aposta: o roteador não sabe a chave de uma aposta criada, e depois de
     # gravar a pessoa volta à lista e ao saldo, não só ao detalhe (ADR-005, ADR-009).
     return usuario_id is not None and writes.recent(usuario_id)
 
 
-class RouterMiddleware(BaseHTTPMiddleware):
-    async def dispatch(
-        self, request: Request, call_next: Callable[[Request], Awaitable[Response]]
-    ) -> Response:
+class RouterMiddleware:
+    def __init__(self, app: ASGIApp) -> None:
+        self.app = app
+
+    async def __call__(self, scope: Scope, receive: Receive, send: Send) -> None:
+        if scope["type"] != "http":
+            await self.app(scope, receive, send)
+            return
+        request = Request(scope)
         usuario_id = getattr(request.state, "usuario_id", None)
         writes = get_recent_writes()
         token = use_primary.set(needs_primary(request, usuario_id, writes))
         try:
-            return await call_next(request)
+            await self.app(scope, receive, send)
         finally:
             use_primary.reset(token)
             if (
