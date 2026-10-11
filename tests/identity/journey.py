@@ -453,18 +453,72 @@ async def test_real_registration_refresh_recovery_isolation_and_revocation(
         assert (await fetch(pa, "/api/v1/apostas/" + key))["status"] == 200
         assert (await fetch(pb, "/api/v1/apostas/" + key))["status"] == 404
         assert (await fetch(pb, "/api/v1/apostas"))["data"]["pagination"]["total"] == 0
-        # Same genuine HttpOnly session on desktop and mobile viewports.
+        # Exercise these new GETs through the real hosted-login HttpOnly session.
+        for dimensao in [
+            "casas",
+            "tipsters",
+            "mercados",
+            "competicoes",
+            "origens",
+            "grupos",
+            "bancas",
+            "titulares",
+            "contas",
+        ]:
+            url = API + "/api/v1/filtros/" + dimensao
+            async with pa.expect_response(url) as received:
+                opcoes = await fetch(pa, "/api/v1/filtros/" + dimensao)
+            assert opcoes["status"] == 200
+            assert opcoes["headers"]["cache-control"] == "private, no-store"
+            # Vary controls HTTP caches; it is not a CORS-exposed JS header.
+            # Inspect the actual browser network response without weakening CORS.
+            wire_headers = await (await received.value).all_headers()
+            assert {"Authorization", "Cookie", "Origin"} <= {
+                item.strip() for item in wire_headers["vary"].split(",")
+            }
+        grupo = await fetch(
+            pa,
+            "/api/v1/grupos",
+            method="POST",
+            csrf=sa["csrf_token"],
+            body={"nome": "Grupo privado descartável"},
+        )
+        assert grupo["status"] == 201
+        gid = grupo["data"]["id"]
+        assert isinstance(gid, str)
+        assert (await fetch(pb, "/api/v1/filtros/grupos?id=" + gid))["data"]["data"] == []
+        atribuir = await fetch(
+            pa,
+            "/api/v1/apostas/" + key + "/grupos",
+            method="PUT",
+            csrf=sa["csrf_token"],
+            body={"grupo_ids": [gid]},
+        )
+        assert atribuir["status"] == 200
+        query = "?grupo_id=" + gid + "&visibilidade=ativas"
+        resumo = await fetch(pa, "/api/v1/painel/filtrado" + query)
+        assert resumo["status"] == 200 and resumo["data"]["resumo"]["total_apostas"] == 1
+        assert (await fetch(pb, "/api/v1/painel/filtrado" + query))["data"]["resumo"][
+            "total_apostas"
+        ] == 0
+        graficos = await fetch(pa, "/api/v1/painel/filtrado/metricas" + query)
+        assert graficos["status"] == 200 and graficos["data"]["total_periodo"]["total_apostas"] == 1
+        arquivo = await pa.evaluate(
+            """async url => {const r=await fetch(url,{credentials:'include'});return {status:r.status,type:r.headers.get('content-type'),bytes:(await r.arrayBuffer()).byteLength}}""",
+            API + "/api/v1/painel/filtrado/export" + query,
+        )
+        assert arquivo["status"] == 200 and arquivo["bytes"] > 1000
+        assert "spreadsheetml" in arquivo["type"]
+        # New comparison uses the same genuine hosted-login HttpOnly session.
         for viewport in ({"width": 1440, "height": 900}, {"width": 390, "height": 844}):
             await pa.set_viewport_size(cast(ViewportSize, viewport))
-            for path in (
-                "/api/v1/painel/filtrado/grupos",
-                "/api/v1/painel/filtrado/diario?periodo=1y",
-            ):
-                own = await fetch(pa, path)
-                other = await fetch(pb, path)
-                assert own["status"] == other["status"] == 200
-                assert own["data"]["total_periodo"]["total_apostas"] == 1
-                assert other["data"]["total_periodo"]["total_apostas"] == 0
+            own = await fetch(pa, "/api/v1/painel/hipotetica")
+            other = await fetch(pb, "/api/v1/painel/hipotetica")
+            assert own["status"] == other["status"] == 200
+            assert own["data"]["apostas_consideradas"] == 1
+            assert other["data"]["apostas_consideradas"] == 0
+            assert own["data"]["real"] == own["data"]["hipotetico"]
+            assert own["headers"]["cache-control"] == "private, no-store"
         await pa.set_viewport_size({"width": 1280, "height": 720})
         cookie_before, credentials = await harness.credentials(a)
         async with httpx.AsyncClient() as client:
