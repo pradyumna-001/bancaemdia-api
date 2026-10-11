@@ -31,7 +31,9 @@
     "lucro_conhecido_centavos": "100",
     "roi": "1.000000",
     "win_rate": "1.000000",
-    "estado_dado": "confirmado"
+    "estado_dado": "confirmado",
+    "pendentes_financeiras": 0,
+    "revisoes_financeiras": 0
   },
   "granularidade": "dia",
   "intervalo_total": {
@@ -63,7 +65,9 @@
     "lucro_conhecido_centavos": "100",
     "roi": "1.000000",
     "win_rate": "1.000000",
-    "estado_dado": "confirmado"
+    "estado_dado": "confirmado",
+    "pendentes_financeiras": 0,
+    "revisoes_financeiras": 0
   },
   "sem_data": {
     "total_apostas": 0,
@@ -84,7 +88,9 @@
     "lucro_conhecido_centavos": "0",
     "roi": "0.000000",
     "win_rate": "0.000000",
-    "estado_dado": "sem_atividade"
+    "estado_dado": "sem_atividade",
+    "pendentes_financeiras": 0,
+    "revisoes_financeiras": 0
   },
   "dias": [
     {
@@ -108,7 +114,9 @@
         "lucro_conhecido_centavos": "100",
         "roi": "1.000000",
         "win_rate": "1.000000",
-        "estado_dado": "confirmado"
+        "estado_dado": "confirmado",
+        "pendentes_financeiras": 0,
+        "revisoes_financeiras": 0
       }
     }
   ],

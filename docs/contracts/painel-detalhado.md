@@ -48,6 +48,7 @@ hoje, inclusive. `all` usa a janela civil legada até amanhã. Fatos sem data en
 somente quando os seletores não impõem limites; são publicados em `sem_data`,
 e nunca inventamos uma data para fazê-los caber no gráfico. Histórico sem fatos
 datados tem intervalo nulo; janela explícita com zero fatos devolve os dias vazios.
+Limites civis aceitam anos 2–9998; extremos fora desse intervalo retornam 422.
 
 Cada resposta usa um snapshot PostgreSQL REPEATABLE READ. `snapshot_em` é o início
 da transação; `respondido_em` é a emissão. `fonte_dados=apostas_ao_vivo`.
@@ -76,11 +77,16 @@ dinheiro. O cliente só formata e calcula geometria.
 | `confirmado` | Sem pendência, revisão ou resultado desconhecido; pode ser `"0"` |
 | `pendente` | Só parcela pendente, sem liquidação conhecida; null |
 | `desconhecido` | Revisão ou resultado ausente sem liquidação conhecida; null |
+| `fora_do_financeiro` | Só fontes contextuais excluídas; null, parte conhecida `"0"` |
 | `parcial` | Liquidações conhecidas junto de alguma parcela incompleta; null |
 
 `lucro_conhecido_centavos` e `retorno_conhecido_centavos` sempre preservam a parte
 conhecida. `lucro_centavos`, `retorno_centavos` e `roi` ficam null se o total está
-incompleto. Não converter null em zero. Essa política é mais explícita que o
+incompleto. `pendentes_financeiras` e `revisoes_financeiras` contam apenas fontes
+elegíveis: pendência/revisão de uma fonte contextual excluída não invalida o
+resultado da aposta canônica. Uma parcela exclusivamente contextual fica
+`fora_do_financeiro`, com totais financeiros null e parte conhecida `"0"`.
+Não converter null em zero. Essa política é mais explícita que o
 resumo legado da #184, que publica lucro liquidado apesar de pendentes: sua parte
 conhecida reconcilia com o resumo quando não há resultados ausentes. Contagens e
 população são iguais. `total_periodo` completo acompanha cada página; não somar
@@ -186,3 +192,8 @@ do frontend/API/schema, horário, filtros e evidência privada, sem divulgar coo
 emails ou dados de apostas. Dados sintéticos de aceite não viram coleta pública
 nem habilitam leitores/assinaturas/produção. Nenhum provisionamento é necessário
 para implementar e revisar esta entrega; ativação permanece com o administrador.
+
+Hooks: executar no ambiente de desenvolvimento instalado com `pip install -e ".[dev]"`.
+O MyPy local usa esse ambiente completo e continua estrito para cada arquivo
+Python alterado, incluindo testes; suas fronteiras de mocks recebem tipagem explícita.
+A CI mantém o MyPy estrito da aplicação e todos os gates existentes.

@@ -56,6 +56,8 @@ class MetricasDetalhadas(SaidaFiltrada):
     resultados_desconhecidos: Count
     liquidadas_conhecidas: Count
     fontes_excluidas_financeiro: Count
+    pendentes_financeiras: Count
+    revisoes_financeiras: Count
     freebets: Count
     giro_centavos: Money
     base_roi_centavos: Money
@@ -65,7 +67,9 @@ class MetricasDetalhadas(SaidaFiltrada):
     lucro_conhecido_centavos: Money
     roi: str | None
     win_rate: str
-    estado_dado: Literal["sem_atividade", "confirmado", "parcial", "pendente", "desconhecido"]
+    estado_dado: Literal[
+        "sem_atividade", "confirmado", "parcial", "pendente", "desconhecido", "fora_do_financeiro"
+    ]
 
 
 class ContextoDetalhado(SnapshotFiltrado):
@@ -354,6 +358,9 @@ EXPORT_METRICS = (
     "total_apostas",
     "pendentes",
     "em_revisao",
+    "fontes_excluidas_financeiro",
+    "pendentes_financeiras",
+    "revisoes_financeiras",
     "resultados_desconhecidos",
     "estado_dado",
     "giro_centavos",
@@ -364,13 +371,14 @@ EXPORT_METRICS = (
     "lucro_conhecido_centavos",
     "freebets",
 )
-EXPORT_GROUPS = ("grupo_id", "grupo_nome", "atribuicao", *EXPORT_METRICS)
+EXPORT_GROUPS = ("grupo_id", "grupo_nome", "grupo_ativo", "atribuicao", *EXPORT_METRICS)
 EXPORT_CHILDREN = (
     "grupo_id",
     "grupo_nome",
     "atribuicao",
     "tipster_id",
     "tipster_nome",
+    "tipster_atribuicao",
     *EXPORT_METRICS,
 )
 EXPORT_DAYS = ("dia", *EXPORT_METRICS)
@@ -454,6 +462,9 @@ async def exportar_detalhado(
             "fuso_horario": "America/Sao_Paulo",
             "fonte_dados": "apostas_ao_vivo",
             "moeda": "BRL",
+            "escopo": "apostas_legadas_brl",
+            "consistencia": "snapshot_por_resposta",
+            "respondido_em": snapshot["respondido_em"].isoformat(),
             "snapshot_em": snapshot["snapshot_em"].isoformat(),
             **filter_context(filtros),
         }

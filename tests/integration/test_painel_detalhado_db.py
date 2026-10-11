@@ -244,6 +244,9 @@ async def test_filters_and_complete_excel_reconcile(api: Any, detailed: Any, par
             assert sum(int(r[known_idx]) for r in rows[1:]) == int(
                 total["lucro_conhecido_centavos"]
             )
+        assert "grupo_ativo" in next(book["Grupos"].values)
+        assert "tipster_atribuicao" in next(book["Tipsters por grupo"].values)
+        assert "escopo" in next(book["Contexto"].values)
         assert list(book["Resumo"].values)[1][0] == total["total_apostas"]
     finally:
         book.close()
@@ -506,8 +509,9 @@ async def test_long_history_query_count_is_bounded_and_groups_not_n_plus_one(
         event.remove(engine_app.sync_engine, "before_cursor_execute", count_queries)
 
 
+@pytest.mark.parametrize("telegram_state", ["GREEN", "PENDENTE"])
 async def test_canonical_sources_do_not_duplicate_group_or_daily_finances(
-    api: Any, detailed: Any, engine_app: Any, como: Any
+    api: Any, detailed: Any, engine_app: Any, como: Any, telegram_state: str
 ) -> None:
     async with como(engine_app, detailed.user) as session:
         group = models.GrupoAposta(usuario_id=detailed.user, nome="Fontes canônicas")
@@ -518,7 +522,8 @@ async def test_canonical_sources_do_not_duplicate_group_or_daily_finances(
                 usuario_id=detailed.user,
                 chave=f"canonical:{origin}:{detailed.keys[0]}",
                 origem=origin,
-                estado="GREEN",
+                estado="GREEN" if origin == "casa" else telegram_state,
+                revisao_grave=origin == "telegram" and telegram_state == "PENDENTE",
                 selecionada=True,
                 chat_id=123 if origin == "telegram" else None,
                 message_id=456 if origin == "telegram" else None,
@@ -559,8 +564,20 @@ async def test_canonical_sources_do_not_duplicate_group_or_daily_finances(
         assert body["total_periodo"]["fontes_excluidas_financeiro"] == 1
         assert body["total_periodo"]["lucro_centavos"] == "100"
         assert body["total_periodo"]["giro_centavos"] == "100"
+        assert body["total_periodo"]["estado_dado"] == "confirmado"
+        assert body["total_periodo"]["pendentes_financeiras"] == 0
+        assert body["total_periodo"]["revisoes_financeiras"] == 0
         if suffix == "/grupos":
             assert body["grupos"][0]["tipsters"][0]["metricas"]["lucro_centavos"] == "100"
+    context_only = await read(
+        api,
+        detailed,
+        "/grupos",
+        {"grupo_id": str(gid), "visibilidade": "todas", "origem": "telegram"},
+    )
+    assert context_only["total_periodo"]["estado_dado"] == "fora_do_financeiro"
+    assert context_only["total_periodo"]["lucro_centavos"] is None
+    assert context_only["total_periodo"]["lucro_conhecido_centavos"] == "0"
 
 
 async def test_actual_materialization_delete_restore_keeps_same_group_fact(
