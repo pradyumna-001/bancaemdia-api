@@ -6,7 +6,7 @@ are reused. No stake units or binary floating point arithmetic are performed.
 
 from collections import Counter
 from dataclasses import dataclass, replace
-from decimal import Decimal, InvalidOperation
+from decimal import Decimal, InvalidOperation, localcontext
 from typing import Literal
 
 from bancaemdia.domain.financeiro import Estado, lucro_exato, retorno_padrao_exato
@@ -124,6 +124,19 @@ def cenario(fatos: list[Fato], *, incompleto: bool = False) -> dict[str, object]
     liquidadas = sum(f.liquidada for f in fatos)
     pendentes = [f for f in fatos if f.financeiro and not f.revisao and f.estado == Estado.PENDENTE]
     sem_resultado = bool(desconhecidos or (pendentes and not liquidadas))
+    # The full population can aggregate beyond an individual BIGINT. Keep the
+    # shared ratios and public rounding inside the same precision as settlement;
+    # Decimal's default 28 digits can reject an otherwise valid six-place ROI.
+    with localcontext() as context:
+        context.prec = 80
+        roi = (
+            None
+            if incompleto or sem_resultado or not metricas.base_roi_centavos
+            else formatar_decimal(metricas.roi)
+        )
+        win_rate = (
+            None if not metricas.greens + metricas.reds else formatar_decimal(metricas.win_rate)
+        )
     result: dict[str, object] = {
         "total_apostas": len(fatos),
         "liquidadas": liquidadas,
@@ -139,12 +152,8 @@ def cenario(fatos: list[Fato], *, incompleto: bool = False) -> dict[str, object]
         "lucro_centavos": None if incompleto or sem_resultado else str(metricas.lucro_centavos),
         "exposicao_pendente_centavos": None if incompleto else str(sum(f.custo for f in pendentes)),
         "face_pendente_centavos": None if incompleto else str(sum(f.face for f in pendentes)),
-        "roi": None
-        if incompleto or sem_resultado or not metricas.base_roi_centavos
-        else formatar_decimal(metricas.roi),
-        "win_rate": None
-        if not metricas.greens + metricas.reds
-        else formatar_decimal(metricas.win_rate),
+        "roi": roi,
+        "win_rate": win_rate,
     }
     return result
 

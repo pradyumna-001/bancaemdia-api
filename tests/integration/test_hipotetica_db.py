@@ -621,3 +621,38 @@ async def test_over_limit_population_is_rejected_without_truncation(
     response = await api[0].get(PATH, headers=api[1](population.user))
     assert response.status_code == 422
     assert response.json() == {"detail": "populacao_excede_10000_apostas_reduza_os_filtros"}
+
+
+async def test_bigint_aggregate_roi_with_zero_stakes_has_exact_six_decimals(
+    api: Any, population: Any, engine_app: Any, como: Any
+) -> None:
+    # Valid unlinked factual payouts must stay unchanged, even at the population
+    # and BIGINT boundaries. Zero cost does not justify discarding their returns.
+    async with como(engine_app, population.user) as session:
+        await session.execute(
+            text(
+                "INSERT INTO apostas(usuario_id,chave,origem,estado,stake_unidades,stake_centavos,valor_aposta_centavos,retorno_centavos) SELECT :uid, 'roi:'||:suffix||':'||n, 'manual','CASHOUT',0,0,0,9223372036854775806 FROM generate_series(1,9999) n"
+            ),
+            {"uid": population.user, "suffix": uuid4().hex},
+        )
+        session.add(
+            models.Aposta(
+                usuario_id=population.user,
+                chave="roi:" + uuid4().hex,
+                origem="manual",
+                estado="RED",
+                stake_unidades=1,
+                stake_centavos=7,
+                valor_aposta_centavos=7,
+                retorno_centavos=0,
+            )
+        )
+        await session.commit()
+    result = await read(api, population)
+    assert result["apostas_consideradas"] == 10000
+    assert result["real"] == result["hipotetico"]
+    assert result["real"]["giro_centavos"] == "7"
+    assert result["real"]["retorno_centavos"] == "92224496996510903284194"
+    assert result["real"]["lucro_centavos"] == "92224496996510903284187"
+    assert result["real"]["roi"] == "13174928142358700469169.571429"
+    assert result["diferencas"]["lucro_centavos"] == "0"
