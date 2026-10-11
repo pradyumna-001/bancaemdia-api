@@ -39,6 +39,14 @@ anonimização remove os objetos do tenant. Não representam armazenamento de co
 pessoal sob o nome de auditoria. O vínculo ativo precisa dos IDs para operar;
 revogação bloqueia processamento e entrega pendentes.
 
+`GET /api/v1/apostas/{chave}/foto` permite conferir a imagem original após a
+confirmação, exclusivamente enquanto o vínculo privado e o prazo acima existirem.
+O hash conservado na aposta/snapshot de replay não estende a retenção do blob.
+Expiração (mesmo antes do purge) e unlink retornam 404 seguro; nunca recuperam a
+foto por um hash global compartilhado com exports. Aposta apagada/restaurada
+logicamente segue a leitura do recurso e o mesmo prazo. Ver o
+[contrato de foto](../contracts/aposta-foto.md).
+
 Mídia nova do bot fica no PostgreSQL; não é enviada ao S3. O armazenamento de
 exports legados permanece separado. Blobs antigos do bot sem dono adicional são
 removidos por `telegram_purge_legacy_media`; um hash compartilhado com importação
