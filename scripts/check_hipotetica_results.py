@@ -7,6 +7,7 @@ from pathlib import Path
 from xml.etree import ElementTree
 
 REQUIRED = {
+    "test_confirmed_tip_origins_use_canonical_link_sources": 3,
     "test_historical_example_keeps_real_odd_result_and_does_not_count_tip": 1,
     "test_all_states_have_independent_financial_expectations": 7,
     "test_rounding_half_even_at_each_step": 3,

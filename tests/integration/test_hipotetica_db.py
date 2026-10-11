@@ -50,6 +50,7 @@ async def create_pair(
     odd: float | None = 2,
     tip_odd: float = 9,
     tip_estado: str = "RED",
+    tip_origin: str = "telegram",
     linked: str | None = "active",
     freebet: bool = False,
     review: bool = False,
@@ -88,7 +89,7 @@ async def create_pair(
         tip = models.Aposta(
             usuario_id=d.user,
             chave="t:" + uuid4().hex,
-            origem="telegram",
+            origem=tip_origin,
             estado=tip_estado,
             chat_id=123,
             message_id=int(uuid4().int % 10**15),
@@ -185,6 +186,16 @@ async def test_historical_example_keeps_real_odd_result_and_does_not_count_tip(
     assert result["diferencas"]["lucro_centavos"] == "-14000"
     assert result["hipotetico"]["roi"] == "1.000000"
     assert result["filtros"]["origem"] == "casa"
+
+
+@pytest.mark.parametrize("origem", ["telegram", "telegram_bot", "print"])
+async def test_confirmed_tip_origins_use_canonical_link_sources(
+    api: Any, population: Any, engine_app: Any, como: Any, origem: str
+) -> None:
+    await create_pair(population, engine_app, como, tip_origin=origem)
+    result = await read(api, population, origem="casa")
+    assert result["apostas_consideradas"] == result["apostas_alteradas"] == 1
+    assert result["hipotetico"]["lucro_centavos"] == "2000"
 
 
 @pytest.mark.parametrize(

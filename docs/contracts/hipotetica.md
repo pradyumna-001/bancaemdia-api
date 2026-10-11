@@ -78,7 +78,7 @@ e selecionados existentes, sem criar nova decisão. Revisão grave exclui dinhei
 Registros sem tipster/conta/grupo/banca continuam no recorte geral, sem atribuição
 presumida; filtro dessas dimensões exige sua referência explícita.
 
-Só `ApostaConsolidacao.estado=active`, com casa e dica Telegram do mesmo usuário,
+Só `ApostaConsolidacao.estado=active`, com casa e dica Telegram/bot/imagem do mesmo usuário,
 é evidência confirmada. `unlinked`, `rejected`, parceira_chave solta e candidatos
 não confirmados não mudam a aposta. Dúvida não cria par; registra limitação.
 Cada casa pode ter uma ponta active, e cada dica uma casa active (índices únicos).
