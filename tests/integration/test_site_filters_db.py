@@ -18,7 +18,7 @@ import jwt
 import pytest
 from cryptography.hazmat.primitives.asymmetric import rsa
 from openpyxl import load_workbook
-from sqlalchemy import func, select, text
+from sqlalchemy import delete, func, select, text, update
 from sqlalchemy.exc import DBAPIError
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -51,7 +51,7 @@ class Dataset:
 
 
 @pytest.fixture
-async def dataset(engine_app: Any, como: Any, novo_usuario: Any) -> Any:
+async def dataset(engine_app: Any, como: Any, novo_usuario: Any) -> AsyncIterator[Dataset]:
     user, other = await novo_usuario(), await novo_usuario()
     suffix = uuid4().hex
     async with como(engine_app, user) as session:
@@ -191,7 +191,28 @@ async def dataset(engine_app: Any, como: Any, novo_usuario: Any) -> Any:
             "grupo_id": group.id,
             "conta_casa_id": account.id,
         }
-    return result
+    try:
+        yield result
+    finally:
+        # Catalogs are shared across tenants. Remove only the rows created by this
+        # fixture, after detaching its own facts; later RLS/seed tests must see the
+        # canonical catalog rather than accumulating synthetic market entries.
+        for owner in (user, other):
+            async with como(engine_app, owner) as session:
+                await session.execute(
+                    update(models.Aposta)
+                    .where(models.Aposta.usuario_id == owner)
+                    .values(mercado_id=None, competicao_id=None, tipster_id=None)
+                )
+                await session.commit()
+        async with como(engine_app, user) as session:
+            for entity, ids in (
+                (models.Mercado, result.mercados),
+                (models.Competicao, result.competicoes),
+                (models.Tipster, result.tipsters),
+            ):
+                await session.execute(delete(entity).where(entity.id.in_(ids)))
+            await session.commit()
 
 
 @pytest.fixture

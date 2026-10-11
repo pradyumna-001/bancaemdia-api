@@ -411,6 +411,7 @@ async def test_bigint_identity_and_money_remain_exact_in_json_and_excel(
     amount = 2**53 + 1
     async with como(engine_app, detailed.user) as session:
         tipster = models.Tipster(id=large, nome=f"BIGINT {large}")
+        detailed.tipsters.append(large)
         group = models.GrupoAposta(id=large, usuario_id=detailed.user, nome=f"BIGINT {large}")
         bet = models.Aposta(
             usuario_id=detailed.user,
