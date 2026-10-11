@@ -10,7 +10,6 @@ import io
 import ipaddress
 import json
 import os
-import platform
 import re
 import secrets
 import signal
@@ -72,8 +71,12 @@ def prepare_tls(directory: Path) -> None:
     (directory / "tls.crt").write_bytes(certificate.public_bytes(Encoding.PEM))
 
 
+def runtime_platform() -> str:
+    return sys.platform
+
+
 def runtime_dir() -> Path:
-    if platform.system() != "Linux" or os.environ.get("GITHUB_ACTIONS") != "true":
+    if runtime_platform() != "linux" or os.environ.get("GITHUB_ACTIONS") != "true":
         raise RuntimeError("This seeder requires an isolated GitHub Actions Linux runner")
     runner = Path(os.environ["RUNNER_TEMP"]).resolve()
     directory = Path(os.environ["K6_STAGING_DIR"]).resolve()

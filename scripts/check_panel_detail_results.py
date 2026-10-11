@@ -20,7 +20,7 @@ REQUIRED = {
     "test_rate_limits_and_expired_cursor_are_private": 1,
     "test_bigint_identity_and_money_remain_exact_in_json_and_excel": 1,
     "test_long_history_query_count_is_bounded_and_groups_not_n_plus_one": 1,
-    "test_canonical_sources_do_not_duplicate_group_or_daily_finances": 1,
+    "test_canonical_sources_do_not_duplicate_group_or_daily_finances": 2,
     "test_actual_materialization_delete_restore_keeps_same_group_fact": 1,
 }
 

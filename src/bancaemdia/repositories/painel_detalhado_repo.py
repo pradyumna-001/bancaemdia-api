@@ -24,6 +24,11 @@ def metrics_columns(a: Any) -> list[Any]:
         *_metricas(a),
         func.count().filter(settled).label("liquidadas_conhecidas"),
         func.count().filter(~a.elegivel_financeiro).label("fontes_excluidas_financeiro"),
+        func
+        .count()
+        .filter(a.elegivel_financeiro & (a.estado == "PENDENTE"))
+        .label("pendentes_financeiras"),
+        func.count().filter(a.elegivel_financeiro & a.revisao_grave).label("revisoes_financeiras"),
     ]
 
 
@@ -32,14 +37,21 @@ def detailed_metrics(row: Any) -> dict[str, Any]:
     result = _saida(raw)
     known_profit = int(raw["lucro_centavos"])
     known_return = int(raw["retorno_centavos"])
-    incomplete = raw["pendentes"] + raw["em_revisao"] + raw["resultados_desconhecidos"]
+    incomplete = (
+        raw["pendentes_financeiras"] + raw["revisoes_financeiras"] + raw["resultados_desconhecidos"]
+    )
+    excluded_only = (
+        raw["total_apostas"] > 0 and raw["total_apostas"] == raw["fontes_excluidas_financeiro"]
+    )
     if raw["total_apostas"] == 0:
         status = "sem_atividade"
+    elif excluded_only:
+        status = "fora_do_financeiro"
     elif not incomplete:
         status = "confirmado"
     elif raw["liquidadas_conhecidas"]:
         status = "parcial"
-    elif raw["em_revisao"] or raw["resultados_desconhecidos"]:
+    elif raw["revisoes_financeiras"] or raw["resultados_desconhecidos"]:
         status = "desconhecido"
     else:
         status = "pendente"
@@ -47,9 +59,9 @@ def detailed_metrics(row: Any) -> dict[str, Any]:
         estado_dado=status,
         lucro_conhecido_centavos=str(known_profit),
         retorno_conhecido_centavos=str(known_return),
-        lucro_centavos=None if incomplete else str(known_profit),
-        retorno_centavos=None if incomplete else str(known_return),
-        roi=None if incomplete else result["roi"],
+        lucro_centavos=None if incomplete or excluded_only else str(known_profit),
+        retorno_centavos=None if incomplete or excluded_only else str(known_return),
+        roi=None if incomplete or excluded_only else result["roi"],
     )
     for field in ("giro_centavos", "base_roi_centavos"):
         result[field] = str(int(result[field]))
@@ -74,6 +86,8 @@ def empty_metrics() -> dict[str, Any]:
                 "lucro_centavos",
                 "liquidadas_conhecidas",
                 "fontes_excluidas_financeiro",
+                "pendentes_financeiras",
+                "revisoes_financeiras",
             ),
             0,
         ),
@@ -391,6 +405,8 @@ class PainelDetalhadoRepo:
                 yield {
                     "grupo_id": None if row["grupo_id"] is None else str(row["grupo_id"]),
                     "grupo_nome": row["grupo_nome"],
+                    "grupo_ativo": row["grupo_ativo"],
+                    "tipster_atribuicao": row.get("tipster_atribuicao"),
                     "atribuicao": ("atribuida", "sem_grupo", "ambigua", "nao_resolvida")[
                         row["atribuicao_codigo"]
                     ],

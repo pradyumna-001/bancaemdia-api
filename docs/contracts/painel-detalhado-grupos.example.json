@@ -31,7 +31,9 @@
     "lucro_conhecido_centavos": "100",
     "roi": "1.000000",
     "win_rate": "1.000000",
-    "estado_dado": "confirmado"
+    "estado_dado": "confirmado",
+    "pendentes_financeiras": 0,
+    "revisoes_financeiras": 0
   },
   "politica_atribuicao": "vinculo_explicito_unico_da_aposta",
   "rotulos": "catalogo_atual",
@@ -63,7 +65,9 @@
         "lucro_conhecido_centavos": "100",
         "roi": "1.000000",
         "win_rate": "1.000000",
-        "estado_dado": "confirmado"
+        "estado_dado": "confirmado",
+        "pendentes_financeiras": 0,
+        "revisoes_financeiras": 0
       },
       "total_filhos": 1,
       "tipsters": [
@@ -90,7 +94,9 @@
             "lucro_conhecido_centavos": "100",
             "roi": "1.000000",
             "win_rate": "1.000000",
-            "estado_dado": "confirmado"
+            "estado_dado": "confirmado",
+            "pendentes_financeiras": 0,
+            "revisoes_financeiras": 0
           }
         }
       ]

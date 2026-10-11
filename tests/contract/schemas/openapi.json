@@ -4663,7 +4663,8 @@
               "confirmado",
               "parcial",
               "pendente",
-              "desconhecido"
+              "desconhecido",
+              "fora_do_financeiro"
             ],
             "title": "Estado Dado",
             "type": "string"
@@ -4723,6 +4724,12 @@
             "title": "Pendentes",
             "type": "integer"
           },
+          "pendentes_financeiras": {
+            "format": "int64",
+            "minimum": 0.0,
+            "title": "Pendentes Financeiras",
+            "type": "integer"
+          },
           "reds": {
             "format": "int64",
             "minimum": 0.0,
@@ -4753,6 +4760,12 @@
             "pattern": "^-?(0|[1-9][0-9]*)$",
             "title": "Retorno Conhecido Centavos",
             "type": "string"
+          },
+          "revisoes_financeiras": {
+            "format": "int64",
+            "minimum": 0.0,
+            "title": "Revisoes Financeiras",
+            "type": "integer"
           },
           "roi": {
             "anyOf": [
@@ -4786,6 +4799,8 @@
           "resultados_desconhecidos",
           "liquidadas_conhecidas",
           "fontes_excluidas_financeiro",
+          "pendentes_financeiras",
+          "revisoes_financeiras",
           "freebets",
           "giro_centavos",
           "base_roi_centavos",
