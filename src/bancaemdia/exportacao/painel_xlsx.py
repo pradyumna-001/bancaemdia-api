@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import asyncio
+import re
 from collections.abc import AsyncIterable, Iterable, Sequence
 from dataclasses import dataclass
 from pathlib import Path
@@ -35,7 +36,11 @@ class ArquivoXlsx:
 
 
 def _valor_seguro(valor: object) -> object:
-    if isinstance(valor, str) and valor.startswith(PREFIXOS_DE_FORMULA):
+    if (
+        isinstance(valor, str)
+        and valor.startswith(PREFIXOS_DE_FORMULA)
+        and not re.fullmatch(r"-?(0|[1-9][0-9]*)", valor)
+    ):
         return f"'{valor}"
     return valor
 
