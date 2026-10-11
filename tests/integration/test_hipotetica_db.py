@@ -58,7 +58,7 @@ async def create_pair(
     tip_review: bool = False,
     duvida: bool = False,
     historico: bool = True,
-    commission: int = 0,
+    commission: int | str = 0,
     fixed: bool = False,
     bonus: bool = False,
     date: datetime | None = datetime(2026, 9, 10, 3, tzinfo=UTC),
@@ -293,6 +293,7 @@ async def test_unlinked_rejected_ambiguous_equal_stakes_remain_real(
         ({"bonus": True}, "taxa_bonus_ou_retorno_fixo"),
         ({"historico": False}, "historico_financeiro_ausente"),
         ({"tip_review": True}, "dica_em_revisao"),
+        ({"commission": ""}, "taxa_bonus_ou_retorno_fixo"),
     ],
 )
 async def test_unsafe_data_is_explicit_and_never_a_complete_comparison(
