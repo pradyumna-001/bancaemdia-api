@@ -19,7 +19,7 @@ MAX_APOSTAS = 10_000
 
 def _comissao_especial(value: str | None) -> bool:
     try:
-        number = Decimal(value or "0")
+        number = Decimal("0" if value is None else value)
         return not number.is_finite() or number != 0
     except InvalidOperation:
         return True

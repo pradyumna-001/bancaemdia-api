@@ -13,7 +13,7 @@ REQUIRED = {
     "test_all_states_have_independent_financial_expectations": 7,
     "test_rounding_half_even_at_each_step": 3,
     "test_unlinked_rejected_ambiguous_equal_stakes_remain_real": 5,
-    "test_unsafe_data_is_explicit_and_never_a_complete_comparison": 10,
+    "test_unsafe_data_is_explicit_and_never_a_complete_comparison": 11,
     "test_freebet_uses_face_and_zero_cost_not_proportional_bonus": 4,
     "test_full_population_larger_than_page_and_no_n_plus_one": 1,
     "test_all_selectors_use_owned_canonical_population": 8,
