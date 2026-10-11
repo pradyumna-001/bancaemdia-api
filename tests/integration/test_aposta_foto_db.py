@@ -332,7 +332,18 @@ async def test_real_validated_formats_are_delivered_without_modification(
 
 
 @pytest.mark.parametrize(
-    "invalid", ["active", "mismatch", "corrupt", "oversized", "hash_mismatch", "missing_blob"]
+    "invalid",
+    [
+        "active",
+        "mismatch",
+        "corrupt",
+        "png_checksum",
+        "truncated_jpeg",
+        "animation_limit",
+        "oversized",
+        "hash_mismatch",
+        "missing_blob",
+    ],
 )
 async def test_invalid_missing_and_oversized_database_images(
     api: Api, engine_app: AsyncEngine, como: Any, novo_usuario: Any, invalid: str
@@ -349,6 +360,17 @@ async def test_invalid_missing_and_oversized_database_images(
         mime = "image/jpeg"
     elif invalid == "corrupt":
         content = b"\x89PNG\r\n\x1a\ninvalid"
+    elif invalid == "png_checksum":
+        malformed = bytearray(content)
+        malformed[29] ^= 1
+        content = bytes(malformed)
+    elif invalid == "truncated_jpeg":
+        content, mime = image_bytes("JPEG")[:-2], "image/jpeg"
+    elif invalid == "animation_limit":
+        frames = [Image.new("RGB", (8, 5), (index % 256, index // 256, 0)) for index in range(257)]
+        buffer = io.BytesIO()
+        frames[0].save(buffer, format="GIF", save_all=True, append_images=frames[1:], disposal=2)
+        content, mime = buffer.getvalue(), "image/gif"
     elif invalid == "oversized":
         content = b"x" * (MAX_PHOTO_BYTES + 1)
     hash_ = await save_photo(engine_app, como, owner, content, mime)

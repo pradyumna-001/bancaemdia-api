@@ -8041,7 +8041,7 @@
                 }
               }
             },
-            "description": "Imagem original validada, até 20 MiB e 40 milhões de pixels; private, no-store.",
+            "description": "Imagem original decodificada e validada, até 20 MiB, 256 frames e 40 milhões de pixels somados; private, no-store.",
             "headers": {
               "Cache-Control": {
                 "schema": {

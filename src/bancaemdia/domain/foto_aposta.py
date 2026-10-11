@@ -11,6 +11,7 @@ from bancaemdia.integrations.telegram.media import MAX_PHOTO_BYTES
 
 IMAGE_TYPES = {"JPEG": "image/jpeg", "PNG": "image/png", "GIF": "image/gif", "WEBP": "image/webp"}
 MAX_PHOTO_PIXELS = 40_000_000
+MAX_PHOTO_FRAMES = 256
 
 
 def photo_path(path: str) -> bool:
@@ -50,9 +51,24 @@ def validate_photo(content: bytes, mime: str, digest: str) -> str:
                 ):
                     raise InvalidPhotoError
                 image.verify()
+            # JPEG's verify() does not decode its stream. Actually load the
+            # bounded frames too, so truncated data cannot be published as valid.
+            with Image.open(BytesIO(content)) as decoded:
+                pixels = 0
+                for frame in range(MAX_PHOTO_FRAMES + 1):
+                    try:
+                        decoded.seek(frame)
+                    except EOFError:
+                        break
+                    pixels += decoded.width * decoded.height
+                    if frame == MAX_PHOTO_FRAMES or pixels > MAX_PHOTO_PIXELS:
+                        raise InvalidPhotoError
+                    decoded.load()
     except (
         OSError,
         ValueError,
+        SyntaxError,
+        EOFError,
         UnidentifiedImageError,
         Image.DecompressionBombError,
         Image.DecompressionBombWarning,

@@ -10,7 +10,7 @@ REQUIRED = {
     "test_review_resolution_and_deleted_restored_bet_keep_original": 1,
     "test_exact_resolved_review_provenance_and_ambiguity_fail_closed": 1,
     "test_real_validated_formats_are_delivered_without_modification": 4,
-    "test_invalid_missing_and_oversized_database_images": 6,
+    "test_invalid_missing_and_oversized_database_images": 9,
     "test_s3_authenticated_api_transport_and_storage_errors": 5,
     "test_read_only_is_explicitly_allowed_and_photo_has_no_financial_writes": 1,
     "test_401_and_private_headers_for_session_failure": 4,

@@ -46,7 +46,7 @@ def photo_error(code: int, message: str) -> JSONResponse:
     description="Leitura por aposta e proveniência persistida, no primário, inclusive após revisão. FULL_WRITE e READ_ONLY. Sem extração, escrita, redirecionamento ou credenciais em URL. 404 representa aposta/foto inexistente, inacessível, ambígua ou já removida pela retenção.",
     responses={
         200: {
-            "description": "Imagem original validada, até 20 MiB e 40 milhões de pixels; private, no-store.",
+            "description": "Imagem original decodificada e validada, até 20 MiB, 256 frames e 40 milhões de pixels somados; private, no-store.",
             "content": {
                 mime: {"schema": {"type": "string", "format": "binary"}}
                 for mime in IMAGE_TYPES.values()

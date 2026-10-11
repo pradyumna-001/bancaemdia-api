@@ -51,3 +51,17 @@ def test_real_png_dimensions_above_pixel_budget_are_rejected() -> None:
     data = bytes(content)
     with pytest.raises(InvalidPhotoError):
         validate_photo(data, "image/png", hashlib.sha256(data).hexdigest())
+
+
+def test_valid_animated_gif_stays_supported_with_bounded_decoding() -> None:
+    buffer = io.BytesIO()
+    first = Image.new("RGB", (8, 5), "red")
+    first.save(
+        buffer,
+        format="GIF",
+        save_all=True,
+        append_images=[Image.new("RGB", (8, 5), "blue")],
+        disposal=2,
+    )
+    data = buffer.getvalue()
+    assert validate_photo(data, "image/gif", hashlib.sha256(data).hexdigest()) == "image/gif"

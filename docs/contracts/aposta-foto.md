@@ -52,9 +52,12 @@ entrega os bytes; nenhuma URL assinada, redirect, token, bucket, chave de objeto
 ou referência cifrada vai ao navegador. A rota antiga de revisão não substitui
 este recurso e continua limitada à fila aberta.
 
-Até 20 MiB e 40 milhões de pixels. JPEG, PNG, GIF ou WebP reais, verificando
+Até 20 MiB, 256 frames e 40 milhões de pixels somados nos frames decodificados.
+JPEG, PNG, GIF ou WebP reais, verificando
 formato, MIME persistido, integridade do arquivo e SHA-256. SVG, HTML, arquivos
-corrompidos, MIME divergente e limites excedidos são rejeitados. Nome fixo:
+corrompidos (inclusive JPEG truncado), MIME divergente e limites excedidos são
+rejeitados. A validação decodifica os frames sob esse orçamento sem alterar bytes,
+executar extração ou usar IA. Nome fixo:
 `Content-Disposition: inline; filename="foto-aposta.png"` (jpg/gif/webp conforme
 formato). `Content-Type` é o MIME validado.
 
