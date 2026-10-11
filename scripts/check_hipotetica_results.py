@@ -7,6 +7,7 @@ from pathlib import Path
 from xml.etree import ElementTree
 
 REQUIRED = {
+    "test_commercial_read_queries_once_without_caching_live_permission": 1,
     "test_bigint_aggregate_roi_with_zero_stakes_has_exact_six_decimals": 1,
     "test_confirmed_tip_origins_use_canonical_link_sources": 3,
     "test_historical_example_keeps_real_odd_result_and_does_not_count_tip": 1,

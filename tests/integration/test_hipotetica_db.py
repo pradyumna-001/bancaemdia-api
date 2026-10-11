@@ -536,6 +536,45 @@ async def test_read_only_permission_and_real_facts_events_caixa_exports_unchange
             )
 
 
+async def test_commercial_read_queries_once_without_caching_live_permission(
+    population: Any, engine_admin: Any, engine_app: Any, como: Any
+) -> None:
+    statements: list[str] = []
+
+    def capture(
+        conn: Any, cursor: Any, statement: str, parameters: Any, context: Any, executemany: bool
+    ) -> None:
+        statements.append(statement)
+
+    async with engine_admin.begin() as conn:
+        previous = await conn.scalar(text("SELECT activated_at FROM billing_rollout WHERE id=1"))
+        await conn.execute(text("UPDATE billing_rollout SET activated_at=NULL WHERE id=1"))
+    try:
+        async with como(engine_app, population.user) as session:
+            event.listen(engine_app.sync_engine, "before_cursor_execute", capture)
+            try:
+                assert (
+                    await AssinaturaRepo().read_status(session, population.user)
+                ).access.value == ("FULL_WRITE")
+                assert len(statements) == 1
+                async with engine_admin.begin() as conn:
+                    await conn.execute(
+                        text("UPDATE billing_rollout SET activated_at=now() WHERE id=1")
+                    )
+                statements.clear()
+                assert (
+                    await AssinaturaRepo().read_status(session, population.user)
+                ).access.value == ("READ_ONLY")
+                assert len(statements) == 1
+            finally:
+                event.remove(engine_app.sync_engine, "before_cursor_execute", capture)
+    finally:
+        async with engine_admin.begin() as conn:
+            await conn.execute(
+                text("UPDATE billing_rollout SET activated_at=:p WHERE id=1"), {"p": previous}
+            )
+
+
 @pytest.mark.parametrize(
     "params",
     [

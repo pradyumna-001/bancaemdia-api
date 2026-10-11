@@ -23,7 +23,7 @@ _credential_use = lambda_stmt(
             Usuario.ativo,
         )
         .values(ultimo_uso_em=bindparam("used_at"))
-        .returning(ColetaInstalacao)
+        .returning(ColetaInstalacao.usuario_id, ColetaInstalacao.id)
     )
 ).execution_options(synchronize_session=False, populate_existing=True)
 
@@ -54,9 +54,11 @@ class ColetaInstalacaoRepo:
         # Updating last-use acquires the credential's row lock until commit, just
         # like the former SELECT FOR UPDATE + flush. Check the active owner in
         # that same statement; rotation/revocation still waits for accepted work.
-        row = await session.scalar(
-            _credential_use, {"credential_hash": token_hash, "used_at": datetime.now(UTC)}
-        )
+        row = (
+            await session.execute(
+                _credential_use, {"credential_hash": token_hash, "used_at": datetime.now(UTC)}
+            )
+        ).one_or_none()
         if row is None:
             return None
         return CollectionIdentity(owner, row.id)
