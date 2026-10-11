@@ -50,6 +50,10 @@ def validate_photo(content: bytes, mime: str, digest: str) -> str:
                     or image.width * image.height > MAX_PHOTO_PIXELS
                 ):
                     raise InvalidPhotoError
+                if image.format == "JPEG" and not content.endswith(b"\xff\xd9"):
+                    # Some complete entropy streams decode despite a missing EOI.
+                    # Require the original JPEG's closing marker as well.
+                    raise InvalidPhotoError
                 image.verify()
             # JPEG's verify() does not decode its stream. Actually load the
             # bounded frames too, so truncated data cannot be published as valid.
