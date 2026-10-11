@@ -203,12 +203,12 @@ async def financial(engine: Any, user: Any) -> Any:
         }, relations
 
 
-@pytest.mark.parametrize("order", ["house-first", "telegram-first"])
 def materialized_key(value: str | None) -> str:
     assert value is not None
     return value
 
 
+@pytest.mark.parametrize("order", ["house-first", "telegram-first"])
 async def test_real_intake_both_orders_one_fact_settlement_and_source_preservation(
     engine_app: Any, engine_admin: Any, novo_usuario: Any, order: Any
 ) -> Any:
