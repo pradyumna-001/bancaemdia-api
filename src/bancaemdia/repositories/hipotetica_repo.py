@@ -82,7 +82,7 @@ class HipoteticaRepo:
                     tip,
                     (tip.id == rel.telegram_aposta_id)
                     & (tip.usuario_id == owner)
-                    & (tip.origem == "telegram"),
+                    & (tip.origem.in_(("telegram", "telegram_bot", "print"))),
                 )
                 .where(
                     rel.usuario_id == owner,
