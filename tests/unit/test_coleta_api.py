@@ -2,13 +2,16 @@ from __future__ import annotations
 
 import hashlib
 import hmac
+from collections.abc import AsyncIterator
 from datetime import UTC, datetime
 from types import SimpleNamespace
+from typing import Any, cast
 
 import pytest
 from fastapi.testclient import TestClient
 from kombu.exceptions import OperationalError
 from prometheus_client import REGISTRY
+from starlette.requests import Request
 
 from bancaemdia import main
 from bancaemdia.api.v1 import coleta
@@ -20,7 +23,14 @@ PLACED = 1785708161930
 START = 1785709800000
 
 
-def _bilhete(id_="20753556039", *, resultado="Lose", ganho=0.0, odd=1.90, **extra):
+def _bilhete(
+    id_: Any = "20753556039",
+    *,
+    resultado: Any = "Lose",
+    ganho: Any = 0.0,
+    odd: Any = 1.90,
+    **extra: Any,
+) -> Any:
     bruto = {
         "id": id_,
         "bonusType": 0,
@@ -50,19 +60,23 @@ def _bilhete(id_="20753556039", *, resultado="Lose", ganho=0.0, odd=1.90, **extr
     return bruto
 
 
-def _banco(recebidas_hoje=0):
+def _banco(recebidas_hoje: Any = 0) -> Any:
     class Banco:
-        def __init__(self):
-            self.linhas = {}
-            self.apostas = {}
-            self.enfileiradas = []
+        def __init__(self) -> None:
+            self.linhas: dict[Any, Any] = {}
+            self.apostas: dict[Any, Any] = {}
+            self.enfileiradas: list[Any] = []
             self.commits = 0
-            self.sql = []
+            self.sql: list[Any] = []
 
-    banco = Banco()
+    banco: Any = Banco()
 
     class ColetaInstalacaoRepo:
-        async def authenticate(self, session, token_hash):
+        async def authenticate(self, session: Any, token_hash: Any) -> Any:
+            if token_hash == coleta.hash_do_token(TOKEN):
+                await session.execute(
+                    "SELECT set_config('app.current_user_id', :uid, true)", {"uid": "7"}
+                )
             return (
                 SimpleNamespace(usuario_id=7, instalacao_id=17)
                 if token_hash == coleta.hash_do_token(TOKEN)
@@ -70,20 +84,22 @@ def _banco(recebidas_hoje=0):
             )
 
     class ColetaCasaRepo:
-        async def matching_counts(self, session, usuario_id, chave):
+        async def matching_counts(self, session: Any, usuario_id: Any, aposta_id: Any) -> Any:
             return {}
 
-        async def lock_daily_admission(self, session, usuario_id):
+        async def lock_daily_admission(self, session: Any, usuario_id: Any) -> Any:
             pass
 
-        async def count_received_since(self, session, usuario_id, desde):
+        async def count_received_since(self, session: Any, usuario_id: Any, desde: Any) -> Any:
             banco.desde = desde
             return recebidas_hoje
 
-        async def get_by_identidade(self, session, usuario_id, casa_id, identidade):
+        async def get_by_identidade(
+            self, session: Any, usuario_id: Any, casa_id: Any, identidade: Any
+        ) -> Any:
             return banco.linhas.get((usuario_id, casa_id, identidade))
 
-        async def upsert_idempotent(self, session, dados):
+        async def upsert_idempotent(self, session: Any, dados: Any) -> Any:
             chave = (dados["usuario_id"], dados["casa_id"], dados["identidade"])
             atual = banco.linhas.get(chave)
             if atual is not None and atual.hash_conteudo == dados["hash_conteudo"]:
@@ -97,22 +113,22 @@ def _banco(recebidas_hoje=0):
             return linha
 
     class CasaRepo:
-        async def get_id_by_nome(self, session, nome):
+        async def get_id_by_nome(self, session: Any, nome: Any) -> Any:
             return {"Betano": 1, "KTO": 2, "bet365": 3}.get(nome)
 
     class ApostaRepo:
-        async def get_by_chave(self, session, usuario_id, chave):
+        async def get_by_chave(self, session: Any, usuario_id: Any, chave: Any) -> Any:
             return banco.apostas.get((usuario_id, chave))
 
     class Session:
-        async def execute(self, statement, params=None):
+        async def execute(self, statement: Any, params: Any = None) -> Any:
             banco.sql.append((str(statement), params))
 
-        async def commit(self):
+        async def commit(self) -> Any:
             banco.commits += 1
 
     class Sessoes:
-        async def abrir(self):
+        async def abrir(self) -> AsyncIterator[Any]:
             yield Session()
 
     banco.repos = {
@@ -125,7 +141,7 @@ def _banco(recebidas_hoje=0):
     return banco
 
 
-def _cliente(monkeypatch, banco):
+def _cliente(monkeypatch: pytest.MonkeyPatch, banco: Any) -> Any:
     for nome, classe in banco.repos.items():
         monkeypatch.setattr(coleta, nome, classe)
     monkeypatch.setitem(main.app.dependency_overrides, get_db, banco.sessao)
@@ -138,7 +154,15 @@ def _cliente(monkeypatch, banco):
     return TestClient(main.app, base_url="https://testserver")
 
 
-def _enviar(cliente, bilhetes, *, casa="betano", token=TOKEN, caminho="/api/v1/coleta", **envio):
+def _enviar(
+    cliente: Any,
+    bilhetes: Any,
+    *,
+    casa: Any = "betano",
+    token: Any = TOKEN,
+    caminho: Any = "/api/v1/coleta",
+    **envio: Any,
+) -> Any:
     corpo = {
         "contrato": 1,
         "casa": casa,
@@ -150,13 +174,13 @@ def _enviar(cliente, bilhetes, *, casa="betano", token=TOKEN, caminho="/api/v1/c
     return cliente.post(caminho, json=corpo, headers=headers)
 
 
-def _recebidas(casa, status):
+def _recebidas(casa: Any, status: Any) -> Any:
     return (
         REGISTRY.get_sample_value("coleta_received_total", {"casa": casa, "status": status}) or 0.0
     )
 
 
-def test_token_is_stored_as_an_hmac_of_the_server_secret(monkeypatch) -> None:
+def test_token_is_stored_as_an_hmac_of_the_server_secret(monkeypatch: pytest.MonkeyPatch) -> None:
     esperado = hmac.new(b"TEST_COLETA_TOKEN_SECRET", TOKEN.encode(), hashlib.sha256).hexdigest()
 
     assert coleta.hash_do_token(TOKEN) == esperado
@@ -169,7 +193,9 @@ def test_token_is_stored_as_an_hmac_of_the_server_secret(monkeypatch) -> None:
 
 
 @pytest.mark.parametrize("token", [None, "token de outra conta"])
-def test_send_without_the_token_of_an_account_is_refused(monkeypatch, token) -> None:
+def test_send_without_the_token_of_an_account_is_refused(
+    monkeypatch: pytest.MonkeyPatch, token: Any
+) -> None:
     banco = _banco()
 
     resposta = _enviar(_cliente(monkeypatch, banco), [_bilhete()], token=token)
@@ -180,7 +206,9 @@ def test_send_without_the_token_of_an_account_is_refused(monkeypatch, token) -> 
 
 
 @pytest.mark.parametrize("path", ["/coleta", "/api/v1/coleta"])
-def test_read_only_collection_returns_stable_402_without_ack_or_writes(monkeypatch, path):
+def test_read_only_collection_returns_stable_402_without_ack_or_writes(
+    monkeypatch: pytest.MonkeyPatch, path: Any
+) -> None:
     from unittest.mock import AsyncMock
 
     from bancaemdia.domain.billing import AccessMode, BillingReadModel
@@ -196,6 +224,7 @@ def test_read_only_collection_returns_stable_402_without_ack_or_writes(monkeypat
     denied = _enviar(client, [_bilhete()], caminho=path)
     assert denied.status_code == 402
     assert denied.json() == {"detail": "account_read_only"}
+    assert read_status.await_args is not None
     assert read_status.await_args.args[1] == 7
     assert (banco.linhas, banco.commits, banco.enfileiradas) == ({}, 0, [])
     assert ("SELECT set_config('app.current_user_id', :uid, true)", {"uid": "7"}) in banco.sql
@@ -207,7 +236,7 @@ def test_read_only_collection_returns_stable_402_without_ack_or_writes(monkeypat
     assert len(banco.linhas) == 1 and banco.commits == 1 and len(banco.enfileiradas) == 1
 
 
-def test_daily_limit_is_checked_before_the_send_is_read(monkeypatch) -> None:
+def test_daily_limit_is_checked_before_the_send_is_read(monkeypatch: pytest.MonkeyPatch) -> None:
     banco = _banco(recebidas_hoje=5000)
     cliente = _cliente(monkeypatch, banco)
 
@@ -229,7 +258,7 @@ def test_daily_limit_is_checked_before_the_send_is_read(monkeypatch) -> None:
     ],
 )
 def test_broken_send_is_refused_with_a_reason_the_extension_shows(
-    monkeypatch, envio, motivo
+    monkeypatch: pytest.MonkeyPatch, envio: Any, motivo: Any
 ) -> None:
     banco = _banco()
 
@@ -241,7 +270,7 @@ def test_broken_send_is_refused_with_a_reason_the_extension_shows(
     assert banco.linhas == {}
 
 
-def test_send_that_is_not_json_or_too_big_is_refused(monkeypatch) -> None:
+def test_send_that_is_not_json_or_too_big_is_refused(monkeypatch: pytest.MonkeyPatch) -> None:
     banco = _banco()
     cliente = _cliente(monkeypatch, banco)
     headers = {coleta.TOKEN_HEADER: TOKEN}
@@ -262,7 +291,7 @@ def test_send_that_is_not_json_or_too_big_is_refused(monkeypatch) -> None:
     assert "apostas demais" in demais.json()["erro"]
 
 
-def test_new_bet_is_stored_and_sent_to_materialization(monkeypatch) -> None:
+def test_new_bet_is_stored_and_sent_to_materialization(monkeypatch: pytest.MonkeyPatch) -> None:
     banco = _banco()
     novas = _recebidas("betano", "nova")
 
@@ -286,7 +315,9 @@ def test_new_bet_is_stored_and_sent_to_materialization(monkeypatch) -> None:
     assert _recebidas("betano", "nova") == pytest.approx(novas + 1)
 
 
-def test_resend_of_a_processed_bet_is_known_and_not_queued_again(monkeypatch) -> None:
+def test_resend_of_a_processed_bet_is_known_and_not_queued_again(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
     banco = _banco()
     cliente = _cliente(monkeypatch, banco)
     dedup = REGISTRY.get_sample_value("coleta_dedup_total") or 0.0
@@ -300,7 +331,9 @@ def test_resend_of_a_processed_bet_is_known_and_not_queued_again(monkeypatch) ->
     assert REGISTRY.get_sample_value("coleta_dedup_total") == pytest.approx(dedup + 1)
 
 
-def test_resend_of_a_bet_not_processed_yet_goes_back_to_the_queue(monkeypatch) -> None:
+def test_resend_of_a_bet_not_processed_yet_goes_back_to_the_queue(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
     banco = _banco()
     cliente = _cliente(monkeypatch, banco)
     _enviar(cliente, [_bilhete()])
@@ -311,7 +344,9 @@ def test_resend_of_a_bet_not_processed_yet_goes_back_to_the_queue(monkeypatch) -
     assert banco.enfileiradas == [(7, [1]), (7, [1])]
 
 
-def test_bet_captured_again_after_settling_is_updated_and_queued(monkeypatch) -> None:
+def test_bet_captured_again_after_settling_is_updated_and_queued(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
     banco = _banco()
     cliente = _cliente(monkeypatch, banco)
     _enviar(cliente, [_bilhete(resultado=None)])
@@ -324,7 +359,9 @@ def test_bet_captured_again_after_settling_is_updated_and_queued(monkeypatch) ->
     assert banco.enfileiradas == [(7, [1]), (7, [1])]
 
 
-def test_unreadable_bet_is_refused_without_stopping_the_others(monkeypatch) -> None:
+def test_unreadable_bet_is_refused_without_stopping_the_others(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
     banco = _banco()
     sem_id = _bilhete()
     del sem_id["id"]
@@ -339,7 +376,9 @@ def test_unreadable_bet_is_refused_without_stopping_the_others(monkeypatch) -> N
 
 
 @pytest.mark.parametrize("casa", ["betano", "bet365"])
-def test_bet_that_cannot_be_stored_is_refused_without_losing_the_send(monkeypatch, casa) -> None:
+def test_bet_that_cannot_be_stored_is_refused_without_losing_the_send(
+    monkeypatch: pytest.MonkeyPatch, casa: Any
+) -> None:
     banco = _banco()
 
     resposta = _enviar(
@@ -353,7 +392,9 @@ def test_bet_that_cannot_be_stored_is_refused_without_losing_the_send(monkeypatc
     assert banco.commits == 1
 
 
-def test_bet_the_product_cannot_count_keeps_its_raw_proof_but_is_not_queued(monkeypatch) -> None:
+def test_bet_the_product_cannot_count_keeps_its_raw_proof_but_is_not_queued(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
     banco = _banco()
 
     resposta = _enviar(_cliente(monkeypatch, banco), [_bilhete(odd=1.0)])
@@ -370,11 +411,13 @@ def test_bet_the_product_cannot_count_keeps_its_raw_proof_but_is_not_queued(monk
     assert banco.enfileiradas == [(7, [])]
 
 
-def test_new_capture_of_an_existing_bet_skips_the_creation_rules(monkeypatch) -> None:
+def test_new_capture_of_an_existing_bet_skips_the_creation_rules(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
     banco = _banco()
     cliente = _cliente(monkeypatch, banco)
     _enviar(cliente, [_bilhete(resultado=None)])
-    banco.apostas[7, "c:betano:20753556039"] = SimpleNamespace(estado="PENDENTE")
+    banco.apostas[7, "c:betano:20753556039"] = SimpleNamespace(id=23, estado="PENDENTE")
 
     resposta = _enviar(cliente, [_bilhete(odd=1.0)])
 
@@ -382,7 +425,9 @@ def test_new_capture_of_an_existing_bet_skips_the_creation_rules(monkeypatch) ->
     assert banco.enfileiradas == [(7, [1]), (7, [1])]
 
 
-def test_house_without_a_reader_keeps_the_raw_bets_and_says_so(monkeypatch) -> None:
+def test_house_without_a_reader_keeps_the_raw_bets_and_says_so(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
     banco = _banco()
 
     resposta = _enviar(_cliente(monkeypatch, banco), [{"ticket": 1}, "não é objeto"], casa="bet365")
@@ -398,11 +443,13 @@ def test_house_without_a_reader_keeps_the_raw_bets_and_says_so(monkeypatch) -> N
     assert banco.enfileiradas == [(7, [])]
 
 
-def test_queue_down_after_storing_answers_so_the_extension_sends_again(monkeypatch) -> None:
+def test_queue_down_after_storing_answers_so_the_extension_sends_again(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
     banco = _banco()
     cliente = _cliente(monkeypatch, banco)
 
-    def fora_do_ar(usuario_id, fila):
+    def fora_do_ar(usuario_id: Any, fila: Any) -> Any:
         raise OperationalError("broker down")
 
     monkeypatch.setattr(coleta, "_enfileirar", fora_do_ar)
@@ -414,7 +461,9 @@ def test_queue_down_after_storing_answers_so_the_extension_sends_again(monkeypat
     assert (len(banco.linhas), banco.commits) == (1, 1)
 
 
-def test_path_of_the_current_extension_still_receives_the_send(monkeypatch) -> None:
+def test_path_of_the_current_extension_still_receives_the_send(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
     banco = _banco()
 
     resposta = _enviar(_cliente(monkeypatch, banco), [_bilhete()], caminho="/coleta")
@@ -422,7 +471,9 @@ def test_path_of_the_current_extension_still_receives_the_send(monkeypatch) -> N
     assert (resposta.status_code, resposta.json()["novas_contando"]) == (200, 1)
 
 
-def test_too_many_sends_from_one_token_are_refused_with_a_reason(monkeypatch) -> None:
+def test_too_many_sends_from_one_token_are_refused_with_a_reason(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
     banco = _banco()
     cliente = _cliente(monkeypatch, banco)
     monkeypatch.setattr(coleta.limiter, "enabled", True)
@@ -451,4 +502,4 @@ def test_limit_key_never_carries_the_raw_token() -> None:
         hashlib.sha256,
     ).hexdigest()
 
-    assert coleta.chave_do_limite(request) == esperado
+    assert coleta.chave_do_limite(cast(Request, request)) == esperado
