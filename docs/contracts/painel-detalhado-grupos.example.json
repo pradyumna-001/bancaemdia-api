@@ -1,0 +1,101 @@
+{
+  "fonte_dados": "apostas_ao_vivo",
+  "criterio_temporal": "data_aposta",
+  "fuso_horario": "America/Sao_Paulo",
+  "snapshot_em": "2026-01-02T03:00:00Z",
+  "respondido_em": "2026-01-02T03:00:01Z",
+  "moeda": "BRL",
+  "escopo": "apostas_legadas_brl",
+  "consistencia": "snapshot_por_resposta",
+  "filtros": {
+    "desde": "2026-01-01T00:00:00-03:00",
+    "ate": "2026-01-02T00:00:00-03:00",
+    "visibilidade": "ativas"
+  },
+  "total_periodo": {
+    "total_apostas": 1,
+    "pendentes": 0,
+    "greens": 1,
+    "reds": 0,
+    "em_revisao": 0,
+    "anuladas": 0,
+    "resultados_desconhecidos": 0,
+    "liquidadas_conhecidas": 1,
+    "fontes_excluidas_financeiro": 0,
+    "freebets": 0,
+    "giro_centavos": "100",
+    "base_roi_centavos": "100",
+    "retorno_centavos": "200",
+    "lucro_centavos": "100",
+    "retorno_conhecido_centavos": "200",
+    "lucro_conhecido_centavos": "100",
+    "roi": "1.000000",
+    "win_rate": "1.000000",
+    "estado_dado": "confirmado"
+  },
+  "politica_atribuicao": "vinculo_explicito_unico_da_aposta",
+  "rotulos": "catalogo_atual",
+  "unidade_paginacao": "grupo_tipster",
+  "total_grupos": 1,
+  "total_filhos": 1,
+  "grupos": [
+    {
+      "id": "1",
+      "nome": "Grupo exemplo",
+      "ativo": true,
+      "atribuicao": "atribuida",
+      "metricas": {
+        "total_apostas": 1,
+        "pendentes": 0,
+        "greens": 1,
+        "reds": 0,
+        "em_revisao": 0,
+        "anuladas": 0,
+        "resultados_desconhecidos": 0,
+        "liquidadas_conhecidas": 1,
+        "fontes_excluidas_financeiro": 0,
+        "freebets": 0,
+        "giro_centavos": "100",
+        "base_roi_centavos": "100",
+        "retorno_centavos": "200",
+        "lucro_centavos": "100",
+        "retorno_conhecido_centavos": "200",
+        "lucro_conhecido_centavos": "100",
+        "roi": "1.000000",
+        "win_rate": "1.000000",
+        "estado_dado": "confirmado"
+      },
+      "total_filhos": 1,
+      "tipsters": [
+        {
+          "id": "2",
+          "nome": "Tipster exemplo",
+          "atribuicao": "atribuido",
+          "metricas": {
+            "total_apostas": 1,
+            "pendentes": 0,
+            "greens": 1,
+            "reds": 0,
+            "em_revisao": 0,
+            "anuladas": 0,
+            "resultados_desconhecidos": 0,
+            "liquidadas_conhecidas": 1,
+            "fontes_excluidas_financeiro": 0,
+            "freebets": 0,
+            "giro_centavos": "100",
+            "base_roi_centavos": "100",
+            "retorno_centavos": "200",
+            "lucro_centavos": "100",
+            "retorno_conhecido_centavos": "200",
+            "lucro_conhecido_centavos": "100",
+            "roi": "1.000000",
+            "win_rate": "1.000000",
+            "estado_dado": "confirmado"
+          }
+        }
+      ]
+    }
+  ],
+  "proximo_cursor": null,
+  "anterior_cursor": null
+}
