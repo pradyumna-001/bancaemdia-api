@@ -1,24 +1,26 @@
-from collections.abc import Awaitable, Callable
-
 from sqlalchemy import event, text
 from sqlalchemy.engine import Connection
 from sqlalchemy.orm import Session, SessionTransaction
-from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.requests import Request
-from starlette.responses import Response
+from starlette.types import ASGIApp, Receive, Scope, Send
 
 from bancaemdia.core.context import current_user_id
 
 
-class RLSMiddleware(BaseHTTPMiddleware):
-    async def dispatch(
-        self, request: Request, call_next: Callable[[Request], Awaitable[Response]]
-    ) -> Response:
+class RLSMiddleware:
+    def __init__(self, app: ASGIApp) -> None:
+        self.app = app
+
+    async def __call__(self, scope: Scope, receive: Receive, send: Send) -> None:
+        if scope["type"] != "http":
+            await self.app(scope, receive, send)
+            return
+        request = Request(scope)
         user_id = getattr(request.state, "usuario_id", None)
         token = current_user_id.set(str(user_id)) if user_id else None
 
         try:
-            return await call_next(request)
+            await self.app(scope, receive, send)
         finally:
             if token:
                 current_user_id.reset(token)
