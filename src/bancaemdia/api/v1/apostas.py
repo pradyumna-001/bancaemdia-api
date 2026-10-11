@@ -10,6 +10,7 @@ from pydantic import BaseModel, ConfigDict, Field, StrictInt, field_validator
 from sqlalchemy import select, text
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from bancaemdia import models
 from bancaemdia.api.contracts import (
     AUTHENTICATED_ERROR_RESPONSES,
     BetChangedResponse,
@@ -45,6 +46,7 @@ from bancaemdia.domain.aposta_service import (
     validar_correcao,
     validar_resultado,
 )
+from bancaemdia.domain.filtros_apostas import filtros_do_site
 from bancaemdia.domain.financeiro import Aposta as ApostaFinanceira
 from bancaemdia.domain.materializar import EventoNovo, casa_canonica, projetar
 from bancaemdia.domain.planilha_import import MAX_BYTES, PlanilhaInvalidaError, ler_planilha
@@ -80,7 +82,6 @@ class Correcao(BaseModel):
 
 class Resultado(BaseModel):
     model_config = ConfigDict(extra="forbid")
-
     estado: str
     retorno_centavos: int | None = None
     cashout_valor_centavos: int | None = None
@@ -89,7 +90,6 @@ class Resultado(BaseModel):
 
 class ApostaManual(BaseModel):
     model_config = ConfigDict(extra="forbid")
-
     casa: str | None = None
     data_aposta: str | None = None
     data_jogo: str | None = None
@@ -265,7 +265,17 @@ async def _conferir_ids(
     for campo in CAMPOS_DE_ID:
         if campo in pedido and (recado := erro_de_id(campo, pedido[campo])) is not None:
             return recado
-
+    banca_id = pedido.get("banca_id")
+    if (
+        banca_id is not None
+        and await session.scalar(
+            select(models.Banca.id).where(
+                models.Banca.usuario_id == usuario_id, models.Banca.id == banca_id
+            )
+        )
+        is None
+    ):
+        return "banca_id não existe nas suas bancas"
     conta_casa_id = pedido.get("conta_casa_id")
     if (
         conta_casa_id is not None
@@ -276,7 +286,6 @@ async def _conferir_ids(
         # existe. Esta é a única referência deste grupo que pertence a um usuário.
         if await ContaCasaRepo().get_by_id(session, usuario_id, int(conta_casa_id)) is None:
             return "conta_casa_id não existe nas suas contas"
-
     # Estes catálogos são vocabulário canônico compartilhado, deliberadamente sem usuario_id e sem
     # RLS (ADR 014, issue 7). Não há referência cross-tenant possível nesses campos; ainda assim
     # validamos a existência antes de escrever para transformar um FK inválido em 422.
@@ -311,45 +320,24 @@ async def _historico(session: AsyncSession, usuario_id: int, chave: str) -> list
 async def listar_apostas(
     usuario: Annotated[Usuario, Depends(get_current_user)],
     session: Annotated[AsyncSession, Depends(get_db)],
-    desde: datetime | None = None,
-    ate: datetime | None = None,
-    estado: str | None = None,
-    casa_id: int | None = None,
-    titular_id: Annotated[int | None, Query(ge=1)] = None,
-    conta_casa_id: Annotated[int | None, Query(ge=1)] = None,
-    tipster_id: int | None = None,
-    mercado_id: int | None = None,
-    competicao_id: int | None = None,
-    origem: str | None = None,
-    revisao_grave: bool | None = None,
-    incluir_apagadas: bool = False,
+    filtros: Annotated[dict[str, object], Depends(filtros_do_site)],
     page: Annotated[int, Query(ge=1)] = 1,
     page_size: Annotated[int, Query(ge=1, le=TAMANHO_MAXIMO_DA_PAGINA)] = TAMANHO_PADRAO_DA_PAGINA,
 ) -> JSONResponse:
     apostas, total = await ApostaRepo().list_page(
         session,
         usuario.id,
-        {
-            "desde": desde,
-            "ate": ate,
-            "estado": estado,
-            "casa_id": casa_id,
-            "titular_id": titular_id,
-            "conta_casa_id": conta_casa_id,
-            "tipster_id": tipster_id,
-            "mercado_id": mercado_id,
-            "competicao_id": competicao_id,
-            "origem": origem,
-            "revisao_grave": revisao_grave,
-            "incluir_apagadas": incluir_apagadas,
-        },
+        filtros,
         page,
         page_size,
     )
-    return JSONResponse({
-        "data": [linha_da_aposta(aposta) for aposta in apostas],
-        "pagination": {"page": page, "page_size": page_size, "total": total},
-    })
+    return JSONResponse(
+        {
+            "data": [linha_da_aposta(aposta) for aposta in apostas],
+            "pagination": {"page": page, "page_size": page_size, "total": total},
+        },
+        headers={"Cache-Control": "private, no-store", "Vary": "Authorization, Cookie"},
+    )
 
 
 @router.get(
@@ -503,7 +491,6 @@ async def corrigir_aposta(
     # O que a pessoa não mandou não é `None`: é "não falei disso". Campo ausente nunca apaga o
     # que já estava gravado (lição do projeto antigo).
     pedido = correcao.model_dump(exclude_unset=True)
-
     recado = await _conferir_ids(session, usuario.id, pedido)
     if recado is not None:
         return erro(status.HTTP_422_UNPROCESSABLE_ENTITY, recado)
@@ -641,7 +628,6 @@ async def criar_aposta(
         )
     except ApostaInvalidaError as recusa:
         return erro(status.HTTP_422_UNPROCESSABLE_ENTITY, str(recusa))
-
     # A chave manual não vem de mensagem nenhuma; os prefixos `t:` e `c:` já dizem de onde as
     # outras vieram.
     chave = f"m:{uuid4().hex}"
@@ -695,7 +681,6 @@ async def criar_aposta(
     if manual.comissao_centavos is not None:
         payload["comissao_centavos"] = manual.comissao_centavos
     payload["conta_casa_id"] = account.conta_casa_id
-
     payload["snapshot_replay"] = {
         "snapshot_completo": True,
         "origem": "manual",
@@ -709,7 +694,6 @@ async def criar_aposta(
         "data_jogo": _quando(_data_do_estado(manual.data_jogo)),
         "freebet": manual.freebet,
     }
-
     novos = [EventoNovo("APOSTA_CRIADA", "manual", payload)]
     depois, _ = projetar([(e.tipo, e.fonte, e.payload) for e in novos])
     try:
@@ -754,7 +738,6 @@ async def importar_planilha(
         return erro(status.HTTP_422_UNPROCESSABLE_ENTITY, str(recusa))
     if not linhas:
         return erro(status.HTTP_422_UNPROCESSABLE_ENTITY, "a planilha não tem apostas")
-
     criadas = atualizadas = ignoradas = 0
     try:
         # Ordenação estável evita deadlock entre duas planilhas com as mesmas linhas em abas

@@ -1,6 +1,7 @@
 from collections.abc import Iterable
 from dataclasses import dataclass, replace
 from datetime import date
+from decimal import ROUND_HALF_EVEN, Decimal, localcontext
 from enum import StrEnum
 
 
@@ -15,6 +16,53 @@ class Estado(StrEnum):
 
 
 SEM_RISCO: frozenset[Estado] = frozenset({Estado.ANULADA})
+
+
+def lucro_exato(retorno_centavos: int, custo_centavos: int) -> int:
+    return retorno_centavos - custo_centavos
+
+
+def _metade_exata(centavos: int) -> int:
+    inteiro, resto = divmod(centavos, 2)
+    return inteiro + int(bool(resto and inteiro % 2))
+
+
+def retorno_liquidado(
+    gross: int, base: int, estado: Estado, *, freebet: bool = False, comissao: int = 0
+) -> int | None:
+    """Single financial state policy for legacy projection and exact comparison."""
+    match estado:
+        case Estado.GREEN:
+            return gross - comissao
+        case Estado.RED:
+            return 0
+        case Estado.ANULADA:
+            return 0 if freebet else base
+        case Estado.MEIO_GREEN:
+            return _metade_exata(gross + (0 if freebet else base)) - comissao
+        case Estado.MEIO_RED:
+            return 0 if freebet else _metade_exata(base)
+        case Estado.PENDENTE | Estado.CASHOUT:
+            return None
+
+
+def retorno_padrao_exato(
+    face_centavos: int, odd: Decimal, estado: Estado, *, freebet: bool = False
+) -> int | None:
+    """Standard settlement only; informed cashout/fees/fixed payouts are facts.
+
+    Mirrors the financial state's rules using decimal arithmetic, rounding each
+    settlement step to cents with HALF_EVEN. No change to legacy projections.
+    """
+    if estado in {Estado.PENDENTE, Estado.CASHOUT}:
+        return None
+    with localcontext() as context:
+        context.prec = 80
+        base = Decimal(face_centavos)
+        gross = (base * odd).to_integral_value(rounding=ROUND_HALF_EVEN)
+        if freebet:
+            gross -= base
+        return retorno_liquidado(int(gross), face_centavos, estado, freebet=freebet)
 
 
 @dataclass(frozen=True)
@@ -54,7 +102,7 @@ class Aposta:
     def lucro_centavos(self) -> int | None:
         if self.retorno_centavos is None:
             return None
-        return self.retorno_centavos - self.stake_centavos
+        return lucro_exato(self.retorno_centavos, self.stake_centavos)
 
     @property
     def retorno_se_ganhar_centavos(self) -> int | None:
@@ -73,20 +121,9 @@ class Aposta:
             return None
         base = self.valor_aposta_centavos
         gross = self._gross_payout(odd)
-        match self.estado:
-            case Estado.GREEN:
-                return gross - self.comissao_centavos
-            case Estado.RED:
-                return 0
-            case Estado.ANULADA:
-                return 0 if self.freebet else base
-            case Estado.MEIO_GREEN:
-                # A comissão incide sobre o ganho, e meio-green tem ganho: descontar só no GREEN
-                # deixava o retorno maior do que a casa pagou (auditoria de 30/07/2026).
-                return round((gross + (0 if self.freebet else base)) / 2) - self.comissao_centavos
-            case Estado.MEIO_RED:
-                return 0 if self.freebet else round(base / 2)
-        return None
+        return retorno_liquidado(
+            gross, base, self.estado, freebet=self.freebet, comissao=self.comissao_centavos
+        )
 
 
 def resolver_retorno(aposta: Aposta) -> Aposta:
