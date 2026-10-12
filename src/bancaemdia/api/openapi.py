@@ -20,6 +20,10 @@ MANUAL_BET_HOUSES = sorted(
 
 
 OPERATION_DOCUMENTATION: dict[OperationKey, tuple[str, str]] = {
+    ("get", "/api/v1/apostas/{chave}/foto"): (
+        "Ler a foto original autorizada da aposta",
+        "Imagem binária privada por aposta e proveniência persistida no primário, inclusive após revisão. FULL_WRITE e READ_ONLY. Sem extração, escrita, redirecionamento ou credenciais em URL. 404 representa aposta/foto inexistente, inacessível, ambígua ou removida pela retenção. Ver docs/contracts/aposta-foto.md.",
+    ),
     ("post", "/api/v1/coleta/sessions"): (
         "Abrir ou retomar sessão",
         "Cria uma fronteira imutável por instalação ou retoma o UUID explícito sem ampliar o corte.",
@@ -928,6 +932,48 @@ def _install_body_limit_responses(document: JsonObject) -> None:
             )
 
 
+OPERATION_DOCUMENTATION.update({
+    ("post", "/api/v1/prints/revisoes/{revisao_id}/resolver"): (
+        "Resolver revisão de print sem valores financeiros inventados",
+        "FULL_WRITE, cookie+CSRF. CORRIGIR exige stake/odd válidas e materializa uma vez; DESCARTAR fecha a revisão e retorna aposta=null sem criar fato financeiro. Apenas revisão de print cujo resultado canônico/proveniência pertence ao usuário. A resolução padrão da Revisão permanece com seu contrato anterior para apostas já materializadas.",
+    ),
+    ("post", "/api/v1/prints/intencoes/{intent_id}/itens/{item_id}"): (
+        "Receber um print web com identidade durável",
+        "Multipart, um arquivo por item; vários itens por intenção. UUIDs persistidos antes do envio, dedupe por usuário/bytes reais, 202 não é aposta criada. 20 itens/100 MiB por intenção e 20 MiB/40 milhões de pixels/256 frames por raster JPEG/PNG/GIF/WebP. Cookie+CSRF, FULL_WRITE; sem custos/consentimento no contrato. Consultar GET com os mesmos UUIDs após timeout/503; não repetir mutations automaticamente. Estado e resultado por item, Revisão com null preservado, inbox/worker assíncronos. Ver docs/contracts/prints-web.md.",
+    ),
+    ("get", "/api/v1/prints/intencoes/{intent_id}/itens/{item_id}"): (
+        "Reconciliar arquivo pela identidade conhecida antes do POST",
+        "Leitura autorizada no primário por usuário, intenção e item; FULL_WRITE e READ_ONLY. Não precisa de ID retornado pelo POST. accepted/processing/completed/failed, resultado explícito por item, progresso nullable, retryable e last_retry_id reais. 404 indistinguível entre ausência/recurso alheio/estado expirado. Estado 90 dias, bytes privados sete dias; sem replay automático.",
+    ),
+    ("get", "/api/v1/prints/intencoes/{intent_id}"): (
+        "Consultar os itens efetivamente recebidos da intenção",
+        "Snapshot no primário, FULL_WRITE e READ_ONLY. processing/complete/partial/failed dos itens recebidos até esta consulta; não afirma que toda seleção local foi enviada. Identidades estáveis e resultados explícitos, sem inferência financeira por contagem.",
+    ),
+    ("post", "/api/v1/prints/intencoes/{intent_id}/itens/{item_id}/retry"): (
+        "Tentar explicitamente apenas um item falho elegível",
+        "FULL_WRITE, cookie+CSRF. Mesma identidade e bytes aceitos. retry_id e expected_attempt protegem concorrência/resposta perdida; último retry_id com a mesma versão retorna estado sem refazer sucessos. Aceito/processando/sucesso/não retryable/mídia expirada ou três tentativas consumidas: 409. GET permite reconciliar a ação; nunca retry automático.",
+    ),
+})
+PARAMETER_DESCRIPTIONS.update({
+    "intent_id": "UUID durável da intenção, escolhido e persistido pelo cliente antes de enviar; escopo por usuário.",
+    "item_id": "UUID durável do arquivo dentro da intenção, conhecido antes do POST; não é hash/credencial de mídia.",
+})
+REQUEST_EXAMPLES["post", "/api/v1/prints/intencoes/{intent_id}/itens/{item_id}/retry"] = (
+    "Tentativa explícita de arquivo falho",
+    {"retry_id": "b25f6247-938c-4963-b46d-cf4d82b5fc09", "expected_attempt": 1},
+)
+
+
+REQUEST_EXAMPLES["post", "/api/v1/prints/intencoes/{intent_id}/itens/{item_id}"] = (
+    "Um print raster na seleção",
+    {"file": "foto.png"},
+)
+REQUEST_EXAMPLES["post", "/api/v1/prints/revisoes/{revisao_id}/resolver"] = (
+    "Completar um valor desconhecido sem inventar zero",
+    {"acao": "CORRIGIR", "aposta_corrigida": {"stake_unidades": 1.0}},
+)
+
+
 def _document_operations(document: JsonObject) -> None:
     seen: set[OperationKey] = set()
     for method, path, operation in _operations(document):
@@ -941,6 +987,11 @@ def _document_operations(document: JsonObject) -> None:
             ) from error
         operation["summary"] = summary
         operation["description"] = description
+        if path.startswith("/api/v1/prints/"):
+            operation["x-access-modes"] = (
+                ["FULL_WRITE", "READ_ONLY"] if method == "get" else ["FULL_WRITE"]
+            )
+            operation["x-automatic-retry"] = method == "get"
 
         parameters = operation.get("parameters", [])
         if not isinstance(parameters, list):

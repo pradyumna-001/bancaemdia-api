@@ -22,6 +22,7 @@ from bancaemdia.api.identity import router as identity_router
 from bancaemdia.api.openapi import build_openapi
 from bancaemdia.api.v1 import (
     admin_casas,
+    aposta_foto,
     apostas,
     billing,
     billing_webhook,
@@ -38,6 +39,7 @@ from bancaemdia.api.v1 import (
     titulares,
     upload,
     usuario,
+    web_print,
 )
 from bancaemdia.auth.identity_config import identity_settings
 from bancaemdia.auth.identity_service import identity_service
@@ -137,8 +139,10 @@ app.include_router(coleta_sessoes.router)
 app.include_router(coleta_catalogo.router)
 app.include_router(admin_casas.router)
 app.include_router(upload.router)
+app.include_router(web_print.router)
 app.include_router(identity_router)
 app.include_router(apostas.router)
+app.include_router(aposta_foto.router)
 app.include_router(caixa.router)
 app.include_router(painel.router)
 app.include_router(metas.router)
@@ -154,6 +158,12 @@ app.include_router(usuario.router)
 
 @app.exception_handler(RequestValidationError)
 async def validation_failure(request: Request, error: RequestValidationError) -> JSONResponse:
+    from bancaemdia.domain.foto_aposta import photo_path
+
+    if route_path(request).startswith("/api/v1/prints/"):
+        return aposta_foto.photo_error(422, "o pedido de prints é inválido")
+    if photo_path(route_path(request)):
+        return aposta_foto.photo_error(422, "a chave da aposta é inválida")
     if route_path(request).startswith("/auth/"):
         return failure(IdentityError("invalid_request", 422))
     return await request_validation_exception_handler(request, error)
@@ -249,6 +259,12 @@ def account_read_only_error(request: Request, exc: AccountReadOnlyError) -> JSON
 
 @app.exception_handler(DBAPIError)
 def billing_database_error(request: Request, exc: DBAPIError) -> JSONResponse:
+    from bancaemdia.domain.foto_aposta import photo_path
+
+    if photo_path(route_path(request)):
+        return aposta_foto.photo_error(503, aposta_foto.UNAVAILABLE)
     if getattr(exc.orig, "sqlstate", None) == "P0402":
         return JSONResponse(status_code=402, content={"detail": "account_read_only"})
+    if route_path(request).startswith("/api/v1/prints/"):
+        return aposta_foto.photo_error(503, "não foi possível consultar os prints agora")
     raise exc
