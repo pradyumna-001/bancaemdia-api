@@ -111,6 +111,25 @@ class RevisaoPendenteRepo:
     async def get_foto_by_id(
         self, session: AsyncSession, usuario_id: int, id_: int
     ) -> FotoRevisao | None:
+        revision = await self.get_by_id(session, usuario_id, id_)
+        if (
+            revision is not None
+            and revision.resolvido_em is None
+            and (revision.extracao_bruta or {}).get("web_print_id")
+        ):
+            from uuid import UUID
+
+            from bancaemdia.services.web_print import photo
+
+            try:
+                stored = await photo(
+                    session, usuario_id, UUID((revision.extracao_bruta or {})["web_print_id"])
+                )
+            except (ValueError, TypeError):
+                return None
+            if stored is None or stored.hash != revision.midia_hash or stored.content is None:
+                return None
+            return FotoRevisao(conteudo=stored.content, tipo=stored.mime)
         stmt = (
             select(models.MidiaArquivo.conteudo, models.Midia.tipo)
             .select_from(models.RevisaoPendente)

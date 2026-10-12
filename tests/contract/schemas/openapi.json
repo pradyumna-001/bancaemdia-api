@@ -1321,6 +1321,22 @@
         "title": "Body_importar_planilha_api_v1_apostas_importar_planilha_post",
         "type": "object"
       },
+      "Body_receive_print_api_v1_prints_intencoes__intent_id__itens__item_id__post": {
+        "additionalProperties": false,
+        "properties": {
+          "file": {
+            "contentMediaType": "application/octet-stream",
+            "description": "JPEG/PNG/GIF/WebP real; nome não é usado como localização",
+            "title": "File",
+            "type": "string"
+          }
+        },
+        "required": [
+          "file"
+        ],
+        "title": "Body_receive_print_api_v1_prints_intencoes__intent_id__itens__item_id__post",
+        "type": "object"
+      },
       "BucketAnaliseSaida": {
         "additionalProperties": false,
         "properties": {
@@ -3760,7 +3776,6 @@
                 "type": "number"
               },
               {
-                "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
                 "type": "string"
               },
               {
@@ -3799,7 +3814,6 @@
                 "type": "number"
               },
               {
-                "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
                 "type": "string"
               },
               {
@@ -3868,7 +3882,6 @@
                 "type": "number"
               },
               {
-                "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
                 "type": "string"
               }
             ],
@@ -3890,7 +3903,6 @@
                 "type": "number"
               },
               {
-                "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
                 "type": "string"
               }
             ],
@@ -4931,6 +4943,296 @@
         "title": "PlanilhaImportada",
         "type": "object"
       },
+      "PrintIntentResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "intent_id": {
+            "format": "uuid",
+            "title": "Intent Id",
+            "type": "string"
+          },
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/PrintItemResponse"
+            },
+            "title": "Items",
+            "type": "array"
+          },
+          "received_items": {
+            "title": "Received Items",
+            "type": "integer"
+          },
+          "reconciliation_expires_at": {
+            "format": "date-time",
+            "title": "Reconciliation Expires At",
+            "type": "string"
+          },
+          "state": {
+            "enum": [
+              "processing",
+              "complete",
+              "partial",
+              "failed"
+            ],
+            "title": "State",
+            "type": "string"
+          },
+          "terminal_items": {
+            "title": "Terminal Items",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "intent_id",
+          "state",
+          "items",
+          "received_items",
+          "terminal_items",
+          "reconciliation_expires_at"
+        ],
+        "title": "PrintIntentResponse",
+        "type": "object"
+      },
+      "PrintItemResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "attempt": {
+            "title": "Attempt",
+            "type": "integer"
+          },
+          "duplicate": {
+            "title": "Duplicate",
+            "type": "boolean"
+          },
+          "error_code": {
+            "anyOf": [
+              {
+                "enum": [
+                  "unavailable",
+                  "account_read_only",
+                  "media_expired",
+                  "invalid_reading"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Error Code"
+          },
+          "intent_id": {
+            "format": "uuid",
+            "title": "Intent Id",
+            "type": "string"
+          },
+          "item_id": {
+            "format": "uuid",
+            "title": "Item Id",
+            "type": "string"
+          },
+          "last_retry_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Last Retry Id"
+          },
+          "media_expires_at": {
+            "format": "date-time",
+            "title": "Media Expires At",
+            "type": "string"
+          },
+          "outcome": {
+            "anyOf": [
+              {
+                "enum": [
+                  "materialized",
+                  "review",
+                  "no_bet",
+                  "duplicate",
+                  "failed"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Outcome"
+          },
+          "progress_percent": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Progress Percent"
+          },
+          "reconciliation_expires_at": {
+            "format": "date-time",
+            "title": "Reconciliation Expires At",
+            "type": "string"
+          },
+          "results": {
+            "anyOf": [
+              {
+                "items": {
+                  "$ref": "#/components/schemas/PrintResult"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Results"
+          },
+          "retryable": {
+            "title": "Retryable",
+            "type": "boolean"
+          },
+          "status": {
+            "enum": [
+              "accepted",
+              "processing",
+              "completed",
+              "failed"
+            ],
+            "title": "Status",
+            "type": "string"
+          }
+        },
+        "required": [
+          "intent_id",
+          "item_id",
+          "status",
+          "outcome",
+          "duplicate",
+          "attempt",
+          "last_retry_id",
+          "retryable",
+          "error_code",
+          "progress_percent",
+          "results",
+          "media_expires_at",
+          "reconciliation_expires_at"
+        ],
+        "title": "PrintItemResponse",
+        "type": "object"
+      },
+      "PrintResult": {
+        "additionalProperties": false,
+        "properties": {
+          "bet_key": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Bet Key"
+          },
+          "review_ids": {
+            "items": {
+              "type": "integer"
+            },
+            "title": "Review Ids",
+            "type": "array"
+          },
+          "type": {
+            "enum": [
+              "materialized",
+              "review"
+            ],
+            "title": "Type",
+            "type": "string"
+          }
+        },
+        "required": [
+          "type",
+          "bet_key",
+          "review_ids"
+        ],
+        "title": "PrintResult",
+        "type": "object"
+      },
+      "PrintReviewRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "acao": {
+            "enum": [
+              "CORRIGIR",
+              "DESCARTAR"
+            ],
+            "title": "Acao",
+            "type": "string"
+          },
+          "aposta_corrigida": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/CorrecaoDaRevisao"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "required": [
+          "acao"
+        ],
+        "title": "PrintReviewRequest",
+        "type": "object"
+      },
+      "PrintReviewResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "acao": {
+            "enum": [
+              "CORRIGIR",
+              "DESCARTAR"
+            ],
+            "title": "Acao",
+            "type": "string"
+          },
+          "aposta": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/BetResponse"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "eventos_gravados": {
+            "title": "Eventos Gravados",
+            "type": "integer"
+          },
+          "revisao": {
+            "$ref": "#/components/schemas/RevisaoFechadaSaida"
+          }
+        },
+        "required": [
+          "revisao",
+          "acao",
+          "aposta",
+          "eventos_gravados"
+        ],
+        "title": "PrintReviewResponse",
+        "type": "object"
+      },
       "PublicKey": {
         "additionalProperties": false,
         "properties": {
@@ -5333,6 +5635,28 @@
           "resultado_nao_aplicavel"
         ],
         "title": "ResumoAnaliseSaida",
+        "type": "object"
+      },
+      "RetryPrint": {
+        "additionalProperties": false,
+        "properties": {
+          "expected_attempt": {
+            "maximum": 3.0,
+            "minimum": 1.0,
+            "title": "Expected Attempt",
+            "type": "integer"
+          },
+          "retry_id": {
+            "format": "uuid",
+            "title": "Retry Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "retry_id",
+          "expected_attempt"
+        ],
+        "title": "RetryPrint",
         "type": "object"
       },
       "RevisaoFechadaSaida": {
@@ -7996,6 +8320,179 @@
           }
         ],
         "summary": "Corrigir aposta"
+      }
+    },
+    "/api/v1/apostas/{chave}/foto": {
+      "get": {
+        "description": "Imagem binária privada por aposta e proveniência persistida no primário, inclusive após revisão. FULL_WRITE e READ_ONLY. Sem extração, escrita, redirecionamento ou credenciais em URL. 404 representa aposta/foto inexistente, inacessível, ambígua ou removida pela retenção. Ver docs/contracts/aposta-foto.md.",
+        "operationId": "ver_foto_aposta_api_v1_apostas__chave__foto_get",
+        "parameters": [
+          {
+            "description": "Chave estável e opaca da aposta.",
+            "in": "path",
+            "name": "chave",
+            "required": true,
+            "schema": {
+              "description": "Chave da aposta acessível ao usuário autenticado; codificar como um segmento de URL.",
+              "maxLength": 256,
+              "minLength": 1,
+              "title": "Chave",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "image/gif": {
+                "schema": {
+                  "format": "binary",
+                  "type": "string"
+                }
+              },
+              "image/jpeg": {
+                "schema": {
+                  "format": "binary",
+                  "type": "string"
+                }
+              },
+              "image/png": {
+                "schema": {
+                  "format": "binary",
+                  "type": "string"
+                }
+              },
+              "image/webp": {
+                "schema": {
+                  "format": "binary",
+                  "type": "string"
+                }
+              }
+            },
+            "description": "Imagem original decodificada e validada, até 20 MiB, 256 frames e 40 milhões de pixels somados; private, no-store.",
+            "headers": {
+              "Cache-Control": {
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "Content-Disposition": {
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "Vary": {
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "X-Content-Type-Options": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Sessão necessária, inválida, expirada, revogada ou usuário inativo.",
+            "headers": {
+              "X-Auth-Error": {
+                "description": "Identity error code when AUTH_ENABLED; legacy response body is preserved.",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "não achei a foto desta aposta"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "a foto armazenada é inválida, incompatível ou excede o limite permitido"
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Muitas requisições. Respeitar o intervalo da quota.",
+            "headers": {
+              "Retry-After": {
+                "schema": {
+                  "minimum": 1,
+                  "type": "integer"
+                }
+              }
+            }
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unexpected internal failure with no sensitive exception details."
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "não foi possível carregar a foto agora — tente novamente em instantes",
+            "headers": {
+              "Retry-After": {
+                "schema": {
+                  "minimum": 1,
+                  "type": "integer"
+                }
+              },
+              "X-Auth-Error": {
+                "description": "Identity error code when AUTH_ENABLED; legacy response body is preserved.",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          },
+          {
+            "SessionCookie": []
+          }
+        ],
+        "summary": "Ler a foto original autorizada da aposta"
       }
     },
     "/api/v1/apostas/{chave}/restaurar": {
@@ -14768,6 +15265,899 @@
           }
         ],
         "summary": "Alterar preferências do painel"
+      }
+    },
+    "/api/v1/prints/intencoes/{intent_id}": {
+      "get": {
+        "description": "Snapshot no primário, FULL_WRITE e READ_ONLY. processing/complete/partial/failed dos itens recebidos até esta consulta; não afirma que toda seleção local foi enviada. Identidades estáveis e resultados explícitos, sem inferência financeira por contagem.",
+        "operationId": "read_intent_api_v1_prints_intencoes__intent_id__get",
+        "parameters": [
+          {
+            "description": "UUID durável da intenção, escolhido e persistido pelo cliente antes de enviar; escopo por usuário.",
+            "in": "path",
+            "name": "intent_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Intent Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PrintIntentResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Missing, expired, or invalid bearer token.",
+            "headers": {
+              "X-Auth-Error": {
+                "description": "Identity error code when AUTH_ENABLED; legacy response body is preserved.",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorOrValidationResponse"
+                }
+              }
+            },
+            "description": "The request does not satisfy the published contract or a domain rule."
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "The caller exceeded an applicable request limit."
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unexpected internal failure with no sensitive exception details."
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "A required dependency is temporarily unavailable.",
+            "headers": {
+              "X-Auth-Error": {
+                "description": "Identity error code when AUTH_ENABLED; legacy response body is preserved.",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          },
+          {
+            "SessionCookie": []
+          }
+        ],
+        "summary": "Consultar os itens efetivamente recebidos da intenção",
+        "x-access-modes": [
+          "FULL_WRITE",
+          "READ_ONLY"
+        ],
+        "x-automatic-retry": true
+      }
+    },
+    "/api/v1/prints/intencoes/{intent_id}/itens/{item_id}": {
+      "get": {
+        "description": "Leitura autorizada no primário por usuário, intenção e item; FULL_WRITE e READ_ONLY. Não precisa de ID retornado pelo POST. accepted/processing/completed/failed, resultado explícito por item, progresso nullable, retryable e last_retry_id reais. 404 indistinguível entre ausência/recurso alheio/estado expirado. Estado 90 dias, bytes privados sete dias; sem replay automático.",
+        "operationId": "read_item_api_v1_prints_intencoes__intent_id__itens__item_id__get",
+        "parameters": [
+          {
+            "description": "UUID durável da intenção, escolhido e persistido pelo cliente antes de enviar; escopo por usuário.",
+            "in": "path",
+            "name": "intent_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Intent Id",
+              "type": "string"
+            }
+          },
+          {
+            "description": "UUID durável do arquivo dentro da intenção, conhecido antes do POST; não é hash/credencial de mídia.",
+            "in": "path",
+            "name": "item_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Item Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PrintItemResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Missing, expired, or invalid bearer token.",
+            "headers": {
+              "X-Auth-Error": {
+                "description": "Identity error code when AUTH_ENABLED; legacy response body is preserved.",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorOrValidationResponse"
+                }
+              }
+            },
+            "description": "The request does not satisfy the published contract or a domain rule."
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "The caller exceeded an applicable request limit."
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unexpected internal failure with no sensitive exception details."
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "A required dependency is temporarily unavailable.",
+            "headers": {
+              "X-Auth-Error": {
+                "description": "Identity error code when AUTH_ENABLED; legacy response body is preserved.",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          },
+          {
+            "SessionCookie": []
+          }
+        ],
+        "summary": "Reconciliar arquivo pela identidade conhecida antes do POST",
+        "x-access-modes": [
+          "FULL_WRITE",
+          "READ_ONLY"
+        ],
+        "x-automatic-retry": true
+      },
+      "post": {
+        "description": "Multipart, um arquivo por item; vários itens por intenção. UUIDs persistidos antes do envio, dedupe por usuário/bytes reais, 202 não é aposta criada. 20 itens/100 MiB por intenção e 20 MiB/40 milhões de pixels/256 frames por raster JPEG/PNG/GIF/WebP. Cookie+CSRF, FULL_WRITE; sem custos/consentimento no contrato. Consultar GET com os mesmos UUIDs após timeout/503; não repetir mutations automaticamente. Estado e resultado por item, Revisão com null preservado, inbox/worker assíncronos. Ver docs/contracts/prints-web.md.",
+        "operationId": "receive_print_api_v1_prints_intencoes__intent_id__itens__item_id__post",
+        "parameters": [
+          {
+            "description": "UUID durável da intenção, escolhido e persistido pelo cliente antes de enviar; escopo por usuário.",
+            "in": "path",
+            "name": "intent_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Intent Id",
+              "type": "string"
+            }
+          },
+          {
+            "description": "UUID durável do arquivo dentro da intenção, conhecido antes do POST; não é hash/credencial de mídia.",
+            "in": "path",
+            "name": "item_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Item Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "multipart/form-data": {
+              "examples": {
+                "default": {
+                  "summary": "Um print raster na seleção",
+                  "value": {
+                    "file": "foto.png"
+                  }
+                }
+              },
+              "schema": {
+                "$ref": "#/components/schemas/Body_receive_print_api_v1_prints_intencoes__intent_id__itens__item_id__post"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "202": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PrintItemResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Bad Request"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Missing, expired, or invalid bearer token.",
+            "headers": {
+              "X-Auth-Error": {
+                "description": "Identity error code when AUTH_ENABLED; legacy response body is preserved.",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "402": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "account_read_only: writes require confirmed trial or paid access."
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Cookie mutation requires exact Origin and current CSRF proof."
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "410": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Gone"
+          },
+          "413": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              },
+              "text/plain": {
+                "example": "Content Too Large",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            },
+            "description": "Request Entity Too Large"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorOrValidationResponse"
+                }
+              }
+            },
+            "description": "The request does not satisfy the published contract or a domain rule."
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "The caller exceeded an applicable request limit."
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unexpected internal failure with no sensitive exception details."
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "A required dependency is temporarily unavailable.",
+            "headers": {
+              "X-Auth-Error": {
+                "description": "Identity error code when AUTH_ENABLED; legacy response body is preserved.",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          },
+          {
+            "CsrfProof": [],
+            "SessionCookie": []
+          }
+        ],
+        "summary": "Receber um print web com identidade durável",
+        "x-access-modes": [
+          "FULL_WRITE"
+        ],
+        "x-automatic-retry": false
+      }
+    },
+    "/api/v1/prints/intencoes/{intent_id}/itens/{item_id}/retry": {
+      "post": {
+        "description": "FULL_WRITE, cookie+CSRF. Mesma identidade e bytes aceitos. retry_id e expected_attempt protegem concorrência/resposta perdida; último retry_id com a mesma versão retorna estado sem refazer sucessos. Aceito/processando/sucesso/não retryable/mídia expirada ou três tentativas consumidas: 409. GET permite reconciliar a ação; nunca retry automático.",
+        "operationId": "retry_item_api_v1_prints_intencoes__intent_id__itens__item_id__retry_post",
+        "parameters": [
+          {
+            "description": "UUID durável da intenção, escolhido e persistido pelo cliente antes de enviar; escopo por usuário.",
+            "in": "path",
+            "name": "intent_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Intent Id",
+              "type": "string"
+            }
+          },
+          {
+            "description": "UUID durável do arquivo dentro da intenção, conhecido antes do POST; não é hash/credencial de mídia.",
+            "in": "path",
+            "name": "item_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Item Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "examples": {
+                "default": {
+                  "summary": "Tentativa explícita de arquivo falho",
+                  "value": {
+                    "expected_attempt": 1,
+                    "retry_id": "b25f6247-938c-4963-b46d-cf4d82b5fc09"
+                  }
+                }
+              },
+              "schema": {
+                "$ref": "#/components/schemas/RetryPrint"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "202": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PrintItemResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Bad Request"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Missing, expired, or invalid bearer token.",
+            "headers": {
+              "X-Auth-Error": {
+                "description": "Identity error code when AUTH_ENABLED; legacy response body is preserved.",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "402": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "account_read_only: writes require confirmed trial or paid access."
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Cookie mutation requires exact Origin and current CSRF proof."
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "410": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Gone"
+          },
+          "413": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              },
+              "text/plain": {
+                "example": "Content Too Large",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            },
+            "description": "Request Entity Too Large"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorOrValidationResponse"
+                }
+              }
+            },
+            "description": "The request does not satisfy the published contract or a domain rule."
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "The caller exceeded an applicable request limit."
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unexpected internal failure with no sensitive exception details."
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "A required dependency is temporarily unavailable.",
+            "headers": {
+              "X-Auth-Error": {
+                "description": "Identity error code when AUTH_ENABLED; legacy response body is preserved.",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          },
+          {
+            "CsrfProof": [],
+            "SessionCookie": []
+          }
+        ],
+        "summary": "Tentar explicitamente apenas um item falho elegível",
+        "x-access-modes": [
+          "FULL_WRITE"
+        ],
+        "x-automatic-retry": false
+      }
+    },
+    "/api/v1/prints/revisoes/{revisao_id}/resolver": {
+      "post": {
+        "description": "FULL_WRITE, cookie+CSRF. CORRIGIR exige stake/odd válidas e materializa uma vez; DESCARTAR fecha a revisão e retorna aposta=null sem criar fato financeiro. Apenas revisão de print cujo resultado canônico/proveniência pertence ao usuário. A resolução padrão da Revisão permanece com seu contrato anterior para apostas já materializadas.",
+        "operationId": "resolve_print_review_api_v1_prints_revisoes__revisao_id__resolver_post",
+        "parameters": [
+          {
+            "description": "Identificador numérico da revisão pertencente ao usuário.",
+            "in": "path",
+            "name": "revisao_id",
+            "required": true,
+            "schema": {
+              "maximum": 9223372036854775807,
+              "minimum": 1,
+              "title": "Revisao Id",
+              "type": "integer"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "examples": {
+                "default": {
+                  "summary": "Completar um valor desconhecido sem inventar zero",
+                  "value": {
+                    "acao": "CORRIGIR",
+                    "aposta_corrigida": {
+                      "stake_unidades": 1.0
+                    }
+                  }
+                }
+              },
+              "schema": {
+                "$ref": "#/components/schemas/PrintReviewRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PrintReviewResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Bad Request"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Missing, expired, or invalid bearer token.",
+            "headers": {
+              "X-Auth-Error": {
+                "description": "Identity error code when AUTH_ENABLED; legacy response body is preserved.",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "402": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "account_read_only: writes require confirmed trial or paid access."
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Cookie mutation requires exact Origin and current CSRF proof."
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "410": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Gone"
+          },
+          "413": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              },
+              "text/plain": {
+                "example": "Content Too Large",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            },
+            "description": "Request Entity Too Large"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorOrValidationResponse"
+                }
+              }
+            },
+            "description": "The request does not satisfy the published contract or a domain rule."
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "The caller exceeded an applicable request limit."
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unexpected internal failure with no sensitive exception details."
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "A required dependency is temporarily unavailable.",
+            "headers": {
+              "X-Auth-Error": {
+                "description": "Identity error code when AUTH_ENABLED; legacy response body is preserved.",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          },
+          {
+            "CsrfProof": [],
+            "SessionCookie": []
+          }
+        ],
+        "summary": "Resolver revisão de print sem valores financeiros inventados",
+        "x-access-modes": [
+          "FULL_WRITE"
+        ],
+        "x-automatic-retry": false
       }
     },
     "/api/v1/revisao": {
