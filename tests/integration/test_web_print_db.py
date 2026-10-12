@@ -787,3 +787,64 @@ async def test_database_dependency_503_is_safe_and_has_retry_after(api, novo_usu
     )
     assert result.status_code == 503 and result.headers["Retry-After"] == "5"
     assert "private" not in result.text and "SQL" not in result.text
+
+
+async def test_known_stake_review_preserves_private_original(
+    api, engine_app, como, novo_usuario, extractor
+):
+    user, content = await novo_usuario(), image_bytes()
+    intent, item, r = await submit(api, user, content)
+    assert r.status_code == 202
+    await worker.process_once(
+        engine_app, user, await asset_id(engine_app, como, user, intent, item)
+    )
+    result = (await api.client.get(item_url(intent, item), headers=api.headers(user))).json()
+    assert result["outcome"] == "review" and result["results"][0]["bet_key"] is not None
+    review_id = result["results"][0]["review_ids"][0]
+    revision = await api.client.get(f"/api/v1/revisao/{review_id}", headers=api.headers(user))
+    assert revision.json()["foto_url"] == f"/api/v1/revisao/{review_id}/foto"
+    original = await api.client.get(revision.json()["foto_url"], headers=api.headers(user))
+    assert original.status_code == 200 and original.content == content
+    private(original)
+
+
+async def test_web_print_migration_roundtrip_refuses_populated_downgrade(banco_migracao):
+    from alembic import command
+    from alembic.config import Config
+    from sqlalchemy.exc import DBAPIError
+    from sqlalchemy.ext.asyncio import create_async_engine
+    from sqlalchemy.pool import NullPool
+
+    config = Config(str(Path("alembic.ini").resolve()))
+    prior = os.environ["DATABASE_URL"]
+    os.environ["DATABASE_URL"] = banco_migracao.url_admin
+    engine = create_async_engine(banco_migracao.url_admin, poolclass=NullPool)
+    try:
+        await asyncio.to_thread(command.downgrade, config, "j6main2026")
+        await asyncio.to_thread(command.upgrade, config, "head")
+        async with engine.begin() as conn:
+            uid = await conn.scalar(
+                models.Usuario.__table__
+                .insert()
+                .values(email=uuid4().hex + "@synthetic.test", nome="Synthetic migration")
+                .returning(models.Usuario.id)
+            )
+            await conn.execute(
+                text("SELECT set_config('app.current_user_id',:uid,true)"), {"uid": str(uid)}
+            )
+            await conn.execute(
+                models.PrintIntent.__table__.insert().values(
+                    usuario_id=uid, id=uuid4(), expires_at=now() + timedelta(days=90)
+                )
+            )
+        with pytest.raises(DBAPIError, match="preserve web print identities"):
+            await asyncio.to_thread(command.downgrade, config, "j6main2026")
+        async with engine.connect() as conn:
+            assert (
+                await conn.scalar(text("SELECT version_num FROM alembic_version"))
+                == "p194prints2026"
+            )
+            assert await conn.scalar(text("SELECT count(*) FROM print_intents")) == 1
+    finally:
+        os.environ["DATABASE_URL"] = prior
+        await engine.dispose()

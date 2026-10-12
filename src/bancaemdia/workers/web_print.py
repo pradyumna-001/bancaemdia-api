@@ -129,6 +129,15 @@ async def process_once(engine: AsyncEngine, uid: int, asset_id: UUID) -> bool:
             if asset.ciphertext is None or asset.media_expires_at <= now():
                 asset.status, asset.error_code, asset.retryable = "failed", "media_expired", False
                 return True
+            try:
+                await require_write_access(session, uid)
+            except AccountReadOnlyError:
+                asset.status, asset.error_code, asset.retryable = (
+                    "failed",
+                    "account_read_only",
+                    True,
+                )
+                return True
             if asset.status == "processing":
                 if asset.attempt >= 3:
                     asset.status, asset.error_code, asset.retryable = "failed", "unavailable", False
@@ -246,7 +255,8 @@ async def process_once(engine: AsyncEngine, uid: int, asset_id: UUID) -> bool:
                 .with_for_update()
             )
             if asset is not None:
-                asset.reading = reading
+                if error != "account_read_only":
+                    asset.reading = reading
                 asset.status, asset.error_code, asset.retryable = "failed", error, retryable
                 asset.lease_token, asset.lease_until = None, None
     return True

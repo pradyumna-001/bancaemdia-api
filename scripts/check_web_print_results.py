@@ -6,6 +6,8 @@ import xml.etree.ElementTree as ET
 from collections import Counter
 
 REQUIRED = {
+    "test_known_stake_review_preserves_private_original": 1,
+    "test_web_print_migration_roundtrip_refuses_populated_downgrade": 1,
     "test_multiple_files_real_worker_and_no_financial_replay": 1,
     "test_repeated_and_concurrent_identical_bytes_dedupe_per_user": 1,
     "test_lost_post_response_and_broker_outage_reconcile_without_replay": 1,

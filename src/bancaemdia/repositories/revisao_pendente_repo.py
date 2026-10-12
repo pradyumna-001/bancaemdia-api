@@ -115,16 +115,31 @@ class RevisaoPendenteRepo:
         if (
             revision is not None
             and revision.resolvido_em is None
-            and (revision.extracao_bruta or {}).get("web_print_id")
+            and (
+                (revision.extracao_bruta or {}).get("web_print_id")
+                or str((revision.extracao_bruta or {}).get("aposta_chave") or "").startswith(
+                    "web_print:"
+                )
+            )
         ):
             from uuid import UUID
 
+            from bancaemdia.models.web_print import PrintAsset
             from bancaemdia.services.web_print import photo
 
             try:
-                stored = await photo(
-                    session, usuario_id, UUID((revision.extracao_bruta or {})["web_print_id"])
+                raw = revision.extracao_bruta or {}
+                identity = UUID(raw.get("web_print_id") or str(raw["aposta_chave"]).split(":")[1])
+                asset = await session.scalar(
+                    select(PrintAsset).where(
+                        PrintAsset.usuario_id == usuario_id, PrintAsset.id == identity
+                    )
                 )
+                if asset is None or not any(
+                    id_ in result["review_ids"] for result in asset.results or []
+                ):
+                    return None
+                stored = await photo(session, usuario_id, identity)
             except (ValueError, TypeError):
                 return None
             if stored is None or stored.hash != revision.midia_hash or stored.content is None:

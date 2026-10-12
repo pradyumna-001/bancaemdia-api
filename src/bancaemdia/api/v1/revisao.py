@@ -133,7 +133,9 @@ def _quando(valor: datetime | None) -> str | None:
 def _foto_url(revisao: RevisaoPendente, storage: tuple[str, str] | None = None) -> str | None:
     if revisao.midia_hash is None or revisao.resolvido_em is not None:
         return None
-    if (revisao.extracao_bruta or {}).get("web_print_id"):
+    if (revisao.extracao_bruta or {}).get("web_print_id") or str(
+        (revisao.extracao_bruta or {}).get("aposta_chave") or ""
+    ).startswith("web_print:"):
         return f"/api/v1/revisao/{revisao.id}/foto"
     bucket = get_settings().S3_UPLOAD_BUCKET
     if bucket is not None and storage is not None:

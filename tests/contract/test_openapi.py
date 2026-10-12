@@ -631,6 +631,29 @@ def invalid_upload_job_cases(
     # instead of filtering most of the generated examples or skipping the route.
     assert context.operation is not None
     operation = context.operation
+    if operation.path.startswith("/api/v1/prints/intencoes/"):
+
+        def invalid_print(value: str) -> schemathesis.Case[Any]:
+            parameters = {"intent_id": value}
+            if "{item_id}" in operation.path:
+                parameters["item_id"] = "3f1c9516-f8f0-4237-835f-c7b85ffdbb7b"
+            if operation.method.upper() == "GET":
+                return operation.Case(path_parameters=parameters)
+            body = None
+            media_type = None
+            if operation.method.upper() == "POST":
+                if operation.path.endswith("/retry"):
+                    body = {
+                        "retry_id": "b25f6247-938c-4963-b46d-cf4d82b5fc09",
+                        "expected_attempt": 1,
+                    }
+                    media_type = "application/json"
+                else:
+                    body = {"file": b"synthetic raster input"}
+                    media_type = "multipart/form-data"
+            return operation.Case(path_parameters=parameters, body=body, media_type=media_type)
+
+        return st.text(alphabet="ghijklmnopqrstuvwxyz", min_size=1, max_size=40).map(invalid_print)
     if operation.path != "/api/v1/upload/{job_id}" or operation.method.upper() != "GET":
         return _strategy
     return st.text(alphabet="ghijklmnopqrstuvwxyz", min_size=1, max_size=40).map(
