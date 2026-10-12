@@ -344,7 +344,9 @@ async def _apply_policies(
             active = (policy, current_limit)
 
     response = await call_next(request)
-    dependency_retry = response.headers.get("Retry-After") if response.status_code == 503 else None
+    dependency_retry = (
+        response.headers.get("Retry-After") if response.status_code in {429, 503} else None
+    )
     if active is not None:
         policy, current_limit = active
         # Header injection also reads the quota window from Redis.

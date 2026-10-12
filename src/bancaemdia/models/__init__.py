@@ -63,6 +63,7 @@ from bancaemdia.models.unidade import Unidade
 from bancaemdia.models.upload import Upload, UploadArquivo, UploadBilhete
 from bancaemdia.models.uso_conta_casa import UsoContaCasa
 from bancaemdia.models.usuario import Usuario
+from bancaemdia.models.web_print import PrintAsset, PrintIntent, PrintItem
 
 __all__ = [
     "Apelido",
@@ -108,6 +109,9 @@ __all__ = [
     "MidiaArquivo",
     "Movimento",
     "MovimentoRequisicao",
+    "PrintAsset",
+    "PrintIntent",
+    "PrintItem",
     "RascunhoAposta",
     "RascunhoCorrecao",
     "ReaderQuarantine",

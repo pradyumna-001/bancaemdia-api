@@ -15,3 +15,9 @@ ownership and provenance authorization. It reads existing evidence on the primar
 without extraction, spending, financial writes or entitlement changes. See the
 [original photo contract](../contracts/aposta-foto.md); HTTP method alone does not
 define the operation's billing permission.
+
+Web-print intake and explicit item retry require FULL_WRITE, including worker
+extraction/materialization. Reconciliation GETs and existing photo/review evidence
+remain readable in READ_ONLY. A session failure is 401; denied new writes are 402.
+Daily admission/retry limits are internal controls; no processing estimate or
+spending approval is exposed. See [prints web](../contracts/prints-web.md).

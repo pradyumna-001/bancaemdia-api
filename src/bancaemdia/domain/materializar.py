@@ -2,6 +2,7 @@ import re
 import unicodedata
 from dataclasses import dataclass, field
 from typing import Any
+from uuid import UUID
 
 from bancaemdia.domain.conferencias import Bilhete
 from bancaemdia.domain.projecao import (
@@ -162,10 +163,11 @@ def _aviso_de_casa(nao_reconhecida: str | None) -> str | None:
 def apostas_da_leitura(
     leitura: LeituraRecebida,
     *,
-    chat_id: int,
-    message_id: int,
+    chat_id: int | None,
+    message_id: int | None,
     data: str | None = None,
     valor_unidade_centavos: int,
+    print_id: UUID | None = None,
 ) -> list[NovaAposta]:
     def nova(
         ordem: int,
@@ -175,7 +177,7 @@ def apostas_da_leitura(
         grave: bool,
     ) -> NovaAposta:
         payload: dict[str, Any] = {
-            "origem": "telegram",
+            "origem": "print" if print_id is not None else "telegram",
             "data_aposta": data,
             "chat_id": chat_id,
             "message_id": message_id,
@@ -212,9 +214,11 @@ def apostas_da_leitura(
             "revisao_grave": grave,
         }
         return NovaAposta(
-            chave=chave_telegram(chat_id, message_id, ordem),
+            chave=f"web_print:{print_id}:{ordem}"
+            if print_id is not None
+            else chave_telegram(chat_id or 0, message_id or 0, ordem),
             ordem=ordem,
-            origem="telegram",
+            origem="print" if print_id is not None else "telegram",
             chat_id=chat_id,
             message_id=message_id,
             bilhete=bilhete,

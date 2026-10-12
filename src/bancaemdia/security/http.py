@@ -44,7 +44,15 @@ class SecurityHeadersMiddleware:
                     ]
                     + list(SECURITY_HEADERS),
                 }
-                if photo_path(scope.get("path", "").removeprefix(scope.get("root_path", ""))):
+                private_path = scope.get("path", "").removeprefix(scope.get("root_path", ""))
+                if (
+                    photo_path(private_path)
+                    or private_path.startswith("/api/v1/prints/")
+                    or (
+                        private_path.startswith("/api/v1/revisao/")
+                        and private_path.endswith("/foto")
+                    )
+                ):
                     from starlette.datastructures import MutableHeaders
 
                     headers = MutableHeaders(scope=message)
@@ -86,6 +94,10 @@ class EndpointBodyLimitMiddleware:
             limit = MAX_WEBHOOK_BYTES
         elif path == "/api/v1/upload":
             limit = get_settings().UPLOAD_MAX_BYTES + UPLOAD_FORM_MARGIN
+        elif path.startswith("/api/v1/prints/intencoes/") and not path.endswith("/retry"):
+            from bancaemdia.integrations.telegram.media import MAX_PHOTO_BYTES
+
+            limit = MAX_PHOTO_BYTES + UPLOAD_FORM_MARGIN
         elif path == "/api/v1/apostas/importar-planilha":
             limit = PLANILHA_MAX_BYTES + UPLOAD_FORM_MARGIN
         elif path in {"/coleta", "/api/v1/coleta"}:

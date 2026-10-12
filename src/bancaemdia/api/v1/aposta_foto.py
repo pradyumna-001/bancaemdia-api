@@ -90,7 +90,10 @@ async def ver_foto_aposta(
     bet = await ApostaRepo().get_by_chave(session, usuario.id, chave)
     if bet is None:
         return photo_error(404, NOT_FOUND)
-    photo = await ApostaFotoRepo().get(session, usuario.id, bet)
+    try:
+        photo = await ApostaFotoRepo().get(session, usuario.id, bet)
+    except InvalidToken:
+        return photo_error(503, UNAVAILABLE)
     if photo is None:
         return photo_error(404, NOT_FOUND)
     try:

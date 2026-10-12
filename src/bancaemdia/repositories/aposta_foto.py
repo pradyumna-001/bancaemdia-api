@@ -20,6 +20,29 @@ class ApostaFotoRepo:
         if bet.origem == "telegram_bot":
             # Bot evidence is private and retention-bound. Never fall back to a global hash.
             return await self._bot(session, user_id, bet)
+        if bet.origem == "print" and (bet.chave or "").startswith("web_print:"):
+            from bancaemdia.models.web_print import PrintAsset
+            from bancaemdia.services.web_print import photo
+
+            try:
+                prefix, identity, coupon = (bet.chave or "").split(":")
+                asset_id = UUID(identity)
+                if prefix != "web_print" or bet.chave != f"web_print:{asset_id}:{int(coupon)}":
+                    return None
+            except (ValueError, TypeError):
+                return None
+            asset = await session.scalar(
+                select(PrintAsset).where(
+                    PrintAsset.usuario_id == user_id,
+                    PrintAsset.id == asset_id,
+                    PrintAsset.digest == bet.midia_hash,
+                )
+            )
+            if asset is None or not any(
+                result.get("bet_key") == bet.chave for result in asset.results or []
+            ):
+                return None
+            return await photo(session, user_id, asset_id)
         digest = bet.midia_hash
         if digest is None:
             references = list(
