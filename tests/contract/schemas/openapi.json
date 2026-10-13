@@ -1,6 +1,171 @@
 {
   "components": {
     "schemas": {
+      "AccountChoice": {
+        "additionalProperties": false,
+        "properties": {
+          "apelido": {
+            "title": "Apelido",
+            "type": "string"
+          },
+          "ativa": {
+            "title": "Ativa",
+            "type": "boolean"
+          },
+          "coincide_no_dia_do_jogo": {
+            "title": "Coincide No Dia Do Jogo",
+            "type": "boolean"
+          },
+          "elegivel_escolha_explicita": {
+            "title": "Elegivel Escolha Explicita",
+            "type": "boolean"
+          },
+          "estado": {
+            "title": "Estado",
+            "type": "string"
+          },
+          "id": {
+            "pattern": "^[1-9][0-9]{0,18}$",
+            "title": "Id",
+            "type": "string"
+          },
+          "titular": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/HolderChoice"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "required": [
+          "id",
+          "apelido",
+          "estado",
+          "ativa",
+          "titular",
+          "elegivel_escolha_explicita",
+          "coincide_no_dia_do_jogo"
+        ],
+        "title": "AccountChoice",
+        "type": "object"
+      },
+      "AccountEvidence": {
+        "additionalProperties": false,
+        "properties": {
+          "candidatos": {
+            "items": {
+              "$ref": "#/components/schemas/AccountChoice"
+            },
+            "title": "Candidatos",
+            "type": "array"
+          },
+          "casa": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Casa"
+          },
+          "casa_id": {
+            "anyOf": [
+              {
+                "pattern": "^[1-9][0-9]{0,18}$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Casa Id"
+          },
+          "conta_atual_id": {
+            "anyOf": [
+              {
+                "pattern": "^[1-9][0-9]{0,18}$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Conta Atual Id"
+          },
+          "criterio": {
+            "enum": [
+              "data_jogo",
+              "multicontas_explicita"
+            ],
+            "title": "Criterio",
+            "type": "string"
+          },
+          "encaminhamento": {
+            "enum": [
+              "escolher_conta",
+              "cadastrar_conta_na_casa",
+              "informar_casa"
+            ],
+            "title": "Encaminhamento",
+            "type": "string"
+          },
+          "instante": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Instante"
+          },
+          "status": {
+            "enum": [
+              "NONE",
+              "UNIQUE",
+              "AMBIGUOUS",
+              "INVALID"
+            ],
+            "title": "Status",
+            "type": "string"
+          },
+          "status_na_abertura": {
+            "anyOf": [
+              {
+                "enum": [
+                  "NONE",
+                  "UNIQUE",
+                  "AMBIGUOUS"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Status Na Abertura"
+          }
+        },
+        "required": [
+          "casa",
+          "casa_id",
+          "instante",
+          "criterio",
+          "status",
+          "conta_atual_id",
+          "candidatos",
+          "encaminhamento"
+        ],
+        "title": "AccountEvidence",
+        "type": "object"
+      },
       "AnalisesSaida": {
         "additionalProperties": false,
         "properties": {
@@ -1319,6 +1484,22 @@
           "origem_id"
         ],
         "title": "Body_importar_planilha_api_v1_apostas_importar_planilha_post",
+        "type": "object"
+      },
+      "Body_receive_print_api_v1_prints_intencoes__intent_id__itens__item_id__post": {
+        "additionalProperties": false,
+        "properties": {
+          "file": {
+            "contentMediaType": "application/octet-stream",
+            "description": "JPEG/PNG/GIF/WebP real; nome não é usado como localização",
+            "title": "File",
+            "type": "string"
+          }
+        },
+        "required": [
+          "file"
+        ],
+        "title": "Body_receive_print_api_v1_prints_intencoes__intent_id__itens__item_id__post",
         "type": "object"
       },
       "BucketAnaliseSaida": {
@@ -3126,6 +3307,31 @@
         "title": "HedgeRequest",
         "type": "object"
       },
+      "HolderChoice": {
+        "additionalProperties": false,
+        "properties": {
+          "arquivado": {
+            "title": "Arquivado",
+            "type": "boolean"
+          },
+          "id": {
+            "pattern": "^[1-9][0-9]{0,18}$",
+            "title": "Id",
+            "type": "string"
+          },
+          "nome": {
+            "title": "Nome",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "nome",
+          "arquivado"
+        ],
+        "title": "HolderChoice",
+        "type": "object"
+      },
       "HostedResponse": {
         "additionalProperties": false,
         "properties": {
@@ -3760,7 +3966,6 @@
                 "type": "number"
               },
               {
-                "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
                 "type": "string"
               },
               {
@@ -3799,7 +4004,6 @@
                 "type": "number"
               },
               {
-                "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
                 "type": "string"
               },
               {
@@ -3868,7 +4072,6 @@
                 "type": "number"
               },
               {
-                "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
                 "type": "string"
               }
             ],
@@ -3890,7 +4093,6 @@
                 "type": "number"
               },
               {
-                "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
                 "type": "string"
               }
             ],
@@ -4795,6 +4997,57 @@
         "title": "PainelSaida",
         "type": "object"
       },
+      "PairEvidence": {
+        "additionalProperties": false,
+        "properties": {
+          "busca_incompleta": {
+            "title": "Busca Incompleta",
+            "type": "boolean"
+          },
+          "casa_chave": {
+            "title": "Casa Chave",
+            "type": "string"
+          },
+          "concorrentes": {
+            "title": "Concorrentes",
+            "type": "integer"
+          },
+          "escolha_tipster_obrigatoria": {
+            "title": "Escolha Tipster Obrigatoria",
+            "type": "boolean"
+          },
+          "telegram_chave": {
+            "title": "Telegram Chave",
+            "type": "string"
+          },
+          "tipo": {
+            "enum": [
+              "legado",
+              "casa_financeira_telegram_contextual"
+            ],
+            "title": "Tipo",
+            "type": "string"
+          },
+          "tipster_opcoes": {
+            "items": {
+              "$ref": "#/components/schemas/TipsterChoice"
+            },
+            "title": "Tipster Opcoes",
+            "type": "array"
+          }
+        },
+        "required": [
+          "tipo",
+          "casa_chave",
+          "telegram_chave",
+          "tipster_opcoes",
+          "escolha_tipster_obrigatoria",
+          "concorrentes",
+          "busca_incompleta"
+        ],
+        "title": "PairEvidence",
+        "type": "object"
+      },
       "PairingCodeResponse": {
         "additionalProperties": false,
         "properties": {
@@ -4931,6 +5184,296 @@
         "title": "PlanilhaImportada",
         "type": "object"
       },
+      "PrintIntentResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "intent_id": {
+            "format": "uuid",
+            "title": "Intent Id",
+            "type": "string"
+          },
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/PrintItemResponse"
+            },
+            "title": "Items",
+            "type": "array"
+          },
+          "received_items": {
+            "title": "Received Items",
+            "type": "integer"
+          },
+          "reconciliation_expires_at": {
+            "format": "date-time",
+            "title": "Reconciliation Expires At",
+            "type": "string"
+          },
+          "state": {
+            "enum": [
+              "processing",
+              "complete",
+              "partial",
+              "failed"
+            ],
+            "title": "State",
+            "type": "string"
+          },
+          "terminal_items": {
+            "title": "Terminal Items",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "intent_id",
+          "state",
+          "items",
+          "received_items",
+          "terminal_items",
+          "reconciliation_expires_at"
+        ],
+        "title": "PrintIntentResponse",
+        "type": "object"
+      },
+      "PrintItemResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "attempt": {
+            "title": "Attempt",
+            "type": "integer"
+          },
+          "duplicate": {
+            "title": "Duplicate",
+            "type": "boolean"
+          },
+          "error_code": {
+            "anyOf": [
+              {
+                "enum": [
+                  "unavailable",
+                  "account_read_only",
+                  "media_expired",
+                  "invalid_reading"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Error Code"
+          },
+          "intent_id": {
+            "format": "uuid",
+            "title": "Intent Id",
+            "type": "string"
+          },
+          "item_id": {
+            "format": "uuid",
+            "title": "Item Id",
+            "type": "string"
+          },
+          "last_retry_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Last Retry Id"
+          },
+          "media_expires_at": {
+            "format": "date-time",
+            "title": "Media Expires At",
+            "type": "string"
+          },
+          "outcome": {
+            "anyOf": [
+              {
+                "enum": [
+                  "materialized",
+                  "review",
+                  "no_bet",
+                  "duplicate",
+                  "failed"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Outcome"
+          },
+          "progress_percent": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Progress Percent"
+          },
+          "reconciliation_expires_at": {
+            "format": "date-time",
+            "title": "Reconciliation Expires At",
+            "type": "string"
+          },
+          "results": {
+            "anyOf": [
+              {
+                "items": {
+                  "$ref": "#/components/schemas/PrintResult"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Results"
+          },
+          "retryable": {
+            "title": "Retryable",
+            "type": "boolean"
+          },
+          "status": {
+            "enum": [
+              "accepted",
+              "processing",
+              "completed",
+              "failed"
+            ],
+            "title": "Status",
+            "type": "string"
+          }
+        },
+        "required": [
+          "intent_id",
+          "item_id",
+          "status",
+          "outcome",
+          "duplicate",
+          "attempt",
+          "last_retry_id",
+          "retryable",
+          "error_code",
+          "progress_percent",
+          "results",
+          "media_expires_at",
+          "reconciliation_expires_at"
+        ],
+        "title": "PrintItemResponse",
+        "type": "object"
+      },
+      "PrintResult": {
+        "additionalProperties": false,
+        "properties": {
+          "bet_key": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Bet Key"
+          },
+          "review_ids": {
+            "items": {
+              "type": "integer"
+            },
+            "title": "Review Ids",
+            "type": "array"
+          },
+          "type": {
+            "enum": [
+              "materialized",
+              "review"
+            ],
+            "title": "Type",
+            "type": "string"
+          }
+        },
+        "required": [
+          "type",
+          "bet_key",
+          "review_ids"
+        ],
+        "title": "PrintResult",
+        "type": "object"
+      },
+      "PrintReviewRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "acao": {
+            "enum": [
+              "CORRIGIR",
+              "DESCARTAR"
+            ],
+            "title": "Acao",
+            "type": "string"
+          },
+          "aposta_corrigida": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/CorrecaoDaRevisao"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "required": [
+          "acao"
+        ],
+        "title": "PrintReviewRequest",
+        "type": "object"
+      },
+      "PrintReviewResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "acao": {
+            "enum": [
+              "CORRIGIR",
+              "DESCARTAR"
+            ],
+            "title": "Acao",
+            "type": "string"
+          },
+          "aposta": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/BetResponse"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "eventos_gravados": {
+            "title": "Eventos Gravados",
+            "type": "integer"
+          },
+          "revisao": {
+            "$ref": "#/components/schemas/RevisaoFechadaSaida"
+          }
+        },
+        "required": [
+          "revisao",
+          "acao",
+          "aposta",
+          "eventos_gravados"
+        ],
+        "title": "PrintReviewResponse",
+        "type": "object"
+      },
       "PublicKey": {
         "additionalProperties": false,
         "properties": {
@@ -5025,6 +5568,64 @@
           "frequency"
         ],
         "title": "PublicPrice",
+        "type": "object"
+      },
+      "QueuePage": {
+        "additionalProperties": false,
+        "properties": {
+          "data": {
+            "items": {
+              "$ref": "#/components/schemas/ResultBet"
+            },
+            "title": "Data",
+            "type": "array"
+          },
+          "frescor": {
+            "const": "primary_snapshot",
+            "title": "Frescor",
+            "type": "string"
+          },
+          "fronteira_iniciada_em": {
+            "format": "date-time",
+            "title": "Fronteira Iniciada Em",
+            "type": "string"
+          },
+          "next_cursor": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Next Cursor"
+          },
+          "observado_em": {
+            "format": "date-time",
+            "title": "Observado Em",
+            "type": "string"
+          },
+          "populacao": {
+            "const": "pending_selected_financial_assigned_without_severe_review",
+            "title": "Populacao",
+            "type": "string"
+          },
+          "total_elegivel": {
+            "title": "Total Elegivel",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "data",
+          "next_cursor",
+          "total_elegivel",
+          "observado_em",
+          "fronteira_iniciada_em",
+          "frescor",
+          "populacao"
+        ],
+        "title": "QueuePage",
         "type": "object"
       },
       "ReadinessCheckResponse": {
@@ -5122,6 +5723,21 @@
                 "type": "null"
               }
             ]
+          },
+          "tipster_choice": {
+            "anyOf": [
+              {
+                "enum": [
+                  "casa",
+                  "telegram"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Tipster Choice"
           }
         },
         "required": [
@@ -5160,6 +5776,453 @@
           "eventos_gravados"
         ],
         "title": "ResolucaoSaida",
+        "type": "object"
+      },
+      "ResultBet": {
+        "additionalProperties": false,
+        "properties": {
+          "antiguidade": {
+            "format": "date-time",
+            "title": "Antiguidade",
+            "type": "string"
+          },
+          "banca_contexto": {
+            "anyOf": [
+              {
+                "additionalProperties": {
+                  "$ref": "#/components/schemas/JsonValue"
+                },
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Banca Contexto"
+          },
+          "casa": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Casa"
+          },
+          "chave": {
+            "title": "Chave",
+            "type": "string"
+          },
+          "comissao_centavos": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Comissao Centavos"
+          },
+          "competicao_id": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Competicao Id"
+          },
+          "conta_atribuicao": {
+            "enum": [
+              "ASSIGNED",
+              "UNASSIGNED"
+            ],
+            "title": "Conta Atribuicao",
+            "type": "string"
+          },
+          "conta_contexto": {
+            "anyOf": [
+              {
+                "additionalProperties": {
+                  "$ref": "#/components/schemas/JsonValue"
+                },
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Conta Contexto"
+          },
+          "criterio_antiguidade": {
+            "enum": [
+              "data_jogo",
+              "criada_em"
+            ],
+            "title": "Criterio Antiguidade",
+            "type": "string"
+          },
+          "data_aposta": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Data Aposta"
+          },
+          "data_jogo": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Data Jogo"
+          },
+          "descricao": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Descricao"
+          },
+          "elegivel": {
+            "title": "Elegivel",
+            "type": "boolean"
+          },
+          "estado": {
+            "enum": [
+              "PENDENTE",
+              "GREEN",
+              "RED",
+              "ANULADA",
+              "CASHOUT",
+              "MEIO_GREEN",
+              "MEIO_RED"
+            ],
+            "title": "Estado",
+            "type": "string"
+          },
+          "evento": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Evento"
+          },
+          "freebet": {
+            "title": "Freebet",
+            "type": "boolean"
+          },
+          "lucro_centavos": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Lucro Centavos"
+          },
+          "mercado": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Mercado"
+          },
+          "mercado_id": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Mercado Id"
+          },
+          "motivo_inelegivel": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Motivo Inelegivel"
+          },
+          "odd": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Odd"
+          },
+          "origem": {
+            "title": "Origem",
+            "type": "string"
+          },
+          "retorno_centavos": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Retorno Centavos"
+          },
+          "retorno_informado": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Retorno Informado"
+          },
+          "revisao": {
+            "format": "uuid",
+            "title": "Revisao",
+            "type": "string"
+          },
+          "stake_centavos": {
+            "title": "Stake Centavos",
+            "type": "integer"
+          },
+          "stake_unidades": {
+            "title": "Stake Unidades",
+            "type": "number"
+          },
+          "tipster_id": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Tipster Id"
+          },
+          "valor_aposta_centavos": {
+            "title": "Valor Aposta Centavos",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "chave",
+          "revisao",
+          "estado",
+          "elegivel",
+          "motivo_inelegivel",
+          "antiguidade",
+          "criterio_antiguidade",
+          "origem",
+          "casa",
+          "evento",
+          "descricao",
+          "mercado",
+          "data_jogo",
+          "data_aposta",
+          "odd",
+          "stake_unidades",
+          "stake_centavos",
+          "valor_aposta_centavos",
+          "retorno_centavos",
+          "retorno_informado",
+          "comissao_centavos",
+          "lucro_centavos",
+          "freebet",
+          "conta_atribuicao",
+          "conta_contexto",
+          "banca_contexto",
+          "tipster_id",
+          "mercado_id",
+          "competicao_id"
+        ],
+        "title": "ResultBet",
+        "type": "object"
+      },
+      "ResultInput": {
+        "additionalProperties": false,
+        "properties": {
+          "cashout_valor_centavos": {
+            "anyOf": [
+              {
+                "maximum": 9.223372036854776e+18,
+                "minimum": 0.0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Cashout Valor Centavos"
+          },
+          "chave": {
+            "maxLength": 512,
+            "minLength": 1,
+            "title": "Chave",
+            "type": "string"
+          },
+          "comissao_centavos": {
+            "anyOf": [
+              {
+                "maximum": 9.223372036854776e+18,
+                "minimum": 0.0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Comissao Centavos"
+          },
+          "estado": {
+            "enum": [
+              "PENDENTE",
+              "GREEN",
+              "RED",
+              "ANULADA",
+              "CASHOUT",
+              "MEIO_GREEN",
+              "MEIO_RED"
+            ],
+            "title": "Estado",
+            "type": "string"
+          },
+          "retorno_centavos": {
+            "anyOf": [
+              {
+                "maximum": 9.223372036854776e+18,
+                "minimum": 0.0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Retorno Centavos"
+          },
+          "revisao_esperada": {
+            "format": "uuid",
+            "title": "Revisao Esperada",
+            "type": "string"
+          }
+        },
+        "required": [
+          "chave",
+          "revisao_esperada",
+          "estado"
+        ],
+        "title": "ResultInput",
+        "type": "object"
+      },
+      "ResultReceipt": {
+        "additionalProperties": false,
+        "properties": {
+          "aposta": {
+            "$ref": "#/components/schemas/ResultBet"
+          },
+          "confirmado_em": {
+            "format": "date-time",
+            "title": "Confirmado Em",
+            "type": "string"
+          },
+          "consultar_ate": {
+            "format": "date-time",
+            "title": "Consultar Ate",
+            "type": "string"
+          },
+          "desfazer_ate": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Desfazer Ate"
+          },
+          "eventos_gravados": {
+            "const": 1,
+            "title": "Eventos Gravados",
+            "type": "integer"
+          },
+          "id": {
+            "format": "uuid",
+            "title": "Id",
+            "type": "string"
+          },
+          "operacao_desfeita": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Operacao Desfeita"
+          },
+          "tipo": {
+            "enum": [
+              "result",
+              "undo"
+            ],
+            "title": "Tipo",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "tipo",
+          "aposta",
+          "operacao_desfeita",
+          "confirmado_em",
+          "desfazer_ate",
+          "consultar_ate",
+          "eventos_gravados"
+        ],
+        "title": "ResultReceipt",
         "type": "object"
       },
       "Resultado": {
@@ -5333,6 +6396,490 @@
           "resultado_nao_aplicavel"
         ],
         "title": "ResumoAnaliseSaida",
+        "type": "object"
+      },
+      "RetryPrint": {
+        "additionalProperties": false,
+        "properties": {
+          "expected_attempt": {
+            "maximum": 3.0,
+            "minimum": 1.0,
+            "title": "Expected Attempt",
+            "type": "integer"
+          },
+          "retry_id": {
+            "format": "uuid",
+            "title": "Retry Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "retry_id",
+          "expected_attempt"
+        ],
+        "title": "RetryPrint",
+        "type": "object"
+      },
+      "ReviewDecision": {
+        "additionalProperties": false,
+        "properties": {
+          "acao": {
+            "enum": [
+              "CORRIGIR",
+              "DESCARTAR",
+              "MESMA",
+              "DISTINTAS",
+              "RECUSAR_VINCULO"
+            ],
+            "title": "Acao",
+            "type": "string"
+          },
+          "aposta_corrigida": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/CorrecaoDaRevisao"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "conta_casa_id": {
+            "anyOf": [
+              {
+                "pattern": "^[1-9][0-9]{0,18}$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Escolha explícita exata como string BIGINT; convertida somente no servidor. Não selecionar o primeiro candidato.",
+            "title": "Conta Casa Id"
+          },
+          "precondicao": {
+            "maxLength": 64,
+            "minLength": 64,
+            "pattern": "^[a-f0-9]{64}$",
+            "title": "Precondicao",
+            "type": "string"
+          },
+          "revisao_id": {
+            "pattern": "^[1-9][0-9]{0,18}$",
+            "title": "Revisao Id",
+            "type": "string"
+          },
+          "tipster_choice": {
+            "anyOf": [
+              {
+                "enum": [
+                  "casa",
+                  "telegram"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Tipster Choice"
+          }
+        },
+        "required": [
+          "revisao_id",
+          "precondicao",
+          "acao"
+        ],
+        "title": "ReviewDecision",
+        "type": "object"
+      },
+      "ReviewError": {
+        "additionalProperties": false,
+        "properties": {
+          "campo": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Campo"
+          },
+          "detail": {
+            "title": "Detail",
+            "type": "string"
+          }
+        },
+        "required": [
+          "detail"
+        ],
+        "title": "ReviewError",
+        "type": "object"
+      },
+      "ReviewPage": {
+        "additionalProperties": false,
+        "properties": {
+          "criterio_idade": {
+            "const": "intervalo_criado_em",
+            "title": "Criterio Idade",
+            "type": "string"
+          },
+          "data": {
+            "items": {
+              "$ref": "#/components/schemas/ReviewView"
+            },
+            "title": "Data",
+            "type": "array"
+          },
+          "observado_em": {
+            "format": "date-time",
+            "title": "Observado Em",
+            "type": "string"
+          },
+          "page": {
+            "title": "Page",
+            "type": "integer"
+          },
+          "page_size": {
+            "title": "Page Size",
+            "type": "integer"
+          },
+          "politica_consumo": {
+            "const": "reiniciar_pagina_1_apos_resolver",
+            "title": "Politica Consumo",
+            "type": "string"
+          },
+          "por_familia_filtrado": {
+            "additionalProperties": {
+              "type": "integer"
+            },
+            "propertyNames": {
+              "enum": [
+                "leitura",
+                "conta",
+                "par_legado",
+                "consolidacao",
+                "print_incompleto",
+                "nao_suportada"
+              ]
+            },
+            "title": "Por Familia Filtrado",
+            "type": "object"
+          },
+          "total_filtrado": {
+            "title": "Total Filtrado",
+            "type": "integer"
+          },
+          "total_global": {
+            "title": "Total Global",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "data",
+          "page",
+          "page_size",
+          "total_filtrado",
+          "total_global",
+          "por_familia_filtrado",
+          "observado_em",
+          "politica_consumo",
+          "criterio_idade"
+        ],
+        "title": "ReviewPage",
+        "type": "object"
+      },
+      "ReviewReceipt": {
+        "additionalProperties": false,
+        "properties": {
+          "acao": {
+            "enum": [
+              "CORRIGIR",
+              "DESCARTAR",
+              "MESMA",
+              "DISTINTAS",
+              "RECUSAR_VINCULO"
+            ],
+            "title": "Acao",
+            "type": "string"
+          },
+          "aposta_chave": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Aposta Chave"
+          },
+          "confirmado_em": {
+            "format": "date-time",
+            "title": "Confirmado Em",
+            "type": "string"
+          },
+          "consultar_ate": {
+            "format": "date-time",
+            "title": "Consultar Ate",
+            "type": "string"
+          },
+          "eventos_gravados": {
+            "title": "Eventos Gravados",
+            "type": "integer"
+          },
+          "familia": {
+            "enum": [
+              "leitura",
+              "conta",
+              "par_legado",
+              "consolidacao",
+              "print_incompleto",
+              "nao_suportada"
+            ],
+            "title": "Familia",
+            "type": "string"
+          },
+          "operacao_id": {
+            "format": "uuid",
+            "title": "Operacao Id",
+            "type": "string"
+          },
+          "revisao_id": {
+            "pattern": "^[1-9][0-9]{0,18}$",
+            "title": "Revisao Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "operacao_id",
+          "revisao_id",
+          "familia",
+          "acao",
+          "aposta_chave",
+          "confirmado_em",
+          "consultar_ate",
+          "eventos_gravados"
+        ],
+        "title": "ReviewReceipt",
+        "type": "object"
+      },
+      "ReviewView": {
+        "additionalProperties": false,
+        "properties": {
+          "acoes": {
+            "items": {
+              "enum": [
+                "CORRIGIR",
+                "DESCARTAR",
+                "MESMA",
+                "DISTINTAS",
+                "RECUSAR_VINCULO"
+              ],
+              "type": "string"
+            },
+            "title": "Acoes",
+            "type": "array"
+          },
+          "conta": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/AccountEvidence"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "criado_em": {
+            "format": "date-time",
+            "title": "Criado Em",
+            "type": "string"
+          },
+          "encaminhamento": {
+            "enum": [
+              "resolver_aposta",
+              "resolver_conta",
+              "resolver_par",
+              "resolver_print",
+              "suporte",
+              "resolvida"
+            ],
+            "title": "Encaminhamento",
+            "type": "string"
+          },
+          "estado": {
+            "enum": [
+              "aberta",
+              "resolvida"
+            ],
+            "title": "Estado",
+            "type": "string"
+          },
+          "familia": {
+            "enum": [
+              "leitura",
+              "conta",
+              "par_legado",
+              "consolidacao",
+              "print_incompleto",
+              "nao_suportada"
+            ],
+            "title": "Familia",
+            "type": "string"
+          },
+          "fontes": {
+            "items": {
+              "$ref": "#/components/schemas/SourceEvidence"
+            },
+            "title": "Fontes",
+            "type": "array"
+          },
+          "foto_url": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Foto Url"
+          },
+          "id": {
+            "pattern": "^[1-9][0-9]{0,18}$",
+            "title": "Id",
+            "type": "string"
+          },
+          "motivo": {
+            "enum": [
+              "leitura_incompleta",
+              "atribuicao_conta",
+              "par_a_confirmar",
+              "fontes_a_consolidar",
+              "print_sem_aposta",
+              "motivo_nao_suportado"
+            ],
+            "title": "Motivo",
+            "type": "string"
+          },
+          "par": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/PairEvidence"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "precondicao": {
+            "title": "Precondicao",
+            "type": "string"
+          },
+          "print_casa": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Print Casa"
+          },
+          "print_descricao": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Print Descricao"
+          },
+          "print_evento": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Print Evento"
+          },
+          "print_odd": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Print Odd"
+          },
+          "print_stake_unidades": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Print Stake Unidades"
+          },
+          "resolver_url": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Resolver Url"
+          },
+          "resolvido_em": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Resolvido Em"
+          }
+        },
+        "required": [
+          "id",
+          "familia",
+          "motivo",
+          "estado",
+          "criado_em",
+          "resolvido_em",
+          "precondicao",
+          "acoes",
+          "encaminhamento",
+          "resolver_url",
+          "foto_url",
+          "fontes",
+          "conta",
+          "par",
+          "print_casa",
+          "print_evento",
+          "print_descricao",
+          "print_odd",
+          "print_stake_unidades"
+        ],
+        "title": "ReviewView",
         "type": "object"
       },
       "RevisaoFechadaSaida": {
@@ -5750,6 +7297,183 @@
         "title": "SessionStatus",
         "type": "object"
       },
+      "SourceEvidence": {
+        "additionalProperties": false,
+        "properties": {
+          "casa": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Casa"
+          },
+          "chave": {
+            "title": "Chave",
+            "type": "string"
+          },
+          "data_aposta": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Data Aposta"
+          },
+          "data_jogo": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Data Jogo"
+          },
+          "descricao": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Descricao"
+          },
+          "evento": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Evento"
+          },
+          "freebet": {
+            "title": "Freebet",
+            "type": "boolean"
+          },
+          "mercado": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Mercado"
+          },
+          "odd": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Odd"
+          },
+          "origem": {
+            "title": "Origem",
+            "type": "string"
+          },
+          "papel": {
+            "enum": [
+              "aposta",
+              "casa",
+              "telegram"
+            ],
+            "title": "Papel",
+            "type": "string"
+          },
+          "retorno_centavos": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Retorno Centavos"
+          },
+          "selecionada": {
+            "title": "Selecionada",
+            "type": "boolean"
+          },
+          "stake_centavos": {
+            "title": "Stake Centavos",
+            "type": "string"
+          },
+          "stake_unidades": {
+            "title": "Stake Unidades",
+            "type": "number"
+          },
+          "tipster": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Tipster"
+          },
+          "tipster_id": {
+            "anyOf": [
+              {
+                "pattern": "^[1-9][0-9]{0,18}$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Tipster Id"
+          },
+          "valor_aposta_centavos": {
+            "title": "Valor Aposta Centavos",
+            "type": "string"
+          }
+        },
+        "required": [
+          "chave",
+          "papel",
+          "origem",
+          "casa",
+          "evento",
+          "descricao",
+          "mercado",
+          "data_jogo",
+          "data_aposta",
+          "tipster",
+          "tipster_id",
+          "odd",
+          "stake_unidades",
+          "stake_centavos",
+          "valor_aposta_centavos",
+          "retorno_centavos",
+          "freebet",
+          "selecionada"
+        ],
+        "title": "SourceEvidence",
+        "type": "object"
+      },
       "StakeMarketRequest": {
         "additionalProperties": false,
         "properties": {
@@ -5882,6 +7606,54 @@
         ],
         "title": "TipoMovimentoConsulta",
         "type": "string"
+      },
+      "TipsterChoice": {
+        "additionalProperties": false,
+        "properties": {
+          "fonte": {
+            "enum": [
+              "casa",
+              "telegram"
+            ],
+            "title": "Fonte",
+            "type": "string"
+          },
+          "rotulo": {
+            "title": "Rotulo",
+            "type": "string"
+          },
+          "tipster": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Tipster"
+          },
+          "tipster_id": {
+            "anyOf": [
+              {
+                "pattern": "^[1-9][0-9]{0,18}$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Tipster Id"
+          }
+        },
+        "required": [
+          "fonte",
+          "rotulo",
+          "tipster",
+          "tipster_id"
+        ],
+        "title": "TipsterChoice",
+        "type": "object"
       },
       "TitularEntrada": {
         "additionalProperties": false,
@@ -6157,6 +7929,27 @@
           "next"
         ],
         "title": "TrustRoots",
+        "type": "object"
+      },
+      "UndoInput": {
+        "additionalProperties": false,
+        "properties": {
+          "operacao_id": {
+            "format": "uuid",
+            "title": "Operacao Id",
+            "type": "string"
+          },
+          "revisao_esperada": {
+            "format": "uuid",
+            "title": "Revisao Esperada",
+            "type": "string"
+          }
+        },
+        "required": [
+          "operacao_id",
+          "revisao_esperada"
+        ],
+        "title": "UndoInput",
         "type": "object"
       },
       "UploadAcceptedResponse": {
@@ -7996,6 +9789,179 @@
           }
         ],
         "summary": "Corrigir aposta"
+      }
+    },
+    "/api/v1/apostas/{chave}/foto": {
+      "get": {
+        "description": "Imagem binária privada por aposta e proveniência persistida no primário, inclusive após revisão. FULL_WRITE e READ_ONLY. Sem extração, escrita, redirecionamento ou credenciais em URL. 404 representa aposta/foto inexistente, inacessível, ambígua ou removida pela retenção. Ver docs/contracts/aposta-foto.md.",
+        "operationId": "ver_foto_aposta_api_v1_apostas__chave__foto_get",
+        "parameters": [
+          {
+            "description": "Chave estável e opaca da aposta.",
+            "in": "path",
+            "name": "chave",
+            "required": true,
+            "schema": {
+              "description": "Chave da aposta acessível ao usuário autenticado; codificar como um segmento de URL.",
+              "maxLength": 256,
+              "minLength": 1,
+              "title": "Chave",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "image/gif": {
+                "schema": {
+                  "format": "binary",
+                  "type": "string"
+                }
+              },
+              "image/jpeg": {
+                "schema": {
+                  "format": "binary",
+                  "type": "string"
+                }
+              },
+              "image/png": {
+                "schema": {
+                  "format": "binary",
+                  "type": "string"
+                }
+              },
+              "image/webp": {
+                "schema": {
+                  "format": "binary",
+                  "type": "string"
+                }
+              }
+            },
+            "description": "Imagem original decodificada e validada, até 20 MiB, 256 frames e 40 milhões de pixels somados; private, no-store.",
+            "headers": {
+              "Cache-Control": {
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "Content-Disposition": {
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "Vary": {
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "X-Content-Type-Options": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Sessão necessária, inválida, expirada, revogada ou usuário inativo.",
+            "headers": {
+              "X-Auth-Error": {
+                "description": "Identity error code when AUTH_ENABLED; legacy response body is preserved.",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "não achei a foto desta aposta"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "a foto armazenada é inválida, incompatível ou excede o limite permitido"
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Muitas requisições. Respeitar o intervalo da quota.",
+            "headers": {
+              "Retry-After": {
+                "schema": {
+                  "minimum": 1,
+                  "type": "integer"
+                }
+              }
+            }
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unexpected internal failure with no sensitive exception details."
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "não foi possível carregar a foto agora — tente novamente em instantes",
+            "headers": {
+              "Retry-After": {
+                "schema": {
+                  "minimum": 1,
+                  "type": "integer"
+                }
+              },
+              "X-Auth-Error": {
+                "description": "Identity error code when AUTH_ENABLED; legacy response body is preserved.",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          },
+          {
+            "SessionCookie": []
+          }
+        ],
+        "summary": "Ler a foto original autorizada da aposta"
       }
     },
     "/api/v1/apostas/{chave}/restaurar": {
@@ -14770,6 +16736,2070 @@
         "summary": "Alterar preferências do painel"
       }
     },
+    "/api/v1/prints/intencoes/{intent_id}": {
+      "get": {
+        "description": "Snapshot no primário, FULL_WRITE e READ_ONLY. processing/complete/partial/failed dos itens recebidos até esta consulta; não afirma que toda seleção local foi enviada. Identidades estáveis e resultados explícitos, sem inferência financeira por contagem.",
+        "operationId": "read_intent_api_v1_prints_intencoes__intent_id__get",
+        "parameters": [
+          {
+            "description": "UUID durável da intenção, escolhido e persistido pelo cliente antes de enviar; escopo por usuário.",
+            "in": "path",
+            "name": "intent_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Intent Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PrintIntentResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Missing, expired, or invalid bearer token.",
+            "headers": {
+              "X-Auth-Error": {
+                "description": "Identity error code when AUTH_ENABLED; legacy response body is preserved.",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorOrValidationResponse"
+                }
+              }
+            },
+            "description": "The request does not satisfy the published contract or a domain rule."
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "The caller exceeded an applicable request limit."
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unexpected internal failure with no sensitive exception details."
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "A required dependency is temporarily unavailable.",
+            "headers": {
+              "X-Auth-Error": {
+                "description": "Identity error code when AUTH_ENABLED; legacy response body is preserved.",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          },
+          {
+            "SessionCookie": []
+          }
+        ],
+        "summary": "Consultar os itens efetivamente recebidos da intenção",
+        "x-access-modes": [
+          "FULL_WRITE",
+          "READ_ONLY"
+        ],
+        "x-automatic-retry": true
+      }
+    },
+    "/api/v1/prints/intencoes/{intent_id}/itens/{item_id}": {
+      "get": {
+        "description": "Leitura autorizada no primário por usuário, intenção e item; FULL_WRITE e READ_ONLY. Não precisa de ID retornado pelo POST. accepted/processing/completed/failed, resultado explícito por item, progresso nullable, retryable e last_retry_id reais. 404 indistinguível entre ausência/recurso alheio/estado expirado. Estado 90 dias, bytes privados sete dias; sem replay automático.",
+        "operationId": "read_item_api_v1_prints_intencoes__intent_id__itens__item_id__get",
+        "parameters": [
+          {
+            "description": "UUID durável da intenção, escolhido e persistido pelo cliente antes de enviar; escopo por usuário.",
+            "in": "path",
+            "name": "intent_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Intent Id",
+              "type": "string"
+            }
+          },
+          {
+            "description": "UUID durável do arquivo dentro da intenção, conhecido antes do POST; não é hash/credencial de mídia.",
+            "in": "path",
+            "name": "item_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Item Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PrintItemResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Missing, expired, or invalid bearer token.",
+            "headers": {
+              "X-Auth-Error": {
+                "description": "Identity error code when AUTH_ENABLED; legacy response body is preserved.",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorOrValidationResponse"
+                }
+              }
+            },
+            "description": "The request does not satisfy the published contract or a domain rule."
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "The caller exceeded an applicable request limit."
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unexpected internal failure with no sensitive exception details."
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "A required dependency is temporarily unavailable.",
+            "headers": {
+              "X-Auth-Error": {
+                "description": "Identity error code when AUTH_ENABLED; legacy response body is preserved.",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          },
+          {
+            "SessionCookie": []
+          }
+        ],
+        "summary": "Reconciliar arquivo pela identidade conhecida antes do POST",
+        "x-access-modes": [
+          "FULL_WRITE",
+          "READ_ONLY"
+        ],
+        "x-automatic-retry": true
+      },
+      "post": {
+        "description": "Multipart, um arquivo por item; vários itens por intenção. UUIDs persistidos antes do envio, dedupe por usuário/bytes reais, 202 não é aposta criada. 20 itens/100 MiB por intenção e 20 MiB/40 milhões de pixels/256 frames por raster JPEG/PNG/GIF/WebP. Cookie+CSRF, FULL_WRITE; sem custos/consentimento no contrato. Consultar GET com os mesmos UUIDs após timeout/503; não repetir mutations automaticamente. Estado e resultado por item, Revisão com null preservado, inbox/worker assíncronos. Ver docs/contracts/prints-web.md.",
+        "operationId": "receive_print_api_v1_prints_intencoes__intent_id__itens__item_id__post",
+        "parameters": [
+          {
+            "description": "UUID durável da intenção, escolhido e persistido pelo cliente antes de enviar; escopo por usuário.",
+            "in": "path",
+            "name": "intent_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Intent Id",
+              "type": "string"
+            }
+          },
+          {
+            "description": "UUID durável do arquivo dentro da intenção, conhecido antes do POST; não é hash/credencial de mídia.",
+            "in": "path",
+            "name": "item_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Item Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "multipart/form-data": {
+              "examples": {
+                "default": {
+                  "summary": "Um print raster na seleção",
+                  "value": {
+                    "file": "foto.png"
+                  }
+                }
+              },
+              "schema": {
+                "$ref": "#/components/schemas/Body_receive_print_api_v1_prints_intencoes__intent_id__itens__item_id__post"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "202": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PrintItemResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Bad Request"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Missing, expired, or invalid bearer token.",
+            "headers": {
+              "X-Auth-Error": {
+                "description": "Identity error code when AUTH_ENABLED; legacy response body is preserved.",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "402": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "account_read_only: writes require confirmed trial or paid access."
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Cookie mutation requires exact Origin and current CSRF proof."
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "410": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Gone"
+          },
+          "413": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              },
+              "text/plain": {
+                "example": "Content Too Large",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            },
+            "description": "Request Entity Too Large"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorOrValidationResponse"
+                }
+              }
+            },
+            "description": "The request does not satisfy the published contract or a domain rule."
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "The caller exceeded an applicable request limit."
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unexpected internal failure with no sensitive exception details."
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "A required dependency is temporarily unavailable.",
+            "headers": {
+              "X-Auth-Error": {
+                "description": "Identity error code when AUTH_ENABLED; legacy response body is preserved.",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          },
+          {
+            "CsrfProof": [],
+            "SessionCookie": []
+          }
+        ],
+        "summary": "Receber um print web com identidade durável",
+        "x-access-modes": [
+          "FULL_WRITE"
+        ],
+        "x-automatic-retry": false
+      }
+    },
+    "/api/v1/prints/intencoes/{intent_id}/itens/{item_id}/retry": {
+      "post": {
+        "description": "FULL_WRITE, cookie+CSRF. Mesma identidade e bytes aceitos. retry_id e expected_attempt protegem concorrência/resposta perdida; último retry_id com a mesma versão retorna estado sem refazer sucessos. Aceito/processando/sucesso/não retryable/mídia expirada ou três tentativas consumidas: 409. GET permite reconciliar a ação; nunca retry automático.",
+        "operationId": "retry_item_api_v1_prints_intencoes__intent_id__itens__item_id__retry_post",
+        "parameters": [
+          {
+            "description": "UUID durável da intenção, escolhido e persistido pelo cliente antes de enviar; escopo por usuário.",
+            "in": "path",
+            "name": "intent_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Intent Id",
+              "type": "string"
+            }
+          },
+          {
+            "description": "UUID durável do arquivo dentro da intenção, conhecido antes do POST; não é hash/credencial de mídia.",
+            "in": "path",
+            "name": "item_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Item Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "examples": {
+                "default": {
+                  "summary": "Tentativa explícita de arquivo falho",
+                  "value": {
+                    "expected_attempt": 1,
+                    "retry_id": "b25f6247-938c-4963-b46d-cf4d82b5fc09"
+                  }
+                }
+              },
+              "schema": {
+                "$ref": "#/components/schemas/RetryPrint"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "202": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PrintItemResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Bad Request"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Missing, expired, or invalid bearer token.",
+            "headers": {
+              "X-Auth-Error": {
+                "description": "Identity error code when AUTH_ENABLED; legacy response body is preserved.",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "402": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "account_read_only: writes require confirmed trial or paid access."
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Cookie mutation requires exact Origin and current CSRF proof."
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "410": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Gone"
+          },
+          "413": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              },
+              "text/plain": {
+                "example": "Content Too Large",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            },
+            "description": "Request Entity Too Large"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorOrValidationResponse"
+                }
+              }
+            },
+            "description": "The request does not satisfy the published contract or a domain rule."
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "The caller exceeded an applicable request limit."
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unexpected internal failure with no sensitive exception details."
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "A required dependency is temporarily unavailable.",
+            "headers": {
+              "X-Auth-Error": {
+                "description": "Identity error code when AUTH_ENABLED; legacy response body is preserved.",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          },
+          {
+            "CsrfProof": [],
+            "SessionCookie": []
+          }
+        ],
+        "summary": "Tentar explicitamente apenas um item falho elegível",
+        "x-access-modes": [
+          "FULL_WRITE"
+        ],
+        "x-automatic-retry": false
+      }
+    },
+    "/api/v1/prints/revisoes/{revisao_id}/resolver": {
+      "post": {
+        "description": "FULL_WRITE, cookie+CSRF. CORRIGIR exige stake/odd válidas e materializa uma vez; DESCARTAR fecha a revisão e retorna aposta=null sem criar fato financeiro. Apenas revisão de print cujo resultado canônico/proveniência pertence ao usuário. A resolução padrão da Revisão permanece com seu contrato anterior para apostas já materializadas.",
+        "operationId": "resolve_print_review_api_v1_prints_revisoes__revisao_id__resolver_post",
+        "parameters": [
+          {
+            "description": "Identificador numérico da revisão pertencente ao usuário.",
+            "in": "path",
+            "name": "revisao_id",
+            "required": true,
+            "schema": {
+              "maximum": 9223372036854775807,
+              "minimum": 1,
+              "title": "Revisao Id",
+              "type": "integer"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "examples": {
+                "default": {
+                  "summary": "Completar um valor desconhecido sem inventar zero",
+                  "value": {
+                    "acao": "CORRIGIR",
+                    "aposta_corrigida": {
+                      "stake_unidades": 1.0
+                    }
+                  }
+                }
+              },
+              "schema": {
+                "$ref": "#/components/schemas/PrintReviewRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PrintReviewResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Bad Request"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Missing, expired, or invalid bearer token.",
+            "headers": {
+              "X-Auth-Error": {
+                "description": "Identity error code when AUTH_ENABLED; legacy response body is preserved.",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "402": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "account_read_only: writes require confirmed trial or paid access."
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Cookie mutation requires exact Origin and current CSRF proof."
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "410": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Gone"
+          },
+          "413": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              },
+              "text/plain": {
+                "example": "Content Too Large",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            },
+            "description": "Request Entity Too Large"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorOrValidationResponse"
+                }
+              }
+            },
+            "description": "The request does not satisfy the published contract or a domain rule."
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "The caller exceeded an applicable request limit."
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unexpected internal failure with no sensitive exception details."
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "A required dependency is temporarily unavailable.",
+            "headers": {
+              "X-Auth-Error": {
+                "description": "Identity error code when AUTH_ENABLED; legacy response body is preserved.",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          },
+          {
+            "CsrfProof": [],
+            "SessionCookie": []
+          }
+        ],
+        "summary": "Resolver revisão de print sem valores financeiros inventados",
+        "x-access-modes": [
+          "FULL_WRITE"
+        ],
+        "x-automatic-retry": false
+      }
+    },
+    "/api/v1/resultados/apostas/{chave}": {
+      "get": {
+        "description": "Estado atual autorizado no primário para criar uma nova intenção após conflito; não reutilizar intenção incerta.",
+        "operationId": "detail_api_v1_resultados_apostas__chave__get",
+        "parameters": [
+          {
+            "description": "Chave estável e opaca da aposta.",
+            "in": "path",
+            "name": "chave",
+            "required": true,
+            "schema": {
+              "maxLength": 512,
+              "minLength": 1,
+              "title": "Chave",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ResultBet"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Missing, expired, or invalid bearer token.",
+            "headers": {
+              "X-Auth-Error": {
+                "description": "Identity error code when AUTH_ENABLED; legacy response body is preserved.",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "402": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "account_read_only: writes require confirmed trial or paid access."
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Código estável de recusa do fluxo de resultados"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Código estável de recusa do fluxo de resultados"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Código estável de recusa do fluxo de resultados"
+          },
+          "410": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Código estável de recusa do fluxo de resultados"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorOrValidationResponse"
+                }
+              }
+            },
+            "description": "The request does not satisfy the published contract or a domain rule."
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Código estável de recusa do fluxo de resultados"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unexpected internal failure with no sensitive exception details."
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Código estável de recusa do fluxo de resultados",
+            "headers": {
+              "X-Auth-Error": {
+                "description": "Identity error code when AUTH_ENABLED; legacy response body is preserved.",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          },
+          {
+            "SessionCookie": []
+          }
+        ],
+        "summary": "Consultar revisão e elegibilidade",
+        "tags": [
+          "Resultados"
+        ],
+        "x-bancaemdia-resultados": {
+          "access": "READ_ONLY",
+          "automatic_mutation_replay": false,
+          "cache": "private, no-store",
+          "intention_parameter": null,
+          "pagination": null,
+          "read_source": "primary_snapshot",
+          "recovery_path": null
+        }
+      }
+    },
+    "/api/v1/resultados/fila": {
+      "get": {
+        "description": "Snapshot do primário, data_jogo crescente com fallback criada_em, cursor privado de 30 minutos; apenas pendentes selecionadas, financeiras, atribuídas e sem revisão grave. Total da fronteira no mesmo snapshot.",
+        "operationId": "queue_api_v1_resultados_fila_get",
+        "parameters": [
+          {
+            "description": "Cursor privado vinculado à pessoa/filtros/fronteira, válido por 30 minutos; não usar offset.",
+            "in": "query",
+            "name": "cursor",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "maxLength": 4096,
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Cursor"
+            }
+          },
+          {
+            "description": "Quantidade máxima de itens retornados na página.",
+            "in": "query",
+            "name": "page_size",
+            "required": false,
+            "schema": {
+              "default": 50,
+              "maximum": 100,
+              "minimum": 1,
+              "title": "Page Size",
+              "type": "integer"
+            }
+          },
+          {
+            "description": "Limite inicial inclusivo do intervalo, em ISO 8601.",
+            "in": "query",
+            "name": "desde",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "format": "date-time",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Desde"
+            }
+          },
+          {
+            "description": "Limite final exclusivo do intervalo, em ISO 8601.",
+            "in": "query",
+            "name": "ate",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "format": "date-time",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Ate"
+            }
+          },
+          {
+            "description": "Identificador canônico da casa usada como filtro.",
+            "in": "query",
+            "name": "casa_id",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "maximum": 9223372036854775807,
+                  "minimum": 1,
+                  "type": "integer"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Casa Id"
+            }
+          },
+          {
+            "description": "Identificador do titular pertencente ao usuário.",
+            "in": "query",
+            "name": "titular_id",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "maximum": 9223372036854775807,
+                  "minimum": 1,
+                  "type": "integer"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Titular Id"
+            }
+          },
+          {
+            "description": "Identificador da conta da casa usada como filtro.",
+            "in": "query",
+            "name": "conta_casa_id",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "maximum": 9223372036854775807,
+                  "minimum": 1,
+                  "type": "integer"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Conta Casa Id"
+            }
+          },
+          {
+            "description": "Identificador da banca própria usado como filtro.",
+            "in": "query",
+            "name": "banca_id",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "maximum": 9223372036854775807,
+                  "minimum": 1,
+                  "type": "integer"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Banca Id"
+            }
+          },
+          {
+            "description": "Identificador canônico do tipster usado como filtro.",
+            "in": "query",
+            "name": "tipster_id",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "maximum": 9223372036854775807,
+                  "minimum": 1,
+                  "type": "integer"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Tipster Id"
+            }
+          },
+          {
+            "description": "Identificador canônico do mercado usado como filtro.",
+            "in": "query",
+            "name": "mercado_id",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "maximum": 9223372036854775807,
+                  "minimum": 1,
+                  "type": "integer"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Mercado Id"
+            }
+          },
+          {
+            "description": "Identificador canônico da competição usada como filtro.",
+            "in": "query",
+            "name": "competicao_id",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "maximum": 9223372036854775807,
+                  "minimum": 1,
+                  "type": "integer"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Competicao Id"
+            }
+          },
+          {
+            "description": "Identificador canônico do time da casa usado como filtro.",
+            "in": "query",
+            "name": "time_casa_id",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "maximum": 9223372036854775807,
+                  "minimum": 1,
+                  "type": "integer"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Time Casa Id"
+            }
+          },
+          {
+            "description": "Identificador canônico do time visitante usado como filtro.",
+            "in": "query",
+            "name": "time_fora_id",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "maximum": 9223372036854775807,
+                  "minimum": 1,
+                  "type": "integer"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Time Fora Id"
+            }
+          },
+          {
+            "description": "Canal de origem da aposta usado como filtro.",
+            "in": "query",
+            "name": "origem",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "enum": [
+                    "manual",
+                    "planilha",
+                    "print",
+                    "casa",
+                    "telegram",
+                    "telegram_bot"
+                  ],
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Origem"
+            }
+          },
+          {
+            "description": "Filtra por aposta com valor de face e custo próprio distintos.",
+            "in": "query",
+            "name": "freebet",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "boolean"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Freebet"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/QueuePage"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Missing, expired, or invalid bearer token.",
+            "headers": {
+              "X-Auth-Error": {
+                "description": "Identity error code when AUTH_ENABLED; legacy response body is preserved.",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "402": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "account_read_only: writes require confirmed trial or paid access."
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Código estável de recusa do fluxo de resultados"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Código estável de recusa do fluxo de resultados"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Código estável de recusa do fluxo de resultados"
+          },
+          "410": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Código estável de recusa do fluxo de resultados"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorOrValidationResponse"
+                }
+              }
+            },
+            "description": "The request does not satisfy the published contract or a domain rule."
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Código estável de recusa do fluxo de resultados"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unexpected internal failure with no sensitive exception details."
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Código estável de recusa do fluxo de resultados",
+            "headers": {
+              "X-Auth-Error": {
+                "description": "Identity error code when AUTH_ENABLED; legacy response body is preserved.",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          },
+          {
+            "SessionCookie": []
+          }
+        ],
+        "summary": "Fila global por antiguidade",
+        "tags": [
+          "Resultados"
+        ],
+        "x-bancaemdia-resultados": {
+          "access": "READ_ONLY",
+          "automatic_mutation_replay": false,
+          "cache": "private, no-store",
+          "intention_parameter": null,
+          "pagination": "keyset_cursor",
+          "read_source": "primary_snapshot",
+          "recovery_path": null
+        }
+      }
+    },
+    "/api/v1/resultados/operacoes/{intention_id}": {
+      "get": {
+        "description": "Recibo privado do primário por 90 dias; não é estado atual. 404/410 não provam rollback e não autorizam replay automático.",
+        "operationId": "recover_api_v1_resultados_operacoes__intention_id__get",
+        "parameters": [
+          {
+            "description": "UUID da intenção escolhido antes da escrita; identifica, nunca autoriza.",
+            "in": "path",
+            "name": "intention_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Intention Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ResultReceipt"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Missing, expired, or invalid bearer token.",
+            "headers": {
+              "X-Auth-Error": {
+                "description": "Identity error code when AUTH_ENABLED; legacy response body is preserved.",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "402": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "account_read_only: writes require confirmed trial or paid access."
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Código estável de recusa do fluxo de resultados"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Código estável de recusa do fluxo de resultados"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Código estável de recusa do fluxo de resultados"
+          },
+          "410": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Código estável de recusa do fluxo de resultados"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorOrValidationResponse"
+                }
+              }
+            },
+            "description": "The request does not satisfy the published contract or a domain rule."
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Código estável de recusa do fluxo de resultados"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unexpected internal failure with no sensitive exception details."
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Código estável de recusa do fluxo de resultados",
+            "headers": {
+              "X-Auth-Error": {
+                "description": "Identity error code when AUTH_ENABLED; legacy response body is preserved.",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          },
+          {
+            "SessionCookie": []
+          }
+        ],
+        "summary": "Recuperar resposta perdida",
+        "tags": [
+          "Resultados"
+        ],
+        "x-bancaemdia-resultados": {
+          "access": "READ_ONLY",
+          "automatic_mutation_replay": false,
+          "cache": "private, no-store",
+          "intention_parameter": "intention_id",
+          "pagination": null,
+          "read_source": "primary_snapshot",
+          "recovery_path": "/api/v1/resultados/operacoes/{intention_id}"
+        }
+      },
+      "post": {
+        "description": "UUID criado antes da escrita, revisão esperada comparada sob lock no primário; FULL_WRITE e um evento por gesto. Replay do mesmo payload recupera recibo antes da comparação de versão.",
+        "operationId": "result_api_v1_resultados_operacoes__intention_id__post",
+        "parameters": [
+          {
+            "description": "UUID da intenção escolhido antes da escrita; identifica, nunca autoriza.",
+            "in": "path",
+            "name": "intention_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Intention Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "examples": {
+                "default": {
+                  "summary": "Uma intenção por gesto",
+                  "value": {
+                    "chave": "m:synthetic",
+                    "estado": "GREEN",
+                    "revisao_esperada": "00000000-0000-4000-8000-000000000001"
+                  }
+                }
+              },
+              "schema": {
+                "$ref": "#/components/schemas/ResultInput"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ResultReceipt"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Missing, expired, or invalid bearer token.",
+            "headers": {
+              "X-Auth-Error": {
+                "description": "Identity error code when AUTH_ENABLED; legacy response body is preserved.",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "402": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "account_read_only: writes require confirmed trial or paid access."
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Cookie mutation requires exact Origin and current CSRF proof."
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Código estável de recusa do fluxo de resultados"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Código estável de recusa do fluxo de resultados"
+          },
+          "410": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Código estável de recusa do fluxo de resultados"
+          },
+          "413": {
+            "content": {
+              "text/plain": {
+                "example": "Content Too Large",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            },
+            "description": "The request body exceeds this endpoint's streaming limit."
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorOrValidationResponse"
+                }
+              }
+            },
+            "description": "The request does not satisfy the published contract or a domain rule."
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Código estável de recusa do fluxo de resultados"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unexpected internal failure with no sensitive exception details."
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Código estável de recusa do fluxo de resultados",
+            "headers": {
+              "X-Auth-Error": {
+                "description": "Identity error code when AUTH_ENABLED; legacy response body is preserved.",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          },
+          {
+            "CsrfProof": [],
+            "SessionCookie": []
+          }
+        ],
+        "summary": "Registrar resultado condicional",
+        "tags": [
+          "Resultados"
+        ],
+        "x-bancaemdia-resultados": {
+          "access": "FULL_WRITE",
+          "automatic_mutation_replay": false,
+          "cache": "private, no-store",
+          "intention_parameter": "intention_id",
+          "pagination": null,
+          "read_source": "primary_transaction",
+          "recovery_path": "/api/v1/resultados/operacoes/{intention_id}"
+        }
+      }
+    },
+    "/api/v1/resultados/operacoes/{intention_id}/desfazer": {
+      "post": {
+        "description": "Nova intenção ligada à operação do mesmo usuário e à revisão produzida por ela, válida por 24h; restaura pré-imagem autoritativa com evento auditável.",
+        "operationId": "undo_api_v1_resultados_operacoes__intention_id__desfazer_post",
+        "parameters": [
+          {
+            "description": "UUID da intenção escolhido antes da escrita; identifica, nunca autoriza.",
+            "in": "path",
+            "name": "intention_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Intention Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "examples": {
+                "default": {
+                  "summary": "Reverter a intenção confirmada",
+                  "value": {
+                    "operacao_id": "00000000-0000-4000-8000-000000000002",
+                    "revisao_esperada": "00000000-0000-4000-8000-000000000003"
+                  }
+                }
+              },
+              "schema": {
+                "$ref": "#/components/schemas/UndoInput"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ResultReceipt"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Missing, expired, or invalid bearer token.",
+            "headers": {
+              "X-Auth-Error": {
+                "description": "Identity error code when AUTH_ENABLED; legacy response body is preserved.",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "402": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "account_read_only: writes require confirmed trial or paid access."
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Cookie mutation requires exact Origin and current CSRF proof."
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Código estável de recusa do fluxo de resultados"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Código estável de recusa do fluxo de resultados"
+          },
+          "410": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Código estável de recusa do fluxo de resultados"
+          },
+          "413": {
+            "content": {
+              "text/plain": {
+                "example": "Content Too Large",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            },
+            "description": "The request body exceeds this endpoint's streaming limit."
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorOrValidationResponse"
+                }
+              }
+            },
+            "description": "The request does not satisfy the published contract or a domain rule."
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Código estável de recusa do fluxo de resultados"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unexpected internal failure with no sensitive exception details."
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Código estável de recusa do fluxo de resultados",
+            "headers": {
+              "X-Auth-Error": {
+                "description": "Identity error code when AUTH_ENABLED; legacy response body is preserved.",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          },
+          {
+            "CsrfProof": [],
+            "SessionCookie": []
+          }
+        ],
+        "summary": "Desfazer resultado confirmado",
+        "tags": [
+          "Resultados"
+        ],
+        "x-bancaemdia-resultados": {
+          "access": "FULL_WRITE",
+          "automatic_mutation_replay": false,
+          "cache": "private, no-store",
+          "intention_parameter": "intention_id",
+          "pagination": null,
+          "read_source": "primary_transaction",
+          "recovery_path": "/api/v1/resultados/operacoes/{intention_id}"
+        }
+      }
+    },
     "/api/v1/revisao": {
       "get": {
         "description": "Lista revisões do usuário por motivo, intervalo e paginação.",
@@ -14793,7 +18823,7 @@
             }
           },
           {
-            "description": "Limite inicial inclusivo do intervalo, em ISO 8601.",
+            "description": "Abertura RevisaoPendente.criado_em; limite inclusivo >= desde; ISO 8601 sem offset significa America/Sao_Paulo. Não filtra data_aposta nem data_jogo.",
             "in": "query",
             "name": "desde",
             "required": false,
@@ -14811,7 +18841,7 @@
             }
           },
           {
-            "description": "Limite final exclusivo do intervalo, em ISO 8601.",
+            "description": "Abertura RevisaoPendente.criado_em; limite exclusivo < ate; ISO 8601 sem offset significa America/Sao_Paulo. Não filtra data_aposta nem data_jogo.",
             "in": "query",
             "name": "ate",
             "required": false,
@@ -14954,9 +18984,979 @@
         "summary": "Listar revisões pendentes"
       }
     },
+    "/api/v1/revisao-operacional/fila": {
+      "get": {
+        "description": "Snapshot do primário: intervalo de abertura criado_em [desde,ate), datas sem offset em America/Sao_Paulo, filtro de família aplicado à população inteira. total_filtrado/por_familia_filtrado do mesmo recorte; total_global identifica separadamente todas as abertas. Reiniciar página 1 depois de resolver para não pular itens em uma fila que diminui.",
+        "operationId": "queue_api_v1_revisao_operacional_fila_get",
+        "parameters": [
+          {
+            "description": "Família decidida pelo servidor; filtro aplicado antes da paginação e da contagem.",
+            "in": "query",
+            "name": "familia",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "enum": [
+                    "leitura",
+                    "conta",
+                    "par_legado",
+                    "consolidacao",
+                    "print_incompleto",
+                    "nao_suportada"
+                  ],
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Familia"
+            }
+          },
+          {
+            "description": "Abertura RevisaoPendente.criado_em; limite inclusivo >= desde; ISO 8601 sem offset significa America/Sao_Paulo. Não filtra data_aposta nem data_jogo.",
+            "in": "query",
+            "name": "desde",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "format": "date-time",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Abertura criado_em >= desde; data sem offset é America/Sao_Paulo. Use um intervalo de abertura para recortar idade.",
+              "title": "Desde"
+            }
+          },
+          {
+            "description": "Abertura RevisaoPendente.criado_em; limite exclusivo < ate; ISO 8601 sem offset significa America/Sao_Paulo. Não filtra data_aposta nem data_jogo.",
+            "in": "query",
+            "name": "ate",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "format": "date-time",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Abertura criado_em < ate; data sem offset é America/Sao_Paulo. Não consulta data_aposta/data_jogo.",
+              "title": "Ate"
+            }
+          },
+          {
+            "description": "Número da página, começando em 1.",
+            "in": "query",
+            "name": "page",
+            "required": false,
+            "schema": {
+              "default": 1,
+              "maximum": 92233720368547758,
+              "minimum": 1,
+              "title": "Page",
+              "type": "integer"
+            }
+          },
+          {
+            "description": "Quantidade máxima de itens retornados na página.",
+            "in": "query",
+            "name": "page_size",
+            "required": false,
+            "schema": {
+              "default": 50,
+              "maximum": 100,
+              "minimum": 1,
+              "title": "Page Size",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReviewPage"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Missing, expired, or invalid bearer token.",
+            "headers": {
+              "X-Auth-Error": {
+                "description": "Identity error code when AUTH_ENABLED; legacy response body is preserved.",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "402": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "account_read_only: writes require confirmed trial or paid access."
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReviewError"
+                }
+              }
+            },
+            "description": "Código público e campo seguro; sem detalhes internos."
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReviewError"
+                }
+              }
+            },
+            "description": "Código público e campo seguro; sem detalhes internos."
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReviewError"
+                }
+              }
+            },
+            "description": "Código público e campo seguro; sem detalhes internos."
+          },
+          "410": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReviewError"
+                }
+              }
+            },
+            "description": "Código público e campo seguro; sem detalhes internos."
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReviewError"
+                }
+              }
+            },
+            "description": "Código público e campo seguro; sem detalhes internos."
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "The caller exceeded an applicable request limit."
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unexpected internal failure with no sensitive exception details."
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReviewError"
+                }
+              }
+            },
+            "description": "Código público e campo seguro; sem detalhes internos.",
+            "headers": {
+              "X-Auth-Error": {
+                "description": "Identity error code when AUTH_ENABLED; legacy response body is preserved.",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          },
+          {
+            "SessionCookie": []
+          }
+        ],
+        "summary": "Fila segura por motivo",
+        "tags": [
+          "Revisão operacional"
+        ],
+        "x-bancaemdia-review": {
+          "access": "READ_ONLY",
+          "age_filter": "criado_em_interval",
+          "automatic_mutation_replay": false,
+          "consumption": "restart_page_1",
+          "precondition": "opaque_evidence_cas",
+          "read_source": "primary_snapshot",
+          "receipt_days": 90
+        }
+      }
+    },
+    "/api/v1/revisao-operacional/operacoes/{operacao_id}": {
+      "get": {
+        "description": "Recibo durável privado no primário por 90 dias, acessível em READ_ONLY. 404/410 não provam rollback nem autorizam novo POST automático. Revisão resolvida por outro escritor não é atribuída à intenção desconhecida. 401 reautentica; 402 preserva sessão e formulário.",
+        "operationId": "recover_api_v1_revisao_operacional_operacoes__operacao_id__get",
+        "parameters": [
+          {
+            "description": "UUID criado e persistido pelo cliente antes da escrita; recuperação pela mesma identidade.",
+            "in": "path",
+            "name": "operacao_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Operacao Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReviewReceipt"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Missing, expired, or invalid bearer token.",
+            "headers": {
+              "X-Auth-Error": {
+                "description": "Identity error code when AUTH_ENABLED; legacy response body is preserved.",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "402": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "account_read_only: writes require confirmed trial or paid access."
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReviewError"
+                }
+              }
+            },
+            "description": "Código público e campo seguro; sem detalhes internos."
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReviewError"
+                }
+              }
+            },
+            "description": "Código público e campo seguro; sem detalhes internos."
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReviewError"
+                }
+              }
+            },
+            "description": "Código público e campo seguro; sem detalhes internos."
+          },
+          "410": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReviewError"
+                }
+              }
+            },
+            "description": "Código público e campo seguro; sem detalhes internos."
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReviewError"
+                }
+              }
+            },
+            "description": "Código público e campo seguro; sem detalhes internos."
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "The caller exceeded an applicable request limit."
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unexpected internal failure with no sensitive exception details."
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReviewError"
+                }
+              }
+            },
+            "description": "Código público e campo seguro; sem detalhes internos.",
+            "headers": {
+              "X-Auth-Error": {
+                "description": "Identity error code when AUTH_ENABLED; legacy response body is preserved.",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          },
+          {
+            "SessionCookie": []
+          }
+        ],
+        "summary": "Reconciliar uma intenção de revisão",
+        "tags": [
+          "Revisão operacional"
+        ],
+        "x-bancaemdia-review": {
+          "access": "READ_ONLY",
+          "age_filter": "criado_em_interval",
+          "automatic_mutation_replay": false,
+          "consumption": "restart_page_1",
+          "precondition": "opaque_evidence_cas",
+          "read_source": "primary_snapshot",
+          "receipt_days": 90
+        }
+      },
+      "post": {
+        "description": "UUID persistido antes do POST, FULL_WRITE atual e cookie+CSRF. Precondição comparada sob locks em transação SERIALIZABLE; escolha de tipster por fonte, sem IDs inferidos. Reutiliza correção, matriz de conta, consolidação e materializador de Print. Recibo, eventos, vínculo e fechamento atômicos. Repetição explícita idempotente do mesmo UUID/payload recupera recibo por 90 dias; nenhum replay automático após erro ou pagamento.",
+        "operationId": "decide_api_v1_revisao_operacional_operacoes__operacao_id__post",
+        "parameters": [
+          {
+            "description": "UUID criado e persistido pelo cliente antes da escrita; recuperação pela mesma identidade.",
+            "in": "path",
+            "name": "operacao_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Operacao Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "examples": {
+                "default": {
+                  "summary": "Consolidar escolhendo contexto do Telegram",
+                  "value": {
+                    "acao": "MESMA",
+                    "precondicao": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+                    "revisao_id": "42",
+                    "tipster_choice": "telegram"
+                  }
+                }
+              },
+              "schema": {
+                "$ref": "#/components/schemas/ReviewDecision"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReviewReceipt"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Missing, expired, or invalid bearer token.",
+            "headers": {
+              "X-Auth-Error": {
+                "description": "Identity error code when AUTH_ENABLED; legacy response body is preserved.",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "402": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "account_read_only: writes require confirmed trial or paid access."
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Cookie mutation requires exact Origin and current CSRF proof."
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReviewError"
+                }
+              }
+            },
+            "description": "Código público e campo seguro; sem detalhes internos."
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReviewError"
+                }
+              }
+            },
+            "description": "Código público e campo seguro; sem detalhes internos."
+          },
+          "410": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReviewError"
+                }
+              }
+            },
+            "description": "Código público e campo seguro; sem detalhes internos."
+          },
+          "413": {
+            "content": {
+              "text/plain": {
+                "example": "Content Too Large",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            },
+            "description": "The request body exceeds this endpoint's streaming limit."
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReviewError"
+                }
+              }
+            },
+            "description": "Código público e campo seguro; sem detalhes internos."
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "The caller exceeded an applicable request limit."
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unexpected internal failure with no sensitive exception details."
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReviewError"
+                }
+              }
+            },
+            "description": "Código público e campo seguro; sem detalhes internos.",
+            "headers": {
+              "X-Auth-Error": {
+                "description": "Identity error code when AUTH_ENABLED; legacy response body is preserved.",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          },
+          {
+            "CsrfProof": [],
+            "SessionCookie": []
+          }
+        ],
+        "summary": "Resolver uma revisão condicionalmente",
+        "tags": [
+          "Revisão operacional"
+        ],
+        "x-bancaemdia-review": {
+          "access": "FULL_WRITE",
+          "age_filter": "criado_em_interval",
+          "automatic_mutation_replay": false,
+          "consumption": "restart_page_1",
+          "precondition": "opaque_evidence_cas",
+          "read_source": "primary_transaction",
+          "receipt_days": 90
+        }
+      }
+    },
+    "/api/v1/revisao-operacional/revisoes/{revisao_id}": {
+      "get": {
+        "description": "Projeção tipada e sanitizada, sem extração bruta/diagnósticos/custos/URLs assinadas. Precondição opaca vinculada ao usuário e à revisão; conta pelo dia do jogo com exceção multicontas explícita. Fotos opcionais pela rota privada existente. Motivo não suportado encaminha ao suporte sem ações.",
+        "operationId": "detail_api_v1_revisao_operacional_revisoes__revisao_id__get",
+        "parameters": [
+          {
+            "description": "Identificador numérico da revisão pertencente ao usuário.",
+            "in": "path",
+            "name": "revisao_id",
+            "required": true,
+            "schema": {
+              "maximum": 9223372036854775807,
+              "minimum": 1,
+              "title": "Revisao Id",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReviewView"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Missing, expired, or invalid bearer token.",
+            "headers": {
+              "X-Auth-Error": {
+                "description": "Identity error code when AUTH_ENABLED; legacy response body is preserved.",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "402": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "account_read_only: writes require confirmed trial or paid access."
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReviewError"
+                }
+              }
+            },
+            "description": "Código público e campo seguro; sem detalhes internos."
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReviewError"
+                }
+              }
+            },
+            "description": "Código público e campo seguro; sem detalhes internos."
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReviewError"
+                }
+              }
+            },
+            "description": "Código público e campo seguro; sem detalhes internos."
+          },
+          "410": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReviewError"
+                }
+              }
+            },
+            "description": "Código público e campo seguro; sem detalhes internos."
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReviewError"
+                }
+              }
+            },
+            "description": "Código público e campo seguro; sem detalhes internos."
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "The caller exceeded an applicable request limit."
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unexpected internal failure with no sensitive exception details."
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReviewError"
+                }
+              }
+            },
+            "description": "Código público e campo seguro; sem detalhes internos.",
+            "headers": {
+              "X-Auth-Error": {
+                "description": "Identity error code when AUTH_ENABLED; legacy response body is preserved.",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          },
+          {
+            "SessionCookie": []
+          }
+        ],
+        "summary": "Evidência autorizada e ações por família",
+        "tags": [
+          "Revisão operacional"
+        ],
+        "x-bancaemdia-review": {
+          "access": "READ_ONLY",
+          "age_filter": "criado_em_interval",
+          "automatic_mutation_replay": false,
+          "consumption": "restart_page_1",
+          "precondition": "opaque_evidence_cas",
+          "read_source": "primary_snapshot",
+          "receipt_days": 90
+        }
+      }
+    },
+    "/api/v1/revisao-operacional/revisoes/{revisao_id}/foto": {
+      "get": {
+        "description": "READ_ONLY, snapshot do primário, mesma origem autenticada e autorização pela revisão. Reutiliza proveniência/mídia existente; ausência/expiração/foto inválida retornam 404 indistinguível. Raster JPEG/PNG/GIF/WebP até 20 MiB, 40 milhões de pixels e 256 frames; sem hash/URL assinada como autorização.",
+        "operationId": "photo_api_v1_revisao_operacional_revisoes__revisao_id__foto_get",
+        "parameters": [
+          {
+            "description": "Identificador numérico da revisão pertencente ao usuário.",
+            "in": "path",
+            "name": "revisao_id",
+            "required": true,
+            "schema": {
+              "maximum": 9223372036854775807,
+              "minimum": 1,
+              "title": "Revisao Id",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "image/gif": {
+                "schema": {
+                  "format": "binary",
+                  "type": "string"
+                }
+              },
+              "image/jpeg": {
+                "schema": {
+                  "format": "binary",
+                  "type": "string"
+                }
+              },
+              "image/png": {
+                "schema": {
+                  "format": "binary",
+                  "type": "string"
+                }
+              },
+              "image/webp": {
+                "schema": {
+                  "format": "binary",
+                  "type": "string"
+                }
+              }
+            },
+            "description": "Original privado, raster validado até 20 MiB/40 milhões de pixels/256 frames."
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Missing, expired, or invalid bearer token.",
+            "headers": {
+              "X-Auth-Error": {
+                "description": "Identity error code when AUTH_ENABLED; legacy response body is preserved.",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "402": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "account_read_only: writes require confirmed trial or paid access."
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReviewError"
+                }
+              }
+            },
+            "description": "Código público e campo seguro; sem detalhes internos."
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReviewError"
+                }
+              }
+            },
+            "description": "Código público e campo seguro; sem detalhes internos."
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReviewError"
+                }
+              }
+            },
+            "description": "Código público e campo seguro; sem detalhes internos."
+          },
+          "410": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReviewError"
+                }
+              }
+            },
+            "description": "Código público e campo seguro; sem detalhes internos."
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReviewError"
+                }
+              }
+            },
+            "description": "Código público e campo seguro; sem detalhes internos."
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "The caller exceeded an applicable request limit."
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unexpected internal failure with no sensitive exception details."
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReviewError"
+                }
+              }
+            },
+            "description": "Código público e campo seguro; sem detalhes internos.",
+            "headers": {
+              "X-Auth-Error": {
+                "description": "Identity error code when AUTH_ENABLED; legacy response body is preserved.",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          },
+          {
+            "SessionCookie": []
+          }
+        ],
+        "summary": "Foto opcional privada da revisão",
+        "tags": [
+          "Revisão operacional"
+        ],
+        "x-bancaemdia-review": {
+          "access": "READ_ONLY",
+          "age_filter": "criado_em_interval",
+          "automatic_mutation_replay": false,
+          "consumption": "restart_page_1",
+          "precondition": "opaque_evidence_cas",
+          "read_source": "primary_snapshot",
+          "receipt_days": 90
+        }
+      }
+    },
     "/api/v1/revisao/stats": {
       "get": {
-        "description": "Retorna volume, motivos e idade da fila de revisões pendentes do usuário.",
+        "description": "Retorna volume, motivos e idade da fila de revisões pendentes do usuário. Estatísticas globais de todas as abertas, sem os filtros da lista; idade sobre criado_em, relógio do servidor.",
         "operationId": "consultar_estatisticas_api_v1_revisao_stats_get",
         "responses": {
           "200": {

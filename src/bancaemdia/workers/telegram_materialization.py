@@ -114,7 +114,9 @@ async def materialize_draft(
         confianca=1.0,
         payload=payload,
     )
-    await _gravar(session, draft.usuario_id, nova, {}, None)
+    # Keep the hash in the bet's replay snapshot, while the original stays in private,
+    # tenant-owned TelegramMedia and retains its existing purge/unlink policy.
+    await _gravar(session, draft.usuario_id, nova, {}, draft.media_hash)
     saved = await read_saved_bet(session, user_id=draft.usuario_id, draft_id=draft.id)
     if saved is None or saved.bet.conta_casa_id != account_id:
         raise ConfirmationMaterializationError("account changed while materializing draft")
