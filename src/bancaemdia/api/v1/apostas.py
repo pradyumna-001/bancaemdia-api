@@ -2,7 +2,7 @@ import asyncio
 from collections.abc import Callable
 from datetime import datetime
 from typing import Annotated, Any, Literal
-from uuid import uuid4
+from uuid import UUID, uuid4
 
 from fastapi import APIRouter, Depends, File, Form, Path, Query, UploadFile, status
 from fastapi.responses import JSONResponse
@@ -745,6 +745,18 @@ async def importar_planilha(
     usuario: Annotated[Usuario, Depends(get_current_user)],
     session: Annotated[AsyncSession, Depends(get_db)],
 ) -> JSONResponse:
+    if origem_id.strip().startswith("web-xlsx:"):
+        from bancaemdia.models.sheet_import import SheetSource
+
+        try:
+            source_id = UUID(origem_id.strip().removeprefix("web-xlsx:"))
+        except ValueError:
+            source_id = None
+        if (
+            source_id is not None
+            and await session.get(SheetSource, (usuario.id, source_id)) is not None
+        ):
+            return erro(422, "registered_source_requires_preview")
     if not (arquivo.filename or "").lower().endswith(".xlsx"):
         return erro(status.HTTP_422_UNPROCESSABLE_ENTITY, "envie um arquivo .xlsx")
     conteudo = await arquivo.read(MAX_BYTES + 1)

@@ -23,6 +23,46 @@ OPERATION_DOCUMENTATION: dict[OperationKey, tuple[str, str]] = {
         "Ler a foto original autorizada da aposta",
         "Imagem binária privada por aposta e proveniência persistida no primário, inclusive após revisão. FULL_WRITE e READ_ONLY. Sem extração, escrita, redirecionamento ou credenciais em URL. 404 representa aposta/foto inexistente, inacessível, ambígua ou removida pela retenção. Ver docs/contracts/aposta-foto.md.",
     ),
+    ("get", "/api/v1/planilhas/campos"): (
+        "Catálogo de colunas XLSX",
+        "Publica campos, tipos, opções e limites; normalização financeira pertence ao servidor.",
+    ),
+    ("put", "/api/v1/planilhas/fontes/{source_id}"): (
+        "Registrar fonte estável",
+        "UUID escolhido antes do envio, origem web-xlsx imutável; reutilizar a fonte listada na reimportação.",
+    ),
+    ("get", "/api/v1/planilhas/fontes"): (
+        "Listar fontes próprias",
+        "Fontes persistem até exclusão da conta; paginação explícita sem credenciais.",
+    ),
+    ("get", "/api/v1/planilhas/fontes/{source_id}"): (
+        "Reconciliar fonte",
+        "Consulta autorizada da identidade conhecida antes do PUT, inclusive resposta perdida.",
+    ),
+    ("post", "/api/v1/planilhas/fontes/{source_id}/previas/{preview_id}"): (
+        "Preparar prévia XLSX",
+        "Multipart com exatamente um arquivo XLSX. Síncrona, limitada e privada; nunca escreve fatos financeiros. Nova identidade invalida prévia anterior.",
+    ),
+    ("get", "/api/v1/planilhas/previas/{preview_id}"): (
+        "Consultar prévia",
+        "Estado ready/invalid/obsolete e contagens previstas, versão, hash e validade; não é autorização de escrita.",
+    ),
+    ("get", "/api/v1/planilhas/previas/{preview_id}/linhas"): (
+        "Consultar linhas da prévia",
+        "Página própria com valores inválidos preservados, normalização e consequências calculadas no backend; total distingue página.",
+    ),
+    ("post", "/api/v1/planilhas/previas/{preview_id}/remapear/{new_preview_id}"): (
+        "Remapear e revalidar prévia",
+        "Seleciona aba e índices de colunas 1-based, sem editar células. Nova referência/versionamento invalida a anterior; mesma identidade só aceita o mesmo pedido.",
+    ),
+    ("post", "/api/v1/planilhas/confirmacoes/{confirmation_id}"): (
+        "Confirmar alterações da prévia",
+        "Intenção conhecida antes do POST, vinculada à referência/hash. Revalida fonte, snapshot e billing; aplicação atômica SERIALIZABLE, obsolescência 409 sem efeitos parciais.",
+    ),
+    ("get", "/api/v1/planilhas/confirmacoes/{confirmation_id}"): (
+        "Reconciliar aplicação XLSX",
+        "Retorna resultado durável real de materialização, inclusive resposta perdida; não autoriza replay por rede/logout/refresh.",
+    ),
     ("post", "/api/v1/coleta/sessions"): (
         "Abrir ou retomar sessão",
         "Cria uma fronteira imutável por instalação ou retoma o UUID explícito sem ampliar o corte.",
@@ -425,6 +465,10 @@ PARAMETER_DESCRIPTIONS = {
     "dias_por_pagina": "Número de dias civis por janela, 1-366; não altera o total completo.",
     "cursor": "Cursor privado cifrado, até 2048 caracteres, vinculado ao usuário/capacidade/filtros; expira em 24h. Reiniciar a paginação em 422.",
     "inicio_dia": "Início civil opcional dentro do recorte diário completo; não combinar com cursor.",
+    "source_id": "UUID estável da fonte própria, persistido antes do primeiro PUT.",
+    "preview_id": "UUID da prévia conhecido antes do upload; referência/hash/versão para reconciliação.",
+    "new_preview_id": "Novo UUID durável para remapeamento; nunca reutilizar com dados incompatíveis.",
+    "confirmation_id": "UUID da intenção persistido antes do POST; GET reconcilia resposta perdida.",
     "sessao_id": "UUID opaco da sessão pertencente à instalação autenticada.",
     "q": "Busca textual literal por nome, sem curingas SQL; limite 160 caracteres.",
     "dimensao": "casas/tipsters/mercados/competicoes/origens/grupos/bancas/titulares/contas; sessão normal do site.",
@@ -480,6 +524,36 @@ PARAMETER_DESCRIPTIONS = {
 }
 
 REQUEST_EXAMPLES: dict[OperationKey, tuple[str, JsonObject]] = {
+    ("put", "/api/v1/planilhas/fontes/{source_id}"): (
+        "Fonte sintética",
+        {"nome": "Planilha principal"},
+    ),
+    ("post", "/api/v1/planilhas/fontes/{source_id}/previas/{preview_id}"): (
+        "XLSX sintético",
+        {"arquivo": "synthetic-import.xlsx"},
+    ),
+    ("post", "/api/v1/planilhas/previas/{preview_id}/remapear/{new_preview_id}"): (
+        "Remapeamento explícito",
+        {
+            "expected_revision": 1,
+            "sheet": "Apostas",
+            "mapping": {
+                "linha_id": 1,
+                "casa": 2,
+                "data_aposta": 3,
+                "odd": 4,
+                "stake_unidades": 5,
+                "atualizada_em": 6,
+            },
+        },
+    ),
+    ("post", "/api/v1/planilhas/confirmacoes/{confirmation_id}"): (
+        "Confirmar dados",
+        {
+            "preview_id": "11111111-1111-4111-8111-111111111111",
+            "preview_hash": "0000000000000000000000000000000000000000000000000000000000000000",
+        },
+    ),
     ("post", "/api/v1/coleta/sessions"): (
         "Nova sessão explícita",
         {"coletar_desde": "2026-08-01T00:00:00Z", "retomar_sessao_id": None},
@@ -1057,6 +1131,16 @@ def _document_operations(document: JsonObject) -> None:
             raise RuntimeError(
                 f"missing OpenAPI documentation for {method.upper()} {path}"
             ) from error
+        if path.startswith("/api/v1/planilhas/"):
+            operation["x-access-modes"] = (
+                ["FULL_WRITE", "READ_ONLY"] if method == "get" else ["FULL_WRITE"]
+            )
+            operation["x-client-auto-retry"] = method == "get"
+            for status in ("429", "503"):
+                operation["responses"][status].setdefault("headers", {})["Retry-After"] = {
+                    "schema": {"type": "integer", "minimum": 1},
+                    "description": "Espera em segundos; mutations exigem reconciliação e ação explícita.",
+                }
         operation["summary"] = summary
         operation["description"] = description
         if path.startswith("/api/v1/prints/"):

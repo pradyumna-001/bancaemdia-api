@@ -47,7 +47,7 @@ class SecurityHeadersMiddleware:
                 private_path = scope.get("path", "").removeprefix(scope.get("root_path", ""))
                 if (
                     photo_path(private_path)
-                    or private_path.startswith("/api/v1/prints/")
+                    or private_path.startswith(("/api/v1/prints/", "/api/v1/planilhas/"))
                     or (
                         private_path.startswith("/api/v1/revisao/")
                         and private_path.endswith("/foto")
@@ -98,7 +98,9 @@ class EndpointBodyLimitMiddleware:
             from bancaemdia.integrations.telegram.media import MAX_PHOTO_BYTES
 
             limit = MAX_PHOTO_BYTES + UPLOAD_FORM_MARGIN
-        elif path == "/api/v1/apostas/importar-planilha":
+        elif path == "/api/v1/apostas/importar-planilha" or (
+            path.startswith("/api/v1/planilhas/fontes/") and "/previas/" in path
+        ):
             limit = PLANILHA_MAX_BYTES + UPLOAD_FORM_MARGIN
         elif path in {"/coleta", "/api/v1/coleta"}:
             limit = COLETA_MAX_BYTES

@@ -181,8 +181,11 @@ def test_all_forty_eight_tables_are_registered() -> None:
         "print_intents",
         "print_items",
         "print_assets",
+        "sheet_sources",
+        "sheet_previews",
+        "sheet_confirmations",
     }
-    assert len(esperadas) == 70
+    assert len(esperadas) == 73
     assert set(Base.metadata.tables) == esperadas
     assert {m.__tablename__ for m in CANONICOS} == {
         "casas",
@@ -381,6 +384,9 @@ def test_bigserial_except_composite_and_billing_owner_keys() -> None:
     for nome in set(Base.metadata.tables) - {
         "apostas_grupos",
         "print_assets",
+        "sheet_sources",
+        "sheet_previews",
+        "sheet_confirmations",
         "print_intents",
         "print_items",
         "cruzamento_entradas",

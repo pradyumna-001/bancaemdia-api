@@ -885,7 +885,7 @@ async def test_v2_migration_roundtrip_and_populated_downgrade_guard(banco_migrac
         async with engine.connect() as conn:
             assert (
                 await conn.scalar(text("SELECT version_num FROM alembic_version"))
-                == "p194prints2026"
+                == "s196preview2026"
             )
             assert await conn.scalar(select(func.count()).select_from(ColetaSessao)) == 1
     finally:
