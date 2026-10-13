@@ -201,6 +201,7 @@ async def review(
         if resolved:
             await RevisaoPendenteRepo().resolve(session, user, created.id)
         await session.commit()
+    assert isinstance(created.id, int)
     return created.id
 
 
