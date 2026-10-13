@@ -315,7 +315,20 @@ async def test_restore_previous_settled_state_exactly(api, owner, engine_app, co
         ),
     )
     assert (await api.post(uid, "/operacoes/" + str(uuid4()), first)).status_code == 200
+    if original == "null_commission":
+        # Creation omits null fields; explicitly persist the distinct null fact as
+        # an external writer would, rather than accidentally testing commission zero.
+        async with como(engine_app, uid) as session:
+            user = await UsuarioRepo().get_by_id(session, uid)
+            history = await _historico(session, uid, key)
+            event = EventoNovo("CORRECAO_MANUAL", "casa", {"comissao_centavos": None})
+            state, _ = projetar([*history, (event.tipo, event.fonte, event.payload)])
+            assert await _aplicar(session, user, key, [event], state) is not None
+            await session.commit()
     before = await counts(engine_app, como, uid, key)
+    if original == "null_commission":
+        assert "comissao_centavos" in projetar(before[3])[0]
+        assert projetar(before[3])[0]["comissao_centavos"] is None
     identity = str(uuid4())
     second = await api.post(
         uid, "/operacoes/" + identity, await intent(api, uid, key, "RED", comissao_centavos=19)
@@ -458,11 +471,32 @@ async def test_lost_response_recovery_payload_conflict_and_repeated_undo(
     key = await seed(engine_app, como, uid, account)
     body = await intent(api, uid, key)
     identity = str(uuid4())
-    committed = await api.post(uid, "/operacoes/" + identity, body)
-    assert committed.status_code == 200
+    from bancaemdia.main import app
+
+    # Let the real application finish (including the PostgreSQL commit) and then
+    # fail transport delivery. The caller never receives a success response.
+    captured = bytearray()
+
+    async def disconnect_after_commit(scope, receive, send):
+        async def capture(message):
+            if message["type"] == "http.response.body":
+                captured.extend(message.get("body", b""))
+            await send(message)
+
+        await app(scope, receive, capture)
+        raise httpx.ReadError("synthetic transport disconnect after commit")
+
+    async with httpx.AsyncClient(
+        transport=httpx.ASGITransport(app=disconnect_after_commit), base_url="https://api.test"
+    ) as interrupted:
+        with pytest.raises(httpx.ReadError, match="after commit"):
+            await interrupted.post(
+                P + "/operacoes/" + identity, headers=api.headers(uid), json=body
+            )
+    assert json.loads(captured)["id"] == identity
     recovered = await api.get(uid, "/operacoes/" + identity)
     assert (
-        recovered.json() == committed.json()
+        recovered.json() == json.loads(captured)
         and recovered.headers["cache-control"] == "private, no-store"
     )
     assert (await api.post(uid, "/operacoes/" + identity, {**body, "estado": "RED"})).json()[
@@ -706,10 +740,27 @@ async def test_consolidation_invalidates_revision_and_excludes_contextual_source
             "detail"
         ] == "result_revision_conflict"
     current_house = await intent(api, uid, house)
-    result = await api.post(uid, "/operacoes/" + str(uuid4()), current_house)
+    result_id = str(uuid4())
+    result = await api.post(uid, "/operacoes/" + result_id, current_house)
     assert result.status_code == 200, result.text
     current_context = await intent(api, uid, contextual)
     assert (await api.post(uid, "/operacoes/" + str(uuid4()), current_context)).status_code == 422
+    async with como(engine_app, uid) as session:
+        await session.execute(
+            text("""UPDATE aposta_consolidacoes SET estado='unlinked',
+          desvinculada_em=now(),motivo_desvinculacao='Fixture'
+          WHERE usuario_id=:uid AND estado='active'"""),
+            {"uid": uid},
+        )
+        await session.commit()
+    before = await counts(engine_app, como, uid, house)
+    obsolete = await api.post(
+        uid,
+        "/operacoes/" + str(uuid4()) + "/desfazer",
+        {"operacao_id": result_id, "revisao_esperada": result.json()["aposta"]["revisao"]},
+    )
+    assert obsolete.status_code == 409 and obsolete.json()["detail"] == "result_revision_conflict"
+    assert before == await counts(engine_app, como, uid, house)
 
 
 async def test_same_identity_concurrent_delivery_commits_one_fact(api, owner, engine_app, como):
