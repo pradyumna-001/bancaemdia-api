@@ -77,6 +77,7 @@ class Settings(BaseSettings):
     ANTHROPIC_WINDOW: int = Field(
         default=60, gt=0, description="Anthropic rate-limit window in seconds"
     )
+    SHEET_DAILY_PREVIEW_LIMIT: int = Field(default=20, gt=0)
     COLETA_TOKEN_SECRET: str = Field(
         ..., description="HMAC key for the browser extension's coleta tokens"
     )

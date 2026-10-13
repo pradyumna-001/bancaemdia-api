@@ -327,8 +327,11 @@ async def _apply_policies(
     response = await call_next(request)
     if active is not None:
         policy, current_limit = active
+        retry_after = response.headers.get("Retry-After")
         # Header injection also reads the quota window from Redis.
         await run_in_threadpool(policy.limiter._inject_headers, response, current_limit)
+        if retry_after is not None:
+            response.headers["Retry-After"] = retry_after
     return response
 
 
