@@ -57,6 +57,7 @@ TIPOS_DE_APOSTA = frozenset({
     "ODD_ALTERADA",
     "STAKE_ALTERADA",
     "RESULTADO_REGISTRADO",
+    "RESULTADO_DESFEITO",
     "CASHOUT_REGISTRADO",
     "APOSTA_ANULADA",
     "APOSTA_CANCELADA",
@@ -133,6 +134,12 @@ def projetar(eventos: Iterable[tuple[str, str, dict[str, Any]]]) -> tuple[dict[s
                 if estado["retorno_informado"]
                 else _retorno_calculado(estado)
             )
+        elif tipo == "RESULTADO_DESFEITO":
+            # The server stores presence separately: absent, explicit null and calculated
+            # return are distinct facts. No client preimage is ever admitted by the API.
+            for campo in ("estado", "retorno_centavos", "retorno_informado", "comissao_centavos"):
+                estado.pop(campo, None)
+            estado.update(payload["restauracao"])
         elif tipo == "CASHOUT_REGISTRADO":
             estado["estado"] = "CASHOUT"
             estado["retorno_centavos"] = payload.get("retorno_centavos", 0)
@@ -185,6 +192,13 @@ def projetar_validado(
             raise EventoIrrecuperavelError("criação sem origem ou stake")
         if tipo == "CASHOUT_REGISTRADO" and payload.get("retorno_centavos") is None:
             raise EventoIrrecuperavelError("cashout sem retorno")
+        if tipo == "RESULTADO_DESFEITO" and (
+            not isinstance(payload.get("restauracao"), dict)
+            or not set(payload["restauracao"])
+            <= {"estado", "retorno_centavos", "retorno_informado", "comissao_centavos"}
+            or not isinstance(payload.get("operacao_id"), str)
+        ):
+            raise EventoIrrecuperavelError("reversão sem pré-imagem autoritativa")
         if tipo == "ODD_ALTERADA" and payload.get("para") is None:
             raise EventoIrrecuperavelError("alteração de odd sem destino")
         if tipo == "STAKE_ALTERADA" and payload.get("para") is None:

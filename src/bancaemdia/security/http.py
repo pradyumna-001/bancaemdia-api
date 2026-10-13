@@ -47,7 +47,11 @@ class SecurityHeadersMiddleware:
                 private_path = scope.get("path", "").removeprefix(scope.get("root_path", ""))
                 if (
                     photo_path(private_path)
-                    or private_path.startswith(("/api/v1/prints/", "/api/v1/planilhas/"))
+                    or private_path.startswith((
+                        "/api/v1/prints/",
+                        "/api/v1/planilhas/",
+                        "/api/v1/resultados/",
+                    ))
                     or (
                         private_path.startswith("/api/v1/revisao/")
                         and private_path.endswith("/foto")

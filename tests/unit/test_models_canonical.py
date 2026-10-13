@@ -181,11 +181,12 @@ def test_all_forty_eight_tables_are_registered() -> None:
         "print_intents",
         "print_items",
         "print_assets",
+        "result_operations",
         "sheet_sources",
         "sheet_previews",
         "sheet_confirmations",
     }
-    assert len(esperadas) == 73
+    assert len(esperadas) == 74
     assert set(Base.metadata.tables) == esperadas
     assert {m.__tablename__ for m in CANONICOS} == {
         "casas",
@@ -399,6 +400,7 @@ def test_bigserial_except_composite_and_billing_owner_keys() -> None:
         "telegram_rate_buckets",
         "telegram_link_attempts",
         "rascunhos_aposta",
+        "result_operations",
     }:
         assert "id BIGSERIAL NOT NULL" in _create_table(nome)
 

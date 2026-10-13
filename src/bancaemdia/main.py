@@ -37,6 +37,7 @@ from bancaemdia.api.v1 import (
     painel,
     painel_detalhado,
     painel_filtrado,
+    results,
     revisao,
     sheet_import,
     telegram,
@@ -148,6 +149,7 @@ app.include_router(identity_router)
 app.include_router(apostas.router)
 app.include_router(aposta_foto.router)
 app.include_router(sheet_import.router)
+app.include_router(results.router)
 app.include_router(caixa.router)
 app.include_router(painel.router)
 app.include_router(metas.router)

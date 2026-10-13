@@ -46,6 +46,7 @@ from bancaemdia.models.movimento import Movimento
 from bancaemdia.models.movimento_requisicao import MovimentoRequisicao
 from bancaemdia.models.rascunho_aposta import RascunhoAposta, RascunhoCorrecao
 from bancaemdia.models.reader_quarantine import ReaderQuarantine
+from bancaemdia.models.result_operation import ResultOperation as ResultOperation
 from bancaemdia.models.revisao_pendente import RevisaoPendente
 from bancaemdia.models.sheet_import import SheetConfirmation, SheetPreview, SheetSource
 from bancaemdia.models.telegram_link import (

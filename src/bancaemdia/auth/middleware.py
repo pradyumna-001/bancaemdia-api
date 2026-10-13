@@ -83,6 +83,9 @@ class JWTAuthMiddleware(BaseHTTPMiddleware):
             path = route_path(request)
             allowed = CATALOG_METHODS.get(path)
             if public_path(path) and (allowed is None or request.method == allowed):
+                # These paths already authenticate at their own boundary, or are
+                # public infrastructure. Avoid an extra task/response stream for
+                # the same existing bypass; disallowed methods still reach dispatch.
                 await self.app(scope, receive, send)
                 return
         await super().__call__(scope, receive, send)

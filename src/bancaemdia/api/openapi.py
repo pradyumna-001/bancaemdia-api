@@ -63,6 +63,26 @@ OPERATION_DOCUMENTATION: dict[OperationKey, tuple[str, str]] = {
         "Reconciliar aplicação XLSX",
         "Retorna resultado durável real de materialização, inclusive resposta perdida; não autoriza replay por rede/logout/refresh.",
     ),
+    ("get", "/api/v1/resultados/fila"): (
+        "Fila global por antiguidade",
+        "Snapshot do primário, data_jogo crescente com fallback criada_em, cursor privado de 30 minutos; apenas pendentes selecionadas, financeiras, atribuídas e sem revisão grave. Total da fronteira no mesmo snapshot.",
+    ),
+    ("get", "/api/v1/resultados/apostas/{chave}"): (
+        "Consultar revisão e elegibilidade",
+        "Estado atual autorizado no primário para criar uma nova intenção após conflito; não reutilizar intenção incerta.",
+    ),
+    ("post", "/api/v1/resultados/operacoes/{intention_id}"): (
+        "Registrar resultado condicional",
+        "UUID criado antes da escrita, revisão esperada comparada sob lock no primário; FULL_WRITE e um evento por gesto. Replay do mesmo payload recupera recibo antes da comparação de versão.",
+    ),
+    ("post", "/api/v1/resultados/operacoes/{intention_id}/desfazer"): (
+        "Desfazer resultado confirmado",
+        "Nova intenção ligada à operação do mesmo usuário e à revisão produzida por ela, válida por 24h; restaura pré-imagem autoritativa com evento auditável.",
+    ),
+    ("get", "/api/v1/resultados/operacoes/{intention_id}"): (
+        "Recuperar resposta perdida",
+        "Recibo privado do primário por 90 dias; não é estado atual. 404/410 não provam rollback e não autorizam replay automático.",
+    ),
     ("post", "/api/v1/coleta/sessions"): (
         "Abrir ou retomar sessão",
         "Cria uma fronteira imutável por instalação ou retoma o UUID explícito sem ampliar o corte.",
@@ -469,6 +489,10 @@ PARAMETER_DESCRIPTIONS = {
     "preview_id": "UUID da prévia conhecido antes do upload; referência/hash/versão para reconciliação.",
     "new_preview_id": "Novo UUID durável para remapeamento; nunca reutilizar com dados incompatíveis.",
     "confirmation_id": "UUID da intenção persistido antes do POST; GET reconcilia resposta perdida.",
+    "intention_id": "UUID da intenção escolhido antes da escrita; identifica, nunca autoriza.",
+    "time_casa_id": "Identificador canônico do time da casa usado como filtro.",
+    "time_fora_id": "Identificador canônico do time visitante usado como filtro.",
+    "freebet": "Filtra por aposta com valor de face e custo próprio distintos.",
     "sessao_id": "UUID opaco da sessão pertencente à instalação autenticada.",
     "q": "Busca textual literal por nome, sem curingas SQL; limite 160 caracteres.",
     "dimensao": "casas/tipsters/mercados/competicoes/origens/grupos/bancas/titulares/contas; sessão normal do site.",
@@ -552,6 +576,21 @@ REQUEST_EXAMPLES: dict[OperationKey, tuple[str, JsonObject]] = {
         {
             "preview_id": "11111111-1111-4111-8111-111111111111",
             "preview_hash": "0000000000000000000000000000000000000000000000000000000000000000",
+        },
+    ),
+    ("post", "/api/v1/resultados/operacoes/{intention_id}"): (
+        "Uma intenção por gesto",
+        {
+            "chave": "m:synthetic",
+            "revisao_esperada": "00000000-0000-4000-8000-000000000001",
+            "estado": "GREEN",
+        },
+    ),
+    ("post", "/api/v1/resultados/operacoes/{intention_id}/desfazer"): (
+        "Reverter a intenção confirmada",
+        {
+            "operacao_id": "00000000-0000-4000-8000-000000000002",
+            "revisao_esperada": "00000000-0000-4000-8000-000000000003",
         },
     ),
     ("post", "/api/v1/coleta/sessions"): (
@@ -1377,5 +1416,18 @@ def build_openapi(app: FastAPI) -> JsonObject:
     _document_operations(document)
     _install_collection_security(document)
     _strictify_document(document)
+    for method, path, operation in _operations(document):
+        if path.startswith("/api/v1/resultados/"):
+            operation["x-bancaemdia-resultados"] = {
+                "access": "READ_ONLY" if method == "get" else "FULL_WRITE",
+                "read_source": "primary_snapshot" if method == "get" else "primary_transaction",
+                "cache": "private, no-store",
+                "automatic_mutation_replay": False,
+                "intention_parameter": "intention_id" if "/operacoes/" in path else None,
+                "recovery_path": "/api/v1/resultados/operacoes/{intention_id}"
+                if "/operacoes/" in path
+                else None,
+                "pagination": "keyset_cursor" if path.endswith("/fila") else None,
+            }
     app.openapi_schema = document
     return document

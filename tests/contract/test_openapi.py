@@ -218,7 +218,7 @@ def test_openapi_endpoint_matches_checked_in_snapshot(openapi_document: JsonObje
 @pytest.mark.contract
 def test_every_operation_has_human_documentation(openapi_document: JsonObject) -> None:
     operations = list(_operations(openapi_document))
-    assert len(operations) == 115
+    assert len(operations) == 120
     for method, path, operation in operations:
         location = f"{method.upper()} {path}"
         assert str(operation.get("summary", "")).strip(), location
@@ -243,7 +243,7 @@ def test_request_bodies_have_examples(openapi_document: JsonObject) -> None:
             assert media.get("example") is not None or media.get("examples"), (
                 f"{method.upper()} {path}: {media_type} lacks an example"
             )
-    assert bodies == 42
+    assert bodies == 44
 
 
 @pytest.mark.contract
@@ -664,6 +664,10 @@ def invalid_upload_job_cases(
             )
 
         return st.text(alphabet="ghijklmnopqrstuvwxyz", min_size=1, max_size=40).map(invalid_print)
+    if operation.path.startswith("/api/v1/resultados/operacoes/"):
+        return st.text(alphabet="ghijklmnopqrstuvwxyz", min_size=1, max_size=40).map(
+            lambda value: operation.Case(path_parameters={"intention_id": value})
+        )
     if operation.path != "/api/v1/upload/{job_id}" or operation.method.upper() != "GET":
         return _strategy
     return st.text(alphabet="ghijklmnopqrstuvwxyz", min_size=1, max_size=40).map(

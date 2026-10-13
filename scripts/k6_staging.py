@@ -19,6 +19,7 @@ import sys
 import time
 import zipfile
 from collections import Counter
+from collections.abc import Mapping
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from typing import Any, cast
@@ -274,6 +275,12 @@ async def prepare(directory: Path) -> None:
             "wal_keep_size=256MB",
             "-c",
             "max_connections=200",
+            "-c",
+            "shared_preload_libraries=pg_stat_statements",
+            "-c",
+            "pg_stat_statements.track=all",
+            "-c",
+            "pg_stat_statements.track_utility=off",
         ],
         env={**os.environ, "POSTGRES_PASSWORD": info["admin_password"]},
     )
@@ -336,6 +343,7 @@ async def prepare(directory: Path) -> None:
     )
     conn = await connect(15432, info["admin_password"])
     try:
+        await conn.execute("CREATE EXTENSION IF NOT EXISTS pg_stat_statements")
         # All interpolated passwords are generated hex, never supplied strings.
         await conn.execute(f"CREATE ROLE k6_app LOGIN PASSWORD '{info['app_password']}'")
         await conn.execute(
@@ -775,6 +783,11 @@ async def start(directory: Path) -> None:
     info["cpu_baseline"] = process_cpu(info)
     info["api_child_cpu_baseline"] = api_child_cpu(info)
     write_private(directory / "state.json", info)
+    conn = await connect(15432, info["admin_password"])
+    try:
+        await conn.execute("SELECT pg_stat_statements_reset()")
+    finally:
+        await conn.close()
 
 
 async def refresh(directory: Path) -> None:
@@ -899,6 +912,70 @@ async def verify(directory: Path) -> None:
     (ROOT / "k6-staging-evidence.json").write_text(json.dumps(evidence, indent=2), encoding="utf-8")
 
 
+def statement_measurement(row: Mapping[str, Any]) -> dict[str, object]:
+    """Only numeric timings and fixed vocabulary; never SQL, literals or parameters."""
+    query = str(row["query"] or "")
+    operation = re.match(r"^\s*(SELECT|INSERT|UPDATE|DELETE|WITH)\b", query, re.IGNORECASE)
+    resources = (
+        "coleta_instalacoes",
+        "coletas_casa",
+        "coleta_entregas",
+        "assinaturas",
+        "billing_rollout",
+        "apostas",
+        "eventos",
+        "audit_log",
+        "cruzamento_candidatos",
+        "cruzamento_entradas",
+        "contas_casa",
+        "usos_conta_casa",
+        "pg_advisory_xact_lock",
+        "set_config",
+    )
+    return {
+        "query_id": str(row["queryid"]),
+        "operation": operation.group(1).upper() if operation else "SQL",
+        "resources": [name for name in resources if re.search(rf"\b{name}\b", query)],
+        "calls": int(row["calls"]),
+        "rows": int(row["rows"]),
+        **{
+            name: float(row[name])
+            for name in (
+                "total_exec_time",
+                "mean_exec_time",
+                "max_exec_time",
+                "shared_blks_read",
+                "shared_blks_hit",
+                "temp_blks_written",
+            )
+        },
+    }
+
+
+async def database_stats(directory: Path) -> None:
+    if not (directory / "state.json").exists():
+        return
+    conn = await connect(15432, state(directory)["admin_password"])
+    try:
+        rows = await conn.fetch(
+            "SELECT queryid,query,calls,rows,total_exec_time,mean_exec_time,max_exec_time,"
+            "shared_blks_read,shared_blks_hit,temp_blks_written FROM pg_stat_statements "
+            "WHERE calls>0 ORDER BY total_exec_time DESC LIMIT 40"
+        )
+        report = {
+            "sha": os.environ["TESTED_HEAD_SHA"],
+            "load_average": [
+                float(value) for value in Path("/proc/loadavg").read_text().split()[:3]
+            ],
+            "statements": [statement_measurement(row) for row in rows],
+        }
+        (ROOT / "k6-database-timings.json").write_text(
+            json.dumps(report, indent=2), encoding="utf-8"
+        )
+    finally:
+        await conn.close()
+
+
 def cleanup(directory: Path) -> None:
     if not (directory / "state.json").exists():
         return
@@ -994,6 +1071,7 @@ async def main() -> None:
             "verify",
             "cleanup",
             "diagnose",
+            "database-stats",
         ],
     )
     operation = parser.parse_args().operation
@@ -1010,6 +1088,7 @@ async def main() -> None:
             "refresh": refresh,
             "upload-preflight": upload_preflight,
             "verify": verify,
+            "database-stats": database_stats,
         }[operation](directory)
 
 
