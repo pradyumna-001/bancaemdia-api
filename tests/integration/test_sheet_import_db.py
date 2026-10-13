@@ -997,7 +997,7 @@ async def test_cookie_csrf_and_real_revocation(api, banco, engine_admin, tmp_pat
         AUTH_ENABLED=True,
         AUTH_DATABASE_URL=SecretStr(dburl),
         AUTH_PUBLIC_URL="https://api.test",
-        AUTH_FRONTEND_ORIGIN="https://api.test",
+        AUTH_FRONTEND_ORIGIN="https://api.test:4443",
         OIDC_ISSUER="https://issuer.test",
         OIDC_CLIENT_ID="fixture",
     )
@@ -1032,12 +1032,28 @@ async def test_cookie_csrf_and_real_revocation(api, banco, engine_admin, tmp_pat
             )
         identity = uuid4()
         address = f"{PREFIX}/fontes/{identity}"
-        headers = {"Cookie": settings.session_cookie + "=" + cookie, "Origin": "https://api.test"}
+        headers = {
+            "Cookie": settings.session_cookie + "=" + cookie,
+            "Origin": "https://api.test:4443",
+        }
+        preflight = await api.client.options(
+            address,
+            headers={
+                "Origin": "https://api.test:4443",
+                "Access-Control-Request-Method": "PUT",
+                "Access-Control-Request-Headers": "content-type,x-csrf-token",
+            },
+        )
+        assert (
+            preflight.status_code == 204
+            and "PUT" in preflight.headers["Access-Control-Allow-Methods"]
+        )
         body = {"nome": "Cookie source"}
         assert (await api.client.put(address, headers=headers, json=body)).status_code == 403
         headers["X-CSRF-Token"] = service.keys.csrf(cookie)
         accepted = await api.client.put(address, headers=headers, json=body)
         assert accepted.status_code == 200, accepted.text
+        assert accepted.headers["Access-Control-Allow-Origin"] == "https://api.test:4443"
         assert (
             await api.client.get(address, headers={"Cookie": headers["Cookie"]})
         ).status_code == 200

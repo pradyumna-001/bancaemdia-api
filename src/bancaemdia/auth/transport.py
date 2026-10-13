@@ -58,7 +58,7 @@ class IdentityTransportMiddleware:
                 response = Response(
                     status_code=204,
                     headers={
-                        "Access-Control-Allow-Methods": "GET,HEAD,POST,PATCH,DELETE,OPTIONS",
+                        "Access-Control-Allow-Methods": "GET,HEAD,POST,PUT,PATCH,DELETE,OPTIONS",
                         "Access-Control-Allow-Headers": ",".join(sorted(ALLOWED_HEADERS)),
                         "Access-Control-Max-Age": "300",
                     },
