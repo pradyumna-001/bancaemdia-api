@@ -15,7 +15,6 @@ from fastapi.testclient import TestClient
 from hypothesis import given, settings
 from hypothesis import strategies as st
 from hypothesis.strategies import SearchStrategy
-from schemathesis.config import HealthCheck
 from starlette.types import ASGIApp, Message, Receive, Scope, Send
 
 from bancaemdia.api.contracts import ReadinessResponse
@@ -24,6 +23,8 @@ from bancaemdia.db.session import get_db
 from bancaemdia.main import app
 from bancaemdia.middleware import rate_limit as rate_limit_middleware
 from bancaemdia.repositories.coleta_instalacao import CollectionIdentity
+
+app.openapi()  # Prewarm the complete contract before timed ASGI requests.
 
 ROOT = Path(__file__).resolve().parents[2]
 SNAPSHOT = ROOT / "tests" / "contract" / "schemas" / "openapi.json"
@@ -218,7 +219,7 @@ def test_openapi_endpoint_matches_checked_in_snapshot(openapi_document: JsonObje
 @pytest.mark.contract
 def test_every_operation_has_human_documentation(openapi_document: JsonObject) -> None:
     operations = list(_operations(openapi_document))
-    assert len(operations) == 89
+    assert len(operations) == 94
     for method, path, operation in operations:
         location = f"{method.upper()} {path}"
         assert str(operation.get("summary", "")).strip(), location
@@ -243,7 +244,7 @@ def test_request_bodies_have_examples(openapi_document: JsonObject) -> None:
             assert media.get("example") is not None or media.get("examples"), (
                 f"{method.upper()} {path}: {media_type} lacks an example"
             )
-    assert bodies == 32
+    assert bodies == 34
 
 
 @pytest.mark.contract
@@ -591,7 +592,7 @@ def test_schemathesis_invalid_collection_requests_match_contract(
         assert collection_backend.queued == []
 
 
-negative_config = schemathesis.Config(suppress_health_check=[HealthCheck.filter_too_much])
+negative_config = schemathesis.Config()
 negative_config.projects.default.generation.update(
     modes=[schemathesis.GenerationMode.NEGATIVE],
     max_examples=5,
@@ -631,6 +632,10 @@ def invalid_upload_job_cases(
     # instead of filtering most of the generated examples or skipping the route.
     assert context.operation is not None
     operation = context.operation
+    if operation.path.startswith("/api/v1/resultados/operacoes/"):
+        return st.text(alphabet="ghijklmnopqrstuvwxyz", min_size=1, max_size=40).map(
+            lambda value: operation.Case(path_parameters={"intention_id": value})
+        )
     if operation.path != "/api/v1/upload/{job_id}" or operation.method.upper() != "GET":
         return _strategy
     return st.text(alphabet="ghijklmnopqrstuvwxyz", min_size=1, max_size=40).map(

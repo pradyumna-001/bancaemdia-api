@@ -33,6 +33,7 @@ from bancaemdia.api.v1 import (
     coleta_sessoes,
     metas,
     painel,
+    results,
     revisao,
     telegram,
     titulares,
@@ -139,6 +140,7 @@ app.include_router(admin_casas.router)
 app.include_router(upload.router)
 app.include_router(identity_router)
 app.include_router(apostas.router)
+app.include_router(results.router)
 app.include_router(caixa.router)
 app.include_router(painel.router)
 app.include_router(metas.router)

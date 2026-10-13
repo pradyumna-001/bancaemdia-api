@@ -43,6 +43,19 @@ class SecurityHeadersMiddleware:
                     ]
                     + list(SECURITY_HEADERS),
                 }
+                if scope.get("path", "").startswith("/api/v1/resultados/"):
+                    message["headers"] = [
+                        (name, value)
+                        for name, value in message["headers"]
+                        if name.lower() not in {b"cache-control", b"vary"}
+                    ] + [
+                        (b"cache-control", b"private, no-store"),
+                        (b"vary", b"Cookie, Authorization"),
+                    ]
+                    if message["status"] == 503 and not any(
+                        name.lower() == b"retry-after" for name, _ in message["headers"]
+                    ):
+                        message["headers"].append((b"retry-after", b"5"))
             await send(message)
 
         await self.app(scope, receive, send_headers)
