@@ -20,6 +20,30 @@ MANUAL_BET_HOUSES = sorted(
 
 
 OPERATION_DOCUMENTATION: dict[OperationKey, tuple[str, str]] = {
+    ("get", "/api/v1/resultados/fila"): (
+        "Fila global por antiguidade",
+        "Snapshot do primário, data_jogo crescente com fallback criada_em, cursor privado de 30 minutos; apenas pendentes selecionadas, financeiras, atribuídas e sem revisão grave. Total da fronteira no mesmo snapshot.",
+    ),
+    ("get", "/api/v1/resultados/apostas/{chave}"): (
+        "Consultar revisão e elegibilidade",
+        "Estado atual autorizado no primário para criar uma nova intenção após conflito; não reutilizar intenção incerta.",
+    ),
+    ("post", "/api/v1/resultados/operacoes/{intention_id}"): (
+        "Registrar resultado condicional",
+        "UUID criado antes da escrita, revisão esperada comparada sob lock no primário; FULL_WRITE e um evento por gesto. Replay do mesmo payload recupera recibo antes da comparação de versão.",
+    ),
+    ("post", "/api/v1/resultados/operacoes/{intention_id}/desfazer"): (
+        "Desfazer resultado confirmado",
+        "Nova intenção ligada à operação do mesmo usuário e à revisão produzida por ela, válida por 24h; restaura pré-imagem autoritativa com evento auditável.",
+    ),
+    ("get", "/api/v1/resultados/operacoes/{intention_id}"): (
+        "Recuperar resposta perdida",
+        "Recibo privado do primário por 90 dias; não é estado atual. 404/410 não provam rollback e não autorizam replay automático.",
+    ),
+    ("get", "/api/v1/apostas/{chave}/foto"): (
+        "Ler a foto original autorizada da aposta",
+        "Imagem binária privada por aposta e proveniência persistida no primário, inclusive após revisão. FULL_WRITE e READ_ONLY. Sem extração, escrita, redirecionamento ou credenciais em URL. 404 representa aposta/foto inexistente, inacessível, ambígua ou removida pela retenção. Ver docs/contracts/aposta-foto.md.",
+    ),
     ("post", "/api/v1/coleta/sessions"): (
         "Abrir ou retomar sessão",
         "Cria uma fronteira imutável por instalação ou retoma o UUID explícito sem ampliar o corte.",
@@ -380,6 +404,12 @@ OPERATION_DOCUMENTATION: dict[OperationKey, tuple[str, str]] = {
 
 
 PARAMETER_DESCRIPTIONS = {
+    "cursor": "Cursor privado vinculado à pessoa/filtros/fronteira, válido por 30 minutos; não usar offset.",
+    "intention_id": "UUID da intenção escolhido antes da escrita; identifica, nunca autoriza.",
+    "banca_id": "Identificador da banca própria usado como filtro.",
+    "time_casa_id": "Identificador canônico do time da casa usado como filtro.",
+    "time_fora_id": "Identificador canônico do time visitante usado como filtro.",
+    "freebet": "Filtra por aposta com valor de face e custo próprio distintos.",
     "sessao_id": "UUID opaco da sessão pertencente à instalação autenticada.",
     "instalacao_id": "ID interno da instalação do usuário autenticado.",
     "client_version": "Versão estável do cliente em três componentes.",
@@ -429,6 +459,21 @@ PARAMETER_DESCRIPTIONS = {
 
 
 REQUEST_EXAMPLES: dict[OperationKey, tuple[str, JsonObject]] = {
+    ("post", "/api/v1/resultados/operacoes/{intention_id}"): (
+        "Uma intenção por gesto",
+        {
+            "chave": "m:synthetic",
+            "revisao_esperada": "00000000-0000-4000-8000-000000000001",
+            "estado": "GREEN",
+        },
+    ),
+    ("post", "/api/v1/resultados/operacoes/{intention_id}/desfazer"): (
+        "Reverter a intenção confirmada",
+        {
+            "operacao_id": "00000000-0000-4000-8000-000000000002",
+            "revisao_esperada": "00000000-0000-4000-8000-000000000003",
+        },
+    ),
     ("post", "/api/v1/coleta/sessions"): (
         "Nova sessão explícita",
         {"coletar_desde": "2026-08-01T00:00:00Z", "retomar_sessao_id": None},
@@ -928,6 +973,80 @@ def _install_body_limit_responses(document: JsonObject) -> None:
             )
 
 
+OPERATION_DOCUMENTATION.update({
+    ("post", "/api/v1/prints/revisoes/{revisao_id}/resolver"): (
+        "Resolver revisão de print sem valores financeiros inventados",
+        "FULL_WRITE, cookie+CSRF. CORRIGIR exige stake/odd válidas e materializa uma vez; DESCARTAR fecha a revisão e retorna aposta=null sem criar fato financeiro. Apenas revisão de print cujo resultado canônico/proveniência pertence ao usuário. A resolução padrão da Revisão permanece com seu contrato anterior para apostas já materializadas.",
+    ),
+    ("post", "/api/v1/prints/intencoes/{intent_id}/itens/{item_id}"): (
+        "Receber um print web com identidade durável",
+        "Multipart, um arquivo por item; vários itens por intenção. UUIDs persistidos antes do envio, dedupe por usuário/bytes reais, 202 não é aposta criada. 20 itens/100 MiB por intenção e 20 MiB/40 milhões de pixels/256 frames por raster JPEG/PNG/GIF/WebP. Cookie+CSRF, FULL_WRITE; sem custos/consentimento no contrato. Consultar GET com os mesmos UUIDs após timeout/503; não repetir mutations automaticamente. Estado e resultado por item, Revisão com null preservado, inbox/worker assíncronos. Ver docs/contracts/prints-web.md.",
+    ),
+    ("get", "/api/v1/prints/intencoes/{intent_id}/itens/{item_id}"): (
+        "Reconciliar arquivo pela identidade conhecida antes do POST",
+        "Leitura autorizada no primário por usuário, intenção e item; FULL_WRITE e READ_ONLY. Não precisa de ID retornado pelo POST. accepted/processing/completed/failed, resultado explícito por item, progresso nullable, retryable e last_retry_id reais. 404 indistinguível entre ausência/recurso alheio/estado expirado. Estado 90 dias, bytes privados sete dias; sem replay automático.",
+    ),
+    ("get", "/api/v1/prints/intencoes/{intent_id}"): (
+        "Consultar os itens efetivamente recebidos da intenção",
+        "Snapshot no primário, FULL_WRITE e READ_ONLY. processing/complete/partial/failed dos itens recebidos até esta consulta; não afirma que toda seleção local foi enviada. Identidades estáveis e resultados explícitos, sem inferência financeira por contagem.",
+    ),
+    ("post", "/api/v1/prints/intencoes/{intent_id}/itens/{item_id}/retry"): (
+        "Tentar explicitamente apenas um item falho elegível",
+        "FULL_WRITE, cookie+CSRF. Mesma identidade e bytes aceitos. retry_id e expected_attempt protegem concorrência/resposta perdida; último retry_id com a mesma versão retorna estado sem refazer sucessos. Aceito/processando/sucesso/não retryable/mídia expirada ou três tentativas consumidas: 409. GET permite reconciliar a ação; nunca retry automático.",
+    ),
+})
+PARAMETER_DESCRIPTIONS.update({
+    "intent_id": "UUID durável da intenção, escolhido e persistido pelo cliente antes de enviar; escopo por usuário.",
+    "item_id": "UUID durável do arquivo dentro da intenção, conhecido antes do POST; não é hash/credencial de mídia.",
+})
+REQUEST_EXAMPLES["post", "/api/v1/prints/intencoes/{intent_id}/itens/{item_id}/retry"] = (
+    "Tentativa explícita de arquivo falho",
+    {"retry_id": "b25f6247-938c-4963-b46d-cf4d82b5fc09", "expected_attempt": 1},
+)
+
+
+REQUEST_EXAMPLES["post", "/api/v1/prints/intencoes/{intent_id}/itens/{item_id}"] = (
+    "Um print raster na seleção",
+    {"file": "foto.png"},
+)
+REQUEST_EXAMPLES["post", "/api/v1/prints/revisoes/{revisao_id}/resolver"] = (
+    "Completar um valor desconhecido sem inventar zero",
+    {"acao": "CORRIGIR", "aposta_corrigida": {"stake_unidades": 1.0}},
+)
+
+
+OPERATION_DOCUMENTATION.update({
+    ("get", "/api/v1/revisao-operacional/revisoes/{revisao_id}/foto"): (
+        "Foto opcional privada da revisão",
+        "READ_ONLY, snapshot do primário, mesma origem autenticada e autorização pela revisão. Reutiliza proveniência/mídia existente; ausência/expiração/foto inválida retornam 404 indistinguível. Raster JPEG/PNG/GIF/WebP até 20 MiB, 40 milhões de pixels e 256 frames; sem hash/URL assinada como autorização.",
+    ),
+    ("get", "/api/v1/revisao-operacional/fila"): (
+        "Fila segura por motivo",
+        "Snapshot do primário: intervalo de abertura criado_em [desde,ate), datas sem offset em America/Sao_Paulo, filtro de família aplicado à população inteira. total_filtrado/por_familia_filtrado do mesmo recorte; total_global identifica separadamente todas as abertas. Reiniciar página 1 depois de resolver para não pular itens em uma fila que diminui.",
+    ),
+    ("get", "/api/v1/revisao-operacional/revisoes/{revisao_id}"): (
+        "Evidência autorizada e ações por família",
+        "Projeção tipada e sanitizada, sem extração bruta/diagnósticos/custos/URLs assinadas. Precondição opaca vinculada ao usuário e à revisão; conta pelo dia do jogo com exceção multicontas explícita. Fotos opcionais pela rota privada existente. Motivo não suportado encaminha ao suporte sem ações.",
+    ),
+    ("post", "/api/v1/revisao-operacional/operacoes/{operacao_id}"): (
+        "Resolver uma revisão condicionalmente",
+        "UUID persistido antes do POST, FULL_WRITE atual e cookie+CSRF. Precondição comparada sob locks em transação SERIALIZABLE; escolha de tipster por fonte, sem IDs inferidos. Reutiliza correção, matriz de conta, consolidação e materializador de Print. Recibo, eventos, vínculo e fechamento atômicos. Repetição explícita idempotente do mesmo UUID/payload recupera recibo por 90 dias; nenhum replay automático após erro ou pagamento.",
+    ),
+    ("get", "/api/v1/revisao-operacional/operacoes/{operacao_id}"): (
+        "Reconciliar uma intenção de revisão",
+        "Recibo durável privado no primário por 90 dias, acessível em READ_ONLY. 404/410 não provam rollback nem autorizam novo POST automático. Revisão resolvida por outro escritor não é atribuída à intenção desconhecida. 401 reautentica; 402 preserva sessão e formulário.",
+    ),
+})
+PARAMETER_DESCRIPTIONS.update({
+    "familia": "Família decidida pelo servidor; filtro aplicado antes da paginação e da contagem.",
+    "operacao_id": "UUID criado e persistido pelo cliente antes da escrita; recuperação pela mesma identidade.",
+})
+REQUEST_EXAMPLES["post", "/api/v1/revisao-operacional/operacoes/{operacao_id}"] = (
+    "Consolidar escolhendo contexto do Telegram",
+    {"revisao_id": "42", "precondicao": "a" * 64, "acao": "MESMA", "tipster_choice": "telegram"},
+)
+
+
 def _document_operations(document: JsonObject) -> None:
     seen: set[OperationKey] = set()
     for method, path, operation in _operations(document):
@@ -941,6 +1060,11 @@ def _document_operations(document: JsonObject) -> None:
             ) from error
         operation["summary"] = summary
         operation["description"] = description
+        if path.startswith("/api/v1/prints/"):
+            operation["x-access-modes"] = (
+                ["FULL_WRITE", "READ_ONLY"] if method == "get" else ["FULL_WRITE"]
+            )
+            operation["x-automatic-retry"] = method == "get"
 
         parameters = operation.get("parameters", [])
         if not isinstance(parameters, list):
@@ -952,6 +1076,16 @@ def _document_operations(document: JsonObject) -> None:
                 raise RuntimeError(f"unnamed parameter in {method.upper()} {path}")
             try:
                 parameter["description"] = PARAMETER_DESCRIPTIONS[name]
+                if path.startswith("/api/v1/revisao") and name in {"desde", "ate"}:
+                    parameter["description"] = (
+                        "Abertura RevisaoPendente.criado_em; "
+                        + (
+                            "limite inclusivo >= desde"
+                            if name == "desde"
+                            else "limite exclusivo < ate"
+                        )
+                        + "; ISO 8601 sem offset significa America/Sao_Paulo. Não filtra data_aposta nem data_jogo."
+                    )
             except KeyError as error:
                 raise RuntimeError(
                     f"missing description for parameter {name!r} in {method.upper()} {path}"
@@ -1179,5 +1313,33 @@ def build_openapi(app: FastAPI) -> JsonObject:
     _document_operations(document)
     _install_collection_security(document)
     _strictify_document(document)
+    for method, path, operation in _operations(document):
+        if path.startswith("/api/v1/resultados/"):
+            operation["x-bancaemdia-resultados"] = {
+                "access": "READ_ONLY" if method == "get" else "FULL_WRITE",
+                "read_source": "primary_snapshot" if method == "get" else "primary_transaction",
+                "cache": "private, no-store",
+                "automatic_mutation_replay": False,
+                "intention_parameter": "intention_id" if "/operacoes/" in path else None,
+                "recovery_path": "/api/v1/resultados/operacoes/{intention_id}"
+                if "/operacoes/" in path
+                else None,
+                "pagination": "keyset_cursor" if path.endswith("/fila") else None,
+            }
+    for method, path, operation in _operations(document):
+        if path.startswith("/api/v1/revisao-operacional/"):
+            operation["x-bancaemdia-review"] = {
+                "access": "READ_ONLY" if method == "get" else "FULL_WRITE",
+                "read_source": "primary_snapshot" if method == "get" else "primary_transaction",
+                "automatic_mutation_replay": False,
+                "receipt_days": 90,
+                "precondition": "opaque_evidence_cas",
+                "age_filter": "criado_em_interval",
+                "consumption": "restart_page_1",
+            }
+        if path == "/api/v1/revisao/stats":
+            operation["description"] += (
+                " Estatísticas globais de todas as abertas, sem os filtros da lista; idade sobre criado_em, relógio do servidor."
+            )
     app.openapi_schema = document
     return document
