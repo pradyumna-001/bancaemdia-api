@@ -12,7 +12,9 @@ from uuid import UUID
 
 from fastapi import HTTPException
 from fastapi.encoders import jsonable_encoder
-from sqlalchemy import case, func, or_, select, text
+from sqlalchemy import String, case, column, func, literal, or_, select, text
+from sqlalchemy import cast as sql_cast
+from sqlalchemy.dialects.postgresql import aggregate_order_by
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from bancaemdia import models
@@ -104,30 +106,45 @@ async def evidence_token(session: AsyncSession, uid: int, rid: int) -> str:
     # updates by old clients and raw SQL. Aggregate all owner sources conservatively
     # so a new competitor cannot slip past the evidence the human saw.
     parts: list[object] = ["review-evidence-v1", uid, rid]
-    parts.append(
-        await session.scalar(
-            text(
-                "SELECT coalesce(md5(string_agg(id::text||':'||result_revision::text,',' ORDER BY id)),'') FROM apostas WHERE usuario_id=:u"
-            ),
-            {"u": uid},
-        )
-    )
-    for table in CONTEXT_TABLES:
-        identity = "aposta_id" if table == "cruzamento_entradas" else "id"
-        parts.append(
-            await session.scalar(
-                text(
-                    f"SELECT coalesce(md5(string_agg({identity}::text||':'||review_revision::text,',' ORDER BY {identity})), '') FROM {table} WHERE usuario_id=:u"
-                ),
-                {"u": uid},
-            )
-        )
-    for table in ("casas", "tipsters", "apelidos", "mercados", "competicoes", "times", "esportes"):
-        parts.append(
-            await session.scalar(
-                text(
-                    f"SELECT coalesce(md5(string_agg(to_jsonb(t)::text,',' ORDER BY id)),'') FROM {table} t"
+
+    def table_fingerprint(table: Any, identity: Any, revision: Any) -> Any:
+        values = sql_cast(identity, String) + literal(":") + sql_cast(revision, String)
+        return (
+            select(
+                func.coalesce(
+                    func.md5(func.string_agg(values, aggregate_order_by(literal(","), identity))),
+                    "",
                 )
+            )
+            .select_from(table)
+            .where(table.c.usuario_id == uid)
+        )
+
+    bets = models.Aposta.__table__
+    parts.append(
+        await session.scalar(table_fingerprint(bets, bets.c.id, column("result_revision")))
+    )
+    for name in CONTEXT_TABLES:
+        table = models.Base.metadata.tables[name]
+        identity = table.c.aposta_id if name == "cruzamento_entradas" else table.c.id
+        parts.append(
+            await session.scalar(table_fingerprint(table, identity, column("review_revision")))
+        )
+    for name in ("casas", "tipsters", "apelidos", "mercados", "competicoes", "times", "esportes"):
+        table = models.Base.metadata.tables[name]
+        parts.append(
+            await session.scalar(
+                select(
+                    func.coalesce(
+                        func.md5(
+                            func.string_agg(
+                                sql_cast(func.to_jsonb(table.table_valued()), String),
+                                aggregate_order_by(literal(","), table.c.id),
+                            )
+                        ),
+                        "",
+                    )
+                ).select_from(table)
             )
         )
     return digest(parts)
