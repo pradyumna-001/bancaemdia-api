@@ -400,7 +400,7 @@ async def prepare(directory: Path) -> None:
             "sh",
             "postgres:16",
             "-c",
-            "pg_basebackup -h primary -U k6_replica -D /var/lib/postgresql/data -R -X stream "
+            "pg_basebackup --checkpoint=fast -h primary -U k6_replica -D /var/lib/postgresql/data -R -X stream "
             "&& exec postgres -D /var/lib/postgresql/data -c max_connections=200",
         ],
         env={**os.environ, "PGPASSWORD": info["replica_password"]},
