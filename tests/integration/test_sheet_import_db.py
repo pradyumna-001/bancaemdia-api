@@ -69,7 +69,7 @@ async def test_migration_refuses_populated_downgrade_and_restores_empty_guards(
         async with engine.begin() as conn:
             assert (
                 await conn.scalar(text("SELECT version_num FROM alembic_version"))
-                == "s196preview2026"
+                == "r198result2026"
             )
             await conn.execute(text("DELETE FROM usuarios WHERE id=:uid"), {"uid": uid})
         await asyncio.to_thread(command.downgrade, config, "j6main2026")
@@ -231,7 +231,9 @@ async def confirm(
 
 async def snapshot(engine: AsyncEngine, como: Any, uid: int) -> str:
     async with como(engine, uid) as session:
-        return await service.fingerprint(session, uid)
+        value = await service.fingerprint(session, uid)
+        assert isinstance(value, str)
+        return value
 
 
 async def test_preview_remap_and_read_pages_have_zero_financial_effects(
