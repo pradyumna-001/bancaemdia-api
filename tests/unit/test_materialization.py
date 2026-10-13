@@ -328,7 +328,11 @@ def test_grave_reading_opens_one_review_even_when_sent_twice(monkeypatch) -> Non
         "hash-da-foto",
         False,
     )
-    assert revisao["extracao_bruta"] == {"aposta_chave": "t:100:200:0", "extracao": grave}
+    assert revisao["extracao_bruta"] == {
+        "tipo_revisao": "leitura",
+        "aposta_chave": "t:100:200:0",
+        "extracao": grave,
+    }
     assert banco.publicados == [ApostaCriada(7, "t:100:200:0", "telegram", True)]
 
 
@@ -790,7 +794,11 @@ def test_held_house_bet_opens_one_review_for_its_row(monkeypatch) -> None:
 
     (revisao,) = banco.revisoes
     assert "bonusType=3" in revisao["motivo"]
-    assert revisao["extracao_bruta"] == {"aposta_chave": "c:betano:20753556039", "coleta_id": 11}
+    assert revisao["extracao_bruta"] == {
+        "tipo_revisao": "leitura",
+        "aposta_chave": "c:betano:20753556039",
+        "coleta_id": 11,
+    }
     assert revisao["midia_hash"] is None
     assert _sample("revisao_pendente_created_total", reason="outro") == pytest.approx(criadas + 1)
 
@@ -981,7 +989,11 @@ def test_review_of_a_new_bet_points_at_the_capture_that_carried_the_warning(monk
     materialization.materializar_coletas(7, [21, 22])
 
     (revisao,) = banco.revisoes
-    assert revisao["extracao_bruta"] == {"aposta_chave": "c:betano:20753556039", "coleta_id": 21}
+    assert revisao["extracao_bruta"] == {
+        "tipo_revisao": "leitura",
+        "aposta_chave": "c:betano:20753556039",
+        "coleta_id": 21,
+    }
 
 
 def test_history_with_no_capture_the_product_can_count_fails_without_retry(monkeypatch) -> None:

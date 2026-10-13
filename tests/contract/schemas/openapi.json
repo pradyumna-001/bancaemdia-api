@@ -7416,12 +7416,26 @@
             "type": "boolean"
           },
           "stake_centavos": {
-            "title": "Stake Centavos",
-            "type": "string"
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Stake Centavos"
           },
           "stake_unidades": {
-            "title": "Stake Unidades",
-            "type": "number"
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Stake Unidades"
           },
           "tipster": {
             "anyOf": [
@@ -7447,8 +7461,15 @@
             "title": "Tipster Id"
           },
           "valor_aposta_centavos": {
-            "title": "Valor Aposta Centavos",
-            "type": "string"
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Valor Aposta Centavos"
           }
         },
         "required": [

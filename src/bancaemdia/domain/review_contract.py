@@ -59,9 +59,9 @@ class SourceEvidence(BaseModel):
     tipster: str | None
     tipster_id: Identifier | None
     odd: float | None
-    stake_unidades: float
-    stake_centavos: str
-    valor_aposta_centavos: str
+    stake_unidades: float | None
+    stake_centavos: str | None
+    valor_aposta_centavos: str | None
     retorno_centavos: str | None
     freebet: bool
     selecionada: bool

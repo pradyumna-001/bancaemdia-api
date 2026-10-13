@@ -4,6 +4,10 @@ import sys
 import xml.etree.ElementTree as ET
 
 EXPECTED = frozenset([
+    "test_fresh_read_of_row_only_writer_cannot_overwrite_financial_evidence[odd]",
+    "test_fresh_read_of_row_only_writer_cannot_overwrite_financial_evidence[stake_centavos]",
+    "test_unknown_legacy_reading_stake_remains_null_until_human_completion",
+    "test_account_choice_does_not_approve_independent_extraction_review",
     "test_explicit_side_never_borrows_other_tipster_identity[casa]",
     "test_explicit_side_never_borrows_other_tipster_identity[telegram]",
     "test_401_reauth_without_mutation",

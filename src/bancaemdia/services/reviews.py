@@ -5,6 +5,7 @@ domain engines. This boundary supplies authorization, evidence CAS and receipts.
 """
 
 import hmac
+import math
 import re
 from datetime import timedelta
 from typing import Any, cast
@@ -27,14 +28,24 @@ from bancaemdia.domain.account_attribution_service import (
     explicit_reference,
     game_instant,
 )
-from bancaemdia.domain.aposta_service import CAMPOS_CORRIGIVEIS
+from bancaemdia.domain.aposta_service import (
+    CAMPOS_CORRIGIVEIS,
+    ApostaInvalidaError,
+    campos_ausentes_criacao,
+    validar_correcao,
+)
 from bancaemdia.domain.consolidacao_aposta import (
     ConsolidacaoRecusadaError,
     consolidate,
     reject_pair,
 )
 from bancaemdia.domain.cruzamento import VERSION
-from bancaemdia.domain.materializar import EventoNovo, casa_canonica, projetar
+from bancaemdia.domain.financeiro import Aposta as ApostaFinanceira
+from bancaemdia.domain.materializar import (
+    EventoNovo,
+    casa_canonica,
+    projetar,
+)
 from bancaemdia.domain.registros import Usuario
 from bancaemdia.domain.review_contract import ReviewDecision, ReviewQuery, ReviewView
 from bancaemdia.domain.revisao_service import (
@@ -43,6 +54,7 @@ from bancaemdia.domain.revisao_service import (
     evento_da_resolucao,
     planejar_resolucao,
 )
+from bancaemdia.domain.temporal import VALOR_UNIDADE_PADRAO_CENTAVOS
 from bancaemdia.models.review_operation import ReviewOperation
 from bancaemdia.repositories.aposta_repo import ApostaRepo
 from bancaemdia.repositories.revisao_pendente_repo import RevisaoPendenteRepo
@@ -84,7 +96,21 @@ def family_expression() -> Any:
     )
     reading = (
         select(b.id)
-        .where(b.usuario_id == r.usuario_id, b.chave == raw["aposta_chave"].astext, b.revisao_grave)
+        .where(
+            b.usuario_id == r.usuario_id,
+            b.chave == raw["aposta_chave"].astext,
+            or_(
+                b.revisao_grave,
+                select(models.Evento.id)
+                .where(
+                    models.Evento.usuario_id == r.usuario_id,
+                    models.Evento.aposta_chave == raw["aposta_chave"].astext,
+                    models.Evento.tipo == "APOSTA_CRIADA",
+                    models.Evento.payload_json["revisao_grave"].astext == "true",
+                )
+                .exists(),
+            ),
+        )
         .exists()
     )
     return case(
@@ -314,6 +340,12 @@ async def source_view(
                 select(models.Tipster.nome).where(models.Tipster.id == bet.tipster_id)
             )
         )
+    known_stake = (
+        isinstance(state.get("stake_unidades"), (int, float))
+        and not isinstance(state.get("stake_unidades"), bool)
+        and math.isfinite(float(state["stake_unidades"]))
+        and state["stake_unidades"] > 0
+    )
     return {
         "chave": bet.chave,
         "papel": role,
@@ -327,13 +359,38 @@ async def source_view(
         "tipster": tipster_label,
         "tipster_id": None if bet.tipster_id is None else str(bet.tipster_id),
         "odd": bet.odd,
-        "stake_unidades": bet.stake_unidades,
-        "stake_centavos": str(bet.stake_centavos),
-        "valor_aposta_centavos": str(bet.valor_aposta_centavos),
+        "stake_unidades": bet.stake_unidades if known_stake else None,
+        "stake_centavos": str(bet.stake_centavos) if known_stake else None,
+        "valor_aposta_centavos": str(bet.valor_aposta_centavos) if known_stake else None,
         "retorno_centavos": None if bet.retorno_centavos is None else str(bet.retorno_centavos),
         "freebet": bet.freebet,
         "selecionada": bet.selecionada,
     }, state
+
+
+async def projection_agrees(session: AsyncSession, uid: int, key: str) -> bool:
+    bet = await ApostaRepo().get_by_chave(session, uid, key)
+    history = await _historico(session, uid, key)
+    if bet is None or not history or history[0][0] != "APOSTA_CRIADA":
+        return False
+    state, _ = projetar(history)
+    try:
+        financial = ApostaFinanceira(
+            float(state.get("stake_unidades") or 0.0),
+            int(state.get("valor_unidade_centavos") or VALOR_UNIDADE_PADRAO_CENTAVOS),
+            freebet=bool(state.get("freebet")),
+        )
+        return (
+            financial.stake_centavos == bet.stake_centavos
+            and financial.valor_aposta_centavos == bet.valor_aposta_centavos
+            and financial.stake_unidades == bet.stake_unidades
+            and financial.freebet == bet.freebet
+            and state.get("odd") == bet.odd
+            and state.get("estado", "PENDENTE") == bet.estado
+            and state.get("retorno_centavos") == bet.retorno_centavos
+        )
+    except (TypeError, ValueError, OverflowError):
+        return False
 
 
 async def detail(session: AsyncSession, uid: int, rid: int) -> dict[str, Any]:
@@ -485,6 +542,11 @@ async def detail(session: AsyncSession, uid: int, rid: int) -> dict[str, Any]:
             )
     if review.resolvido_em is not None:
         data.update(acoes=[], encaminhamento="resolvida")
+    else:
+        for source in data["fontes"]:
+            if not await projection_agrees(session, uid, source["chave"]):
+                data.update(acoes=[], encaminhamento="suporte")
+                break
     if data["acoes"]:
         data["resolver_url"] = "/api/v1/revisao-operacional/operacoes/{operacao_id}"
     return ReviewView.model_validate(data).model_dump(mode="json")
@@ -614,6 +676,9 @@ async def mutate(
         raise ReviewFailureError("review_evidence_changed")
     if view["familia"] == "nao_suportada":
         raise ReviewFailureError("review_unsupported", 422)
+    for source in view["fontes"]:
+        if not await projection_agrees(session, user.id, source["chave"]):
+            raise ReviewFailureError("review_projection_conflict")
     if payload.acao not in view["acoes"]:
         if view["familia"] in {"consolidacao", "par_legado"} and payload.acao in {
             "MESMA",
@@ -738,6 +803,23 @@ async def mutate(
         except ResolucaoInvalidaError as exc:
             raise invalid_correction(str(exc), corrections) from None
         events = list(plan.eventos)
+        if family == "conta":
+            # Attribution must not silently approve an independent extraction review.
+            events = [
+                EventoNovo(
+                    e.tipo,
+                    e.fonte,
+                    {
+                        k: v
+                        for k, v in e.payload.items()
+                        if k not in {"revisao_motivo", "revisao_grave"}
+                    },
+                )
+                if e.tipo == "CORRECAO_MANUAL"
+                else e
+                for e in events
+            ]
+            events = [e for e in events if e.payload and e.tipo != "SELECAO_ALTERADA"]
         if "conta_casa_id" in corrections:
             events.append(
                 EventoNovo(
@@ -750,6 +832,15 @@ async def mutate(
                 )
             )
         updated, _ = projetar([*history, *((e.tipo, e.fonte, e.payload) for e in events)])
+        if family == "leitura" and payload.acao == "CORRIGIR":
+            required = {name: updated.get(name) for name in ("casa", "odd", "stake_unidades")}
+            missing = campos_ausentes_criacao(required)
+            if missing:
+                raise ReviewFailureError("review_correction_invalid", 422, missing[0])
+            try:
+                validar_correcao(required, state)
+            except ApostaInvalidaError as exc:
+                raise invalid_correction(str(exc), required) from None
         if any(f in corrections for f in ("conta_casa_id", "casa", "data_jogo")):
             try:
                 account = await attribute_account(
