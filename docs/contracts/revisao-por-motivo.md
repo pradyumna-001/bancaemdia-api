@@ -16,7 +16,7 @@ O sandbox do frontend `b37a3f88b922b471d25d5f1c92c84b336cd2c9c0` tem **120 opera
 
 ## Leitura e ações
 
-`GET /api/v1/revisao-operacional/fila` e `GET /api/v1/revisao-operacional/revisoes/{id}` usam snapshot do primário e retornam `ReviewPage`/`ReviewView`. IDs e novos valores monetários inteiros são strings exatas; retorno desconhecido permanece null. `stake_centavos` é custo próprio calculado no servidor; `valor_aposta_centavos` preserva o valor de face de freebet. Fonte contextual não deve ser somada pelo consumidor.
+`GET /api/v1/revisao-operacional/fila` e `GET /api/v1/revisao-operacional/revisoes/{id}` usam snapshot do primário e retornam `ReviewPage`/`ReviewView`. IDs e novos valores monetários inteiros são strings exatas; retorno desconhecido permanece null. `stake_centavos` é custo próprio calculado no servidor; leitura legada sem stake conhecida retorna stake/valores null e exige preenchimento humano antes de aprovar; `valor_aposta_centavos` preserva o valor de face de freebet. Fonte contextual não deve ser somada pelo consumidor.
 
 | Família | Ações publicadas quando elegível | Efeito/encaminhamento |
 |---|---|---|
@@ -86,6 +86,7 @@ Após timeout/503/resposta perdida, consultar o GET com o UUID conhecido. **Não
 | `review_account_required`, `review_account_invalid` | 422 | Ajustar escolha humana de `conta_casa_id`. |
 | `review_correction_invalid`, `review_validation_invalid` | 422 | Campo seguro em `campo`, sem input/msg/ctx ou dump interno. |
 | `review_unsupported`, `review_action_not_allowed` | 422 | Respeitar encaminhamento/ações publicados. |
+| `review_projection_conflict` | 409 | Linha e histórico financeiros divergem; não sobrescrever fatos a partir de log incompleto. |
 | `review_history_incomplete`, `review_source_missing` | 409 | Histórico/fonte insuficiente; encaminhar para suporte. |
 | `review_receipt_expired` | 410 | Prazo de recuperação terminado; não presumir rollback. |
 | `review_unavailable` | 503, Retry-After: 5 | Infra indisponível; consultar intenção antes de nova ação. |

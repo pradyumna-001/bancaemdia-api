@@ -40,8 +40,8 @@ def test_review_typed_safe_evidence_exact_ids_money_and_nullable_return(schema):
         name not in view for name in ("extracao_bruta", "midia_hash", "ai_cost", "provider_debug")
     )
     source = schemas["SourceEvidence"]["properties"]
-    assert source["stake_centavos"]["type"] == "string"
-    assert source["valor_aposta_centavos"]["type"] == "string"
+    assert {s["type"] for s in source["stake_centavos"]["anyOf"]} == {"string", "null"}
+    assert {s["type"] for s in source["valor_aposta_centavos"]["anyOf"]} == {"string", "null"}
     assert {s["type"] for s in source["retorno_centavos"]["anyOf"]} == {"string", "null"}
     assert schemas["ReviewDecision"]["properties"]["revisao_id"]["type"] == "string"
     assert "conta_casa_id" in schemas["ReviewDecision"]["properties"]

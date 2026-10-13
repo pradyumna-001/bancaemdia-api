@@ -967,6 +967,81 @@ async def test_null_return_and_freebet_face_preserved(api, owner, engine_app, co
         assert state.get("retorno_centavos") is None and state["freebet"]
 
 
+@pytest.mark.parametrize("field", ["odd", "stake_centavos"])
+async def test_fresh_read_of_row_only_writer_cannot_overwrite_financial_evidence(
+    api, owner, engine_app, como, field
+):
+    uid, account = owner
+    key, rid = await ordinary(engine_app, como, uid, account)
+    async with como(engine_app, uid) as s:
+        if field == "odd":
+            await s.execute(
+                text("UPDATE apostas SET odd=3.0 WHERE usuario_id=:u AND chave=:k"),
+                {"u": uid, "k": key},
+            )
+        else:
+            await s.execute(
+                text("UPDATE apostas SET stake_centavos=50000 WHERE usuario_id=:u AND chave=:k"),
+                {"u": uid, "k": key},
+            )
+        await s.commit()
+    v = await view(api, uid, rid)
+    assert v["acoes"] == [] and v["encaminhamento"] == "suporte"
+    before = await evidence(engine_app, como, uid)
+    r = await post(
+        api, uid, await decision(api, uid, rid, aposta_corrigida={"descricao": "Nova descrição"})
+    )
+    assert r.status_code == 409 and r.json()["detail"] == "review_projection_conflict", r.text
+    assert await evidence(engine_app, como, uid) == before
+
+
+async def test_unknown_legacy_reading_stake_remains_null_until_human_completion(
+    api, owner, engine_app, como
+):
+    uid, account = owner
+    _key, rid = await ordinary(engine_app, como, uid, account, stake_unidades=None, odd=None)
+    v = await view(api, uid, rid)
+    assert (
+        v["fontes"][0]["stake_unidades"] is None
+        and v["fontes"][0]["stake_centavos"] is None
+        and v["fontes"][0]["valor_aposta_centavos"] is None
+    )
+    before = await evidence(engine_app, como, uid)
+    r = await post(api, uid, await decision(api, uid, rid))
+    assert r.status_code == 422 and r.json()["detail"] == "review_correction_invalid", r.text
+    assert await evidence(engine_app, como, uid) == before
+    r = await post(
+        api,
+        uid,
+        await decision(api, uid, rid, aposta_corrigida={"stake_unidades": 1.0, "odd": 2.0}),
+    )
+    assert r.status_code == 200, r.text
+    closed = await view(api, uid, rid)
+    assert closed["familia"] == "leitura" and closed["estado"] == "resolvida"
+
+
+async def test_account_choice_does_not_approve_independent_extraction_review(
+    api, owner, engine_app, como
+):
+    uid, account = owner
+    key, reading_rid = await ordinary(
+        engine_app, como, uid, account, duvida_de_par=True, selecionada=False
+    )
+    rid = await review(engine_app, como, uid, key, raw={"tipo_revisao": "conta"})
+    r = await post(api, uid, await decision(api, uid, rid, conta_casa_id=str(account)))
+    assert r.status_code == 200, r.text
+    assert (await view(api, uid, reading_rid))["estado"] == "aberta"
+    async with como(engine_app, uid) as s:
+        assert not await s.scalar(
+            text("SELECT selecionada FROM apostas WHERE usuario_id=:u AND chave=:k"),
+            {"u": uid, "k": key},
+        )
+        assert await s.scalar(
+            text("SELECT revisao_grave FROM apostas WHERE usuario_id=:u AND chave=:k"),
+            {"u": uid, "k": key},
+        )
+
+
 async def test_review_cookie_csrf_and_real_revocation(
     api, banco, engine_admin, engine_app, como, tmp_path, monkeypatch
 ):
