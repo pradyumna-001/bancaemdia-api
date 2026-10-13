@@ -32,6 +32,7 @@ python scripts/generate_openapi.py
 | `GET` | `/api/v1/apostas/{chave}` | Consultar aposta | `200`, `401`, `402`, `404`, `422`, `429`, `500`, `503` | — |
 | `PATCH` | `/api/v1/apostas/{chave}` | Corrigir aposta | `200`, `401`, `402`, `403`, `404`, `409`, `413`, `422`, `429`, `500`, `503` | — |
 | `DELETE` | `/api/v1/apostas/{chave}` | Excluir aposta da apuração | `200`, `401`, `402`, `403`, `404`, `409`, `422`, `429`, `500`, `503` | — |
+| `GET` | `/api/v1/apostas/{chave}/foto` | Ler a foto original autorizada da aposta | `200`, `401`, `404`, `422`, `429`, `500`, `503` | — |
 | `POST` | `/api/v1/apostas/{chave}/restaurar` | Restaurar aposta na apuração | `200`, `401`, `402`, `403`, `404`, `409`, `422`, `429`, `500`, `503` | — |
 | `POST` | `/api/v1/apostas/{chave}/resultado` | Registrar resultado da aposta | `200`, `401`, `402`, `403`, `404`, `409`, `413`, `422`, `429`, `500`, `503` | — |
 | `GET` | `/api/v1/bancas` | Listar bancas | `200`, `401`, `402`, `422`, `429`, `500`, `503` | — |
@@ -83,7 +84,22 @@ python scripts/generate_openapi.py
 | `GET` | `/api/v1/painel/metricas` | Consultar séries para gráficos | `200`, `401`, `402`, `422`, `429`, `500`, `503` | — |
 | `GET` | `/api/v1/painel/preferencias` | Consultar preferências do painel | `200`, `401`, `402`, `422`, `429`, `500`, `503` | — |
 | `PATCH` | `/api/v1/painel/preferencias` | Alterar preferências do painel | `200`, `401`, `402`, `403`, `413`, `422`, `429`, `500`, `503` | — |
+| `GET` | `/api/v1/prints/intencoes/{intent_id}` | Consultar os itens efetivamente recebidos da intenção | `200`, `401`, `404`, `422`, `429`, `500`, `503` | — |
+| `GET` | `/api/v1/prints/intencoes/{intent_id}/itens/{item_id}` | Reconciliar arquivo pela identidade conhecida antes do POST | `200`, `401`, `404`, `422`, `429`, `500`, `503` | — |
+| `POST` | `/api/v1/prints/intencoes/{intent_id}/itens/{item_id}` | Receber um print web com identidade durável | `202`, `400`, `401`, `402`, `403`, `404`, `409`, `410`, `413`, `422`, `429`, `500`, `503` | — |
+| `POST` | `/api/v1/prints/intencoes/{intent_id}/itens/{item_id}/retry` | Tentar explicitamente apenas um item falho elegível | `202`, `400`, `401`, `402`, `403`, `404`, `409`, `410`, `413`, `422`, `429`, `500`, `503` | — |
+| `POST` | `/api/v1/prints/revisoes/{revisao_id}/resolver` | Resolver revisão de print sem valores financeiros inventados | `200`, `400`, `401`, `402`, `403`, `404`, `409`, `410`, `413`, `422`, `429`, `500`, `503` | — |
+| `GET` | `/api/v1/resultados/apostas/{chave}` | Consultar revisão e elegibilidade | `200`, `401`, `402`, `403`, `404`, `409`, `410`, `422`, `429`, `500`, `503` | Resultados |
+| `GET` | `/api/v1/resultados/fila` | Fila global por antiguidade | `200`, `401`, `402`, `403`, `404`, `409`, `410`, `422`, `429`, `500`, `503` | Resultados |
+| `GET` | `/api/v1/resultados/operacoes/{intention_id}` | Recuperar resposta perdida | `200`, `401`, `402`, `403`, `404`, `409`, `410`, `422`, `429`, `500`, `503` | Resultados |
+| `POST` | `/api/v1/resultados/operacoes/{intention_id}` | Registrar resultado condicional | `200`, `401`, `402`, `403`, `404`, `409`, `410`, `413`, `422`, `429`, `500`, `503` | Resultados |
+| `POST` | `/api/v1/resultados/operacoes/{intention_id}/desfazer` | Desfazer resultado confirmado | `200`, `401`, `402`, `403`, `404`, `409`, `410`, `413`, `422`, `429`, `500`, `503` | Resultados |
 | `GET` | `/api/v1/revisao` | Listar revisões pendentes | `200`, `401`, `402`, `422`, `429`, `500`, `503` | — |
+| `GET` | `/api/v1/revisao-operacional/fila` | Fila segura por motivo | `200`, `401`, `402`, `403`, `404`, `409`, `410`, `422`, `429`, `500`, `503` | Revisão operacional |
+| `GET` | `/api/v1/revisao-operacional/operacoes/{operacao_id}` | Reconciliar uma intenção de revisão | `200`, `401`, `402`, `403`, `404`, `409`, `410`, `422`, `429`, `500`, `503` | Revisão operacional |
+| `POST` | `/api/v1/revisao-operacional/operacoes/{operacao_id}` | Resolver uma revisão condicionalmente | `200`, `401`, `402`, `403`, `404`, `409`, `410`, `413`, `422`, `429`, `500`, `503` | Revisão operacional |
+| `GET` | `/api/v1/revisao-operacional/revisoes/{revisao_id}` | Evidência autorizada e ações por família | `200`, `401`, `402`, `403`, `404`, `409`, `410`, `422`, `429`, `500`, `503` | Revisão operacional |
+| `GET` | `/api/v1/revisao-operacional/revisoes/{revisao_id}/foto` | Foto opcional privada da revisão | `200`, `401`, `402`, `403`, `404`, `409`, `410`, `422`, `429`, `500`, `503` | Revisão operacional |
 | `GET` | `/api/v1/revisao/stats` | Consultar estatísticas de revisão | `200`, `401`, `402`, `422`, `429`, `500`, `503` | — |
 | `GET` | `/api/v1/revisao/{revisao_id}` | Consultar revisão | `200`, `401`, `402`, `404`, `422`, `429`, `500`, `503` | — |
 | `GET` | `/api/v1/revisao/{revisao_id}/foto` | Consultar foto da revisão | `200`, `401`, `402`, `404`, `422`, `429`, `500`, `503` | — |

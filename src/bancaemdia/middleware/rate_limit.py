@@ -287,9 +287,19 @@ def _limited_response(
         except (KeyError, ValueError):
             pass
 
+    from bancaemdia.domain.foto_aposta import photo_path
+
     response = JSONResponse(
         status_code=429,
-        content={"error": "rate_limited", "retry_after": retry_after},
+        content={
+            "error": "rate_limited",
+            "retry_after": retry_after,
+            **(
+                {"detail": "Muitas requisições. Tente novamente em instantes."}
+                if photo_path(request_path(request))
+                else {}
+            ),
+        },
     )
     if injected is not None:
         for header in RATE_LIMIT_HEADERS:

@@ -1,6 +1,6 @@
 """The online and reviewed paths use the same durable consolidation service."""
 
-from typing import Any
+from typing import Any, Literal
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -8,12 +8,25 @@ from bancaemdia.domain.registros import Aposta
 from bancaemdia.observability.tracing import custom_span
 
 
-async def confirmar_par(session: AsyncSession, usuario_id: int, uma: Any, outra: Any) -> None:
+async def confirmar_par(
+    session: AsyncSession,
+    usuario_id: int,
+    uma: Any,
+    outra: Any,
+    *,
+    tipster_choice: Literal["casa", "telegram"] | None = None,
+) -> None:
     from bancaemdia.domain.consolidacao_aposta import consolidate
 
     casa, dica = (uma, outra) if uma.origem == "casa" else (outra, uma)
     await consolidate(
-        session, usuario_id, casa.id, dica.id, decision="reviewed", actor_id=usuario_id
+        session,
+        usuario_id,
+        casa.id,
+        dica.id,
+        decision="reviewed",
+        actor_id=usuario_id,
+        tipster_choice=tipster_choice,
     )
 
 
