@@ -1,6 +1,171 @@
 {
   "components": {
     "schemas": {
+      "AccountChoice": {
+        "additionalProperties": false,
+        "properties": {
+          "apelido": {
+            "title": "Apelido",
+            "type": "string"
+          },
+          "ativa": {
+            "title": "Ativa",
+            "type": "boolean"
+          },
+          "coincide_no_dia_do_jogo": {
+            "title": "Coincide No Dia Do Jogo",
+            "type": "boolean"
+          },
+          "elegivel_escolha_explicita": {
+            "title": "Elegivel Escolha Explicita",
+            "type": "boolean"
+          },
+          "estado": {
+            "title": "Estado",
+            "type": "string"
+          },
+          "id": {
+            "pattern": "^[1-9][0-9]{0,18}$",
+            "title": "Id",
+            "type": "string"
+          },
+          "titular": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/HolderChoice"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "required": [
+          "id",
+          "apelido",
+          "estado",
+          "ativa",
+          "titular",
+          "elegivel_escolha_explicita",
+          "coincide_no_dia_do_jogo"
+        ],
+        "title": "AccountChoice",
+        "type": "object"
+      },
+      "AccountEvidence": {
+        "additionalProperties": false,
+        "properties": {
+          "candidatos": {
+            "items": {
+              "$ref": "#/components/schemas/AccountChoice"
+            },
+            "title": "Candidatos",
+            "type": "array"
+          },
+          "casa": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Casa"
+          },
+          "casa_id": {
+            "anyOf": [
+              {
+                "pattern": "^[1-9][0-9]{0,18}$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Casa Id"
+          },
+          "conta_atual_id": {
+            "anyOf": [
+              {
+                "pattern": "^[1-9][0-9]{0,18}$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Conta Atual Id"
+          },
+          "criterio": {
+            "enum": [
+              "data_jogo",
+              "multicontas_explicita"
+            ],
+            "title": "Criterio",
+            "type": "string"
+          },
+          "encaminhamento": {
+            "enum": [
+              "escolher_conta",
+              "cadastrar_conta_na_casa",
+              "informar_casa"
+            ],
+            "title": "Encaminhamento",
+            "type": "string"
+          },
+          "instante": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Instante"
+          },
+          "status": {
+            "enum": [
+              "NONE",
+              "UNIQUE",
+              "AMBIGUOUS",
+              "INVALID"
+            ],
+            "title": "Status",
+            "type": "string"
+          },
+          "status_na_abertura": {
+            "anyOf": [
+              {
+                "enum": [
+                  "NONE",
+                  "UNIQUE",
+                  "AMBIGUOUS"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Status Na Abertura"
+          }
+        },
+        "required": [
+          "casa",
+          "casa_id",
+          "instante",
+          "criterio",
+          "status",
+          "conta_atual_id",
+          "candidatos",
+          "encaminhamento"
+        ],
+        "title": "AccountEvidence",
+        "type": "object"
+      },
       "AnalisesSaida": {
         "additionalProperties": false,
         "properties": {
@@ -4214,6 +4379,31 @@
         "title": "HierarquiaSaida",
         "type": "object"
       },
+      "HolderChoice": {
+        "additionalProperties": false,
+        "properties": {
+          "arquivado": {
+            "title": "Arquivado",
+            "type": "boolean"
+          },
+          "id": {
+            "pattern": "^[1-9][0-9]{0,18}$",
+            "title": "Id",
+            "type": "string"
+          },
+          "nome": {
+            "title": "Nome",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "nome",
+          "arquivado"
+        ],
+        "title": "HolderChoice",
+        "type": "object"
+      },
       "HostedResponse": {
         "additionalProperties": false,
         "properties": {
@@ -6332,6 +6522,57 @@
         "title": "PainelSaida",
         "type": "object"
       },
+      "PairEvidence": {
+        "additionalProperties": false,
+        "properties": {
+          "busca_incompleta": {
+            "title": "Busca Incompleta",
+            "type": "boolean"
+          },
+          "casa_chave": {
+            "title": "Casa Chave",
+            "type": "string"
+          },
+          "concorrentes": {
+            "title": "Concorrentes",
+            "type": "integer"
+          },
+          "escolha_tipster_obrigatoria": {
+            "title": "Escolha Tipster Obrigatoria",
+            "type": "boolean"
+          },
+          "telegram_chave": {
+            "title": "Telegram Chave",
+            "type": "string"
+          },
+          "tipo": {
+            "enum": [
+              "legado",
+              "casa_financeira_telegram_contextual"
+            ],
+            "title": "Tipo",
+            "type": "string"
+          },
+          "tipster_opcoes": {
+            "items": {
+              "$ref": "#/components/schemas/TipsterChoice"
+            },
+            "title": "Tipster Opcoes",
+            "type": "array"
+          }
+        },
+        "required": [
+          "tipo",
+          "casa_chave",
+          "telegram_chave",
+          "tipster_opcoes",
+          "escolha_tipster_obrigatoria",
+          "concorrentes",
+          "busca_incompleta"
+        ],
+        "title": "PairEvidence",
+        "type": "object"
+      },
       "PairingCodeResponse": {
         "additionalProperties": false,
         "properties": {
@@ -7296,6 +7537,21 @@
                 "type": "null"
               }
             ]
+          },
+          "tipster_choice": {
+            "anyOf": [
+              {
+                "enum": [
+                  "casa",
+                  "telegram"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Tipster Choice"
           }
         },
         "required": [
@@ -7978,6 +8234,468 @@
         "title": "RetryPrint",
         "type": "object"
       },
+      "ReviewDecision": {
+        "additionalProperties": false,
+        "properties": {
+          "acao": {
+            "enum": [
+              "CORRIGIR",
+              "DESCARTAR",
+              "MESMA",
+              "DISTINTAS",
+              "RECUSAR_VINCULO"
+            ],
+            "title": "Acao",
+            "type": "string"
+          },
+          "aposta_corrigida": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/CorrecaoDaRevisao"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "conta_casa_id": {
+            "anyOf": [
+              {
+                "pattern": "^[1-9][0-9]{0,18}$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Escolha explícita exata como string BIGINT; convertida somente no servidor. Não selecionar o primeiro candidato.",
+            "title": "Conta Casa Id"
+          },
+          "precondicao": {
+            "maxLength": 64,
+            "minLength": 64,
+            "pattern": "^[a-f0-9]{64}$",
+            "title": "Precondicao",
+            "type": "string"
+          },
+          "revisao_id": {
+            "pattern": "^[1-9][0-9]{0,18}$",
+            "title": "Revisao Id",
+            "type": "string"
+          },
+          "tipster_choice": {
+            "anyOf": [
+              {
+                "enum": [
+                  "casa",
+                  "telegram"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Tipster Choice"
+          }
+        },
+        "required": [
+          "revisao_id",
+          "precondicao",
+          "acao"
+        ],
+        "title": "ReviewDecision",
+        "type": "object"
+      },
+      "ReviewError": {
+        "additionalProperties": false,
+        "properties": {
+          "campo": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Campo"
+          },
+          "detail": {
+            "title": "Detail",
+            "type": "string"
+          }
+        },
+        "required": [
+          "detail"
+        ],
+        "title": "ReviewError",
+        "type": "object"
+      },
+      "ReviewPage": {
+        "additionalProperties": false,
+        "properties": {
+          "criterio_idade": {
+            "const": "intervalo_criado_em",
+            "title": "Criterio Idade",
+            "type": "string"
+          },
+          "data": {
+            "items": {
+              "$ref": "#/components/schemas/ReviewView"
+            },
+            "title": "Data",
+            "type": "array"
+          },
+          "observado_em": {
+            "format": "date-time",
+            "title": "Observado Em",
+            "type": "string"
+          },
+          "page": {
+            "title": "Page",
+            "type": "integer"
+          },
+          "page_size": {
+            "title": "Page Size",
+            "type": "integer"
+          },
+          "politica_consumo": {
+            "const": "reiniciar_pagina_1_apos_resolver",
+            "title": "Politica Consumo",
+            "type": "string"
+          },
+          "por_familia_filtrado": {
+            "additionalProperties": {
+              "type": "integer"
+            },
+            "propertyNames": {
+              "enum": [
+                "leitura",
+                "conta",
+                "par_legado",
+                "consolidacao",
+                "print_incompleto",
+                "nao_suportada"
+              ]
+            },
+            "title": "Por Familia Filtrado",
+            "type": "object"
+          },
+          "total_filtrado": {
+            "title": "Total Filtrado",
+            "type": "integer"
+          },
+          "total_global": {
+            "title": "Total Global",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "data",
+          "page",
+          "page_size",
+          "total_filtrado",
+          "total_global",
+          "por_familia_filtrado",
+          "observado_em",
+          "politica_consumo",
+          "criterio_idade"
+        ],
+        "title": "ReviewPage",
+        "type": "object"
+      },
+      "ReviewReceipt": {
+        "additionalProperties": false,
+        "properties": {
+          "acao": {
+            "enum": [
+              "CORRIGIR",
+              "DESCARTAR",
+              "MESMA",
+              "DISTINTAS",
+              "RECUSAR_VINCULO"
+            ],
+            "title": "Acao",
+            "type": "string"
+          },
+          "aposta_chave": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Aposta Chave"
+          },
+          "confirmado_em": {
+            "format": "date-time",
+            "title": "Confirmado Em",
+            "type": "string"
+          },
+          "consultar_ate": {
+            "format": "date-time",
+            "title": "Consultar Ate",
+            "type": "string"
+          },
+          "eventos_gravados": {
+            "title": "Eventos Gravados",
+            "type": "integer"
+          },
+          "familia": {
+            "enum": [
+              "leitura",
+              "conta",
+              "par_legado",
+              "consolidacao",
+              "print_incompleto",
+              "nao_suportada"
+            ],
+            "title": "Familia",
+            "type": "string"
+          },
+          "operacao_id": {
+            "format": "uuid",
+            "title": "Operacao Id",
+            "type": "string"
+          },
+          "revisao_id": {
+            "pattern": "^[1-9][0-9]{0,18}$",
+            "title": "Revisao Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "operacao_id",
+          "revisao_id",
+          "familia",
+          "acao",
+          "aposta_chave",
+          "confirmado_em",
+          "consultar_ate",
+          "eventos_gravados"
+        ],
+        "title": "ReviewReceipt",
+        "type": "object"
+      },
+      "ReviewView": {
+        "additionalProperties": false,
+        "properties": {
+          "acoes": {
+            "items": {
+              "enum": [
+                "CORRIGIR",
+                "DESCARTAR",
+                "MESMA",
+                "DISTINTAS",
+                "RECUSAR_VINCULO"
+              ],
+              "type": "string"
+            },
+            "title": "Acoes",
+            "type": "array"
+          },
+          "conta": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/AccountEvidence"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "criado_em": {
+            "format": "date-time",
+            "title": "Criado Em",
+            "type": "string"
+          },
+          "encaminhamento": {
+            "enum": [
+              "resolver_aposta",
+              "resolver_conta",
+              "resolver_par",
+              "resolver_print",
+              "suporte",
+              "resolvida"
+            ],
+            "title": "Encaminhamento",
+            "type": "string"
+          },
+          "estado": {
+            "enum": [
+              "aberta",
+              "resolvida"
+            ],
+            "title": "Estado",
+            "type": "string"
+          },
+          "familia": {
+            "enum": [
+              "leitura",
+              "conta",
+              "par_legado",
+              "consolidacao",
+              "print_incompleto",
+              "nao_suportada"
+            ],
+            "title": "Familia",
+            "type": "string"
+          },
+          "fontes": {
+            "items": {
+              "$ref": "#/components/schemas/SourceEvidence"
+            },
+            "title": "Fontes",
+            "type": "array"
+          },
+          "foto_url": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Foto Url"
+          },
+          "id": {
+            "pattern": "^[1-9][0-9]{0,18}$",
+            "title": "Id",
+            "type": "string"
+          },
+          "motivo": {
+            "enum": [
+              "leitura_incompleta",
+              "atribuicao_conta",
+              "par_a_confirmar",
+              "fontes_a_consolidar",
+              "print_sem_aposta",
+              "motivo_nao_suportado"
+            ],
+            "title": "Motivo",
+            "type": "string"
+          },
+          "par": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/PairEvidence"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "precondicao": {
+            "title": "Precondicao",
+            "type": "string"
+          },
+          "print_casa": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Print Casa"
+          },
+          "print_descricao": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Print Descricao"
+          },
+          "print_evento": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Print Evento"
+          },
+          "print_odd": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Print Odd"
+          },
+          "print_stake_unidades": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Print Stake Unidades"
+          },
+          "resolver_url": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Resolver Url"
+          },
+          "resolvido_em": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Resolvido Em"
+          }
+        },
+        "required": [
+          "id",
+          "familia",
+          "motivo",
+          "estado",
+          "criado_em",
+          "resolvido_em",
+          "precondicao",
+          "acoes",
+          "encaminhamento",
+          "resolver_url",
+          "foto_url",
+          "fontes",
+          "conta",
+          "par",
+          "print_casa",
+          "print_evento",
+          "print_descricao",
+          "print_odd",
+          "print_stake_unidades"
+        ],
+        "title": "ReviewView",
+        "type": "object"
+      },
       "RevisaoFechadaSaida": {
         "additionalProperties": false,
         "properties": {
@@ -8427,6 +9145,204 @@
         "title": "SheetHeader",
         "type": "object"
       },
+      "SourceEvidence": {
+        "additionalProperties": false,
+        "properties": {
+          "casa": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Casa"
+          },
+          "chave": {
+            "title": "Chave",
+            "type": "string"
+          },
+          "data_aposta": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Data Aposta"
+          },
+          "data_jogo": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Data Jogo"
+          },
+          "descricao": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Descricao"
+          },
+          "evento": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Evento"
+          },
+          "freebet": {
+            "title": "Freebet",
+            "type": "boolean"
+          },
+          "mercado": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Mercado"
+          },
+          "odd": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Odd"
+          },
+          "origem": {
+            "title": "Origem",
+            "type": "string"
+          },
+          "papel": {
+            "enum": [
+              "aposta",
+              "casa",
+              "telegram"
+            ],
+            "title": "Papel",
+            "type": "string"
+          },
+          "retorno_centavos": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Retorno Centavos"
+          },
+          "selecionada": {
+            "title": "Selecionada",
+            "type": "boolean"
+          },
+          "stake_centavos": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Stake Centavos"
+          },
+          "stake_unidades": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Stake Unidades"
+          },
+          "tipster": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Tipster"
+          },
+          "tipster_id": {
+            "anyOf": [
+              {
+                "pattern": "^[1-9][0-9]{0,18}$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Tipster Id"
+          },
+          "valor_aposta_centavos": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Valor Aposta Centavos"
+          }
+        },
+        "required": [
+          "chave",
+          "papel",
+          "origem",
+          "casa",
+          "evento",
+          "descricao",
+          "mercado",
+          "data_jogo",
+          "data_aposta",
+          "tipster",
+          "tipster_id",
+          "odd",
+          "stake_unidades",
+          "stake_centavos",
+          "valor_aposta_centavos",
+          "retorno_centavos",
+          "freebet",
+          "selecionada"
+        ],
+        "title": "SourceEvidence",
+        "type": "object"
+      },
       "SourceInput": {
         "additionalProperties": false,
         "properties": {
@@ -8650,6 +9566,54 @@
         ],
         "title": "TipoMovimentoConsulta",
         "type": "string"
+      },
+      "TipsterChoice": {
+        "additionalProperties": false,
+        "properties": {
+          "fonte": {
+            "enum": [
+              "casa",
+              "telegram"
+            ],
+            "title": "Fonte",
+            "type": "string"
+          },
+          "rotulo": {
+            "title": "Rotulo",
+            "type": "string"
+          },
+          "tipster": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Tipster"
+          },
+          "tipster_id": {
+            "anyOf": [
+              {
+                "pattern": "^[1-9][0-9]{0,18}$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Tipster Id"
+          }
+        },
+        "required": [
+          "fonte",
+          "rotulo",
+          "tipster",
+          "tipster_id"
+        ],
+        "title": "TipsterChoice",
+        "type": "object"
       },
       "TipsterDoGrupo": {
         "additionalProperties": false,
@@ -24444,7 +25408,7 @@
         "operationId": "queue_api_v1_resultados_fila_get",
         "parameters": [
           {
-            "description": "Cursor privado cifrado, até 2048 caracteres, vinculado ao usuário/capacidade/filtros; expira em 24h. Reiniciar a paginação em 422.",
+            "description": "Cursor de Resultados privado por 30 minutos.",
             "in": "query",
             "name": "cursor",
             "required": false,
@@ -25463,7 +26427,7 @@
             }
           },
           {
-            "description": "data_aposta: limite inicial inclusivo, ISO 8601 com offset; legado sem offset significa UTC. Não combinar com periodo na lista/visão filtrada.",
+            "description": "Abertura RevisaoPendente.criado_em; limite inclusivo >= desde; ISO 8601 sem offset significa America/Sao_Paulo. Não filtra data_aposta nem data_jogo.",
             "in": "query",
             "name": "desde",
             "required": false,
@@ -25481,7 +26445,7 @@
             }
           },
           {
-            "description": "data_aposta: limite final exclusivo, ISO 8601 com offset; legado sem offset significa UTC. Não combinar com periodo na lista/visão filtrada.",
+            "description": "Abertura RevisaoPendente.criado_em; limite exclusivo < ate; ISO 8601 sem offset significa America/Sao_Paulo. Não filtra data_aposta nem data_jogo.",
             "in": "query",
             "name": "ate",
             "required": false,
@@ -25624,9 +26588,979 @@
         "summary": "Listar revisões pendentes"
       }
     },
+    "/api/v1/revisao-operacional/fila": {
+      "get": {
+        "description": "Snapshot do primário: intervalo de abertura criado_em [desde,ate), datas sem offset em America/Sao_Paulo, filtro de família aplicado à população inteira. total_filtrado/por_familia_filtrado do mesmo recorte; total_global identifica separadamente todas as abertas. Reiniciar página 1 depois de resolver para não pular itens em uma fila que diminui.",
+        "operationId": "queue_api_v1_revisao_operacional_fila_get",
+        "parameters": [
+          {
+            "description": "Família decidida pelo servidor; filtro aplicado antes da paginação e da contagem.",
+            "in": "query",
+            "name": "familia",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "enum": [
+                    "leitura",
+                    "conta",
+                    "par_legado",
+                    "consolidacao",
+                    "print_incompleto",
+                    "nao_suportada"
+                  ],
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Familia"
+            }
+          },
+          {
+            "description": "Abertura RevisaoPendente.criado_em; limite inclusivo >= desde; ISO 8601 sem offset significa America/Sao_Paulo. Não filtra data_aposta nem data_jogo.",
+            "in": "query",
+            "name": "desde",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "format": "date-time",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Abertura criado_em >= desde; data sem offset é America/Sao_Paulo. Use um intervalo de abertura para recortar idade.",
+              "title": "Desde"
+            }
+          },
+          {
+            "description": "Abertura RevisaoPendente.criado_em; limite exclusivo < ate; ISO 8601 sem offset significa America/Sao_Paulo. Não filtra data_aposta nem data_jogo.",
+            "in": "query",
+            "name": "ate",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "format": "date-time",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Abertura criado_em < ate; data sem offset é America/Sao_Paulo. Não consulta data_aposta/data_jogo.",
+              "title": "Ate"
+            }
+          },
+          {
+            "description": "Número da página, começando em 1.",
+            "in": "query",
+            "name": "page",
+            "required": false,
+            "schema": {
+              "default": 1,
+              "maximum": 92233720368547758,
+              "minimum": 1,
+              "title": "Page",
+              "type": "integer"
+            }
+          },
+          {
+            "description": "Quantidade máxima de itens retornados na página.",
+            "in": "query",
+            "name": "page_size",
+            "required": false,
+            "schema": {
+              "default": 50,
+              "maximum": 100,
+              "minimum": 1,
+              "title": "Page Size",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReviewPage"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Missing, expired, or invalid bearer token.",
+            "headers": {
+              "X-Auth-Error": {
+                "description": "Identity error code when AUTH_ENABLED; legacy response body is preserved.",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "402": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "account_read_only: writes require confirmed trial or paid access."
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReviewError"
+                }
+              }
+            },
+            "description": "Código público e campo seguro; sem detalhes internos."
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReviewError"
+                }
+              }
+            },
+            "description": "Código público e campo seguro; sem detalhes internos."
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReviewError"
+                }
+              }
+            },
+            "description": "Código público e campo seguro; sem detalhes internos."
+          },
+          "410": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReviewError"
+                }
+              }
+            },
+            "description": "Código público e campo seguro; sem detalhes internos."
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReviewError"
+                }
+              }
+            },
+            "description": "Código público e campo seguro; sem detalhes internos."
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "The caller exceeded an applicable request limit."
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unexpected internal failure with no sensitive exception details."
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReviewError"
+                }
+              }
+            },
+            "description": "Código público e campo seguro; sem detalhes internos.",
+            "headers": {
+              "X-Auth-Error": {
+                "description": "Identity error code when AUTH_ENABLED; legacy response body is preserved.",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          },
+          {
+            "SessionCookie": []
+          }
+        ],
+        "summary": "Fila segura por motivo",
+        "tags": [
+          "Revisão operacional"
+        ],
+        "x-bancaemdia-review": {
+          "access": "READ_ONLY",
+          "age_filter": "criado_em_interval",
+          "automatic_mutation_replay": false,
+          "consumption": "restart_page_1",
+          "precondition": "opaque_evidence_cas",
+          "read_source": "primary_snapshot",
+          "receipt_days": 90
+        }
+      }
+    },
+    "/api/v1/revisao-operacional/operacoes/{operacao_id}": {
+      "get": {
+        "description": "Recibo durável privado no primário por 90 dias, acessível em READ_ONLY. 404/410 não provam rollback nem autorizam novo POST automático. Revisão resolvida por outro escritor não é atribuída à intenção desconhecida. 401 reautentica; 402 preserva sessão e formulário.",
+        "operationId": "recover_api_v1_revisao_operacional_operacoes__operacao_id__get",
+        "parameters": [
+          {
+            "description": "UUID criado e persistido pelo cliente antes da escrita; recuperação pela mesma identidade.",
+            "in": "path",
+            "name": "operacao_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Operacao Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReviewReceipt"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Missing, expired, or invalid bearer token.",
+            "headers": {
+              "X-Auth-Error": {
+                "description": "Identity error code when AUTH_ENABLED; legacy response body is preserved.",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "402": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "account_read_only: writes require confirmed trial or paid access."
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReviewError"
+                }
+              }
+            },
+            "description": "Código público e campo seguro; sem detalhes internos."
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReviewError"
+                }
+              }
+            },
+            "description": "Código público e campo seguro; sem detalhes internos."
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReviewError"
+                }
+              }
+            },
+            "description": "Código público e campo seguro; sem detalhes internos."
+          },
+          "410": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReviewError"
+                }
+              }
+            },
+            "description": "Código público e campo seguro; sem detalhes internos."
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReviewError"
+                }
+              }
+            },
+            "description": "Código público e campo seguro; sem detalhes internos."
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "The caller exceeded an applicable request limit."
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unexpected internal failure with no sensitive exception details."
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReviewError"
+                }
+              }
+            },
+            "description": "Código público e campo seguro; sem detalhes internos.",
+            "headers": {
+              "X-Auth-Error": {
+                "description": "Identity error code when AUTH_ENABLED; legacy response body is preserved.",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          },
+          {
+            "SessionCookie": []
+          }
+        ],
+        "summary": "Reconciliar uma intenção de revisão",
+        "tags": [
+          "Revisão operacional"
+        ],
+        "x-bancaemdia-review": {
+          "access": "READ_ONLY",
+          "age_filter": "criado_em_interval",
+          "automatic_mutation_replay": false,
+          "consumption": "restart_page_1",
+          "precondition": "opaque_evidence_cas",
+          "read_source": "primary_snapshot",
+          "receipt_days": 90
+        }
+      },
+      "post": {
+        "description": "UUID persistido antes do POST, FULL_WRITE atual e cookie+CSRF. Precondição comparada sob locks em transação SERIALIZABLE; escolha de tipster por fonte, sem IDs inferidos. Reutiliza correção, matriz de conta, consolidação e materializador de Print. Recibo, eventos, vínculo e fechamento atômicos. Repetição explícita idempotente do mesmo UUID/payload recupera recibo por 90 dias; nenhum replay automático após erro ou pagamento.",
+        "operationId": "decide_api_v1_revisao_operacional_operacoes__operacao_id__post",
+        "parameters": [
+          {
+            "description": "UUID criado e persistido pelo cliente antes da escrita; recuperação pela mesma identidade.",
+            "in": "path",
+            "name": "operacao_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Operacao Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "examples": {
+                "default": {
+                  "summary": "Consolidar escolhendo contexto do Telegram",
+                  "value": {
+                    "acao": "MESMA",
+                    "precondicao": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+                    "revisao_id": "42",
+                    "tipster_choice": "telegram"
+                  }
+                }
+              },
+              "schema": {
+                "$ref": "#/components/schemas/ReviewDecision"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReviewReceipt"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Missing, expired, or invalid bearer token.",
+            "headers": {
+              "X-Auth-Error": {
+                "description": "Identity error code when AUTH_ENABLED; legacy response body is preserved.",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "402": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "account_read_only: writes require confirmed trial or paid access."
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Cookie mutation requires exact Origin and current CSRF proof."
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReviewError"
+                }
+              }
+            },
+            "description": "Código público e campo seguro; sem detalhes internos."
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReviewError"
+                }
+              }
+            },
+            "description": "Código público e campo seguro; sem detalhes internos."
+          },
+          "410": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReviewError"
+                }
+              }
+            },
+            "description": "Código público e campo seguro; sem detalhes internos."
+          },
+          "413": {
+            "content": {
+              "text/plain": {
+                "example": "Content Too Large",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            },
+            "description": "The request body exceeds this endpoint's streaming limit."
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReviewError"
+                }
+              }
+            },
+            "description": "Código público e campo seguro; sem detalhes internos."
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "The caller exceeded an applicable request limit."
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unexpected internal failure with no sensitive exception details."
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReviewError"
+                }
+              }
+            },
+            "description": "Código público e campo seguro; sem detalhes internos.",
+            "headers": {
+              "X-Auth-Error": {
+                "description": "Identity error code when AUTH_ENABLED; legacy response body is preserved.",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          },
+          {
+            "CsrfProof": [],
+            "SessionCookie": []
+          }
+        ],
+        "summary": "Resolver uma revisão condicionalmente",
+        "tags": [
+          "Revisão operacional"
+        ],
+        "x-bancaemdia-review": {
+          "access": "FULL_WRITE",
+          "age_filter": "criado_em_interval",
+          "automatic_mutation_replay": false,
+          "consumption": "restart_page_1",
+          "precondition": "opaque_evidence_cas",
+          "read_source": "primary_transaction",
+          "receipt_days": 90
+        }
+      }
+    },
+    "/api/v1/revisao-operacional/revisoes/{revisao_id}": {
+      "get": {
+        "description": "Projeção tipada e sanitizada, sem extração bruta/diagnósticos/custos/URLs assinadas. Precondição opaca vinculada ao usuário e à revisão; conta pelo dia do jogo com exceção multicontas explícita. Fotos opcionais pela rota privada existente. Motivo não suportado encaminha ao suporte sem ações.",
+        "operationId": "detail_api_v1_revisao_operacional_revisoes__revisao_id__get",
+        "parameters": [
+          {
+            "description": "Identificador numérico da revisão pertencente ao usuário.",
+            "in": "path",
+            "name": "revisao_id",
+            "required": true,
+            "schema": {
+              "maximum": 9223372036854775807,
+              "minimum": 1,
+              "title": "Revisao Id",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReviewView"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Missing, expired, or invalid bearer token.",
+            "headers": {
+              "X-Auth-Error": {
+                "description": "Identity error code when AUTH_ENABLED; legacy response body is preserved.",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "402": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "account_read_only: writes require confirmed trial or paid access."
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReviewError"
+                }
+              }
+            },
+            "description": "Código público e campo seguro; sem detalhes internos."
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReviewError"
+                }
+              }
+            },
+            "description": "Código público e campo seguro; sem detalhes internos."
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReviewError"
+                }
+              }
+            },
+            "description": "Código público e campo seguro; sem detalhes internos."
+          },
+          "410": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReviewError"
+                }
+              }
+            },
+            "description": "Código público e campo seguro; sem detalhes internos."
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReviewError"
+                }
+              }
+            },
+            "description": "Código público e campo seguro; sem detalhes internos."
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "The caller exceeded an applicable request limit."
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unexpected internal failure with no sensitive exception details."
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReviewError"
+                }
+              }
+            },
+            "description": "Código público e campo seguro; sem detalhes internos.",
+            "headers": {
+              "X-Auth-Error": {
+                "description": "Identity error code when AUTH_ENABLED; legacy response body is preserved.",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          },
+          {
+            "SessionCookie": []
+          }
+        ],
+        "summary": "Evidência autorizada e ações por família",
+        "tags": [
+          "Revisão operacional"
+        ],
+        "x-bancaemdia-review": {
+          "access": "READ_ONLY",
+          "age_filter": "criado_em_interval",
+          "automatic_mutation_replay": false,
+          "consumption": "restart_page_1",
+          "precondition": "opaque_evidence_cas",
+          "read_source": "primary_snapshot",
+          "receipt_days": 90
+        }
+      }
+    },
+    "/api/v1/revisao-operacional/revisoes/{revisao_id}/foto": {
+      "get": {
+        "description": "READ_ONLY, snapshot do primário, mesma origem autenticada e autorização pela revisão. Reutiliza proveniência/mídia existente; ausência/expiração/foto inválida retornam 404 indistinguível. Raster JPEG/PNG/GIF/WebP até 20 MiB, 40 milhões de pixels e 256 frames; sem hash/URL assinada como autorização.",
+        "operationId": "photo_api_v1_revisao_operacional_revisoes__revisao_id__foto_get",
+        "parameters": [
+          {
+            "description": "Identificador numérico da revisão pertencente ao usuário.",
+            "in": "path",
+            "name": "revisao_id",
+            "required": true,
+            "schema": {
+              "maximum": 9223372036854775807,
+              "minimum": 1,
+              "title": "Revisao Id",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "image/gif": {
+                "schema": {
+                  "format": "binary",
+                  "type": "string"
+                }
+              },
+              "image/jpeg": {
+                "schema": {
+                  "format": "binary",
+                  "type": "string"
+                }
+              },
+              "image/png": {
+                "schema": {
+                  "format": "binary",
+                  "type": "string"
+                }
+              },
+              "image/webp": {
+                "schema": {
+                  "format": "binary",
+                  "type": "string"
+                }
+              }
+            },
+            "description": "Original privado, raster validado até 20 MiB/40 milhões de pixels/256 frames."
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Missing, expired, or invalid bearer token.",
+            "headers": {
+              "X-Auth-Error": {
+                "description": "Identity error code when AUTH_ENABLED; legacy response body is preserved.",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "402": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "account_read_only: writes require confirmed trial or paid access."
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReviewError"
+                }
+              }
+            },
+            "description": "Código público e campo seguro; sem detalhes internos."
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReviewError"
+                }
+              }
+            },
+            "description": "Código público e campo seguro; sem detalhes internos."
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReviewError"
+                }
+              }
+            },
+            "description": "Código público e campo seguro; sem detalhes internos."
+          },
+          "410": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReviewError"
+                }
+              }
+            },
+            "description": "Código público e campo seguro; sem detalhes internos."
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReviewError"
+                }
+              }
+            },
+            "description": "Código público e campo seguro; sem detalhes internos."
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "The caller exceeded an applicable request limit."
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unexpected internal failure with no sensitive exception details."
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReviewError"
+                }
+              }
+            },
+            "description": "Código público e campo seguro; sem detalhes internos.",
+            "headers": {
+              "X-Auth-Error": {
+                "description": "Identity error code when AUTH_ENABLED; legacy response body is preserved.",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          },
+          {
+            "SessionCookie": []
+          }
+        ],
+        "summary": "Foto opcional privada da revisão",
+        "tags": [
+          "Revisão operacional"
+        ],
+        "x-bancaemdia-review": {
+          "access": "READ_ONLY",
+          "age_filter": "criado_em_interval",
+          "automatic_mutation_replay": false,
+          "consumption": "restart_page_1",
+          "precondition": "opaque_evidence_cas",
+          "read_source": "primary_snapshot",
+          "receipt_days": 90
+        }
+      }
+    },
     "/api/v1/revisao/stats": {
       "get": {
-        "description": "Retorna volume, motivos e idade da fila de revisões pendentes do usuário.",
+        "description": "Retorna volume, motivos e idade da fila de revisões pendentes do usuário. Estatísticas globais de todas as abertas, sem os filtros da lista; idade sobre criado_em, relógio do servidor.",
         "operationId": "consultar_estatisticas_api_v1_revisao_stats_get",
         "responses": {
           "200": {

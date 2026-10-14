@@ -414,7 +414,7 @@ async def _revisar(
             "usuario_id": usuario_id,
             "midia_hash": midia_hash,
             "motivo": motivo,
-            "extracao_bruta": extracao_bruta,
+            "extracao_bruta": {"tipo_revisao": "leitura", **extracao_bruta},
         },
     )
     return motivo

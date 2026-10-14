@@ -1,21 +1,15 @@
 """Private spreadsheet previews and durable atomic application identities."""
 
-from typing import cast
-
 from alembic import op
-from sqlalchemy import Table, text
+from sqlalchemy import text
 
 from bancaemdia.models.sheet_import import SheetConfirmation, SheetPreview, SheetSource
 
 revision = "s196preview2026"
-down_revision = "p194prints2026"
+down_revision = "j6main2026"
 branch_labels = None
 depends_on = None
-TABLES = (
-    cast(Table, SheetSource.__table__),
-    cast(Table, SheetPreview.__table__),
-    cast(Table, SheetConfirmation.__table__),
-)
+TABLES = (SheetSource.__table__, SheetPreview.__table__, SheetConfirmation.__table__)
 
 
 def upgrade() -> None:

@@ -265,12 +265,19 @@ async def _consolidate(
         and tipster_choice is None
     ):
         raise ConsolidacaoRecusadaError("tipsters conflitantes; escolha explícita necessária")
-    chosen = tip.tipster_id if tipster_choice == "telegram" else house.tipster_id or tip.tipster_id
-    chosen_name = (
-        tstate.get("tipster")
-        if tipster_choice == "telegram"
-        else hstate.get("tipster") or tstate.get("tipster")
-    )
+    if tipster_choice == "telegram":
+        chosen, chosen_name = tip.tipster_id, tstate.get("tipster")
+    elif tipster_choice == "casa":
+        chosen, chosen_name = house.tipster_id, hstate.get("tipster")
+    else:
+        chosen = house.tipster_id or tip.tipster_id
+        chosen_name = hstate.get("tipster") or tstate.get("tipster")
+    # An explicit side must never borrow the other side's identity/name. Resolve
+    # its original name below, or label its persisted canonical identity safely.
+    if chosen is not None and not chosen_name:
+        chosen_name = await session.scalar(
+            select(models.Tipster.nome).where(models.Tipster.id == chosen)
+        )
     if chosen is None and isinstance(chosen_name, str) and chosen_name:
         approved_aliases = select(models.Apelido.entidade_id).where(
             models.Apelido.entidade_tipo == "tipster",

@@ -1,12 +1,9 @@
 """Durable web print intake and forced tenant isolation."""
 
-from typing import cast
-
 from alembic import op
-from sqlalchemy import Table
 
 revision = "p194prints2026"
-down_revision = "s183filter2026"
+down_revision = "j6main2026"
 branch_labels = None
 depends_on = None
 
@@ -16,7 +13,7 @@ def upgrade() -> None:
 
     bind = op.get_bind()
     for model in (PrintIntent, PrintAsset, PrintItem):
-        cast(Table, model.__table__).create(bind)
+        model.__table__.create(bind)
         table = model.__tablename__
         op.execute(f"ALTER TABLE {table} ENABLE ROW LEVEL SECURITY")
         op.execute(f"ALTER TABLE {table} FORCE ROW LEVEL SECURITY")

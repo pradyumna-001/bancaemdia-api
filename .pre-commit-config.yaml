@@ -9,12 +9,11 @@ repos:
   - repo: local
     hooks:
       - id: mypy
-        name: mypy (project development environment)
-        require_serial: true
-        entry: python -m mypy
+        name: mypy
+        entry: mypy src/ --strict --ignore-missing-imports
         language: system
-        types: [python]
-        args: [--strict, --ignore-missing-imports]
+        pass_filenames: false
+        always_run: true
       - id: reader-fixture-safety
         name: Reviewed reader fixture safety
         entry: python scripts/validate_reader_fixtures.py --base-ref origin/main

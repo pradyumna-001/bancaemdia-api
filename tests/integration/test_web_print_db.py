@@ -4,16 +4,16 @@ import asyncio
 import os
 import subprocess
 import sys
-from collections.abc import AsyncIterator, Iterator
+from collections.abc import AsyncIterator
 from datetime import timedelta
 from pathlib import Path
-from typing import Any, cast
+from typing import Any
 from urllib.parse import urlsplit, urlunsplit
 from uuid import UUID, uuid4
 
 import pytest
 from kombu.exceptions import OperationalError
-from sqlalchemy import Table, text
+from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncEngine, AsyncSession
 
 from bancaemdia import models
@@ -22,7 +22,6 @@ from bancaemdia.db.session import get_db, get_db_primary_snapshot
 from bancaemdia.models.web_print import PrintAsset, PrintItem
 from bancaemdia.services.web_print import now
 from bancaemdia.workers import web_print as worker
-from bancaemdia.workers.celery_app import app as celery_app
 from tests.integration import test_aposta_foto_db as photo_support
 from tests.integration.test_aposta_foto_db import Api, image_bytes, private, snapshot, url
 from tests.integration.test_telegram_confirmation import _account
@@ -42,7 +41,7 @@ async def api(engine_app: AsyncEngine, monkeypatch: pytest.MonkeyPatch) -> Async
             )
             yield session
 
-    async for underlying in cast(Any, photo_support.api).__wrapped__(engine_app, monkeypatch):
+    async for underlying in photo_support.api.__wrapped__(engine_app, monkeypatch):
         before = app.dependency_overrides[get_db]
         app.dependency_overrides[get_db] = database
         monkeypatch.setattr("bancaemdia.api.v1.web_print.celery.send_task", lambda *a, **kw: None)
@@ -77,7 +76,7 @@ async def asset_id(engine: AsyncEngine, como: Any, user: int, intent: UUID, item
     async with como(engine, user) as session:
         row = await session.get(PrintItem, (user, intent, item))
         assert row is not None
-        return cast(UUID, row.asset_id)
+        return row.asset_id
 
 
 def reading(*, stake: float | None = 1.0) -> dict[str, Any]:
@@ -102,8 +101,8 @@ def extractor(monkeypatch: pytest.MonkeyPatch) -> None:
 
 
 async def test_multiple_files_real_worker_and_no_financial_replay(
-    api: Any, engine_app: Any, engine_admin: Any, como: Any, novo_usuario: Any, extractor: Any
-) -> None:
+    api, engine_app, engine_admin, como, novo_usuario, extractor
+):
     user = await novo_usuario()
     await _account(engine_admin, engine_app, como, user)
     intent = uuid4()
@@ -133,8 +132,8 @@ async def test_multiple_files_real_worker_and_no_financial_replay(
 
 
 async def test_repeated_and_concurrent_identical_bytes_dedupe_per_user(
-    api: Any, engine_app: Any, como: Any, novo_usuario: Any, extractor: Any
-) -> None:
+    api, engine_app, como, novo_usuario, extractor
+):
     user, other = await novo_usuario(), await novo_usuario()
     content, intent = image_bytes(), uuid4()
     submissions = await asyncio.gather(*(submit(api, user, content, intent) for _ in range(4)))
@@ -159,9 +158,9 @@ async def test_repeated_and_concurrent_identical_bytes_dedupe_per_user(
 
 
 async def test_lost_post_response_and_broker_outage_reconcile_without_replay(
-    api: Any, engine_app: Any, como: Any, novo_usuario: Any, monkeypatch: Any, extractor: Any
-) -> None:
-    def unavailable(*a: Any, **kw: Any) -> None:
+    api, engine_app, como, novo_usuario, monkeypatch, extractor
+):
+    def unavailable(*a, **kw):
         raise OperationalError("synthetic transport failure")
 
     monkeypatch.setattr("bancaemdia.api.v1.web_print.celery.send_task", unavailable)
@@ -172,7 +171,7 @@ async def test_lost_post_response_and_broker_outage_reconcile_without_replay(
     assert reconciled.status_code == 200 and reconciled.json()["status"] == "accepted"
     identity = await asset_id(engine_app, como, user, intent, item)
     sent = []
-    monkeypatch.setattr(celery_app, "send_task", lambda name, **kw: sent.append((name, kw)))
+    monkeypatch.setattr(worker.app, "send_task", lambda name, **kw: sent.append((name, kw)))
     await worker.dispatch(engine_app)
     assert any(kw["kwargs"] == {"usuario_id": user, "asset_id": str(identity)} for _, kw in sent)
     assert all(set(kw["kwargs"]) == {"usuario_id", "asset_id"} for _, kw in sent)
@@ -182,8 +181,8 @@ async def test_lost_post_response_and_broker_outage_reconcile_without_replay(
 
 
 async def test_partial_failure_explicit_single_item_retry_and_same_retry_identity(
-    api: Any, engine_app: Any, como: Any, novo_usuario: Any, monkeypatch: Any
-) -> None:
+    api, engine_app, como, novo_usuario, monkeypatch
+):
     user, intent = await novo_usuario(), uuid4()
     ok_i, ok_item, r = await submit(api, user, image_bytes(), intent)
     assert r.status_code == 202
@@ -193,7 +192,7 @@ async def test_partial_failure_explicit_single_item_retry_and_same_retry_identit
     fail_i, fail_item, r = await submit(api, user, image_bytes(), intent)
     fail_id = await asset_id(engine_app, como, user, fail_i, fail_item)
 
-    def unavailable(*a: Any, **kw: Any) -> None:
+    def unavailable(*a, **kw):
         raise ConnectionError("synthetic unavailable")
 
     monkeypatch.setattr(worker, "extrair_bilhete", unavailable)
@@ -223,8 +222,8 @@ async def test_partial_failure_explicit_single_item_retry_and_same_retry_identit
 
 
 async def test_identity_incompatible_bytes_is_deterministic_and_preserves_original(
-    api: Any, engine_app: Any, como: Any, novo_usuario: Any
-) -> None:
+    api, engine_app, como, novo_usuario
+):
     user, content = await novo_usuario(), image_bytes()
     intent, item, r = await submit(api, user, content)
     assert r.status_code == 202
@@ -242,8 +241,8 @@ async def test_identity_incompatible_bytes_is_deterministic_and_preserves_origin
 
 @pytest.mark.parametrize("action", ["CORRIGIR", "DESCARTAR"])
 async def test_unknown_stake_goes_to_real_review_without_zero_bet_and_can_resolve(
-    api: Any, engine_app: Any, como: Any, novo_usuario: Any, monkeypatch: Any, action: Any
-) -> None:
+    api, engine_app, como, novo_usuario, monkeypatch, action
+):
     user, content = await novo_usuario(), image_bytes()
     monkeypatch.setattr(worker, "extrair_bilhete", lambda *a, **kw: reading(stake=None))
     intent, item, r = await submit(api, user, content)
@@ -284,8 +283,8 @@ async def test_unknown_stake_goes_to_real_review_without_zero_bet_and_can_resolv
 
 
 async def test_real_no_bet_result_is_distinct_from_failure(
-    api: Any, engine_app: Any, como: Any, novo_usuario: Any, monkeypatch: Any
-) -> None:
+    api, engine_app, como, novo_usuario, monkeypatch
+):
     monkeypatch.setattr(worker, "extrair_bilhete", lambda *a, **kw: {"nao_e_aposta": True})
     user = await novo_usuario()
     intent, item, r = await submit(api, user, image_bytes())
@@ -308,8 +307,8 @@ async def test_real_no_bet_result_is_distinct_from_failure(
     ],
 )
 async def test_invalid_empty_active_and_truncated_images_are_not_accepted(
-    api: Any, novo_usuario: Any, content: Any, mime: Any
-) -> None:
+    api, novo_usuario, content, mime
+):
     user = await novo_usuario()
     intent, item, r = await submit(api, user, content, mime=mime)
     assert r.status_code == 422
@@ -322,22 +321,20 @@ async def test_invalid_empty_active_and_truncated_images_are_not_accepted(
     "format_,mime",
     [("JPEG", "image/jpeg"), ("PNG", "image/png"), ("GIF", "image/gif"), ("WEBP", "image/webp")],
 )
-async def test_real_raster_formats(api: Any, novo_usuario: Any, format_: Any, mime: Any) -> None:
+async def test_real_raster_formats(api, novo_usuario, format_, mime):
     assert (await submit(api, await novo_usuario(), image_bytes(format_), mime=mime))[
         2
     ].status_code == 202
 
 
-async def test_mime_conflict_and_real_byte_limit(api: Any, novo_usuario: Any) -> None:
+async def test_mime_conflict_and_real_byte_limit(api, novo_usuario):
     user = await novo_usuario()
     assert (await submit(api, user, image_bytes(), mime="image/jpeg"))[2].status_code == 422
     content = b"x" * (20 * 1024 * 1024 + 1)
     assert (await submit(api, user, content))[2].status_code == 413
 
 
-async def test_twenty_items_limit_does_not_discard_previously_accepted(
-    api: Any, novo_usuario: Any
-) -> None:
+async def test_twenty_items_limit_does_not_discard_previously_accepted(api, novo_usuario):
     user, intent, content = await novo_usuario(), uuid4(), image_bytes()
     for _ in range(20):
         assert (await submit(api, user, content, intent))[2].status_code == 202
@@ -347,8 +344,8 @@ async def test_twenty_items_limit_does_not_discard_previously_accepted(
 
 
 async def test_daily_internal_limit_429_retry_after_and_replay_does_not_consume_slot(
-    api: Any, novo_usuario: Any, monkeypatch: Any
-) -> None:
+    api, novo_usuario, monkeypatch
+):
     from bancaemdia.config import get_settings
 
     monkeypatch.setattr(get_settings(), "PRINT_DAILY_ATTEMPT_LIMIT", 1)
@@ -361,7 +358,7 @@ async def test_daily_internal_limit_429_retry_after_and_replay_does_not_consume_
     assert limited.status_code == 429 and int(limited.headers["Retry-After"]) > 0
 
 
-async def test_missing_session_is_401_and_foreign_retry_is_404(api: Any, novo_usuario: Any) -> None:
+async def test_missing_session_is_401_and_foreign_retry_is_404(api, novo_usuario):
     user, other = await novo_usuario(), await novo_usuario()
     intent, item, r = await submit(api, user, image_bytes())
     assert r.status_code == 202
@@ -376,8 +373,8 @@ async def test_missing_session_is_401_and_foreign_retry_is_404(api: Any, novo_us
 
 
 async def test_read_only_keeps_reconciliation_and_denies_new_input_and_retry(
-    api: Any, engine_app: Any, engine_admin: Any, como: Any, novo_usuario: Any
-) -> None:
+    api, engine_app, engine_admin, como, novo_usuario
+):
     from bancaemdia.main import app
 
     user = await novo_usuario()
@@ -388,7 +385,7 @@ async def test_read_only_keeps_reconciliation_and_denies_new_input_and_retry(
         await conn.execute(text("SELECT billing_activate_rollout()"))
         await conn.execute(text("SET LOCAL ROLE bancaemdia_app"))
 
-        async def database() -> AsyncIterator[Any]:
+        async def database():
             async with AsyncSession(bind=conn, join_transaction_mode="create_savepoint") as session:
                 await session.execute(
                     text("SELECT set_config('app.current_user_id',:uid,true)"), {"uid": str(user)}
@@ -417,8 +414,8 @@ async def test_read_only_keeps_reconciliation_and_denies_new_input_and_retry(
 
 
 async def test_retention_expires_private_bytes_and_state_but_preserves_tombstones(
-    api: Any, engine_app: Any, como: Any, novo_usuario: Any, extractor: Any
-) -> None:
+    api, engine_app, como, novo_usuario, extractor
+):
     user = await novo_usuario()
     intent, item, r = await submit(api, user, image_bytes())
     assert r.status_code == 202
@@ -442,7 +439,7 @@ async def test_retention_expires_private_bytes_and_state_but_preserves_tombstone
 
 
 @pytest.fixture
-def worker_broker() -> Iterator[Any]:
+def worker_broker():
     configured = os.environ.get("TEST_REDIS_URL")
     if configured:
         parsed = urlsplit(configured)
@@ -455,14 +452,8 @@ def worker_broker() -> Iterator[Any]:
 
 
 async def test_real_worker_in_a_fresh_process_uses_isolated_extraction_adapter(
-    api: Any,
-    engine_app: Any,
-    como: Any,
-    novo_usuario: Any,
-    worker_broker: Any,
-    tmp_path: Any,
-    monkeypatch: Any,
-) -> None:
+    api, engine_app, como, novo_usuario, worker_broker, tmp_path, monkeypatch
+):
     user = await novo_usuario()
     intent, item, r = await submit(api, user, image_bytes())
     identity = await asset_id(engine_app, como, user, intent, item)
@@ -529,9 +520,7 @@ async def test_real_worker_in_a_fresh_process_uses_isolated_extraction_adapter(
             redis.Redis.from_url(worker_broker).delete(queue, "_kombu.binding." + queue)
 
 
-async def test_cookie_csrf_and_real_revocation(
-    api: Any, banco: Any, engine_admin: Any, tmp_path: Any, monkeypatch: Any
-) -> None:
+async def test_cookie_csrf_and_real_revocation(api, banco, engine_admin, tmp_path, monkeypatch):
     from pydantic import SecretStr
     from sqlalchemy.engine import make_url
     from sqlalchemy.ext.asyncio import create_async_engine
@@ -615,8 +604,8 @@ async def test_cookie_csrf_and_real_revocation(
 
 
 async def test_forced_rls_role_and_cross_owner_media(
-    api: Any, engine_admin: Any, engine_app: Any, como: Any, novo_usuario: Any, extractor: Any
-) -> None:
+    api, engine_admin, engine_app, como, novo_usuario, extractor
+):
     user, other = await novo_usuario(), await novo_usuario()
     async with engine_admin.connect() as conn:
         role = (
@@ -647,9 +636,7 @@ async def test_forced_rls_role_and_cross_owner_media(
     assert (await api.client.get(url(key), headers=api.headers(other))).status_code == 404
 
 
-async def test_malformed_multipart_and_missing_file_have_safe_codes(
-    api: Any, novo_usuario: Any
-) -> None:
+async def test_malformed_multipart_and_missing_file_have_safe_codes(api, novo_usuario):
     user, address = await novo_usuario(), item_url(uuid4(), uuid4())
     headers = {**api.headers(user), "Content-Type": "multipart/form-data; boundary=synthetic"}
     malformed = await api.client.post(address, headers=headers, content=b"wrong boundary")
@@ -662,9 +649,7 @@ async def test_malformed_multipart_and_missing_file_have_safe_codes(
     assert missing.status_code == 422
 
 
-async def test_extra_files_are_rejected_instead_of_silently_discarded(
-    api: Any, novo_usuario: Any
-) -> None:
+async def test_extra_files_are_rejected_instead_of_silently_discarded(api, novo_usuario):
     user = await novo_usuario()
     address = item_url(uuid4(), uuid4())
     response = await api.client.post(
@@ -679,8 +664,8 @@ async def test_extra_files_are_rejected_instead_of_silently_discarded(
 
 
 async def test_original_reconciliation_reads_do_not_change_any_financial_table(
-    api: Any, engine_app: Any, como: Any, novo_usuario: Any, extractor: Any
-) -> None:
+    api, engine_app, como, novo_usuario, extractor
+):
     user = await novo_usuario()
     intent, item, r = await submit(api, user, image_bytes())
     assert r.status_code == 202
@@ -699,8 +684,8 @@ async def test_original_reconciliation_reads_do_not_change_any_financial_table(
 
 
 async def test_cached_reading_and_expired_lease_recover_without_paid_extraction(
-    api: Any, engine_app: Any, como: Any, novo_usuario: Any, monkeypatch: Any
-) -> None:
+    api, engine_app, como, novo_usuario, monkeypatch
+):
     user = await novo_usuario()
     intent, item, r = await submit(api, user, image_bytes())
     assert r.status_code == 202
@@ -713,7 +698,7 @@ async def test_cached_reading_and_expired_lease_recover_without_paid_extraction(
         asset.reading = reading()
         await session.commit()
 
-    def forbidden(*a: Any, **kw: Any) -> None:
+    def forbidden(*a, **kw):
         raise AssertionError("cached recovery must not call paid extraction")
 
     monkeypatch.setattr(worker, "extrair_bilhete", forbidden)
@@ -723,13 +708,13 @@ async def test_cached_reading_and_expired_lease_recover_without_paid_extraction(
 
 
 async def test_duplicate_failed_alias_can_retry_once_without_new_financial_identity(
-    api: Any, engine_app: Any, como: Any, novo_usuario: Any, monkeypatch: Any
-) -> None:
+    api, engine_app, como, novo_usuario, monkeypatch
+):
     user, content = await novo_usuario(), image_bytes()
     intent, item, r = await submit(api, user, content)
     identity = await asset_id(engine_app, como, user, intent, item)
 
-    def unavailable(*a: Any, **kw: Any) -> None:
+    def unavailable(*a, **kw):
         raise TimeoutError("synthetic")
 
     monkeypatch.setattr(worker, "extrair_bilhete", unavailable)
@@ -754,8 +739,8 @@ async def test_duplicate_failed_alias_can_retry_once_without_new_financial_ident
 
 
 async def test_internal_cost_and_failure_text_never_enter_public_review(
-    api: Any, engine_app: Any, como: Any, novo_usuario: Any, monkeypatch: Any
-) -> None:
+    api, engine_app, como, novo_usuario, monkeypatch
+):
     value = reading(stake=None)
     value.update({
         "custo_usd": 999.123,
@@ -779,9 +764,7 @@ async def test_internal_cost_and_failure_text_never_enter_public_review(
     )
 
 
-async def test_real_raster_dimension_budget_is_enforced_on_intake(
-    api: Any, novo_usuario: Any
-) -> None:
+async def test_real_raster_dimension_budget_is_enforced_on_intake(api, novo_usuario):
     import struct
     import zlib
 
@@ -792,12 +775,10 @@ async def test_real_raster_dimension_budget_is_enforced_on_intake(
     assert response.status_code == 422
 
 
-async def test_database_dependency_503_is_safe_and_has_retry_after(
-    api: Any, novo_usuario: Any, monkeypatch: Any
-) -> None:
+async def test_database_dependency_503_is_safe_and_has_retry_after(api, novo_usuario, monkeypatch):
     from sqlalchemy.exc import OperationalError as SqlOperationalError
 
-    def unavailable(*a: Any, **kw: Any) -> None:
+    def unavailable(*a, **kw):
         raise SqlOperationalError("synthetic private SQL", {}, Exception("private dependency"))
 
     monkeypatch.setattr("bancaemdia.api.v1.web_print.find", unavailable)
@@ -809,8 +790,8 @@ async def test_database_dependency_503_is_safe_and_has_retry_after(
 
 
 async def test_known_stake_review_preserves_private_original(
-    api: Any, engine_app: Any, como: Any, novo_usuario: Any, extractor: Any
-) -> None:
+    api, engine_app, como, novo_usuario, extractor
+):
     user, content = await novo_usuario(), image_bytes()
     intent, item, r = await submit(api, user, content)
     assert r.status_code == 202
@@ -827,9 +808,7 @@ async def test_known_stake_review_preserves_private_original(
     private(original)
 
 
-async def test_web_print_migration_roundtrip_refuses_populated_downgrade(
-    banco_migracao: Any,
-) -> None:
+async def test_web_print_migration_roundtrip_refuses_populated_downgrade(banco_migracao):
     from alembic import command
     from alembic.config import Config
     from sqlalchemy.exc import DBAPIError
@@ -845,7 +824,7 @@ async def test_web_print_migration_roundtrip_refuses_populated_downgrade(
         await asyncio.to_thread(command.upgrade, config, "head")
         async with engine.begin() as conn:
             uid = await conn.scalar(
-                cast(Table, models.Usuario.__table__)
+                models.Usuario.__table__
                 .insert()
                 .values(email=uuid4().hex + "@synthetic.test", nome="Synthetic migration")
                 .returning(models.Usuario.id)
@@ -854,16 +833,16 @@ async def test_web_print_migration_roundtrip_refuses_populated_downgrade(
                 text("SELECT set_config('app.current_user_id',:uid,true)"), {"uid": str(uid)}
             )
             await conn.execute(
-                cast(Table, models.PrintIntent.__table__)
-                .insert()
-                .values(usuario_id=uid, id=uuid4(), expires_at=now() + timedelta(days=90))
+                models.PrintIntent.__table__.insert().values(
+                    usuario_id=uid, id=uuid4(), expires_at=now() + timedelta(days=90)
+                )
             )
         with pytest.raises(DBAPIError, match="preserve web print identities"):
             await asyncio.to_thread(command.downgrade, config, "j6main2026")
         async with engine.connect() as conn:
             assert (
                 await conn.scalar(text("SELECT version_num FROM alembic_version"))
-                == "r198result2026"
+                == "r200review2026"
             )
             assert await conn.scalar(text("SELECT count(*) FROM print_intents")) == 1
     finally:

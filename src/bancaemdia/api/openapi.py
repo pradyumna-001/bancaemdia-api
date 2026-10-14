@@ -1159,6 +1159,38 @@ REQUEST_EXAMPLES["post", "/api/v1/prints/revisoes/{revisao_id}/resolver"] = (
 )
 
 
+OPERATION_DOCUMENTATION.update({
+    ("get", "/api/v1/revisao-operacional/revisoes/{revisao_id}/foto"): (
+        "Foto opcional privada da revisão",
+        "READ_ONLY, snapshot do primário, mesma origem autenticada e autorização pela revisão. Reutiliza proveniência/mídia existente; ausência/expiração/foto inválida retornam 404 indistinguível. Raster JPEG/PNG/GIF/WebP até 20 MiB, 40 milhões de pixels e 256 frames; sem hash/URL assinada como autorização.",
+    ),
+    ("get", "/api/v1/revisao-operacional/fila"): (
+        "Fila segura por motivo",
+        "Snapshot do primário: intervalo de abertura criado_em [desde,ate), datas sem offset em America/Sao_Paulo, filtro de família aplicado à população inteira. total_filtrado/por_familia_filtrado do mesmo recorte; total_global identifica separadamente todas as abertas. Reiniciar página 1 depois de resolver para não pular itens em uma fila que diminui.",
+    ),
+    ("get", "/api/v1/revisao-operacional/revisoes/{revisao_id}"): (
+        "Evidência autorizada e ações por família",
+        "Projeção tipada e sanitizada, sem extração bruta/diagnósticos/custos/URLs assinadas. Precondição opaca vinculada ao usuário e à revisão; conta pelo dia do jogo com exceção multicontas explícita. Fotos opcionais pela rota privada existente. Motivo não suportado encaminha ao suporte sem ações.",
+    ),
+    ("post", "/api/v1/revisao-operacional/operacoes/{operacao_id}"): (
+        "Resolver uma revisão condicionalmente",
+        "UUID persistido antes do POST, FULL_WRITE atual e cookie+CSRF. Precondição comparada sob locks em transação SERIALIZABLE; escolha de tipster por fonte, sem IDs inferidos. Reutiliza correção, matriz de conta, consolidação e materializador de Print. Recibo, eventos, vínculo e fechamento atômicos. Repetição explícita idempotente do mesmo UUID/payload recupera recibo por 90 dias; nenhum replay automático após erro ou pagamento.",
+    ),
+    ("get", "/api/v1/revisao-operacional/operacoes/{operacao_id}"): (
+        "Reconciliar uma intenção de revisão",
+        "Recibo durável privado no primário por 90 dias, acessível em READ_ONLY. 404/410 não provam rollback nem autorizam novo POST automático. Revisão resolvida por outro escritor não é atribuída à intenção desconhecida. 401 reautentica; 402 preserva sessão e formulário.",
+    ),
+})
+PARAMETER_DESCRIPTIONS.update({
+    "familia": "Família decidida pelo servidor; filtro aplicado antes da paginação e da contagem.",
+    "operacao_id": "UUID criado e persistido pelo cliente antes da escrita; recuperação pela mesma identidade.",
+})
+REQUEST_EXAMPLES["post", "/api/v1/revisao-operacional/operacoes/{operacao_id}"] = (
+    "Consolidar escolhendo contexto do Telegram",
+    {"revisao_id": "42", "precondicao": "a" * 64, "acao": "MESMA", "tipster_choice": "telegram"},
+)
+
+
 def _document_operations(document: JsonObject) -> None:
     seen: set[OperationKey] = set()
     for method, path, operation in _operations(document):
@@ -1198,6 +1230,18 @@ def _document_operations(document: JsonObject) -> None:
                 raise RuntimeError(f"unnamed parameter in {method.upper()} {path}")
             try:
                 parameter["description"] = PARAMETER_DESCRIPTIONS[name]
+                if path.startswith("/api/v1/resultados/") and name == "cursor":
+                    parameter["description"] = "Cursor de Resultados privado por 30 minutos."
+                if path.startswith("/api/v1/revisao") and name in {"desde", "ate"}:
+                    parameter["description"] = (
+                        "Abertura RevisaoPendente.criado_em; "
+                        + (
+                            "limite inclusivo >= desde"
+                            if name == "desde"
+                            else "limite exclusivo < ate"
+                        )
+                        + "; ISO 8601 sem offset significa America/Sao_Paulo. Não filtra data_aposta nem data_jogo."
+                    )
             except KeyError as error:
                 raise RuntimeError(
                     f"missing description for parameter {name!r} in {method.upper()} {path}"
@@ -1429,5 +1473,20 @@ def build_openapi(app: FastAPI) -> JsonObject:
                 else None,
                 "pagination": "keyset_cursor" if path.endswith("/fila") else None,
             }
+    for method, path, operation in _operations(document):
+        if path.startswith("/api/v1/revisao-operacional/"):
+            operation["x-bancaemdia-review"] = {
+                "access": "READ_ONLY" if method == "get" else "FULL_WRITE",
+                "read_source": "primary_snapshot" if method == "get" else "primary_transaction",
+                "automatic_mutation_replay": False,
+                "receipt_days": 90,
+                "precondition": "opaque_evidence_cas",
+                "age_filter": "criado_em_interval",
+                "consumption": "restart_page_1",
+            }
+        if path == "/api/v1/revisao/stats":
+            operation["description"] += (
+                " Estatísticas globais de todas as abertas, sem os filtros da lista; idade sobre criado_em, relógio do servidor."
+            )
     app.openapi_schema = document
     return document

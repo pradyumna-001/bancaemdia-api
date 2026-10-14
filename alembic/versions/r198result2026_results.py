@@ -8,7 +8,7 @@ from alembic import op
 from sqlalchemy.dialects.postgresql import JSONB, UUID
 
 revision = "r198result2026"
-down_revision = "s196preview2026"
+down_revision = "j6main2026"
 branch_labels = None
 depends_on = None
 

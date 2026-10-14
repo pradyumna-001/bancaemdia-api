@@ -103,6 +103,11 @@ python scripts/generate_openapi.py
 | `POST` | `/api/v1/resultados/operacoes/{intention_id}` | Registrar resultado condicional | `200`, `401`, `402`, `403`, `404`, `409`, `410`, `413`, `422`, `429`, `500`, `503` | Resultados |
 | `POST` | `/api/v1/resultados/operacoes/{intention_id}/desfazer` | Desfazer resultado confirmado | `200`, `401`, `402`, `403`, `404`, `409`, `410`, `413`, `422`, `429`, `500`, `503` | Resultados |
 | `GET` | `/api/v1/revisao` | Listar revisões pendentes | `200`, `401`, `402`, `422`, `429`, `500`, `503` | — |
+| `GET` | `/api/v1/revisao-operacional/fila` | Fila segura por motivo | `200`, `401`, `402`, `403`, `404`, `409`, `410`, `422`, `429`, `500`, `503` | Revisão operacional |
+| `GET` | `/api/v1/revisao-operacional/operacoes/{operacao_id}` | Reconciliar uma intenção de revisão | `200`, `401`, `402`, `403`, `404`, `409`, `410`, `422`, `429`, `500`, `503` | Revisão operacional |
+| `POST` | `/api/v1/revisao-operacional/operacoes/{operacao_id}` | Resolver uma revisão condicionalmente | `200`, `401`, `402`, `403`, `404`, `409`, `410`, `413`, `422`, `429`, `500`, `503` | Revisão operacional |
+| `GET` | `/api/v1/revisao-operacional/revisoes/{revisao_id}` | Evidência autorizada e ações por família | `200`, `401`, `402`, `403`, `404`, `409`, `410`, `422`, `429`, `500`, `503` | Revisão operacional |
+| `GET` | `/api/v1/revisao-operacional/revisoes/{revisao_id}/foto` | Foto opcional privada da revisão | `200`, `401`, `402`, `403`, `404`, `409`, `410`, `422`, `429`, `500`, `503` | Revisão operacional |
 | `GET` | `/api/v1/revisao/stats` | Consultar estatísticas de revisão | `200`, `401`, `402`, `422`, `429`, `500`, `503` | — |
 | `GET` | `/api/v1/revisao/{revisao_id}` | Consultar revisão | `200`, `401`, `402`, `404`, `422`, `429`, `500`, `503` | — |
 | `GET` | `/api/v1/revisao/{revisao_id}/foto` | Consultar foto da revisão | `200`, `401`, `402`, `404`, `422`, `429`, `500`, `503` | — |

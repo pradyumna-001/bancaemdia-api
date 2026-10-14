@@ -400,12 +400,39 @@ async def prepare(directory: Path) -> None:
             "sh",
             "postgres:16",
             "-c",
-            "pg_basebackup -h primary -U k6_replica -D /var/lib/postgresql/data -R -X stream "
+            "pg_basebackup --checkpoint=fast -h primary -U k6_replica -D /var/lib/postgresql/data -R -X stream "
             "&& exec postgres -D /var/lib/postgresql/data -c max_connections=200",
         ],
         env={**os.environ, "PGPASSWORD": info["replica_password"]},
     )
-    await wait_database(15433, info["admin_password"], replica=True)
+    try:
+        await wait_database(15433, info["admin_password"], replica=True)
+    except RuntimeError:
+        database_startup_diagnostics(directory, info)
+        raise
+
+
+def database_startup_diagnostics(directory: Path, info: dict[str, Any]) -> None:
+    """Preserve bounded, sanitized bootstrap evidence before owned-container cleanup."""
+    name = info["name"]
+    if not isinstance(name, str) or re.fullmatch(r"k6-[a-f0-9]{16}", name) is None:
+        raise ValueError("database diagnostics require an owned disposable staging")
+    hidden = [value for key, value in info.items() if "password" in key and isinstance(value, str)]
+    lines = []
+    for component in ("primary", "replica"):
+        result = subprocess.run(
+            ["docker", "logs", "--tail", "60", f"{name}-{component}"],
+            capture_output=True,
+            text=True,
+            check=False,
+        )
+        tail = (result.stdout + result.stderr)[-16000:]
+        for secret in sorted(hidden, key=len, reverse=True):
+            tail = tail.replace(secret, "[REDACTED]")
+        lines.append(component + "\n" + tail)
+    output = "\n".join(lines)
+    (directory / "database-startup.log").write_text(output, encoding="utf-8")
+    sys.stdout.write(output + "\n")
 
 
 async def seed(directory: Path, info: dict[str, Any], env: dict[str, str]) -> None:

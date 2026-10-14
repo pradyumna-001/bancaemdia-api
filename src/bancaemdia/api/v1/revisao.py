@@ -65,6 +65,7 @@ class ResolucaoNova(BaseModel):
 
     acao: Literal["CORRIGIR", "DESCARTAR", "MESMA"]
     aposta_corrigida: CorrecaoDaRevisao | None = None
+    tipster_choice: Literal["casa", "telegram"] | None = None
 
     @field_validator("acao", mode="before")
     @classmethod
@@ -290,6 +291,8 @@ async def resolver_revisao(
     usuario: Annotated[Usuario, Depends(get_current_user)],
     session: Annotated[AsyncSession, Depends(get_db)],
 ) -> JSONResponse:
+    if pedido.tipster_choice is not None and pedido.acao != "MESMA":
+        return erro(422, "tipster_choice exige MESMA")
     repositorio = RevisaoPendenteRepo()
     revisao = await repositorio.get_by_id(session, usuario.id, revisao_id)
     if revisao is None:
@@ -362,7 +365,16 @@ async def resolver_revisao(
             await session.rollback()
             return erro(status.HTTP_409_CONFLICT, "a aposta candidata não existe mais")
         try:
-            await confirmar_par(session, usuario.id, aposta_atual, parceira)
+            if pedido.tipster_choice is None:
+                await confirmar_par(session, usuario.id, aposta_atual, parceira)
+            else:
+                await confirmar_par(
+                    session,
+                    usuario.id,
+                    aposta_atual,
+                    parceira,
+                    tipster_choice=pedido.tipster_choice,
+                )
             await EventoRepo().append(
                 session,
                 {

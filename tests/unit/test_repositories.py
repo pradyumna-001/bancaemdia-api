@@ -797,9 +797,9 @@ async def test_revisao_photo_is_loaded_by_open_owned_review_not_by_raw_hash() ->
 
     session = PhotoSession((b"jpeg", "image/jpeg"))
 
-    assert await RevisaoPendenteRepo().get_foto_by_id(
-        cast(AsyncSession, session), 1, 6
-    ) == registros.FotoRevisao(b"jpeg", "image/jpeg")
+    assert await RevisaoPendenteRepo().get_foto_by_id(session, 1, 6) == registros.FotoRevisao(
+        b"jpeg", "image/jpeg"
+    )
     sql = _sql(session.statements[1])
     assert "FROM revisao_pendente JOIN midias" in sql
     assert "JOIN midia_arquivos" in sql

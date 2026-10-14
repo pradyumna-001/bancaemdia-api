@@ -38,6 +38,7 @@ from bancaemdia.api.v1 import (
     painel_detalhado,
     painel_filtrado,
     results,
+    reviews,
     revisao,
     sheet_import,
     telegram,
@@ -150,6 +151,7 @@ app.include_router(apostas.router)
 app.include_router(aposta_foto.router)
 app.include_router(sheet_import.router)
 app.include_router(results.router)
+app.include_router(reviews.router)
 app.include_router(caixa.router)
 app.include_router(painel.router)
 app.include_router(metas.router)
@@ -168,6 +170,29 @@ app.include_router(usuario.router)
 
 @app.exception_handler(RequestValidationError)
 async def validation_failure(request: Request, error: RequestValidationError) -> JSONResponse:
+    if request.url.path.startswith("/api/v1/revisao-operacional/"):
+        errors = error.errors()
+        from bancaemdia.domain.aposta_service import CAMPOS_CORRIGIVEIS
+        from bancaemdia.domain.review_contract import ReviewDecision, ReviewQuery
+
+        allowed_fields = (
+            CAMPOS_CORRIGIVEIS
+            | set(ReviewDecision.model_fields)
+            | set(ReviewQuery.model_fields)
+            | {"operacao_id"}
+        )
+        location = errors[0]["loc"] if errors else ()
+        name = str(location[-1]) if location else None
+        field = (
+            name
+            if name in allowed_fields
+            else "aposta_corrigida"
+            if "aposta_corrigida" in location
+            else None
+        )
+        return JSONResponse(
+            {"detail": "review_validation_invalid", "campo": field}, status_code=422
+        )
     from bancaemdia.domain.foto_aposta import photo_path
 
     if route_path(request).startswith("/api/v1/prints/"):
