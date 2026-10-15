@@ -20,6 +20,14 @@ MANUAL_BET_HOUSES = sorted(
 
 
 OPERATION_DOCUMENTATION: dict[OperationKey, tuple[str, str]] = {
+    ("post", "/api/v1/apostas-manuais/operacoes/{intencao_id}"): (
+        "Criar aposta manual reconciliável",
+        "FULL_WRITE e CSRF atuais. UUID escolhido antes do POST; aposta, eventos, eventual revisão e recibo no mesmo commit. Mesmo UUID/corpo normalizado devolve confirmação original sem recalcular data, unidade ou conta; outro corpo conflita. Recuperação por 90 dias; identidade não é reutilizada após expirar. Nenhum POST recebe retry automático.",
+    ),
+    ("get", "/api/v1/apostas-manuais/operacoes/{intencao_id}"): (
+        "Recuperar confirmação original manual",
+        "READ_ONLY explícito no primário, por UUID e usuário autenticado. Recibo original disponível por 90 dias, mesmo após correção/apagamento da aposta. 404/410 não provam rollback nem autorizam repetição automática. Somente confirmado tem chave para navegar ao detalhe atual; nenhuma fila assíncrona é publicada.",
+    ),
     ("post", "/api/v1/coleta/sessions"): (
         "Abrir ou retomar sessão",
         "Cria uma fronteira imutável por instalação ou retoma o UUID explícito sem ampliar o corte.",
@@ -380,6 +388,7 @@ OPERATION_DOCUMENTATION: dict[OperationKey, tuple[str, str]] = {
 
 
 PARAMETER_DESCRIPTIONS = {
+    "intencao_id": "UUID escolhido pela SPA antes do POST e persistido na URL. A referência não concede acesso e fica ocupada para o mesmo usuário após expiração do recibo.",
     "sessao_id": "UUID opaco da sessão pertencente à instalação autenticada.",
     "instalacao_id": "ID interno da instalação do usuário autenticado.",
     "client_version": "Versão estável do cliente em três componentes.",
@@ -429,6 +438,22 @@ PARAMETER_DESCRIPTIONS = {
 
 
 REQUEST_EXAMPLES: dict[OperationKey, tuple[str, JsonObject]] = {
+    ("post", "/api/v1/apostas-manuais/operacoes/{intencao_id}"): (
+        "Aposta manual/freebet com face positiva e conta opcional explícita",
+        {
+            "casa": "Betano",
+            "data_aposta": "2026-10-15T14:00:00-03:00",
+            "data_jogo": "2026-10-16T19:00:00-03:00",
+            "odd": 2.0,
+            "stake_unidades": 1.0,
+            "freebet": True,
+            "comissao_centavos": "0",
+            "conta_casa_id": "9007199254740995",
+            "evento": "Casa x Fora",
+            "descricao": "Casa vence",
+            "mercado_bruto": "Resultado final",
+        },
+    ),
     ("post", "/api/v1/coleta/sessions"): (
         "Nova sessão explícita",
         {"coletar_desde": "2026-08-01T00:00:00Z", "retomar_sessao_id": None},
