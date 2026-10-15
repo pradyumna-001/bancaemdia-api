@@ -219,7 +219,7 @@ def test_openapi_endpoint_matches_checked_in_snapshot(openapi_document: JsonObje
 @pytest.mark.contract
 def test_every_operation_has_human_documentation(openapi_document: JsonObject) -> None:
     operations = list(_operations(openapi_document))
-    assert len(operations) == 125
+    assert len(operations) == 127
     for method, path, operation in operations:
         location = f"{method.upper()} {path}"
         assert str(operation.get("summary", "")).strip(), location
@@ -244,7 +244,7 @@ def test_request_bodies_have_examples(openapi_document: JsonObject) -> None:
             assert media.get("example") is not None or media.get("examples"), (
                 f"{method.upper()} {path}: {media_type} lacks an example"
             )
-    assert bodies == 45
+    assert bodies == 46
 
 
 @pytest.mark.contract
@@ -640,6 +640,39 @@ def invalid_upload_job_cases(
     # instead of filtering most of the generated examples or skipping the route.
     assert context.operation is not None
     operation = context.operation
+    if operation.path in {
+        "/api/v1/planilhas/confirmacoes/{confirmation_id}",
+        "/api/v1/planilhas/previas/{preview_id}/linhas",
+        "/api/v1/planilhas/previas/{preview_id}/remapear/{new_preview_id}",
+    }:
+
+        def invalid_sheet(value):
+            if "{confirmation_id}" in operation.path:
+                parameters = {"confirmation_id": value}
+            else:
+                parameters = {"preview_id": value}
+                if "{new_preview_id}" in operation.path:
+                    parameters["new_preview_id"] = "d4ef3f20-b61e-4d43-8a33-90f203af4a84"
+            if operation.method.upper() == "POST":
+                return operation.Case(
+                    path_parameters=parameters, body={}, media_type="application/json"
+                )
+            return operation.Case(path_parameters=parameters)
+
+        return st.text(alphabet="ghijklmnopqrstuvwxyz", min_size=1, max_size=40).map(invalid_sheet)
+    if operation.path.startswith("/api/v1/apostas-manuais/operacoes/"):
+        # Generate a wire-invalid UUID. A JSON type mutation can serialize back
+        # into a valid string, making negative generation filter every example.
+        def invalid_manual(value):
+            if operation.method.upper() == "POST":
+                return operation.Case(
+                    path_parameters={"intencao_id": value},
+                    body={"casa": "Betano", "odd": 2.0, "stake_unidades": 1.0},
+                    media_type="application/json",
+                )
+            return operation.Case(path_parameters={"intencao_id": value})
+
+        return st.text(alphabet="ghijklmnopqrstuvwxyz", min_size=1, max_size=40).map(invalid_manual)
     if operation.path.startswith("/api/v1/revisao-operacional/operacoes/"):
         return st.text(alphabet="ghijklmnopqrstuvwxyz", min_size=1, max_size=40).map(
             lambda value: operation.Case(path_parameters={"operacao_id": value})

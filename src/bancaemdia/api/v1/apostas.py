@@ -626,6 +626,17 @@ async def criar_aposta(
     usuario: Annotated[Usuario, Depends(get_current_user)],
     session: Annotated[AsyncSession, Depends(get_db)],
 ) -> JSONResponse:
+    return await _criar_manual(manual, usuario, session)
+
+
+async def _criar_manual(
+    manual: ApostaManual,
+    usuario: Usuario,
+    session: AsyncSession,
+    *,
+    confirmar: bool = True,
+) -> JSONResponse:
+    """Shared creation boundary; the durable-intent caller owns the outer commit."""
     nome = casa_canonica(manual.casa or "")
     if "casa" in campos_ausentes_criacao(manual.model_dump()):
         return erro(status.HTTP_422_UNPROCESSABLE_ENTITY, "falta a casa de apostas")
@@ -722,10 +733,11 @@ async def criar_aposta(
         await session.rollback()
         return erro(status.HTTP_409_CONFLICT, OCUPADA)
     await sync_account_review(session, usuario.id, chave, account)
-    await session.commit()
-    apostas_created_total.labels(
-        origem="manual", estado=str(depois.get("estado") or "PENDENTE")
-    ).inc()
+    if confirmar:
+        await session.commit()
+        apostas_created_total.labels(
+            origem="manual", estado=str(depois.get("estado") or "PENDENTE")
+        ).inc()
     corpo: dict[str, Any] = {"aposta": linha_da_aposta(gravada, depois), "casa_id": casa_id}
     if motivo := review_reason(account):
         corpo["aviso"] = motivo

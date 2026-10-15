@@ -4925,6 +4925,36 @@
         "title": "LogoutStatus",
         "type": "object"
       },
+      "ManualAssignmentNotice": {
+        "additionalProperties": false,
+        "properties": {
+          "codigo": {
+            "enum": [
+              "conta_ausente",
+              "conta_ambigua"
+            ],
+            "title": "Codigo",
+            "type": "string"
+          },
+          "encaminhamento": {
+            "const": "revisar_conta",
+            "default": "revisar_conta",
+            "title": "Encaminhamento",
+            "type": "string"
+          },
+          "revisao_id": {
+            "pattern": "^[1-9][0-9]{0,18}$",
+            "title": "Revisao Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "codigo",
+          "revisao_id"
+        ],
+        "title": "ManualAssignmentNotice",
+        "type": "object"
+      },
       "ManualCandidate": {
         "additionalProperties": false,
         "properties": {
@@ -4963,6 +4993,315 @@
           "evidence_sha256"
         ],
         "title": "ManualCandidate",
+        "type": "object"
+      },
+      "ManualCreationError": {
+        "additionalProperties": false,
+        "properties": {
+          "campo": {
+            "anyOf": [
+              {
+                "enum": [
+                  "intencao_id",
+                  "casa",
+                  "data_aposta",
+                  "data_jogo",
+                  "odd",
+                  "stake_unidades",
+                  "evento",
+                  "descricao",
+                  "mercado_bruto",
+                  "freebet",
+                  "comissao_centavos",
+                  "conta_casa_id"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Campo"
+          },
+          "detail": {
+            "enum": [
+              "manual_validation_invalid",
+              "manual_account_invalid",
+              "manual_creation_busy",
+              "manual_intention_conflict",
+              "manual_intention_not_found",
+              "manual_receipt_expired",
+              "manual_creation_unavailable"
+            ],
+            "title": "Detail",
+            "type": "string"
+          },
+          "efeito": {
+            "default": "nenhuma_gravacao_neste_pedido",
+            "enum": [
+              "nenhuma_gravacao_neste_pedido",
+              "resultado_desconhecido",
+              "confirmacao_anterior_retida"
+            ],
+            "title": "Efeito",
+            "type": "string"
+          }
+        },
+        "required": [
+          "detail"
+        ],
+        "title": "ManualCreationError",
+        "type": "object"
+      },
+      "ManualCreationReceipt": {
+        "additionalProperties": false,
+        "description": "Original confirmation, never a live financial projection of the bet.",
+        "properties": {
+          "aposta_chave": {
+            "title": "Aposta Chave",
+            "type": "string"
+          },
+          "avisos": {
+            "items": {
+              "$ref": "#/components/schemas/ManualAssignmentNotice"
+            },
+            "title": "Avisos",
+            "type": "array"
+          },
+          "confirmacao_original": {
+            "$ref": "#/components/schemas/ManualOriginalConfirmation"
+          },
+          "confirmado_em": {
+            "format": "date-time",
+            "title": "Confirmado Em",
+            "type": "string"
+          },
+          "detalhe_url": {
+            "title": "Detalhe Url",
+            "type": "string"
+          },
+          "estado": {
+            "const": "confirmada",
+            "default": "confirmada",
+            "title": "Estado",
+            "type": "string"
+          },
+          "intencao_id": {
+            "format": "uuid",
+            "title": "Intencao Id",
+            "type": "string"
+          },
+          "recuperavel_ate": {
+            "format": "date-time",
+            "title": "Recuperavel Ate",
+            "type": "string"
+          }
+        },
+        "required": [
+          "intencao_id",
+          "aposta_chave",
+          "detalhe_url",
+          "confirmado_em",
+          "recuperavel_ate",
+          "confirmacao_original",
+          "avisos"
+        ],
+        "title": "ManualCreationReceipt",
+        "type": "object"
+      },
+      "ManualCreationRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "casa": {
+            "maxLength": 200,
+            "minLength": 1,
+            "title": "Casa",
+            "type": "string"
+          },
+          "comissao_centavos": {
+            "anyOf": [
+              {
+                "pattern": "^(0|[1-9][0-9]{0,18})$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Comissao Centavos"
+          },
+          "conta_casa_id": {
+            "anyOf": [
+              {
+                "pattern": "^[1-9][0-9]{0,18}$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Conta Casa Id"
+          },
+          "data_aposta": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Data Aposta"
+          },
+          "data_jogo": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Data Jogo"
+          },
+          "descricao": {
+            "anyOf": [
+              {
+                "maxLength": 10000,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Descricao"
+          },
+          "evento": {
+            "anyOf": [
+              {
+                "maxLength": 10000,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Evento"
+          },
+          "freebet": {
+            "default": false,
+            "title": "Freebet",
+            "type": "boolean"
+          },
+          "mercado_bruto": {
+            "anyOf": [
+              {
+                "maxLength": 10000,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Mercado Bruto"
+          },
+          "odd": {
+            "maximum": 1000.0,
+            "minimum": 1.01,
+            "title": "Odd",
+            "type": "number"
+          },
+          "stake_unidades": {
+            "exclusiveMinimum": 0.0,
+            "title": "Stake Unidades",
+            "type": "number"
+          }
+        },
+        "required": [
+          "casa",
+          "odd",
+          "stake_unidades"
+        ],
+        "title": "ManualCreationRequest",
+        "type": "object"
+      },
+      "ManualOriginalConfirmation": {
+        "additionalProperties": false,
+        "properties": {
+          "comissao_centavos": {
+            "pattern": "^(0|[1-9][0-9]{0,18})$",
+            "title": "Comissao Centavos",
+            "type": "string"
+          },
+          "conta_casa_id": {
+            "anyOf": [
+              {
+                "pattern": "^[1-9][0-9]{0,18}$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Conta Casa Id"
+          },
+          "criterio_conta": {
+            "enum": [
+              "data_jogo",
+              "multicontas_explicita"
+            ],
+            "title": "Criterio Conta",
+            "type": "string"
+          },
+          "data_aposta": {
+            "format": "date-time",
+            "title": "Data Aposta",
+            "type": "string"
+          },
+          "data_jogo": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Data Jogo"
+          },
+          "freebet": {
+            "title": "Freebet",
+            "type": "boolean"
+          },
+          "stake_centavos": {
+            "pattern": "^(0|[1-9][0-9]{0,18})$",
+            "title": "Stake Centavos",
+            "type": "string"
+          },
+          "valor_aposta_centavos": {
+            "pattern": "^(0|[1-9][0-9]{0,18})$",
+            "title": "Valor Aposta Centavos",
+            "type": "string"
+          },
+          "valor_unidade_centavos": {
+            "pattern": "^(0|[1-9][0-9]{0,18})$",
+            "title": "Valor Unidade Centavos",
+            "type": "string"
+          }
+        },
+        "required": [
+          "data_aposta",
+          "data_jogo",
+          "conta_casa_id",
+          "criterio_conta",
+          "valor_unidade_centavos",
+          "stake_centavos",
+          "valor_aposta_centavos",
+          "comissao_centavos",
+          "freebet"
+        ],
+        "title": "ManualOriginalConfirmation",
         "type": "object"
       },
       "ManualReceipt": {
@@ -11339,6 +11678,383 @@
           }
         ],
         "summary": "Criar aposta manual"
+      }
+    },
+    "/api/v1/apostas-manuais/operacoes/{intencao_id}": {
+      "get": {
+        "description": "READ_ONLY explícito no primário, por UUID e usuário autenticado. Recibo original disponível por 90 dias, mesmo após correção/apagamento da aposta. 404/410 não provam rollback nem autorizam repetição automática. Somente confirmado tem chave para navegar ao detalhe atual; nenhuma fila assíncrona é publicada.",
+        "operationId": "recover_manual_api_v1_apostas_manuais_operacoes__intencao_id__get",
+        "parameters": [
+          {
+            "description": "UUID escolhido pela SPA antes do POST e persistido na URL. A referência não concede acesso e fica ocupada para o mesmo usuário após expiração do recibo.",
+            "in": "path",
+            "name": "intencao_id",
+            "required": true,
+            "schema": {
+              "description": "UUID escolhido antes do POST, restrito ao usuário autenticado.",
+              "format": "uuid",
+              "title": "Intencao Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ManualCreationReceipt"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Missing, expired, or invalid bearer token.",
+            "headers": {
+              "X-Auth-Error": {
+                "description": "Identity error code when AUTH_ENABLED; legacy response body is preserved.",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "402": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "account_read_only: writes require confirmed trial or paid access."
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ManualCreationError"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ManualCreationError"
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "410": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ManualCreationError"
+                }
+              }
+            },
+            "description": "Gone"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ManualCreationError"
+                }
+              }
+            },
+            "description": "Unprocessable Entity"
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "The caller exceeded an applicable request limit."
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unexpected internal failure with no sensitive exception details."
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "anyOf": [
+                    {
+                      "$ref": "#/components/schemas/ManualCreationError"
+                    },
+                    {
+                      "$ref": "#/components/schemas/ErrorResponse"
+                    }
+                  ],
+                  "title": "Response 503 Recover Manual Api V1 Apostas Manuais Operacoes  Intencao Id  Get"
+                }
+              }
+            },
+            "description": "Dependência ou autenticação indisponível; resultado desconhecido, consultar intenção antes de nova ação.",
+            "headers": {
+              "X-Auth-Error": {
+                "description": "Identity error code when AUTH_ENABLED; legacy response body is preserved.",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          },
+          {
+            "SessionCookie": []
+          }
+        ],
+        "summary": "Recuperar confirmação original manual",
+        "x-automatic-retry": false,
+        "x-permission": "READ_ONLY"
+      },
+      "post": {
+        "description": "FULL_WRITE e CSRF atuais. UUID escolhido antes do POST; aposta, eventos, eventual revisão e recibo no mesmo commit. Mesmo UUID/corpo normalizado devolve confirmação original sem recalcular data, unidade ou conta; outro corpo conflita. Recuperação por 90 dias; identidade não é reutilizada após expirar. Nenhum POST recebe retry automático.",
+        "operationId": "create_manual_api_v1_apostas_manuais_operacoes__intencao_id__post",
+        "parameters": [
+          {
+            "description": "UUID escolhido pela SPA antes do POST e persistido na URL. A referência não concede acesso e fica ocupada para o mesmo usuário após expiração do recibo.",
+            "in": "path",
+            "name": "intencao_id",
+            "required": true,
+            "schema": {
+              "description": "UUID escolhido antes do POST, restrito ao usuário autenticado.",
+              "format": "uuid",
+              "title": "Intencao Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "examples": {
+                "default": {
+                  "summary": "Aposta manual/freebet com face positiva e conta opcional explícita",
+                  "value": {
+                    "casa": "Betano",
+                    "comissao_centavos": "0",
+                    "conta_casa_id": "9007199254740995",
+                    "data_aposta": "2026-10-15T14:00:00-03:00",
+                    "data_jogo": "2026-10-16T19:00:00-03:00",
+                    "descricao": "Casa vence",
+                    "evento": "Casa x Fora",
+                    "freebet": true,
+                    "mercado_bruto": "Resultado final",
+                    "odd": 2.0,
+                    "stake_unidades": 1.0
+                  }
+                }
+              },
+              "schema": {
+                "$ref": "#/components/schemas/ManualCreationRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ManualCreationReceipt"
+                }
+              }
+            },
+            "description": "Recibo original de repetição explícita do mesmo UUID/corpo."
+          },
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ManualCreationReceipt"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Missing, expired, or invalid bearer token.",
+            "headers": {
+              "X-Auth-Error": {
+                "description": "Identity error code when AUTH_ENABLED; legacy response body is preserved.",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "402": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "account_read_only: writes require confirmed trial or paid access."
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Cookie mutation requires exact Origin and current CSRF proof."
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ManualCreationError"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ManualCreationError"
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "410": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ManualCreationError"
+                }
+              }
+            },
+            "description": "Gone"
+          },
+          "413": {
+            "content": {
+              "text/plain": {
+                "example": "Content Too Large",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            },
+            "description": "The request body exceeds this endpoint's streaming limit."
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ManualCreationError"
+                }
+              }
+            },
+            "description": "Unprocessable Entity"
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "The caller exceeded an applicable request limit."
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unexpected internal failure with no sensitive exception details."
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "anyOf": [
+                    {
+                      "$ref": "#/components/schemas/ManualCreationError"
+                    },
+                    {
+                      "$ref": "#/components/schemas/ErrorResponse"
+                    }
+                  ],
+                  "title": "Response 503 Create Manual Api V1 Apostas Manuais Operacoes  Intencao Id  Post"
+                }
+              }
+            },
+            "description": "Dependência ou autenticação indisponível; resultado desconhecido, consultar intenção antes de nova ação.",
+            "headers": {
+              "X-Auth-Error": {
+                "description": "Identity error code when AUTH_ENABLED; legacy response body is preserved.",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          },
+          {
+            "CsrfProof": [],
+            "SessionCookie": []
+          }
+        ],
+        "summary": "Criar aposta manual reconciliável",
+        "x-idempotency": {
+          "automatic_retry": false,
+          "expired_identity_reusable": false,
+          "identity": "path.intencao_id",
+          "retention_days": 90,
+          "scope": "authenticated_user"
+        }
       }
     },
     "/api/v1/apostas/importar-planilha": {
@@ -30917,6 +31633,15 @@
                       },
                       "type": "array"
                     },
+                    "manual_creation_operations": {
+                      "items": {
+                        "additionalProperties": {
+                          "$ref": "#/components/schemas/JsonValue"
+                        },
+                        "type": "object"
+                      },
+                      "type": "array"
+                    },
                     "metas_desempenho": {
                       "items": {
                         "additionalProperties": {
@@ -31085,6 +31810,7 @@
                     "eventos",
                     "movimentos",
                     "movimento_requisicoes",
+                    "manual_creation_operations",
                     "bancas",
                     "contas_casa",
                     "titulares",

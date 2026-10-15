@@ -848,7 +848,7 @@ async def test_migration_empty_roundtrip_and_populated_refusal(banco_migracao, m
         async with engine.begin() as conn:
             assert (
                 await conn.scalar(text("SELECT version_num FROM alembic_version"))
-                == "u200sandbox2026"
+                == "u202sandbox2026"
             )
             await conn.execute(
                 text(

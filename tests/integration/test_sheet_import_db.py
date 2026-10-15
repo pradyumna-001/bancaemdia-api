@@ -69,7 +69,7 @@ async def test_migration_refuses_populated_downgrade_and_restores_empty_guards(
         async with engine.begin() as conn:
             assert (
                 await conn.scalar(text("SELECT version_num FROM alembic_version"))
-                == "u200sandbox2026"
+                == "u202sandbox2026"
             )
             await conn.execute(text("DELETE FROM usuarios WHERE id=:uid"), {"uid": uid})
         await asyncio.to_thread(command.downgrade, config, "j6main2026")

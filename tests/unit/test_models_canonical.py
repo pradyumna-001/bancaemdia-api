@@ -44,6 +44,7 @@ from bancaemdia.models.esporte import Esporte
 from bancaemdia.models.evento import Evento
 from bancaemdia.models.extracao_cache import ExtracaoCache
 from bancaemdia.models.grupo_aposta import ApostaGrupo, GrupoAposta
+from bancaemdia.models.manual_creation import ManualCreationOperation
 from bancaemdia.models.mensagem import Mensagem
 from bancaemdia.models.mensagem_versao import MensagemVersao
 from bancaemdia.models.mercado import FAMILIAS, Mercado
@@ -55,6 +56,7 @@ from bancaemdia.models.movimento_requisicao import MovimentoRequisicao
 from bancaemdia.models.rascunho_aposta import RascunhoAposta, RascunhoCorrecao
 from bancaemdia.models.reader_quarantine import ReaderQuarantine
 from bancaemdia.models.revisao_pendente import RevisaoPendente
+from bancaemdia.models.sheet_import import SheetConfirmation, SheetPreview, SheetSource
 from bancaemdia.models.telegram_link import (
     TelegramLink,
     TelegramLinkAttempt,
@@ -74,6 +76,10 @@ from bancaemdia.models.usuario import Usuario
 NUCLEO = (Usuario, Banca, ContaCasa, Unidade, Movimento, Aposta, Evento)
 CANONICOS = (Casa, Esporte, Competicao, Time, Mercado, Tipster, Apelido)
 SUPORTE = (
+    SheetSource,
+    SheetPreview,
+    SheetConfirmation,
+    ManualCreationOperation,
     ApostaGrupo,
     GrupoAposta,
     ApostaConsolidacao,
@@ -105,6 +111,7 @@ TELEGRAM_LINKING = (TelegramLink, TelegramLinkCode, TelegramLinkAttempt, Telegra
 TELEGRAM_TRANSPORT = (TelegramInbox, TelegramOutbox)
 TELEGRAM_DRAFTS = (RascunhoAposta, RascunhoCorrecao)
 POR_USUARIO = (
+    ManualCreationOperation,
     GrupoAposta,
     ChamadaIA,
     ColetaCasa,
@@ -184,7 +191,7 @@ def test_all_forty_eight_tables_are_registered() -> None:
         "print_items",
         "print_assets",
     }
-    assert len(esperadas) == 70
+    assert len(esperadas) == 76
     assert set(Base.metadata.tables) == esperadas
     assert {m.__tablename__ for m in CANONICOS} == {
         "casas",
@@ -196,6 +203,10 @@ def test_all_forty_eight_tables_are_registered() -> None:
         "apelidos",
     }
     assert {m.__tablename__ for m in SUPORTE} == {
+        "sheet_sources",
+        "sheet_previews",
+        "sheet_confirmations",
+        "manual_creation_operations",
         "apostas_grupos",
         "grupos_aposta",
         "aposta_consolidacoes",
@@ -381,6 +392,11 @@ def test_revisao_pendente_indexes() -> None:
 
 def test_bigserial_except_composite_and_billing_owner_keys() -> None:
     for nome in set(Base.metadata.tables) - {
+        "apostas_grupos",
+        "sheet_sources",
+        "sheet_previews",
+        "sheet_confirmations",
+        "manual_creation_operations",
         "print_assets",
         "print_intents",
         "print_items",
@@ -408,3 +424,24 @@ def test_web_print_keys_are_tenant_scoped_uuid_identities() -> None:
         "FOREIGN KEY(usuario_id, asset_id) REFERENCES print_assets (usuario_id, id)"
         in _create_table("print_items")
     )
+
+
+def test_manual_receipt_uuid_is_scoped_to_owner_and_survives_bet_deletion() -> None:
+    table = ManualCreationOperation.__table__
+    assert list(table.primary_key.columns.keys()) == ["usuario_id", "id"]
+    assert "id UUID NOT NULL" in _create_table("manual_creation_operations")
+    assert _fk_targets(ManualCreationOperation) == {"usuario_id": "usuarios.id"}
+    assert table.c.receipt.type.__class__.__name__ == "JSONB"
+
+
+def test_all_retained_xlsx_identities_use_owner_scoped_uuid_keys() -> None:
+    for name in ("sheet_sources", "sheet_previews", "sheet_confirmations"):
+        table = Base.metadata.tables[name]
+        assert list(table.primary_key.columns.keys()) == ["usuario_id", "id"]
+        assert "id UUID NOT NULL" in _create_table(name)
+
+
+def test_retained_group_links_keep_their_three_column_owner_key() -> None:
+    table = Base.metadata.tables["apostas_grupos"]
+    assert list(table.primary_key.columns.keys()) == ["usuario_id", "aposta_id", "grupo_id"]
+    assert "id" not in table.c

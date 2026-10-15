@@ -34,6 +34,19 @@ class SecurityHeadersMiddleware:
 
         async def send_headers(message: Message) -> None:
             if message["type"] == "http.response.start":
+                if scope.get("path", "").startswith("/api/v1/apostas-manuais/"):
+                    message = {
+                        **message,
+                        "headers": [
+                            (n, v)
+                            for n, v in message.get("headers", [])
+                            if n.lower() not in {b"cache-control", b"vary"}
+                        ]
+                        + [
+                            (b"cache-control", b"private, no-store"),
+                            (b"vary", b"Cookie, Authorization"),
+                        ],
+                    }
                 names = {name for name, _ in SECURITY_HEADERS}
                 message = {
                     **message,

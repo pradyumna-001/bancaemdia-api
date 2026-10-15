@@ -33,6 +33,7 @@ from bancaemdia.api.v1 import (
     coleta_pairing,
     coleta_sessoes,
     filtros,
+    manual_bets,
     metas,
     painel,
     painel_detalhado,
@@ -148,6 +149,7 @@ app.include_router(upload.router)
 app.include_router(web_print.router)
 app.include_router(identity_router)
 app.include_router(apostas.router)
+app.include_router(manual_bets.router)
 app.include_router(aposta_foto.router)
 app.include_router(sheet_import.router)
 app.include_router(results.router)
@@ -170,6 +172,8 @@ app.include_router(usuario.router)
 
 @app.exception_handler(RequestValidationError)
 async def validation_failure(request: Request, error: RequestValidationError) -> JSONResponse:
+    if route_path(request).startswith("/api/v1/apostas-manuais/"):
+        return manual_bets.validation_failure(error)
     if request.url.path.startswith("/api/v1/revisao-operacional/"):
         errors = error.errors()
         from bancaemdia.domain.aposta_service import CAMPOS_CORRIGIVEIS
