@@ -21,6 +21,8 @@ python scripts/generate_openapi.py
 | `GET` | `/api/v1/admin/casas/export` | Exportar catálogo administrativo | `200`, `400`, `401`, `402`, `403`, `405`, `422`, `429`, `500`, `503` | — |
 | `GET` | `/api/v1/apostas` | Listar apostas | `200`, `401`, `402`, `422`, `429`, `500`, `503` | — |
 | `POST` | `/api/v1/apostas` | Criar aposta manual | `201`, `401`, `402`, `403`, `409`, `413`, `422`, `429`, `500`, `503` | — |
+| `GET` | `/api/v1/apostas-manuais/operacoes/{intencao_id}` | Recuperar confirmação original manual | `200`, `401`, `402`, `404`, `409`, `410`, `422`, `429`, `500`, `503` | — |
+| `POST` | `/api/v1/apostas-manuais/operacoes/{intencao_id}` | Criar aposta manual reconciliável | `200`, `201`, `401`, `402`, `403`, `404`, `409`, `410`, `413`, `422`, `429`, `500`, `503` | — |
 | `POST` | `/api/v1/apostas/importar-planilha` | Importar apostas do Excel | `200`, `401`, `402`, `403`, `413`, `422`, `429`, `500`, `503` | — |
 | `POST` | `/api/v1/apostas/lotes` | Apagar todas as apostas | `201`, `401`, `402`, `403`, `409`, `413`, `422`, `429`, `500`, `503` | — |
 | `GET` | `/api/v1/apostas/lotes/intencao` | Recuperar lote de apostas | `200`, `401`, `402`, `404`, `422`, `429`, `500`, `503` | — |
