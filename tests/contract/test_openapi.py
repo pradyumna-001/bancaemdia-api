@@ -631,6 +631,19 @@ def invalid_upload_job_cases(
     # instead of filtering most of the generated examples or skipping the route.
     assert context.operation is not None
     operation = context.operation
+    if operation.path.startswith("/api/v1/apostas-manuais/operacoes/"):
+        # Generate a wire-invalid UUID. A JSON type mutation can serialize back
+        # into a valid string, making negative generation filter every example.
+        def invalid_manual(value):
+            if operation.method.upper() == "POST":
+                return operation.Case(
+                    path_parameters={"intencao_id": value},
+                    body={"casa": "Betano", "odd": 2.0, "stake_unidades": 1.0},
+                    media_type="application/json",
+                )
+            return operation.Case(path_parameters={"intencao_id": value})
+
+        return st.text(alphabet="ghijklmnopqrstuvwxyz", min_size=1, max_size=40).map(invalid_manual)
     if operation.path != "/api/v1/upload/{job_id}" or operation.method.upper() != "GET":
         return _strategy
     return st.text(alphabet="ghijklmnopqrstuvwxyz", min_size=1, max_size=40).map(
