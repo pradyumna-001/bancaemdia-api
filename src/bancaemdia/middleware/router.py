@@ -50,6 +50,10 @@ def get_recent_writes() -> RecentWrites:
 
 
 def needs_primary(request: Request, usuario_id: int | None, writes: RecentWrites) -> bool:
+    if route_path(request).startswith("/api/v1/apostas-manuais/"):
+        # Recovery must survive a lost response or a different API process,
+        # independently of the five-second process-local recent-write cache.
+        return True
     if route_path(request).startswith(CALCULATOR_PREFIX):
         return False
     if request.method not in SAFE_METHODS:
