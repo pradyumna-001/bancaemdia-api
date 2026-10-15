@@ -164,7 +164,8 @@ async def registrar(
         chave = chave_casa(casa, coletada.identidade)
         # Já é aposta nossa: o que pode faltar é o resultado, e ele não passa de novo pela régua da
         # criação, como no projeto antigo.
-        if await ApostaRepo().get_by_chave(session, usuario_id, chave) is None:
+        aposta_existente = await ApostaRepo().get_by_chave(session, usuario_id, chave)
+        if aposta_existente is None:
             try:
                 validar(coletada, VALOR_UNIDADE_PADRAO_CENTAVOS)
             except ApostaInvalidaError as recusa:
@@ -176,7 +177,9 @@ async def registrar(
                 coleta_received.labels(casa=casa, status="recusada").inc()
                 continue
 
-        matching = await coletas.matching_counts(session, usuario_id, chave)
+        matching = await coletas.matching_counts(
+            session, usuario_id, None if aposta_existente is None else aposta_existente.id
+        )
         resultado.iguais_a_existentes += int(matching.get("exact", 0) > 0)
         resultado.em_duvida += int(matching.get("probable", 0) > 0)
 
