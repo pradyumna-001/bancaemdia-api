@@ -21,7 +21,7 @@ from bancaemdia.auth.identity_config import identity_settings
 from bancaemdia.auth.jwt import JWKSCache
 from bancaemdia.config import get_settings
 from bancaemdia.core.context import current_user_id
-from bancaemdia.db.session import get_db
+from bancaemdia.db.session import get_db, get_db_primary_snapshot, get_db_snapshot
 from bancaemdia.models.manual_creation import ManualCreationOperation
 from tests.integration.cruzamento.test_consolidacao import accounts
 
@@ -72,8 +72,23 @@ async def api(engine_app, monkeypatch):
             )
             yield session
 
+    async def snapshot():
+        async with AsyncSession(
+            engine_app.execution_options(
+                isolation_level="REPEATABLE READ", postgresql_readonly=True
+            ),
+            expire_on_commit=False,
+        ) as session:
+            await session.execute(
+                text("SELECT set_config('app.current_user_id',:u,true)"),
+                {"u": current_user_id.get() or ""},
+            )
+            yield session
+
     previous = dict(app.dependency_overrides)
     app.dependency_overrides[get_db] = database
+    app.dependency_overrides[get_db_snapshot] = snapshot
+    app.dependency_overrides[get_db_primary_snapshot] = snapshot
     try:
         async with httpx.AsyncClient(
             transport=httpx.ASGITransport(app=app, raise_app_exceptions=False),
@@ -709,7 +724,7 @@ async def test_402_read_only_recovers_saved_receipt_without_payment_or_replay(
 
 async def test_explicit_bigint_and_receipt_money_are_exact_strings(api, owner, engine_app, como):
     uid, house, _ = owner
-    large = 9007199254740995
+    large = 2**62 + 2 * (uuid4().int % 2**59) + 1
     async with como(engine_app, uid) as s:
         s.add(models.ContaCasa(id=large, usuario_id=uid, casa_id=house, apelido="BIGINT"))
         await s.commit()
