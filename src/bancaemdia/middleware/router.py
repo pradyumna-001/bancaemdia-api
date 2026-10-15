@@ -1,10 +1,9 @@
 import time
-from collections.abc import Awaitable, Callable
+from collections.abc import Callable
 from functools import lru_cache
 
-from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.requests import Request
-from starlette.responses import Response
+from starlette.types import ASGIApp, Receive, Scope, Send
 
 from bancaemdia.auth.middleware import route_path
 from bancaemdia.core.context import use_primary
@@ -51,8 +50,6 @@ def get_recent_writes() -> RecentWrites:
 
 def needs_primary(request: Request, usuario_id: int | None, writes: RecentWrites) -> bool:
     if route_path(request).startswith("/api/v1/apostas-manuais/"):
-        # Recovery must survive a lost response or a different API process,
-        # independently of the five-second process-local recent-write cache.
         return True
     if route_path(request).startswith(CALCULATOR_PREFIX):
         return False
@@ -68,15 +65,20 @@ def needs_primary(request: Request, usuario_id: int | None, writes: RecentWrites
     return usuario_id is not None and writes.recent(usuario_id)
 
 
-class RouterMiddleware(BaseHTTPMiddleware):
-    async def dispatch(
-        self, request: Request, call_next: Callable[[Request], Awaitable[Response]]
-    ) -> Response:
+class RouterMiddleware:
+    def __init__(self, app: ASGIApp) -> None:
+        self.app = app
+
+    async def __call__(self, scope: Scope, receive: Receive, send: Send) -> None:
+        if scope["type"] != "http":
+            await self.app(scope, receive, send)
+            return
+        request = Request(scope)
         usuario_id = getattr(request.state, "usuario_id", None)
         writes = get_recent_writes()
         token = use_primary.set(needs_primary(request, usuario_id, writes))
         try:
-            return await call_next(request)
+            await self.app(scope, receive, send)
         finally:
             use_primary.reset(token)
             if (
