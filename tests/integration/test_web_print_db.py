@@ -842,7 +842,7 @@ async def test_web_print_migration_roundtrip_refuses_populated_downgrade(banco_m
         async with engine.connect() as conn:
             assert (
                 await conn.scalar(text("SELECT version_num FROM alembic_version"))
-                == "r200review2026"
+                == "u200sandbox2026"
             )
             assert await conn.scalar(text("SELECT count(*) FROM print_intents")) == 1
     finally:
