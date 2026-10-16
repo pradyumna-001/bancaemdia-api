@@ -3148,6 +3148,16 @@
             "title": "Criado Em",
             "type": "string"
           },
+          "estado_sessao": {
+            "description": "Collection session state; never online presence.",
+            "enum": [
+              "sem_sessao",
+              "aberta",
+              "encerrada"
+            ],
+            "title": "Estado Sessao",
+            "type": "string"
+          },
           "expira_em": {
             "anyOf": [
               {
@@ -3216,6 +3226,17 @@
             ],
             "title": "Rotacionado Em"
           },
+          "sessao_coleta": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/OwnerCollectionSessionResponse"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Null only when this installation has no persisted session."
+          },
           "token_prefixo": {
             "anyOf": [
               {
@@ -3250,7 +3271,9 @@
           "ultimo_uso_em",
           "rotacionado_em",
           "revogado_em",
-          "expira_em"
+          "expira_em",
+          "estado_sessao",
+          "sessao_coleta"
         ],
         "title": "InstallationResponse",
         "type": "object"
@@ -3760,7 +3783,6 @@
                 "type": "number"
               },
               {
-                "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
                 "type": "string"
               },
               {
@@ -3799,7 +3821,6 @@
                 "type": "number"
               },
               {
-                "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
                 "type": "string"
               },
               {
@@ -3868,7 +3889,6 @@
                 "type": "number"
               },
               {
-                "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
                 "type": "string"
               }
             ],
@@ -3890,7 +3910,6 @@
                 "type": "number"
               },
               {
-                "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
                 "type": "string"
               }
             ],
@@ -4636,6 +4655,56 @@
           "odd"
         ],
         "title": "Outcome",
+        "type": "object"
+      },
+      "OwnerCollectionSessionResponse": {
+        "additionalProperties": false,
+        "description": "Original collection boundary; this is not presence or credential validity.",
+        "properties": {
+          "coletar_desde": {
+            "format": "date-time",
+            "title": "Coletar Desde",
+            "type": "string"
+          },
+          "criada_em": {
+            "format": "date-time",
+            "title": "Criada Em",
+            "type": "string"
+          },
+          "encerrada_em": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Encerrada Em"
+          },
+          "selecao": {
+            "enum": [
+              "atual",
+              "ultima_encerrada"
+            ],
+            "title": "Selecao",
+            "type": "string"
+          },
+          "sessao_id": {
+            "format": "uuid",
+            "title": "Sessao Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "sessao_id",
+          "selecao",
+          "coletar_desde",
+          "criada_em",
+          "encerrada_em"
+        ],
+        "title": "OwnerCollectionSessionResponse",
         "type": "object"
       },
       "PaginacaoSaida": {
@@ -11361,7 +11430,7 @@
     },
     "/api/v1/coleta/installations": {
       "get": {
-        "description": "Lista somente instalações do usuário, sem hashes ou segredos.",
+        "description": "Leitura READ_ONLY por sessão web ou Bearer do proprietário, sem X-Coleta-Token. Retorna todas as instalações em id crescente, sem paginação/truncamento, em uma consulta de projeção. Prioriza a sessão aberta; sem aberta, a última por criada_em DESC e id DESC. estado_sessao=sem_sessao e sessao_coleta=null significam nenhuma sessão. aberta/atual e encerrada/ultima_encerrada são estados do banco, não presença online ou validade da credencial. Não altera uso, fronteira, sessão ou captura; no-store.",
         "operationId": "list_installations_api_v1_coleta_installations_get",
         "responses": {
           "200": {
@@ -11405,16 +11474,6 @@
                 }
               }
             }
-          },
-          "402": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponse"
-                }
-              }
-            },
-            "description": "account_read_only: retain the extension outbox."
           },
           "403": {
             "content": {
@@ -11474,8 +11533,13 @@
                 }
               }
             },
-            "description": "The collection was saved but could not be queued.",
+            "description": "Owner authentication/read dependency unavailable; no collection effects.",
             "headers": {
+              "Retry-After": {
+                "schema": {
+                  "type": "string"
+                }
+              },
               "X-Auth-Error": {
                 "description": "Identity error code when AUTH_ENABLED; legacy response body is preserved.",
                 "schema": {
@@ -11493,7 +11557,21 @@
             "SessionCookie": []
           }
         ],
-        "summary": "Listar instalações"
+        "summary": "Listar instalações e sessões próprias",
+        "x-permission": "READ_ONLY",
+        "x-session-selection": {
+          "absence": {
+            "estado_sessao": "sem_sessao",
+            "sessao_coleta_is_null": true
+          },
+          "order": [
+            "open_first",
+            "criada_em_desc",
+            "id_desc"
+          ],
+          "pagination": "none_all_owned_installations_in_id_ascending_order",
+          "presence": "not_available"
+        }
       }
     },
     "/api/v1/coleta/installations/{instalacao_id}": {
