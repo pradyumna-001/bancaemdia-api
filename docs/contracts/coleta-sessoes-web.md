@@ -167,6 +167,13 @@ rápido da réplica real; mypy estrito no ambiente do projeto e pré-aquecimento
 OpenAPI antes do loader cronometrado. Mantém todos os limiares/gates. Não importa
 a feature manual nem as migrations das dependências na candidata isolada.
 
+O pré-teste de coleta de cinco minutos expôs P95 de 1.031 ms acima do teto
+inalterado de 1.000 ms. Esta entrega também remove a redefinição redundante do
+contexto RLS após authenticate (já presente no pin ec46748) e projeta somente
+o ID da aposta no lookup de coleta/matching, preservando filtro de tenant,
+RLS e o lookup completo para os demais consumidores. A configuração do
+contexto permanece dentro do autenticador; nenhum dado/permissão é cacheado.
+
 A composição separada parte do pin real completo
 `ec46748b00ce97ae3c3cac032f03cc691f7f8908` (127 operações, SHA-256
 `797c735e0fa6d63f46c3eb1635e569e434154dfc02fb17d27c940ff339cfcf96`), preservando

@@ -19,6 +19,12 @@ _bet_by_key = lambda_stmt(
         models.Aposta.chave == bindparam("chave_1"),
     )
 )
+_bet_id_by_key = lambda_stmt(
+    lambda: select(models.Aposta.id).where(
+        models.Aposta.usuario_id == bindparam("usuario_id_1"),
+        models.Aposta.chave == bindparam("chave_1"),
+    )
+)
 # Cache these two fixed materialization shapes. Tenant, key, amounts and account
 # remain execution parameters; replays with a source timestamp use the generic
 # path below, including its stale-write comparison.
@@ -66,6 +72,14 @@ _cached_collected_creation = lambda_stmt(lambda: _collected_creation).execution_
 
 
 class ApostaRepo:
+    async def get_id_by_chave(
+        self, session: AsyncSession, usuario_id: int, chave: str
+    ) -> int | None:
+        return cast(
+            int | None,
+            await session.scalar(_bet_id_by_key, {"usuario_id_1": usuario_id, "chave_1": chave}),
+        )
+
     async def get_by_chave(
         self, session: AsyncSession, usuario_id: int, chave: str
     ) -> Aposta | None:
