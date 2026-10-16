@@ -117,6 +117,10 @@ def _banco(recebidas_hoje: Any = 0) -> Any:
             return {"Betano": 1, "KTO": 2, "bet365": 3}.get(nome)
 
     class ApostaRepo:
+        async def get_id_by_chave(self, session: Any, usuario_id: Any, chave: Any) -> Any:
+            row = banco.apostas.get((usuario_id, chave))
+            return None if row is None else row.id
+
         async def get_by_chave(self, session: Any, usuario_id: Any, chave: Any) -> Any:
             return banco.apostas.get((usuario_id, chave))
 
