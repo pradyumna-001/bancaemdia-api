@@ -8,6 +8,12 @@ repositório; sessões e o envelope v2 são escopo da #108.
 
 ## Contrato e uso
 
+A projeção web das sessões por dispositivo e suas regras de seleção/ausência,
+permissões READ_ONLY, recuperação segura da rotação e handoff do frontend estão
+em [Sessões para o proprietário](../contracts/coleta-sessoes-web.md). A listagem
+existente agora inclui a sessão aberta ou a última encerrada, com a fronteira
+original; nenhum desses estados anuncia presença online.
+
 Todos os caminhos abaixo exigem **HTTPS**, inclusive em desenvolvimento. Use TLS
 local ou um proxy local de confiança. A aplicação usa o scheme ASGI; não confia
 diretamente em `X-Forwarded-Proto`. Configure os IPs de proxies confiáveis no

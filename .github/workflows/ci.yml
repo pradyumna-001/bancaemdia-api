@@ -237,6 +237,7 @@ jobs:
         env:
           TEST_DATABASE_URL: postgresql+asyncpg://bancaemdia:test-password@localhost:5432/bancaemdia
       - run: python scripts/check_review_acceptance.py pairing-results.xml
+      - run: python scripts/check_owner_sessions_junit.py pairing-results.xml
       - uses: actions/upload-artifact@v4
         if: always()
         with:
