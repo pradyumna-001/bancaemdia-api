@@ -202,12 +202,14 @@ jobs:
       - run: >-
           pytest -n 0 tests/integration/test_billing_access_db.py
           tests/integration/test_troca_titular.py tests/integration/test_titulares_api.py
+          tests/integration/test_troca_confirmacao_db.py
           tests/integration/test_account_financials.py tests/integration/test_game_account_attribution.py
           tests/integration/test_materialization_db.py
           --tb=short --junitxml=accounts-billing-results.xml
         env:
           TEST_DATABASE_URL: postgresql+asyncpg://bancaemdia:test-password@localhost:5432/bancaemdia
       - run: python scripts/check_review_acceptance.py accounts-billing-results.xml
+      - run: python scripts/check_switch_confirmation_junit.py accounts-billing-results.xml
       - uses: actions/upload-artifact@v4
         if: always()
         with:

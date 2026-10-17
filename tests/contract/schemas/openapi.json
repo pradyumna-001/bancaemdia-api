@@ -10305,6 +10305,46 @@
         "title": "TrocaContaSaida",
         "type": "object"
       },
+      "TrocaIntencaoSaida": {
+        "additionalProperties": false,
+        "properties": {
+          "estado": {
+            "enum": [
+              "PREVIEW",
+              "EXPIRED",
+              "APPLIED"
+            ],
+            "title": "Estado",
+            "type": "string"
+          },
+          "previa": {
+            "$ref": "#/components/schemas/TrocaContaSaida"
+          },
+          "previa_expira_em": {
+            "format": "date-time",
+            "title": "Previa Expira Em",
+            "type": "string"
+          },
+          "recibo": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/TrocaContaSaida"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "required": [
+          "estado",
+          "previa",
+          "recibo",
+          "previa_expira_em"
+        ],
+        "title": "TrocaIntencaoSaida",
+        "type": "object"
+      },
       "TrustRoot": {
         "additionalProperties": false,
         "properties": {
@@ -29867,7 +29907,7 @@
     },
     "/api/v1/titulares/trocas": {
       "post": {
-        "description": "Aplica uma prévia feita com a mesma chave; fecha a origem e abre o destino no instante escolhido.",
+        "description": "Exige prévia com mesma chave/corpo e evidência idêntica; 409 swap_preview_stale ou 410 swap_preview_expired exigem nova chave/prévia/confirmação. Fecha/abre vigências atomicamente, preservando apostas. Replay aplicado retorna o recibo original; sem retry automático.",
         "operationId": "aplicar_troca_api_v1_titulares_trocas_post",
         "parameters": [
           {
@@ -29954,6 +29994,26 @@
             },
             "description": "Cookie mutation requires exact Origin and current CSRF proof."
           },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "swap_preview_stale / swap_intention_conflict / swap_invalid: renew with a new key and explicit confirmation."
+          },
+          "410": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "swap_preview_expired: preview is older than 24 hours; never proves rollback."
+          },
           "413": {
             "content": {
               "text/plain": {
@@ -30026,9 +30086,136 @@
         "summary": "Trocar conta da casa"
       }
     },
+    "/api/v1/titulares/trocas/intencao": {
+      "get": {
+        "description": "Leitura do proprietário no primário por Idempotency-Key, inclusive READ_ONLY. APPLIED devolve recibo original. PREVIEW/EXPIRED/404 não provam rollback. Retenção até exclusão da conta; sem reenvio automático.",
+        "operationId": "obter_intencao_troca_api_v1_titulares_trocas_intencao_get",
+        "parameters": [
+          {
+            "description": "Chave opaca obrigatória do cliente; reutilizá-la com o mesmo corpo reproduz a resposta original sem repetir a operação.",
+            "in": "header",
+            "name": "Idempotency-Key",
+            "required": true,
+            "schema": {
+              "maxLength": 160,
+              "minLength": 1,
+              "title": "Idempotency-Key",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TrocaIntencaoSaida"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Missing, expired, or invalid bearer token.",
+            "headers": {
+              "X-Auth-Error": {
+                "description": "Identity error code when AUTH_ENABLED; legacy response body is preserved.",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "402": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "account_read_only: writes require confirmed trial or paid access."
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "swap_intention_unknown: no visible record; outcome is not established."
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorOrValidationResponse"
+                }
+              }
+            },
+            "description": "The request does not satisfy the published contract or a domain rule."
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "The caller exceeded an applicable request limit."
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unexpected internal failure with no sensitive exception details."
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "A required dependency is temporarily unavailable.",
+            "headers": {
+              "X-Auth-Error": {
+                "description": "Identity error code when AUTH_ENABLED; legacy response body is preserved.",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          },
+          {
+            "SessionCookie": []
+          }
+        ],
+        "summary": "Recuperar intenção de troca"
+      }
+    },
     "/api/v1/titulares/trocas/preview": {
       "post": {
-        "description": "Mostra as apostas cuja atribuição difere após a troca, sem alterar as contas.",
+        "description": "Persiste evidência por usuário/chave para confirmação em até 24h. Repetir devolve a prévia original. IDs são itens para revisão; a troca não migra apostas. Renovar exige nova chave e confirmação. FULL_WRITE/CSRF.",
         "operationId": "preview_troca_api_v1_titulares_trocas_preview_post",
         "parameters": [
           {
@@ -30114,6 +30301,26 @@
               }
             },
             "description": "Cookie mutation requires exact Origin and current CSRF proof."
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "swap_preview_stale / swap_intention_conflict / swap_invalid: renew with a new key and explicit confirmation."
+          },
+          "410": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "swap_preview_expired: preview is older than 24 hours; never proves rollback."
           },
           "413": {
             "content": {

@@ -172,6 +172,8 @@ app.include_router(usuario.router)
 
 @app.exception_handler(RequestValidationError)
 async def validation_failure(request: Request, error: RequestValidationError) -> JSONResponse:
+    if route_path(request).startswith("/api/v1/titulares/trocas"):
+        return JSONResponse(status_code=422, content={"detail": "swap_invalid_request"})
     if route_path(request).startswith("/api/v1/apostas-manuais/"):
         return manual_bets.validation_failure(error)
     if request.url.path.startswith("/api/v1/revisao-operacional/"):

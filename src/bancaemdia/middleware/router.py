@@ -49,6 +49,8 @@ def get_recent_writes() -> RecentWrites:
 
 
 def needs_primary(request: Request, usuario_id: int | None, writes: RecentWrites) -> bool:
+    if route_path(request) == "/api/v1/titulares/trocas/intencao":
+        return True
     if route_path(request).startswith(("/api/v1/resultados/", "/api/v1/apostas-manuais/")):
         return True
     if route_path(request).startswith(CALCULATOR_PREFIX):

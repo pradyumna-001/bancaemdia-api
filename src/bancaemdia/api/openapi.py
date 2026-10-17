@@ -19,6 +19,10 @@ MANUAL_BET_HOUSES = sorted(
 )
 
 OPERATION_DOCUMENTATION: dict[OperationKey, tuple[str, str]] = {
+    ("get", "/api/v1/titulares/trocas/intencao"): (
+        "Recuperar intenção de troca",
+        "Leitura do proprietário no primário por Idempotency-Key, inclusive READ_ONLY. APPLIED devolve recibo original. PREVIEW/EXPIRED/404 não provam rollback. Retenção até exclusão da conta; sem reenvio automático.",
+    ),
     ("post", "/api/v1/apostas-manuais/operacoes/{intencao_id}"): (
         "Criar aposta manual reconciliável",
         "FULL_WRITE e CSRF atuais. UUID escolhido antes do POST; aposta, eventos, eventual revisão e recibo no mesmo commit. Mesmo UUID/corpo normalizado devolve confirmação original sem recalcular data, unidade ou conta; outro corpo conflita. Recuperação por 90 dias; identidade não é reutilizada após expirar. Nenhum POST recebe retry automático.",
@@ -418,11 +422,11 @@ OPERATION_DOCUMENTATION: dict[OperationKey, tuple[str, str]] = {
     ),
     ("post", "/api/v1/titulares/trocas/preview"): (
         "Prévia de troca de conta",
-        "Mostra as apostas cuja atribuição difere após a troca, sem alterar as contas.",
+        "Persiste evidência por usuário/chave para confirmação em até 24h. Repetir devolve a prévia original. IDs são itens para revisão; a troca não migra apostas. Renovar exige nova chave e confirmação. FULL_WRITE/CSRF.",
     ),
     ("post", "/api/v1/titulares/trocas"): (
         "Trocar conta da casa",
-        "Aplica uma prévia feita com a mesma chave; fecha a origem e abre o destino no instante escolhido.",
+        "Exige prévia com mesma chave/corpo e evidência idêntica; 409 swap_preview_stale ou 410 swap_preview_expired exigem nova chave/prévia/confirmação. Fecha/abre vigências atomicamente, preservando apostas. Replay aplicado retorna o recibo original; sem retry automático.",
     ),
     ("post", "/api/v1/titulares"): (
         "Criar titular",
