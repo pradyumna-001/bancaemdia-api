@@ -15,6 +15,7 @@ from bancaemdia.middleware.rate_limit import request_path
 
 SAFE = frozenset({"GET", "HEAD", "OPTIONS"})
 ALLOWED_HEADERS = frozenset({
+    "idempotency-key",
     "authorization",
     "content-type",
     "x-csrf-token",

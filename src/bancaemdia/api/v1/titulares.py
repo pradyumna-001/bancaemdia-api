@@ -7,18 +7,25 @@ from typing import Annotated, Literal
 from fastapi import APIRouter, Depends, Header, HTTPException, Query, status
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 from sqlalchemy import func, select, update
-from sqlalchemy.exc import IntegrityError
+from sqlalchemy.exc import IntegrityError, SQLAlchemyError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from bancaemdia import models
-from bancaemdia.api.contracts import AUTHENTICATED_ERROR_RESPONSES
-from bancaemdia.api.deps import get_current_user, get_current_user_snapshot
-from bancaemdia.db.session import get_db, get_db_snapshot
+from bancaemdia.api.contracts import AUTHENTICATED_ERROR_RESPONSES, ErrorResponse, OpenAPIResponses
+from bancaemdia.api.deps import (
+    get_current_user,
+    get_current_user_primary_snapshot,
+    get_current_user_snapshot,
+)
+from bancaemdia.db.session import get_db, get_db_primary_snapshot, get_db_snapshot
 from bancaemdia.domain.account_financials import AccountMetrics
 from bancaemdia.domain.registros import Usuario
 from bancaemdia.domain.titular_matrix import account_row
 from bancaemdia.domain.titulares import (
+    PREVIEW_TTL,
     ChaveIdempotenciaEmConflitoError,
+    PreviaExpiradaError,
+    PreviaObsoletaError,
     TrocaInvalidaError,
     TrocaPedido,
     trocar_conta,
@@ -26,11 +33,22 @@ from bancaemdia.domain.titulares import (
 from bancaemdia.repositories.account_financials_repo import AccountFinancialsRepo
 from bancaemdia.repositories.casa_repo import CasaRepo
 from bancaemdia.repositories.conta_casa_repo import ContaCasaRepo
+from bancaemdia.repositories.cruzamento_candidato import CruzamentoCandidatoRepo
 from bancaemdia.repositories.movimento_repo import MovimentoRepo
 from bancaemdia.repositories.titular_repo import TitularRepo
 from bancaemdia.repositories.uso_conta_casa_repo import UsoContaCasaRepo
 
 router = APIRouter(responses=AUTHENTICATED_ERROR_RESPONSES)
+SWAP_ERROR_RESPONSES: OpenAPIResponses = {
+    409: {
+        "model": ErrorResponse,
+        "description": "swap_preview_stale / swap_intention_conflict / swap_invalid: renew with a new key and explicit confirmation.",
+    },
+    410: {
+        "model": ErrorResponse,
+        "description": "swap_preview_expired: preview is older than 24 hours; never proves rollback.",
+    },
+}
 
 
 class TrocaContaEntrada(BaseModel):
@@ -77,19 +95,33 @@ async def _switch(
     )
     try:
         result = await trocar_conta(session, usuario.id, pedido, chave, aplicar=aplicar)
+        await session.commit()
+    except PreviaObsoletaError as exc:
+        await session.rollback()
+        raise HTTPException(409, "swap_preview_stale") from exc
+    except PreviaExpiradaError as exc:
+        await session.rollback()
+        raise HTTPException(410, "swap_preview_expired") from exc
     except ChaveIdempotenciaEmConflitoError as exc:
-        raise HTTPException(status_code=409, detail=str(exc)) from exc
+        await session.rollback()
+        raise HTTPException(409, "swap_intention_conflict") from exc
     except TrocaInvalidaError as exc:
-        raise HTTPException(status_code=409, detail=str(exc)) from exc
-    await session.commit()
+        await session.rollback()
+        raise HTTPException(409, "swap_invalid") from exc
+    except SQLAlchemyError as exc:
+        await session.rollback()
+        raise HTTPException(
+            503, "swap_temporarily_unavailable", headers={"Retry-After": "5"}
+        ) from exc
     return TrocaContaSaida.model_validate(result)
 
 
 @router.post(
     "/api/v1/titulares/trocas/preview",
+    responses=SWAP_ERROR_RESPONSES,
     response_model=TrocaContaSaida,
     summary="Prévia de troca de conta da casa",
-    description="Mostra IDs das apostas existentes que seriam afetadas por uma troca retroativa.",
+    description="Persiste evidência imutável por usuário/Idempotency-Key (24h para confirmar). IDs indicam revisão; nenhuma aposta é migrada. Repetição retorna a prévia original; renovar exige nova chave e confirmação humana. FULL_WRITE e CSRF para cookie.",
 )
 async def preview_troca(
     entrada: TrocaContaEntrada,
@@ -102,10 +134,11 @@ async def preview_troca(
 
 @router.post(
     "/api/v1/titulares/trocas",
+    responses=SWAP_ERROR_RESPONSES,
     response_model=TrocaContaSaida,
     status_code=status.HTTP_200_OK,
     summary="Trocar conta da casa",
-    description="Fecha o uso atual e abre o destino no mesmo instante, sob travas transacionais.",
+    description="Exige prévia da mesma chave/corpo e evidência ainda idêntica. 409 swap_preview_stale exige nova intenção/prévia/confirmação. Fecha/abre vigências atomicamente; preserva contas das apostas. Replay aplicado retorna recibo original sem revalidar evidência. Sem retry automático.",
 )
 async def aplicar_troca(
     entrada: TrocaContaEntrada,
@@ -114,6 +147,57 @@ async def aplicar_troca(
     chave: Annotated[str, Header(alias="Idempotency-Key", min_length=1, max_length=160)],
 ) -> TrocaContaSaida:
     return await _switch(entrada, chave, usuario, session, aplicar=True)
+
+
+class TrocaIntencaoSaida(BaseModel):
+    estado: Literal["PREVIEW", "EXPIRED", "APPLIED"]
+    previa: TrocaContaSaida
+    recibo: TrocaContaSaida | None
+    previa_expira_em: datetime
+
+
+@router.get(
+    "/api/v1/titulares/trocas/intencao",
+    response_model=TrocaIntencaoSaida,
+    description="Recupera intenção do proprietário pela Idempotency-Key no primário, inclusive READ_ONLY. APPLIED prova commit e devolve recibo original. PREVIEW/EXPIRED/404 não provam rollback nem ausência de pedido em voo. Não grava nem reenvia. Retenção até exclusão da conta; não reutilizar chaves.",
+    responses={
+        404: {
+            "model": ErrorResponse,
+            "description": "swap_intention_unknown: no visible record; outcome is not established.",
+        }
+    },
+)
+async def obter_intencao_troca(
+    usuario: Annotated[Usuario, Depends(get_current_user_primary_snapshot)],
+    session: Annotated[AsyncSession, Depends(get_db_primary_snapshot)],
+    chave: Annotated[str, Header(alias="Idempotency-Key", min_length=1, max_length=160)],
+) -> TrocaIntencaoSaida:
+    try:
+        rows = list(
+            await session.scalars(
+                select(models.TrocaTitularRequisicao).where(
+                    models.TrocaTitularRequisicao.usuario_id == usuario.id,
+                    models.TrocaTitularRequisicao.chave == chave,
+                )
+            )
+        )
+        preview = next((r for r in rows if r.tipo == "PREVIEW"), None)
+        applied = next((r for r in rows if r.tipo == "APPLY"), None)
+        if preview is None:
+            raise HTTPException(404, "swap_intention_unknown")
+        expires = preview.criado_em + PREVIEW_TTL
+        now = await session.scalar(select(func.clock_timestamp()))
+        assert now is not None
+        return TrocaIntencaoSaida(
+            estado="APPLIED" if applied else "EXPIRED" if now >= expires else "PREVIEW",
+            previa=TrocaContaSaida.model_validate(preview.resposta),
+            recibo=None if applied is None else TrocaContaSaida.model_validate(applied.resposta),
+            previa_expira_em=expires,
+        )
+    except SQLAlchemyError as exc:
+        raise HTTPException(
+            503, "swap_temporarily_unavailable", headers={"Retry-After": "5"}
+        ) from exc
 
 
 class TitularEntrada(BaseModel):
@@ -466,6 +550,7 @@ async def editar_titular(
     usuario: Annotated[Usuario, Depends(get_current_user)],
     session: Annotated[AsyncSession, Depends(get_db)],
 ) -> TitularSaida:
+    await CruzamentoCandidatoRepo().lock(session, usuario.id)
     holder = await TitularRepo().update_name(session, usuario.id, titular_id, entrada.nome)
     if holder is None:
         raise HTTPException(404, "não achei este titular ativo")
@@ -479,6 +564,7 @@ async def arquivar_titular(
     usuario: Annotated[Usuario, Depends(get_current_user)],
     session: Annotated[AsyncSession, Depends(get_db)],
 ) -> TitularSaida:
+    await CruzamentoCandidatoRepo().lock(session, usuario.id)
     await session.execute(
         select(models.Usuario.id).where(models.Usuario.id == usuario.id).with_for_update()
     )
@@ -525,6 +611,7 @@ async def criar_conta_titular(
     usuario: Annotated[Usuario, Depends(get_current_user)],
     session: Annotated[AsyncSession, Depends(get_db)],
 ) -> ContaMatrizSaida:
+    await CruzamentoCandidatoRepo().lock(session, usuario.id)
     await session.execute(
         select(models.Usuario.id).where(models.Usuario.id == usuario.id).with_for_update()
     )
@@ -566,6 +653,7 @@ async def editar_conta_titular(
     usuario: Annotated[Usuario, Depends(get_current_user)],
     session: Annotated[AsyncSession, Depends(get_db)],
 ) -> ContaMatrizSaida:
+    await CruzamentoCandidatoRepo().lock(session, usuario.id)
     await session.execute(
         select(models.Usuario.id).where(models.Usuario.id == usuario.id).with_for_update()
     )
@@ -607,6 +695,7 @@ async def ativar_conta_titular(
     usuario: Annotated[Usuario, Depends(get_current_user)],
     session: Annotated[AsyncSession, Depends(get_db)],
 ) -> ContaMatrizSaida:
+    await CruzamentoCandidatoRepo().lock(session, usuario.id)
     await session.execute(
         select(models.Usuario.id).where(models.Usuario.id == usuario.id).with_for_update()
     )
