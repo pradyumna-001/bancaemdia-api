@@ -35,7 +35,9 @@ class IdentityTransportMiddleware:
         settings = identity_settings()
         request = Request(scope)
         path = request_path(request)
-        private_financial = path.startswith("/api/v1/painel/filtrado")
+        private_financial = path.startswith("/api/v1/painel/filtrado") or path == (
+            "/api/v1/painel/hipotetica"
+        )
         if not settings.AUTH_ENABLED and not path.startswith("/auth/") and not private_financial:
             # Disabled identity has no transport policy on these routes. Do not
             # create a task group or buffer a streaming collection response.

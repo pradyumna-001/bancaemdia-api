@@ -132,3 +132,27 @@ async def test_disabled_identity_preserves_legacy_transport_and_auth_privacy(
     assert len(calls) == 1
     assert "access-control-allow-origin" not in response.headers
     assert ("cache-control" in response.headers) == path.startswith("/auth/")
+
+
+@pytest.mark.parametrize("enabled", [False, True])
+@pytest.mark.parametrize(
+    "path",
+    ["/api/v1/painel/filtrado", "/api/v1/painel/filtrado/diario", "/api/v1/painel/hipotetica"],
+)
+async def test_reconciled_financial_paths_keep_privacy_with_both_identity_modes(
+    identity_transport: Any, path: str, enabled: bool
+) -> None:
+    app, settings, calls = identity_transport
+    settings.AUTH_ENABLED = enabled
+    async with httpx.AsyncClient(transport=httpx.ASGITransport(app), base_url=ORIGIN) as client:
+        response = await client.get(path)
+    assert calls == [path]
+    assert response.status_code == 201 and response.content == b"firstsecond"
+    assert response.headers["cache-control"] == "private, no-store"
+    assert {v.strip() for v in response.headers["vary"].split(",")} == {
+        "Accept-Encoding",
+        "Authorization",
+        "Cookie",
+    }
+    assert response.headers["pragma"] == "no-cache"
+    assert response.headers["referrer-policy"] == "no-referrer"

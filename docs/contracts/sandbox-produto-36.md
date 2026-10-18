@@ -6,7 +6,12 @@ Fonte adicional: PR #191, 552c4ffe3924df3eac2caa50ea4f5df4c553b816.
 
 Reaplica dessa fonte o domínio, repositório, rota, regras financeiras exatas e testes
 específicos da Hipotética, sem substituir as operações existentes. Reconcilia somente
-registro de rota/OpenAPI, permissão explícita e fresh no roteador. As demais fontes
+registro de rota/OpenAPI, permissão explícita, fresh no roteador e privacidade HTTP.
+A composição inicial 2582511 omitiu o ramo de transporte da #191 para
+Hipotética com identidade desabilitada, detectado pelos aceites PostgreSQL.
+O ramo é preservado junto ao Painel filtrado: Cache-Control private/no-store
+e Vary Authorization/Cookie, sem alterar os demais caminhos. Uma regressão
+isolada cobre ambos os modos de identidade e os caminhos financeiros herdados. As demais fontes
 do pai (#189/#187/#193/#195/#197/#199/#201/#203/#205/#207) permanecem preservadas.
 OpenAPI inteiro gerado pelo aplicativo; nenhum schema concatenado.
 
