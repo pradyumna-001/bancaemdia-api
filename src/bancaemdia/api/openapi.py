@@ -19,6 +19,10 @@ MANUAL_BET_HOUSES = sorted(
 )
 
 OPERATION_DOCUMENTATION: dict[OperationKey, tuple[str, str]] = {
+    ("get", "/api/v1/painel/hipotetica"): (
+        "Comparação histórica seguindo a stake do tipster",
+        "Somente leitura, inclusive READ_ONLY. População completa (máximo 10000) com os filtros canônicos; dicas confirmadas resolvidas separadamente e nunca contadas duas vezes. Usa stake da dica, odd e resultado reais, centavos em strings e HALF_EVEN. Cashout, taxas, bônus, retorno fixo e evidência insuficiente impedem comparação completa. Null não é zero. Sem parâmetros livres de stake nem paginação. Contrato: docs/contracts/hipotetica.md.",
+    ),
     ("get", "/api/v1/titulares/trocas/intencao"): (
         "Recuperar intenção de troca",
         "Leitura do proprietário no primário por Idempotency-Key, inclusive READ_ONLY. APPLIED devolve recibo original. PREVIEW/EXPIRED/404 não provam rollback. Retenção até exclusão da conta; sem reenvio automático.",

@@ -63,6 +63,7 @@ def needs_primary(request: Request, usuario_id: int | None, writes: RecentWrites
     if (
         route_path(request) == PAINEL_PATH
         or route_path(request).startswith(PAINEL_PATH + "/filtrado")
+        or route_path(request) == PAINEL_PATH + "/hipotetica"
     ) and fresh in TRUE_VALUES:
         return True
     # A marca é da pessoa, não da aposta: o roteador não sabe a chave de uma aposta criada, e depois de

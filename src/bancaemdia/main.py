@@ -33,6 +33,7 @@ from bancaemdia.api.v1 import (
     coleta_pairing,
     coleta_sessoes,
     filtros,
+    hipotetica,
     manual_bets,
     metas,
     painel,
@@ -158,6 +159,7 @@ app.include_router(caixa.router)
 app.include_router(painel.router)
 app.include_router(metas.router)
 app.include_router(painel_filtrado.router)
+app.include_router(hipotetica.router)
 app.include_router(painel_detalhado.router)
 app.include_router(filtros.router)
 app.include_router(revisao.router)

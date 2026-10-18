@@ -33,3 +33,15 @@ async def require_worker_write_access(usuario_id: int) -> None:
             text("SELECT set_config('app.current_user_id', :uid, true)"), {"uid": str(usuario_id)}
         )
         await require_write_access(session, usuario_id)
+
+
+OPERATION_ACCESS = {
+    "hipotetica_historica": frozenset({AccessMode.FULL_WRITE, AccessMode.READ_ONLY}),
+}
+
+
+async def require_operation_access(session: AsyncSession, usuario_id: int, operation: str) -> None:
+    """Explicit commercial permission, independent of the transport's HTTP verb."""
+    read = await AssinaturaRepo().read_status(session, usuario_id)
+    if read.access not in OPERATION_ACCESS[operation]:
+        raise AccountReadOnlyError("account_read_only")

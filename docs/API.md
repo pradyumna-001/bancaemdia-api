@@ -76,6 +76,7 @@ python scripts/generate_openapi.py
 | `GET` | `/api/v1/painel/filtrado/export` | Exportação agregada da seleção do site | `200`, `401`, `402`, `422`, `429`, `500`, `503` | — |
 | `GET` | `/api/v1/painel/filtrado/grupos` | Consultar grupos de origem e seus tipsters em lote | `200`, `401`, `402`, `422`, `429`, `500`, `503` | — |
 | `GET` | `/api/v1/painel/filtrado/metricas` | Séries diárias da seleção do site | `200`, `401`, `402`, `422`, `429`, `500`, `503` | — |
+| `GET` | `/api/v1/painel/hipotetica` | Comparação histórica seguindo a stake do tipster | `200`, `401`, `404`, `422`, `429`, `500`, `503` | — |
 | `GET` | `/api/v1/painel/metas` | Listar metas de desempenho | `200`, `401`, `402`, `422`, `429`, `500`, `503` | — |
 | `POST` | `/api/v1/painel/metas` | Criar meta de desempenho | `201`, `401`, `402`, `403`, `413`, `422`, `429`, `500`, `503` | — |
 | `GET` | `/api/v1/painel/metas/{meta_id}` | Consultar meta de desempenho | `200`, `401`, `402`, `422`, `429`, `500`, `503` | — |
