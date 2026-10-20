@@ -16,7 +16,7 @@ import jwt
 import pytest
 from cryptography.hazmat.primitives.asymmetric import rsa
 from openpyxl import load_workbook
-from sqlalchemy import func, select, text
+from sqlalchemy import func, select, text, update
 from sqlalchemy.exc import DBAPIError
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -30,6 +30,79 @@ from bancaemdia.main import app
 from bancaemdia.repositories.evento_repo import EventoRepo
 
 pytestmark = pytest.mark.xdist_group("postgres")
+
+
+async def test_active_account_in_inactive_house_is_only_available_as_historical_option(
+    api, dataset, engine_app, como
+):
+    client, headers = api
+    account = dataset.contas[1]
+    async with como(engine_app, dataset.user) as session:
+        await session.execute(
+            update(models.ContaCasa).where(models.ContaCasa.id == account).values(ativa=True)
+        )
+        await session.commit()
+    auth = headers(dataset.user)
+    ordinary = await client.get("/api/v1/filtros/contas", headers=auth)
+    assert ordinary.status_code == 200
+    assert str(account) not in {v["id"] for v in ordinary.json()["data"]}
+    for params in ({"id": str(account)}, {"incluir_inativas": "true"}):
+        response = await client.get("/api/v1/filtros/contas", params=params, headers=auth)
+        assert response.status_code == 200
+        option = next(v for v in response.json()["data"] if v["id"] == str(account))
+        assert option["ativa"] is False
+
+
+@pytest.mark.parametrize("archived", [False, True])
+async def test_group_creation_always_starts_active_and_can_receive_links(
+    api, dataset, engine_app, como, archived
+):
+    client, headers = api
+    auth = headers(dataset.user)
+    created = await client.post(
+        "/api/v1/grupos", json={"nome": "Novo grupo", "arquivado": archived}, headers=auth
+    )
+    assert created.status_code == 201
+    result = created.json()
+    assert result["ativa"] is True
+    linked = await client.put(
+        "/api/v1/apostas/" + dataset.keys[0] + "/grupos",
+        json={"grupo_ids": [result["id"]]},
+        headers=auth,
+    )
+    assert linked.status_code == 200 and linked.json() == {"grupo_ids": [result["id"]]}
+    async with como(engine_app, dataset.user) as session:
+        group = await session.get(models.GrupoAposta, int(result["id"]))
+        assert group is not None and group.arquivado is False
+
+
+async def test_link_response_matches_committed_ids_in_canonical_order(
+    api, dataset, engine_app, como
+):
+    client, headers = api
+    auth = headers(dataset.user)
+    created = await client.post("/api/v1/grupos", json={"nome": "Segundo ativo"}, headers=auth)
+    assert created.status_code == 201
+    ids = sorted([dataset.grupos[0], int(created.json()["id"])])
+    response = await client.put(
+        "/api/v1/apostas/" + dataset.keys[0] + "/grupos",
+        json={"grupo_ids": [str(v) for v in reversed(ids)]},
+        headers=auth,
+    )
+    assert response.status_code == 200
+    async with como(engine_app, dataset.user) as session:
+        bet_id = await session.scalar(
+            select(models.Aposta.id).where(models.Aposta.chave == dataset.keys[0])
+        )
+        persisted = list(
+            await session.scalars(
+                select(models.ApostaGrupo.grupo_id)
+                .where(models.ApostaGrupo.aposta_id == bet_id)
+                .order_by(models.ApostaGrupo.grupo_id)
+            )
+        )
+    assert persisted == ids
+    assert response.json() == {"grupo_ids": [str(v) for v in persisted]}
 
 
 @dataclass

@@ -6,12 +6,14 @@ repos:
         args: [--fix, --exit-non-zero-on-fix]
       - id: ruff-format
 
-  - repo: https://github.com/pre-commit/mirrors-mypy
-    rev: v1.13.0
+  - repo: local
     hooks:
       - id: mypy
-        additional_dependencies: [pydantic, sqlalchemy, types-requests]
-        args: [--strict, --ignore-missing-imports]
+        name: mypy
+        entry: mypy src/ --strict --ignore-missing-imports
+        language: system
+        pass_filenames: false
+        always_run: true
 
   - repo: local
     hooks:

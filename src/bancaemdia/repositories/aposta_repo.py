@@ -149,6 +149,8 @@ class ApostaRepo:
             .order_by(item.criada_em.desc(), item.id.desc())
         )
         linhas = (await session.execute(stmt)).all()
+        if not linhas:
+            return [], 0
         return [Aposta(**colunas(row[0])) for row in linhas if row[0] is not None], int(
             linhas[0].total
         )
