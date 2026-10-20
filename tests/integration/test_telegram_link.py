@@ -17,6 +17,9 @@ from bancaemdia.services.telegram_link import (
     revoke_link,
 )
 
+# These tests share the PostgreSQL fixture with exclusive offline replay tests.
+pytestmark = pytest.mark.xdist_group("postgres")
+
 
 @pytest.mark.asyncio
 async def test_single_use_relink_revocation_and_tenant_rls(
