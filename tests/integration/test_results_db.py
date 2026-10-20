@@ -2,6 +2,7 @@
 
 import asyncio
 import json
+import re
 import time
 from collections.abc import AsyncIterator
 from dataclasses import dataclass
@@ -13,7 +14,7 @@ import httpx
 import jwt
 import pytest
 from cryptography.hazmat.primitives.asymmetric import rsa
-from sqlalchemy import text
+from sqlalchemy import event, text
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from bancaemdia.api.v1.apostas import _aplicar, _historico
@@ -249,6 +250,7 @@ async def test_twenty_gestures_twenty_settlements_duplicate_delivery(api, owner,
         ("MEIO_GREEN", False, None, 15000),
         ("MEIO_RED", False, None, 5000),
         ("CASHOUT", False, 7531, 7531),
+        ("CASHOUT", False, 0, 0),
         ("GREEN", True, None, 10000),
         ("RED", True, None, 0),
         ("ANULADA", True, None, 0),
@@ -271,6 +273,7 @@ async def test_financial_states_and_exact_undo(
     assert result.status_code == 200, result.text
     bet = result.json()["aposta"]
     assert bet["retorno_centavos"] == expected
+    assert bet["retorno_informado"] is (paid is not None)
     assert bet["stake_centavos"] == (0 if freebet else 10000)
     assert bet["valor_aposta_centavos"] == 10000
     assert bet["lucro_centavos"] == (
@@ -1017,3 +1020,27 @@ async def test_cookie_csrf_and_real_revocation(
         await engine.dispose()
         async with engine_admin.begin() as conn:
             await conn.execute(text(f"DROP ROLE {role}"))
+
+
+async def test_detail_loads_revision_and_financial_eligibility_without_redundant_reads(
+    api, owner, engine_app, como
+):
+    uid, account = owner
+    key = await seed(engine_app, como, uid, account)
+    before = await counts(engine_app, como, uid, key)
+    queries = []
+
+    def capture(conn, cursor, statement, parameters, context, executemany):
+        if statement.lstrip().upper().startswith("SELECT") and re.search(r"\bapostas\b", statement):
+            queries.append(statement)
+
+    event.listen(engine_app.sync_engine, "before_cursor_execute", capture)
+    try:
+        response = await api.get(uid, "/apostas/" + key)
+    finally:
+        event.remove(engine_app.sync_engine, "before_cursor_execute", capture)
+    assert response.status_code == 200, response.text
+    assert response.json()["revisao"] == str(before[1].result_revision)
+    assert response.json()["elegivel"] is True
+    assert len(queries) == 2, queries  # Bet/revision/eligibility, then owned display context.
+    assert await counts(engine_app, como, uid, key) == before

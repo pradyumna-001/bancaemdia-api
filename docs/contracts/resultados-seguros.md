@@ -97,13 +97,36 @@ Cookies HttpOnly, Origin exata e `X-CSRF-Token` continuam obrigatórios conforme
 
 ## Provas e consumo
 
-`tests/integration/test_results_db.py` exige 70 casos reais de HTTP/PostgreSQL: mais de 10 mil itens, paginação com remoções, desempates/null/filtros, 20 gestos e liquidações, estados/freebet/comissão/retorno explícito/null, duas sessões e escritores intermediários, pré-imagem exata/replay, perda de resposta, RLS/CSRF/401/402, consolidação, conta temporal/multicontas, apagamento, indisponibilidade e migrações. `scripts/check_results_junit.py` congela os nomes, recusa skips, falhas, omissões e duplicações; job obrigatório `Results queue and conditional undo (PostgreSQL)` bloqueia Docker/release. Gates existentes continuam exigidos, incluindo contrato, tipos, segurança, 16 mil apostas/replay e carga de 55 minutos.
+`tests/integration/test_results_db.py` exige 72 casos reais de HTTP/PostgreSQL: mais de 10 mil itens, paginação com remoções, desempates/null/filtros, 20 gestos e liquidações, estados/freebet/comissão/retorno explícito/null, duas sessões e escritores intermediários, pré-imagem exata/replay, perda de resposta, RLS/CSRF/401/402, consolidação, conta temporal/multicontas, apagamento, indisponibilidade e migrações. `scripts/check_results_junit.py` congela os nomes, recusa skips, falhas, omissões e duplicações; job obrigatório `Results queue and conditional undo (PostgreSQL)` bloqueia Docker/release. Gates existentes continuam exigidos, incluindo contrato, tipos, segurança, 16 mil apostas/replay e carga de 55 minutos.
 
 Passos para o frontend, sem alterar esta API nem fechar #27/#50 pela entrega backend:
 
 1. Fixar o SHA final e SHA-256 publicados em `config/api-contract.json` (`repository`, `commit`, `schemaPath`, `sha256`), com disponibilidade **candidate/sandbox**, sem publicar produção. Baixar os bytes dessa referência inteira; verificar hash antes de gerar qualquer tipo.
 2. Na referência frontend #91, executar `node scripts/gen-types.mjs <caminho-local-do-openapi-inteiro>` (ou sem argumento para a referência pinada). Esse script verifica hash e produz `src/api/schema.d.ts`, `operations.generated.ts` e `site-read.generated.ts` juntos. O gerador atual conhece paginação por page/headers: complementar sua extração a partir de `x-bancaemdia-resultados` para cursor, matriz comercial e identidade de intenção; não classificar estas mutations para replay automático porque têm UUID. Nunca somar/concatenar documentos.
-3. Na candidata backend isolada: instalar `.[dev]`, configurar banco PostgreSQL 16 descartável, `alembic upgrade head`, emissor/credenciais de teste reais e iniciar a aplicação. Rodar os 70 casos com `TEST_DATABASE_URL` apontando **apenas** para esse banco, `pytest tests/integration/test_results_db.py -n 0 --no-cov --junitxml=results-acceptance.xml`, seguido de `python scripts/check_results_junit.py results-acceptance.xml`. Consumidor deve provar seus fluxos com a API/emissor/banco reais, não apenas mocks.
+3. Na candidata backend isolada: instalar `.[dev]`, configurar banco PostgreSQL 16 descartável, `alembic upgrade head`, emissor/credenciais de teste reais e iniciar a aplicação. Rodar os 72 casos com `TEST_DATABASE_URL` apontando **apenas** para esse banco, `pytest tests/integration/test_results_db.py -n 0 --no-cov --junitxml=results-acceptance.xml`, seguido de `python scripts/check_results_junit.py results-acceptance.xml`. Consumidor deve provar seus fluxos com a API/emissor/banco reais, não apenas mocks.
 4. No site: obter uma página, gerar UUID antes de cada gesto, enviar revisão daquele item, aceitar finanças/contagem da API, conservar próximo cursor quando itens saírem. Desfazer cria UUID próprio e usa operação/revisão do recibo. Foco, alvo do próximo gesto e otimismo são apresentação; duplo toque não muda UUID/alvo. Limpar dados privados de memória no logout e reconciliar intenções conhecidas após novo login, sem POST automático.
 5. O documento independente de 94 operações não contém todos os contratos do sandbox frontend de 115. Para testar o site completo antes do merge, reconciliar **código real** em uma única árvore de sandbox autorizada, migrar o banco de prova e gerar o documento inteiro pelo app dessa árvore; fixar seu único commit/hash e disponibilidade `sandbox_reconciliation`. Não usar o sucesso isolado como prova de deploy integrado.
 6. Após merges administrativos: reconciliar esta branch e todos os pontos comuns/migrações, gerar OpenAPI da árvore integrada, atualizar pin único e repetir tipos/políticas, contrato/drift, aceites backend e consumidor real. Confirmar ancestralidade/disponibilidade integrada antes de publicar. Não inferir integração de dependências só porque esta CI passou.
+
+
+## Revisão administrativa de 20/10/2026
+
+- O detalhe lê aposta, revisão e elegibilidade financeira em uma consulta própria
+  filtrada pelo dono e chave. A revisão continua fora do registro ORM legado por
+  decisão de compatibilidade; `ResultBet` é uma resposta, não a linha carregada.
+  O aceite mede duas consultas à tabela de apostas: projeção completa e contexto
+  de exibição autorizado, sem SELECT separado de revisão/elegibilidade.
+- Elegibilidade depende também de consolidações, não só da linha da aposta. GET
+  reutiliza a condição do mesmo snapshot; escritas mantêm a revalidação financeira
+  fresca sob os locks. Passar uma revisão conhecida não usa o atalho da fila e
+  não dispensa checar apagada, revisão grave, conta ausente ou fonte contextual.
+- Não se adiciona índice de `result_revision`: ela é comparada depois de localizar
+  a linha pelo dono/chave/ID já indexados. O WHEN do trigger compara OLD e NEW,
+  sem busca nessa coluna; indexá-la acrescentaria custo a toda invalidação.
+- `retorno_informado` registra se o histórico forneceu retorno explicitamente,
+  incluindo zero; retorno calculado pode ser conhecido sem essa marca. Ausência
+  legada continua null, sem inventar presença para alterar a pré-imagem do undo.
+  Os estados/freebet/undo agora verificam a marca e incluem cashout explícito zero.
+- A validação exige regressões de middleware e sete provas com standby/RLS real,
+  além dos 72 aceites obrigatórios de resultados. Atribuição pelo jogo e referência
+  explícita de multicontas permanecem intactas.

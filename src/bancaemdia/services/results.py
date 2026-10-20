@@ -73,16 +73,22 @@ async def revision(session: AsyncSession, uid: int, key: str) -> str:
     return str(value)
 
 
-async def blocked(session: AsyncSession, bet: Aposta) -> str | None:
+async def blocked(
+    session: AsyncSession, bet: Aposta, *, financial_eligible: bool | None = None
+) -> str | None:
     if not bet.selecionada:
         return "deleted"
     if bet.revisao_grave:
         return "severe_review"
-    if not await session.scalar(
-        select(financial_predicate())
-        .select_from(models.Aposta)
-        .where(models.Aposta.usuario_id == bet.usuario_id, models.Aposta.id == bet.id)
-    ):
+    if financial_eligible is None:
+        financial_eligible = bool(
+            await session.scalar(
+                select(financial_predicate())
+                .select_from(models.Aposta)
+                .where(models.Aposta.usuario_id == bet.usuario_id, models.Aposta.id == bet.id)
+            )
+        )
+    if not financial_eligible:
         return "contextual_source"
     if bet.conta_casa_id is None:
         return "account_unassigned"
@@ -95,19 +101,28 @@ async def view(
     state: dict[str, Any],
     context: dict[str, Any] | None = None,
     queue_revision: str | None = None,
+    *,
+    known_revision: str | None = None,
+    financial_eligible: bool | None = None,
 ) -> dict[str, Any]:
     if context is None:
         context = (await ApostaContextoRepo().list_by_ids(session, bet.usuario_id, [bet.id])).get(
             bet.id, {}
         )
-    reason = None if queue_revision is not None else await blocked(session, bet)
+    reason = (
+        None
+        if queue_revision is not None
+        else await blocked(session, bet, financial_eligible=financial_eligible)
+    )
     if reason is None and bet.estado != "PENDENTE":
         reason = "already_settled"
     return cast(
         dict[str, Any],
         jsonable_encoder({
             "chave": bet.chave,
-            "revisao": queue_revision or await revision(session, bet.usuario_id, bet.chave or ""),
+            "revisao": known_revision
+            or queue_revision
+            or await revision(session, bet.usuario_id, bet.chave or ""),
             "estado": bet.estado,
             "elegivel": reason is None,
             "motivo_inelegivel": reason,
@@ -142,11 +157,22 @@ async def view(
 
 
 async def detail(session: AsyncSession, uid: int, key: str) -> dict[str, Any]:
-    bet = await ApostaRepo().get_by_chave(session, uid, key)
-    if bet is None:
+    row = (
+        await session.execute(
+            select(
+                models.Aposta,
+                literal_column("result_revision", type_=String()),
+                financial_predicate(),
+            ).where(models.Aposta.usuario_id == uid, models.Aposta.chave == key)
+        )
+    ).one_or_none()
+    if row is None:
         raise ResultError("result_not_found", 404)
+    bet = Aposta(**colunas(row[0]))
     state, _ = projetar(await _historico(session, uid, key))
-    return await view(session, bet, state)
+    return await view(
+        session, bet, state, known_revision=str(row[1]), financial_eligible=bool(row[2])
+    )
 
 
 async def queue(session: AsyncSession, uid: int, query: QueueFilter) -> dict[str, Any]:
