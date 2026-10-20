@@ -22,6 +22,9 @@ from bancaemdia.services.telegram_conversation import (
 )
 from bancaemdia.workers.telegram import process_inbox_once
 
+# These tests share the PostgreSQL fixture with exclusive offline replay tests.
+pytestmark = pytest.mark.xdist_group("postgres")
+
 
 async def _account(engine_admin: AsyncEngine, engine_app: AsyncEngine, como, user: int) -> int:
     async with engine_admin.begin() as conn:
