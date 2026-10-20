@@ -120,3 +120,12 @@ mypy src/ --strict --ignore-missing-imports
 ```
 
 `TEST_DATABASE_URL` deve apontar a PostgreSQL 16 real. O checker congela o inventário completo e recusa falhas, erros, skips, duplicatas ou omissões. O job `manual-creation-db` é pré-requisito de Docker Build; permanecem todos os demais gates, cobertura mínima e carga de 55 minutos com réplica real. A PR só é entregue fora de rascunho após todos os checks aplicáveis verdes no SHA final. Browser do formulário pertence ao frontend ao consumir o contrato.
+
+
+## Revisão do administrador — 20/10/2026
+
+- Conta temporal continua exclusivamente pelo jogo; ausência não usa a data da aposta como fallback. Multicontas explícita conserva a exceção autorizada. Os campos opcionais documentam isso também no OpenAPI.
+- Data da aposta omitida/null é resolvida pelo servidor somente na primeira criação; replay e recuperação conservam o recibo. O teste real de defaults cobre essa política já existente.
+- Erros inesperados do criador recebem 503 estruturado, sem diagnóstico privado. Rollback remove fatos ainda não confirmados; a resposta continua declarando resultado desconhecido para que falha de resposta/commit nunca seja interpretada como autorização de replay automático. Novo aceite HTTP executa o criador real antes de interromper e verifica ausência de fatos parciais e recuperação pelo UUID.
+- FULL_WRITE é verificado antes da trava para recusar READ_ONLY sem disputar o escritor; a verificação após a espera permanece para impedir permissão obsoleta. 402 não é convertido em 503.
+- Inventário obrigatório passa a 45 casos. Regressões ASGI de contexto, autenticação e roteamento e a prova de standby real continuam exigíveis. Nenhum gate ou limite foi relaxado.

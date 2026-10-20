@@ -3831,6 +3831,7 @@
                 "type": "null"
               }
             ],
+            "description": "Omitida ou null: relógio do servidor somente na primeira criação; replay conserva a confirmação original. Não define a conta temporal.",
             "title": "Data Aposta"
           },
           "data_jogo": {
@@ -3842,6 +3843,7 @@
                 "type": "null"
               }
             ],
+            "description": "Define a conta pelo instante do jogo. Ausente ou ambígua: revisão sem presumir conta pela data da aposta. Multicontas explícita usa a conta informada.",
             "title": "Data Jogo"
           },
           "descricao": {

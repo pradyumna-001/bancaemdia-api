@@ -181,6 +181,11 @@ async def create_manual(
     except SQLAlchemyError as error:
         await session.rollback()
         return database_failure(error)
+    except Exception:
+        # Unexpected creator errors must preserve the UUID recovery protocol,
+        # without exposing diagnostics or claiming that an uncertain commit failed.
+        await session.rollback()
+        return failure("manual_creation_unavailable", 503)
     if created:
         apostas_created_total.labels(origem="manual", estado="PENDENTE").inc()
     return JSONResponse(

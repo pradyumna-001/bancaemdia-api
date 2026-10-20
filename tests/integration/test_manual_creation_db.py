@@ -147,6 +147,33 @@ async def evidence(engine_app, como, uid):
         }
 
 
+async def test_unexpected_creator_error_rolls_back_and_preserves_safe_recovery(
+    api, owner, engine_app, como, monkeypatch
+):
+    from bancaemdia.api.v1 import manual_bets
+
+    uid, _, _ = owner
+    identity = uuid4()
+    before = await evidence(engine_app, como, uid)
+    original = manual_bets.original_creation
+
+    async def interrupted(*args, **kwargs):
+        await original(*args, **kwargs)
+        raise ValueError("private-creator-diagnostic")
+
+    with monkeypatch.context() as patch:
+        patch.setattr(manual_bets, "original_creation", interrupted)
+        response = await post(api, uid, identity)
+    assert response.status_code == 503
+    assert response.json()["detail"] == "manual_creation_unavailable"
+    assert response.json()["efeito"] == "resultado_desconhecido"
+    assert response.headers["Retry-After"] == "5"
+    assert "private-creator" not in response.text
+    assert await evidence(engine_app, como, uid) == before
+    assert (await get(api, uid, identity)).status_code == 404
+    assert (await post(api, uid, identity)).status_code == 201
+
+
 async def test_real_lost_201_after_commit_recovers_without_replay(api, owner, engine_app, como):
     from bancaemdia.main import app
 
