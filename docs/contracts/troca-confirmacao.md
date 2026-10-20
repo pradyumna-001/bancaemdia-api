@@ -65,3 +65,12 @@ pnpm exec playwright test tests/e2e/troca-conta.spec.ts --project=chromium-mobil
 ```
 
 O spec será implementado no repositório do site. Os seis projetos devem manter 390×844 e 1440×900. Com API/PG/identidade reais da composição, provar: seleção elegível, picker acessível com fuso explícito, estado final escolhido, prévia e confirmação, entrada/correção concorrente recusada sem efeitos, nova prévia e nova confirmação, perda de resposta/recarga recuperando a mesma intenção, READ_ONLY após commit, 401/402/409/410/422/429/503, teclado/foco e ausência de cálculo financeiro. Guardar traces/screenshots por navegador/viewport; mocks de rede não provam o contrato. A API não afirma ter executado essa jornada de tela. Publicação depende de integração/revalidação administrativa; sandbox disponível não significa contrato em produção.
+
+
+## Revisão do administrador — 20/10/2026
+
+- Fluxo conferido: `preview_troca` passa `aplicar=False`; `aplicar_troca` passa `aplicar=True`; `_switch` encaminha o mesmo booleano ao serviço real. Não foi alterada uma decisão de negócio que já estava correta. Os 34 aceites HTTP/PostgreSQL verificam a prévia sem troca parcial, aplicação concorrente única, replay, evidência alterada e limites temporais.
+- Recuperação usa o header `Idempotency-Key`, primário e proprietário autenticado. GET não aplica nem renova intenção e permanece disponível em READ_ONLY. PREVIEW/EXPIRED/404 não autorizam concluir rollback ou retry automático.
+- Validações de vigência, origem, destino e evidência continuam antes da troca; alteração do jogo é observada pelo aceite HTTP real. A conta permanece regida pelo jogo, com exceção multicontas explícita.
+- Regressões de contextvars ASGI, reset em exceções, RLS, autenticação e roteamento são executadas; standby real e todos os gates continuam exigíveis no HEAD final.
+- PR diretamente sobre main. Dependências de integração #193/#195/#199 permanecem declaradas; depois de aceitas, reconciliar com a main efetiva e repetir CI, sem presumir merge ou aprovação.
