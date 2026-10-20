@@ -18,7 +18,7 @@ REQUIRED = {
     "test_original_export_ingestion_and_replay_preserve_provenance": 1,
     "test_bot_confirmation_private_image_and_retention": 7,
     "test_real_cookie_session_revocation_blocks_previous_photo_access": 1,
-    "test_private_validation_and_dependency_failures": 5,
+    "test_private_validation_and_dependency_failures": 6,
     "test_photo_reads_preserve_nonempty_consolidations_and_cash": 1,
 }
 
