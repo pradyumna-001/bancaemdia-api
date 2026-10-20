@@ -220,6 +220,8 @@ async def _gravar(
     nova: NovaAposta,
     extracao_json: dict[str, Any],
     midia_hash: str | None,
+    *,
+    manual_source: bool = False,
 ) -> Gravada:
     await _set_current_user(session, usuario_id)
     historico = await _historico(session, usuario_id, nova.chave)
@@ -232,7 +234,7 @@ async def _gravar(
         [
             EventoNovo(
                 "APOSTA_CRIADA",
-                "manual" if nova.origem == "telegram_bot" else "ia",
+                "manual" if manual_source or nova.origem == "telegram_bot" else "ia",
                 {**nova.payload, "versao_prompt": versao_prompt},
                 nova.confianca,
             )
@@ -412,7 +414,7 @@ async def _revisar(
             "usuario_id": usuario_id,
             "midia_hash": midia_hash,
             "motivo": motivo,
-            "extracao_bruta": extracao_bruta,
+            "extracao_bruta": {"tipo_revisao": "leitura", **extracao_bruta},
         },
     )
     return motivo

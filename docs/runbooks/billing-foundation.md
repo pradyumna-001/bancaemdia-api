@@ -9,3 +9,15 @@ One product, independently versioned currency/cadence prices, integer minor unit
 RLS, durable trial identity and append-only field-name audit are inherited from #133 and the minimal audit/export dependency extracted from #130. The original PR branches are retained. `usuarios.ativo` remains administrative. Export excludes provider references; deleting an account cannot orphan an active external subscription.
 
 See [Stripe operations](billing-stripe.md) and [ADR 025](../adrs/025-billing-provider.md). Production eligibility and live sandbox evidence remain separate gates.
+
+Operation `aposta_foto` explicitly permits FULL_WRITE and READ_ONLY after session,
+ownership and provenance authorization. It reads existing evidence on the primary
+without extraction, spending, financial writes or entitlement changes. See the
+[original photo contract](../contracts/aposta-foto.md); HTTP method alone does not
+define the operation's billing permission.
+
+Web-print intake and explicit item retry require FULL_WRITE, including worker
+extraction/materialization. Reconciliation GETs and existing photo/review evidence
+remain readable in READ_ONLY. A session failure is 401; denied new writes are 402.
+Daily admission/retry limits are internal controls; no processing estimate or
+spending approval is exposed. See [prints web](../contracts/prints-web.md).

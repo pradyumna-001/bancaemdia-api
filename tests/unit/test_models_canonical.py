@@ -166,8 +166,16 @@ def test_all_forty_eight_tables_are_registered() -> None:
             ColetaEntrega,
         )
     }
-    esperadas |= {"telegram_media", "telegram_rate_buckets"}
-    assert len(esperadas) == 65
+    esperadas |= {
+        "telegram_media",
+        "telegram_rate_buckets",
+        "result_operations",
+        "review_operations",
+        "print_intents",
+        "print_items",
+        "print_assets",
+    }
+    assert len(esperadas) == 70
     assert set(Base.metadata.tables) == esperadas
     assert {m.__tablename__ for m in CANONICOS} == {
         "casas",
@@ -353,6 +361,9 @@ def test_revisao_pendente_indexes() -> None:
 
 def test_bigserial_except_composite_and_billing_owner_keys() -> None:
     for nome in set(Base.metadata.tables) - {
+        "print_assets",
+        "print_intents",
+        "print_items",
         "cruzamento_entradas",
         "extracoes_cache",
         "assinaturas",
@@ -363,5 +374,17 @@ def test_bigserial_except_composite_and_billing_owner_keys() -> None:
         "telegram_rate_buckets",
         "telegram_link_attempts",
         "rascunhos_aposta",
+        "result_operations",
+        "review_operations",
     }:
         assert "id BIGSERIAL NOT NULL" in _create_table(nome)
+
+
+def test_web_print_keys_are_tenant_scoped_uuid_identities() -> None:
+    assert "id UUID NOT NULL" in _create_table("print_assets")
+    assert "PRIMARY KEY (usuario_id, id)" in _create_table("print_intents")
+    assert "PRIMARY KEY (usuario_id, intent_id, id)" in _create_table("print_items")
+    assert (
+        "FOREIGN KEY(usuario_id, asset_id) REFERENCES print_assets (usuario_id, id)"
+        in _create_table("print_items")
+    )

@@ -132,6 +132,11 @@ class Settings(BaseSettings):
     UPLOAD_MAX_BYTES: int = Field(
         default=50 * 1024 * 1024, gt=0, description="Largest Telegram export accepted, in bytes"
     )
+    PRINT_DAILY_ATTEMPT_LIMIT: int = Field(
+        default=200,
+        gt=0,
+        description="Internal web-print admission/retry ceiling per user per UTC day; never a browser spending approval",
+    )
     UPLOAD_DAILY_PHOTO_LIMIT: int = Field(
         default=200, ge=0, description="Photos per user per day sent to the AI; 0 disables"
     )
