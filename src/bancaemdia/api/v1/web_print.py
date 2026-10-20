@@ -72,7 +72,7 @@ async def resolve_print_review(
     usuario: Annotated[Usuario, Depends(get_current_user)],
     session: Annotated[AsyncSession, Depends(get_db)],
 ) -> PrintReviewResponse:
-    from bancaemdia.api.v1 import apostas as apostas_api
+    from bancaemdia.repositories.aposta_lock import try_lock_bet
     from bancaemdia.repositories.revisao_pendente_repo import RevisaoPendenteRepo
     from bancaemdia.services.web_print_review import resolve
 
@@ -84,7 +84,7 @@ async def resolve_print_review(
     key = raw.get("aposta_chave")
     if not raw.get("web_print_id") or not isinstance(key, str):
         raise HTTPException(409, "esta revisão já usa a resolução padrão")
-    if not await apostas_api._travar(session, usuario.id, key):
+    if not await try_lock_bet(session, usuario.id, key):
         raise HTTPException(409, "esta revisão está sendo resolvida")
     locked = await repo.get_by_id_for_update(session, usuario.id, revisao_id)
     if locked is None:

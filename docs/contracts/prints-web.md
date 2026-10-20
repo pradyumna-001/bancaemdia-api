@@ -75,3 +75,42 @@ python scripts/generate_openapi.py --check
 ```
 
 Entradas sintéticas, extração por adaptador isolado sem chamada paga; worker Celery real em processo separado e Redis real. O gate dedicado exige o inventário inteiro, sem falhas/skips/duplicações. As 42 provas de foto de #193 continuam obrigatórias. Suíte/segurança/cobertura/identidade/billing/integridade/build/carga existentes mantidos no HEAD final. Exemplos tipados em `docs/contracts/examples/prints-web.json`; hash/SHA integral e links da entrega ficam na PR. Esta capacidade desbloqueia o contrato da #25, não implementa/fecha a tela do frontend. Não é deploy, contratação ou provisionamento de produção.
+
+
+## Revisão administrativa de 20/10/2026
+
+1. `_gravar` retorna `Gravada`; se o upsert recusar uma versão mais antiga,
+   levanta `GravacaoConcorrenteError` antes de devolver o resultado. O worker agora
+   trata essa exceção como `failed/unavailable`, recuperável, com rollback de
+   todos os fatos/eventos daquela materialização. Não declara sucesso usando uma
+   chave sem prova da gravação. O novo aceite reproduz a recusa com uma linha
+   PostgreSQL realmente mais recente e verifica leitura preservada e nenhuma
+   alteração financeira parcial.
+2. Reconciliação do recibo e disponibilidade da imagem são distintas. Mesmo após
+   sete dias, repetir a mesma intenção/item/conteúdo conserva o recibo até seu
+   prazo de reconciliação; não renova mídia, não extrai nem grava novos fatos.
+   Foto expirada responde 404 e retry não é permitido sem mídia. O aceite de
+   retenção verifica GET e repetição de POST depois da expiração, além da ausência
+   de escrita financeira e da expiração posterior da intenção.
+3. O lock de aposta é público em `repositories/aposta_lock.py`, compartilhado pela
+   escrita de apostas e resolução de prints. Mantém a mesma ordem: lock de
+   pareamento do dono antes do advisory lock da chave, sem espera neste último.
+   A resolução não importa mais uma função privada de outro módulo de API.
+4. Manter os três limites de transação é deliberado: admissão/lease; checkpoint
+   da leitura paga; materialização e resultado atômicos. Não se segura transação
+   de banco durante a extração externa. Lease vencido reutiliza o checkpoint,
+   sem nova cobrança; o aceite de recuperação exige isso. Unificar as etapas
+   eliminaria essa garantia ou manteria locks durante I/O externo.
+5. Middlewares e worker conservam RLS por dono e decisão de roteamento, incluindo
+   finally/contextos de exceção. Toda a entrega exige identidade, regressões de
+   middleware e sete provas de standby/RLS reais no gate de carga.
+6. A soma do dia já inclui o ativo atual: `quota_day >= start` reserva somente
+   **uma** tentativa, não `attempt + 1`. Retry idêntico não consome outra unidade;
+   o novo aceite aceita a segunda tentativa com limite dois e rejeita a terceira.
+   Ativos de outro dia conservam a política documentada de carregar suas
+   tentativas anteriores ao reabrir; isso é conservador e não é valor financeiro.
+
+Os 35 aceites de prints anteriores são preservados e acrescidos de dois. A
+foto herdada inclui as correções da revisão de #193, com 43 aceites obrigatórios.
+Integrar/reconciliar #193 antes desta entrega e repetir a CI sobre a main real;
+a candidata continua diretamente contra main e executável sozinha.
