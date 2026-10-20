@@ -116,3 +116,22 @@ Decisões aplicadas: [ADR 002](../adrs/002-data-model-query-strategy.md),
 [identidade](../adrs/025-oidc-identity-server-sessions.md) e
 [billing](../adrs/025-billing-provider.md). Acesso primário é deliberado:
 consistência de evidência e revogação precedem roteamento comum de leitura.
+
+## Revisão administrativa de 20/10/2026
+
+- As duas aberturas PIL usam agora contextos explícitos também para os buffers
+  BytesIO de propriedade da função. Cada buffer é fechado inclusive em recusa;
+  duas regressões verificam sucesso e JPEG incompleto, sem alterar os bytes.
+- `photo_path` classifica cabeçalhos/erros, sem autorizar leitura. O caminho sem
+  segmento de chave não atende a rota de foto: `/api/v1/apostas/foto` recebe 404
+  pela rota de detalhe, enquanto chave inválida na rota de foto recebe 422.
+  Um novo aceite HTTP verifica a resposta real e os cabeçalhos privados.
+- Bot legado sem `midia_hash` na aposta continua permitido somente com o vínculo
+  exato draft CONFIRMED/evento privado/hash da mídia, retenção vigente e dono.
+  O caso `legacy_without_bet_hash` já cobre esse contrato; hash conhecido isolado
+  nunca concede acesso nem ressuscita mídia expirada ou removida.
+- A validação exige regressões de autenticação/ContextVars e as sete provas de
+  roteamento/RLS com standby PostgreSQL real no gate de carga.
+- `_fernet()` cria uma instância nova por chamada; o método vinculado é entregue
+  a `asyncio.to_thread`, sem estado mutável compartilhado por requisições.
+  A biblioteca também documenta [Fernet como seguro entre threads](https://cryptography.io/en/latest/fernet/).

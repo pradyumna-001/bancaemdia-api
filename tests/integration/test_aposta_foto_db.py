@@ -840,7 +840,8 @@ async def test_real_cookie_session_revocation_blocks_previous_photo_access(
 
 
 @pytest.mark.parametrize(
-    "failure", ["database", "unexpected", "invalid_key", "storage_config", "storage_pointer"]
+    "failure",
+    ["database", "unexpected", "invalid_key", "empty_key", "storage_config", "storage_pointer"],
 )
 async def test_private_validation_and_dependency_failures(
     api: Api,
@@ -865,6 +866,8 @@ async def test_private_validation_and_dependency_failures(
         monkeypatch.setattr(ApostaRepo, "get_by_chave", unavailable)
     elif failure == "invalid_key":
         key = "x" * 257
+    elif failure == "empty_key":
+        key = ""
     else:
         monkeypatch.setenv(
             "S3_UPLOAD_BUCKET", "private-test" if failure == "storage_pointer" else ""
@@ -877,12 +880,15 @@ async def test_private_validation_and_dependency_failures(
                 .values(s3_key="private-invalid-pointer", conteudo=b"")
             )
             await session.commit()
-    response = await api.client.get(url(key), headers=api.headers(owner))
+    target = "/api/v1/apostas/foto" if failure == "empty_key" else url(key)
+    response = await api.client.get(target, headers=api.headers(owner))
     assert response.status_code == (
         500
         if failure == "unexpected"
         else 503
         if failure in {"database", "storage_config"}
+        else 404
+        if failure == "empty_key"
         else 422
     ), response.text
     assert "private" not in response.text and "connection" not in response.text
