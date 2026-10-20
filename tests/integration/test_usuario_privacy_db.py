@@ -11,6 +11,9 @@ from bancaemdia.api.v1.usuario import anonimizar_minha_conta, collect_user_data
 from bancaemdia.core.context import current_user_id
 from bancaemdia.domain.registros import Usuario
 
+# These tests share the PostgreSQL fixture with exclusive offline replay tests.
+pytestmark = pytest.mark.xdist_group("postgres")
+
 
 async def _set_tenant(session: AsyncSession, user_id: int) -> None:
     await session.execute(

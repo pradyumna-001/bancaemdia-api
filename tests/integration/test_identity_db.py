@@ -13,6 +13,9 @@ from bancaemdia.auth.identity_service import IdentityService
 from bancaemdia.auth.oidc import IdentityError
 from tests.identity.support import key_settings
 
+# These tests share the PostgreSQL fixture with exclusive offline replay tests.
+pytestmark = pytest.mark.xdist_group("postgres")
+
 
 @pytest.fixture
 async def identity_service_db(banco, engine_admin, tmp_path):
