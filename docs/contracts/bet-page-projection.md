@@ -100,7 +100,7 @@ por linha ou calcular finanças no navegador.
 
 `pytest tests/integration/test_bet_page_projection.py -n 0` usa PostgreSQL
 migrado descartável, credencial comum com RLS e credencial restrita de identidade.
-Somente o emissor externo é simulado; cookie assinado/criptografado, CSRF,
+Somente o emissor externo é simulado; cookie opaco emitido pelo serviço real, CSRF,
 READ_ONLY, escrita HTTP, materialização, projeção e consultas são reais.
 O ambiente CI executa também a jornada dedicada de identidade com emissor real.
 O arquivo cobre correção dos quatro textos por allowlist, legado sem histórico,
@@ -111,3 +111,25 @@ privada inválida, READ_ONLY/CSRF/autenticação e commit concorrente no snapsho
 `TEST_DATABASE_URL` pode apontar a um PostgreSQL descartável em vez de Docker;
 o teste nunca pode usar banco real de usuário. A suíte geral e os gates de
 compatibilidade/segurança/performance continuam obrigatórios, sem redução.
+
+## Revisão administrativa de 20/10/2026
+
+Ordem de merge: #184 antes de #187. Depois da integração real do #184 na main,
+atualizar esta branch pela main, preservar `filtros_do_site` e aplicar a projeção
+em lote somente depois da seleção/paginação. Repetir os aceites de filtros e
+projeção e toda a CI. Até lá os PRs seguem diretamente contra main, sem empilhar.
+
+Frontend #18 deve consumir contexto hidratado somente nos GETs. Depois de uma
+mutação, invalidar/refazer a consulta de lista/detalhe; `null` na resposta da
+mutação não autoriza apagar os nomes já carregados. Os aceites HTTP verificam
+expressamente os dois campos nulos em POST/PATCH/DELETE/restaurar.
+
+`comeca_em` pertence à criação/projeção canônica, fora da allowlist de PATCH.
+A escrita manual reavalia a conta por `casa`, `data_jogo` ou `conta_casa_id`;
+o detector não sugere que `comeca_em` seja editável. O relógio canônico continua
+aceitando esse início de jogo em eventos de criação; nunca usa `data_aposta`
+como substituto. O aceite rejeita PATCH de `comeca_em` pela API real.
+
+Contas inativas e titulares arquivados continuam legíveis no histórico próprio,
+conforme a regra de produto confirmada pelo usuário. Ler não reatribui contas.
+O aceite de troca temporal cobre a conta anterior e seu titular arquivado.

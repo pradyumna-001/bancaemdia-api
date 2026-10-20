@@ -413,9 +413,10 @@ async def _escrever(
         await session.rollback()
         return erro(status.HTTP_422_UNPROCESSABLE_ENTITY, str(recusa))
     depois, _ = projetar([*historico, *((e.tipo, e.fonte, e.payload) for e in novos)])
+    # Only fields accepted by manual correction can change attribution here.
+    # Creation-only comeca_em remains available to the canonical game clock.
     account_change = any(
-        any(campo in e.payload for campo in ("conta_casa_id", "casa", "data_jogo", "comeca_em"))
-        for e in novos
+        any(campo in e.payload for campo in ("conta_casa_id", "casa", "data_jogo")) for e in novos
     )
     account_resolution = None
     if account_change:
