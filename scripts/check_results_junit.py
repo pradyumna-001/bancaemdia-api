@@ -4,6 +4,8 @@ import sys
 import xml.etree.ElementTree as ET
 
 EXPECTED = frozenset([
+    "test_detail_loads_revision_and_financial_eligibility_without_redundant_reads",
+    "test_financial_states_and_exact_undo[CASHOUT-False-0-0]",
     "test_account_erasure_removes_receipts_and_preimages",
     "test_busy_lock_and_unavailable_are_distinct_from_stale_revision",
     "test_consolidation_invalidates_revision_and_excludes_contextual_source",
