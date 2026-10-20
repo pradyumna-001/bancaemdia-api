@@ -172,6 +172,94 @@ async def test_native_http_accounts_require_jwt_and_owner_is_derived(native_http
     assert foreign_id not in {row["id"] for row in response.json()}
 
 
+async def test_native_http_inactive_historical_account_follows_game(native_http, como):
+    system = native_http
+    async with como(system.engine, system.user) as session:
+        await session.execute(
+            update(NativeAccount)
+            .where(NativeAccount.id == system.account_id)
+            .values(valid_to=datetime(2026, 1, 3, tzinfo=UTC))
+        )
+        historical = await account(
+            session,
+            system.user,
+            system.house_id,
+            valid_from=datetime(2026, 1, 3, tzinfo=UTC),
+            valid_to=datetime(2026, 2, 1, tzinfo=UTC),
+            active=False,
+        )
+        historical_id = historical.id
+        await session.commit()
+    response = await system.http.post(
+        "/api/v1/coleta/reader-captures",
+        headers=system.capture_headers,
+        json=system.capture_body,
+    )
+    assert response.status_code == 200, response.text
+    assert response.json()["result"] == "created"
+    bets = await system.http.get("/api/v1/financeiro/nativo/apostas", headers=system.headers())
+    assert bets.status_code == 200, bets.text
+    assert bets.json()[0]["account_id"] == historical_id
+    totals = await system.http.get(
+        "/api/v1/financeiro/nativo/resumo",
+        params={"account_id": historical_id},
+        headers=system.headers(),
+    )
+    assert totals.status_code == 200, totals.text
+    assert totals.json()["totals_by_currency"][0]["profit"] == "18.51"
+
+
+async def test_native_http_overlap_requires_review_or_explicit_multicontas(native_http):
+    system = native_http
+    created = await system.http.post(
+        "/api/v1/financeiro/nativo/contas",
+        headers=system.headers(),
+        json={
+            "casa_id": system.house_id,
+            "currency": "USDT",
+            "label": "Concurrent actual betting account",
+            "valid_from": "2025-01-01T00:00:00Z",
+        },
+    )
+    assert created.status_code == 201, created.text
+    response = await system.http.post(
+        "/api/v1/coleta/reader-captures",
+        headers=system.capture_headers,
+        json=system.capture_body,
+    )
+    assert response.status_code == 200, response.text
+    assert response.json()["result"] == "account_review"
+    assert response.json()["needs_review"] is True
+    summary = await system.http.get("/api/v1/financeiro/nativo/resumo", headers=system.headers())
+    assert summary.status_code == 200, summary.text
+    assert summary.json()["totals_by_currency"] == []
+    # Another identity can name the account actually used; replay must never
+    # silently resolve the earlier ambiguous identity.
+    other = native_source()
+    other["bet"]["id"] = "synthetic-explicit-overlap"
+    body = {
+        "transport_contract": "reader-capture-1",
+        "envelope": captured(other)[0].model_dump(mode="json"),
+        "multicontas": True,
+        "explicit_account_id": created.json()["id"],
+    }
+    response = await system.http.post(
+        "/api/v1/coleta/reader-captures", headers=system.capture_headers, json=body
+    )
+    assert response.status_code == 200, response.text
+    assert response.json()["result"] == "created"
+    summary = await system.http.get("/api/v1/financeiro/nativo/resumo", headers=system.headers())
+    assert summary.status_code == 200, summary.text
+    assert summary.json()["totals_by_currency"][0]["bets"] == 1
+    excluded = await system.http.get(
+        "/api/v1/financeiro/nativo/resumo",
+        params={"since": "2030-01-01T00:00:00Z"},
+        headers=system.headers(),
+    )
+    assert excluded.status_code == 200, excluded.text
+    assert excluded.json()["totals_by_currency"] == []
+
+
 async def test_native_http_credential_revocation(native_http, como):
     from bancaemdia.models import ColetaInstalacao
 

@@ -164,9 +164,9 @@ async def native_summary(
     statement = select(
         NativeBet.currency,
         func.count(NativeBet.id),
-        func.sum(NativeBet.stake),
-        func.sum(NativeBet.returned),
-        func.sum(NativeBet.returned - NativeBet.stake),
+        func.coalesce(func.sum(NativeBet.stake), Decimal(0)),
+        func.coalesce(func.sum(NativeBet.returned), Decimal(0)),
+        func.coalesce(func.sum(NativeBet.returned - NativeBet.stake), Decimal(0)),
     ).where(
         NativeBet.usuario_id == user_id,
         NativeBet.needs_review.is_(False),

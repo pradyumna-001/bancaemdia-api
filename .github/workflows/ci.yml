@@ -336,7 +336,7 @@ jobs:
           assert not list(reader.iter('skipped')), 'mandatory reader PostgreSQL tests cannot skip'
           assert len(list(one_win.iter('testcase'))) == 15, '1win acceptance inventory missing'
           assert not list(one_win.iter('skipped')), 'mandatory 1win acceptance cannot skip'
-          assert len(list(native.iter('testcase'))) == 32, 'native acceptance inventory missing'
+          assert len(list(native.iter('testcase'))) == 34, 'native acceptance inventory missing'
           assert not list(native.iter('skipped')), 'mandatory native acceptance cannot skip'
           assert len(list(legacy.iter('testcase'))) >= 120, 'inherited regression inventory missing'
           historical = {

@@ -69,6 +69,29 @@ Extensão PR #33 precisa de revisão/merge independente. A integração cliente 
 
 ## Provas exigidas
 
-CI executa 32 aceites nativos obrigatórios, sem skips, em PostgreSQL separado: HTTP/JWT/pareamento real, valores exatos, replay, concorrência, conflito, jogo/multicontas, BRL separado, RLS, acesso comercial, quarentena/privacidade, cota compartilhada, exportação/exclusão e downgrade com dados. Mantém os 16 aceites do harness e 15 de leitura/quarentena 1win, mais regressões históricas, contratos, segurança e carga de 55 minutos.
+CI executa 34 aceites nativos obrigatórios, sem skips, em PostgreSQL separado: HTTP/JWT/pareamento real, valores exatos, replay, concorrência, conflito, jogo/multicontas, BRL separado, RLS, acesso comercial, quarentena/privacidade, cota compartilhada, exportação/exclusão e downgrade com dados. Mantém os 16 aceites do harness e 15 de leitura/quarentena 1win, mais regressões históricas, contratos, segurança e carga de 55 minutos.
+
+## Respostas à revisão administrativa de 20/10/2026
+
+Integrar #184 antes de #185. Ambos continuam diretamente contra `main`; quando
+#184 entrar, atualizar esta branch a partir da `main` real e repetir todos os
+checks. As otimizações SQL compartilhadas não exigem empilhar os PRs.
+
+A regra de produto já confirmada pelo usuário seleciona a conta pelo jogo,
+mesmo que esteja inativa hoje. O intervalo histórico continua obrigatório;
+`active` não reescreve o passado nem seleciona a conta vigente na colocação.
+O aceite HTTP de conta histórica inativa cobre essa diferença explicitamente.
+
+Sobreposição é permitida para contas realmente simultâneas em multicontas.
+Recusá-la na criação impediria esse uso. Captura ordinária com mais de uma
+candidata preserva o fato em `account_review`, sem conta nem participação nos
+totais; somente multicontas com conta explícita própria pode atribuir uma nova
+identidade nessa situação. O aceite HTTP prova criação, ambiguidade, exclusão
+dos totais e atribuição explícita sem resolver um fato anterior por replay.
+
+As colunas monetárias são `NOT NULL`; o agrupamento sem linhas não produz grupo.
+Além disso, as três somas usam `COALESCE` decimal defensivo. Não cria moeda ou
+total para conjunto vazio, nem transforma fatos pendentes em valores conhecidos.
+O mesmo aceite verifica resumo vazio por pendência e por filtro temporal.
 
 O replay local privado valida os 30 envelopes reais contra PostgreSQL: dez fatos, vinte no-ops, dez evidências únicas, valores e totais exatos conferidos com oráculo independente, sem `Aposta`/`Evento` legado. Esse replay não substitui aprovação administrativa, CI do SHA final ou E2E da extensão.
