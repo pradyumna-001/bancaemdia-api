@@ -372,6 +372,76 @@ async def test_missing_session_is_401_and_foreign_retry_is_404(api, novo_usuario
     assert foreign.status_code == 404
 
 
+async def test_same_day_retry_reserves_exactly_one_attempt(
+    api, engine_app, como, novo_usuario, monkeypatch
+):
+    from bancaemdia.config import get_settings
+
+    monkeypatch.setattr(get_settings(), "PRINT_DAILY_ATTEMPT_LIMIT", 2)
+
+    def unavailable(*a, **kw):
+        raise TimeoutError("synthetic extraction outage")
+
+    monkeypatch.setattr(worker, "extrair_bilhete", unavailable)
+    user = await novo_usuario()
+    intent, item, accepted = await submit(api, user, image_bytes())
+    assert accepted.status_code == 202
+    identity = await asset_id(engine_app, como, user, intent, item)
+    assert await worker.process_once(engine_app, user, identity)
+    body = {"retry_id": str(uuid4()), "expected_attempt": 1}
+    for _ in range(2):
+        retried = await api.client.post(
+            item_url(intent, item) + "/retry", headers=api.headers(user), json=body
+        )
+        assert retried.status_code == 202, retried.text
+        assert retried.json()["attempt"] == 2
+    assert await worker.process_once(engine_app, user, identity)
+    refused = await api.client.post(
+        item_url(intent, item) + "/retry",
+        headers=api.headers(user),
+        json={"retry_id": str(uuid4()), "expected_attempt": 2},
+    )
+    assert refused.status_code == 429
+    assert int(refused.headers["Retry-After"]) > 0
+    state = await api.client.get(item_url(intent, item), headers=api.headers(user))
+    assert state.json()["attempt"] == 2
+
+
+async def test_newer_bet_write_becomes_retryable_failure_without_partial_materialization(
+    api, engine_app, como, novo_usuario, extractor
+):
+    user = await novo_usuario()
+    intent, item, accepted = await submit(api, user, image_bytes())
+    assert accepted.status_code == 202
+    identity = await asset_id(engine_app, como, user, intent, item)
+    async with como(engine_app, user) as session:
+        session.add(
+            models.Aposta(
+                usuario_id=user,
+                chave=f"web_print:{identity}:0",
+                origem="print",
+                stake_unidades=1,
+                stake_centavos=100,
+                valor_aposta_centavos=100,
+                odd=2,
+                atualizada_em=now() + timedelta(days=1),
+            )
+        )
+        await session.commit()
+    before = await snapshot(engine_app, como, user)
+    assert await worker.process_once(engine_app, user, identity)
+    state = await api.client.get(item_url(intent, item), headers=api.headers(user))
+    assert state.status_code == 200, state.text
+    assert state.json()["status"] == "failed"
+    assert state.json()["error_code"] == "unavailable"
+    assert state.json()["retryable"] is True
+    assert state.json()["results"] is None
+    assert await snapshot(engine_app, como, user) == before
+    async with como(engine_app, user) as session:
+        asset = await session.get(PrintAsset, identity)
+        assert asset.reading is not None and asset.lease_token is None
+
+
 async def test_read_only_keeps_reconciliation_and_denies_new_input_and_retry(
     api, engine_app, engine_admin, como, novo_usuario
 ):
@@ -417,7 +487,8 @@ async def test_retention_expires_private_bytes_and_state_but_preserves_tombstone
     api, engine_app, como, novo_usuario, extractor
 ):
     user = await novo_usuario()
-    intent, item, r = await submit(api, user, image_bytes())
+    content = image_bytes()
+    intent, item, r = await submit(api, user, content)
     assert r.status_code == 202
     identity = await asset_id(engine_app, como, user, intent, item)
     await worker.process_once(engine_app, user, identity)
@@ -428,6 +499,13 @@ async def test_retention_expires_private_bytes_and_state_but_preserves_tombstone
         asset.media_expires_at = now() - timedelta(seconds=1)
         await session.commit()
     assert (await api.client.get(url(key), headers=api.headers(user))).status_code == 404
+    expired = await api.client.get(item_url(intent, item), headers=api.headers(user))
+    assert expired.status_code == 200 and expired.json()["retryable"] is False
+    before = await snapshot(engine_app, como, user)
+    repeated = (await submit(api, user, content, intent, item))[2]
+    assert repeated.status_code == 202
+    assert repeated.json() == expired.json()
+    assert await snapshot(engine_app, como, user) == before
     async with como(engine_app, user) as session:
         intent_row = await session.get(models.PrintIntent, (user, intent))
         intent_row.expires_at = now() - timedelta(seconds=1)

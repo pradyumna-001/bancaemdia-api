@@ -187,6 +187,8 @@ async def reserve_attempt(session: AsyncSession, uid: int, asset: PrintAsset | N
             PrintAsset.usuario_id == uid, PrintAsset.quota_day >= start
         )
     )
+    # Today's sum already includes this asset: reserve only the new attempt.
+    # An older asset carries its lifetime attempts into today's sum conservatively.
     additional = 1 if asset is None or asset.quota_day >= start else asset.attempt + 1
     if int(used or 0) + additional > get_settings().PRINT_DAILY_ATTEMPT_LIMIT:
         raise HTTPException(
