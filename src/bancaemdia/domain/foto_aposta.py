@@ -42,7 +42,7 @@ def validate_photo(content: bytes, mime: str, digest: str) -> str:
     try:
         with warnings.catch_warnings():
             warnings.simplefilter("error", Image.DecompressionBombWarning)
-            with Image.open(BytesIO(content)) as image:
+            with BytesIO(content) as source, Image.open(source) as image:
                 actual = IMAGE_TYPES.get(image.format or "")
                 if (
                     actual is None
@@ -57,7 +57,7 @@ def validate_photo(content: bytes, mime: str, digest: str) -> str:
                 image.verify()
             # JPEG's verify() does not decode its stream. Actually load the
             # bounded frames too, so truncated data cannot be published as valid.
-            with Image.open(BytesIO(content)) as decoded:
+            with BytesIO(content) as source, Image.open(source) as decoded:
                 pixels = 0
                 for frame in range(MAX_PHOTO_FRAMES + 1):
                     try:
