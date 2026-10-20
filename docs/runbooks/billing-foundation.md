@@ -9,3 +9,13 @@ One product, independently versioned currency/cadence prices, integer minor unit
 RLS, durable trial identity and append-only field-name audit are inherited from #133 and the minimal audit/export dependency extracted from #130. The original PR branches are retained. `usuarios.ativo` remains administrative. Export excludes provider references; deleting an account cannot orphan an active external subscription.
 
 See [Stripe operations](billing-stripe.md) and [ADR 025](../adrs/025-billing-provider.md). Production eligibility and live sandbox evidence remain separate gates.
+
+## Matriz comercial: comparação histórica
+
+| Operação explícita | FULL_WRITE | READ_ONLY | Regra |
+|---|---|---|---|
+| `hipotetica_historica` — GET `/api/v1/painel/hipotetica` | Permitida | Permitida | Consulta de fatos próprios, sem escrita, IA, gasto ou evento financeiro |
+
+A matriz executável `domain/access.py::OPERATION_ACCESS` valida o acesso comercial
+na operação. Não deduz assinatura da sessão nem permissão só pelo verbo GET.
+[Contrato e limitações](../contracts/hipotetica.md), backend #190 / frontend #21.

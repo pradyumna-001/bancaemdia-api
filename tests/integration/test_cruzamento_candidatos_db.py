@@ -2,20 +2,27 @@ import asyncio
 import copy
 import json
 import os
+from collections.abc import AsyncIterator
 from datetime import UTC, datetime
 from pathlib import Path
+from typing import Any, cast
 from uuid import uuid4
 
 import pytest
 from sqlalchemy import delete, func, select, text, update
+from sqlalchemy.engine import CursorResult
 from sqlalchemy.exc import DBAPIError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from bancaemdia import models
+from bancaemdia.coleta.leitores import LEITORES
+from bancaemdia.domain import registros
+from bancaemdia.domain.coleta_casa import chave_casa
 from bancaemdia.models.cruzamento_candidato import CruzamentoCandidato as Pair
 from bancaemdia.models.cruzamento_candidato import CruzamentoEntrada as Entry
 from bancaemdia.repositories.cruzamento_candidato import CruzamentoCandidatoRepo
 from bancaemdia.services.cruzamento_candidatos import generate
+from bancaemdia.workers.celery_app import app as celery
 from bancaemdia.workers.pairing import confirmar_par, parear_criacao
 
 pytestmark = pytest.mark.xdist_group("postgres")
@@ -25,20 +32,22 @@ BASE = json.loads((Path(__file__).parents[1] / "fixtures/cruzamento/cases.json")
 
 
 @pytest.fixture(scope="module", autouse=True)
-def require_postgres():
+def require_postgres() -> Any:
     if not os.environ.get("TEST_DATABASE_URL"):
         from testcontainers.core.docker_client import DockerClient
 
         assert DockerClient().client.ping(), "Matching acceptance requires real PostgreSQL"
 
 
-async def owner(session, user):
+async def owner(session: Any, user: Any) -> Any:
     await session.execute(
         text("SELECT set_config('app.current_user_id', :uid, true)"), {"uid": str(user)}
     )
 
 
-async def create(engine, user, origin, patch=None, *, run=True, key=None):
+async def create(
+    engine: Any, user: Any, origin: Any, patch: Any = None, *, run: Any = True, key: Any = None
+) -> Any:
     state = {**copy.deepcopy(BASE), **(patch or {}), "usuario_id": user}
     async with AsyncSession(engine, expire_on_commit=False) as session, session.begin():
         await owner(session, user)
@@ -67,18 +76,29 @@ async def create(engine, user, origin, patch=None, *, run=True, key=None):
             )
         )
         await session.flush()
-        verdict = await parear_criacao(session, user, bet, state) if run else "nova"
+        verdict = (
+            await parear_criacao(
+                session,
+                user,
+                registros.Aposta(**{
+                    c.name: getattr(bet, c.name) for c in models.Aposta.__table__.columns
+                }),
+                state,
+            )
+            if run
+            else "nova"
+        )
         return bet.id, state, verdict
 
 
-async def refresh(engine, user, ident, state):
+async def refresh(engine: Any, user: Any, ident: Any, state: Any) -> Any:
     async with AsyncSession(engine, expire_on_commit=False) as session, session.begin():
         await owner(session, user)
         bet = await session.get(models.Aposta, ident)
         return await generate(session, user, bet, state)
 
 
-async def pairs(engine, user):
+async def pairs(engine: Any, user: Any) -> Any:
     async with AsyncSession(engine, expire_on_commit=False) as session:
         await owner(session, user)
         return (
@@ -87,8 +107,8 @@ async def pairs(engine, user):
 
 
 async def test_exact_candidate_is_persisted_and_repeated_without_financial_mutation(
-    engine_app, novo_usuario
-):
+    engine_app: Any, novo_usuario: Any
+) -> None:
     user = await novo_usuario()
     house, _, _ = await create(engine_app, user, "casa")
     tip, raw, verdict = await create(engine_app, user, "telegram")
@@ -100,7 +120,9 @@ async def test_exact_candidate_is_persisted_and_repeated_without_financial_mutat
     async with AsyncSession(engine_app) as session:
         await owner(session, user)
         assert (
-            await session.get(models.RevisaoPendente, first.revisao_id)
+            cast(
+                models.RevisaoPendente, await session.get(models.RevisaoPendente, first.revisao_id)
+            )
         ).motivo == "consolidacao_pendente"
     await refresh(engine_app, user, tip, raw)
     assert len(await pairs(engine_app, user)) == 1
@@ -121,10 +143,39 @@ async def test_exact_candidate_is_persisted_and_repeated_without_financial_mutat
         )
 
 
+async def test_unmatched_source_keeps_snapshot_without_changing_existing_pairs_or_reviews(
+    engine_app: Any, novo_usuario: Any
+) -> None:
+    user = await novo_usuario()
+    await create(engine_app, user, "casa")
+    await create(engine_app, user, "telegram")
+    original = (await pairs(engine_app, user))[0]
+    unmatched, raw, verdict = await create(
+        engine_app, user, "casa", {"comeca_em": "2027-01-01T12:00:00Z"}
+    )
+    assert verdict == "nova"
+    assert (
+        await refresh(engine_app, user, unmatched, {**raw, "identidade_bilhete": "SYNTHETIC-NEW"})
+        == "nova"
+    )
+    current = await pairs(engine_app, user)
+    assert [(row.id, row.status, row.revisao_id) for row in current] == [
+        (original.id, "exact", original.revisao_id)
+    ]
+    async with AsyncSession(engine_app) as session:
+        await owner(session, user)
+        snapshot = await session.scalar(select(Entry).where(Entry.aposta_id == unmatched))
+        assert snapshot is not None
+        assert snapshot.dados["original"]["identidade_bilhete"] == "SYNTHETIC-NEW"
+        review = await session.get(models.RevisaoPendente, original.revisao_id)
+        assert review is not None
+        assert review.resolvido_em is None
+
+
 @pytest.mark.parametrize("competing_origin", ["telegram", "casa"])
 async def test_concurrent_competitors_demote_both_sides_and_create_one_review_each(
-    engine_app, novo_usuario, competing_origin
-):
+    engine_app: Any, novo_usuario: Any, competing_origin: Any
+) -> None:
     user = await novo_usuario()
     await create(engine_app, user, "casa" if competing_origin == "telegram" else "telegram")
     created = await asyncio.wait_for(
@@ -158,7 +209,9 @@ async def test_concurrent_competitors_demote_both_sides_and_create_one_review_ea
         )
 
 
-async def test_delayed_capture_uses_source_time_and_no_ingestion_fallback(engine_app, novo_usuario):
+async def test_delayed_capture_uses_source_time_and_no_ingestion_fallback(
+    engine_app: Any, novo_usuario: Any
+) -> None:
     user = await novo_usuario()
     await create(engine_app, user, "casa")
     tip, _, verdict = await create(
@@ -178,8 +231,8 @@ async def test_delayed_capture_uses_source_time_and_no_ingestion_fallback(engine
 
 
 async def test_incompatible_house_tenant_and_consolidated_bets_are_excluded(
-    engine_app, novo_usuario
-):
+    engine_app: Any, novo_usuario: Any
+) -> None:
     user, other = await novo_usuario(), await novo_usuario()
     house, _, _ = await create(engine_app, user, "casa")
     await create(engine_app, other, "telegram")
@@ -195,8 +248,8 @@ async def test_incompatible_house_tenant_and_consolidated_bets_are_excluded(
 
 
 async def test_rls_and_composite_foreign_keys_block_cross_tenant_references(
-    engine_app, novo_usuario
-):
+    engine_app: Any, novo_usuario: Any
+) -> None:
     user, other = await novo_usuario(), await novo_usuario()
     await create(engine_app, user, "casa")
     await create(engine_app, user, "telegram")
@@ -206,7 +259,10 @@ async def test_rls_and_composite_foreign_keys_block_cross_tenant_references(
         await owner(session, other)
         assert await session.get(Pair, row.id) is None
         assert (
-            await session.execute(update(Pair).where(Pair.id == row.id).values(score=0))
+            cast(
+                CursorResult[Any],
+                await session.execute(update(Pair).where(Pair.id == row.id).values(score=0)),
+            )
         ).rowcount == 0
         assert await session.get(Entry, row.casa_aposta_id) is None
     with pytest.raises(DBAPIError):
@@ -218,8 +274,8 @@ async def test_rls_and_composite_foreign_keys_block_cross_tenant_references(
 
 
 async def test_financial_manual_confirmation_invalidates_candidates_and_reviews(
-    engine_app, novo_usuario
-):
+    engine_app: Any, novo_usuario: Any
+) -> None:
     user = await novo_usuario()
     async with AsyncSession(engine_app) as session, session.begin():
         await session.execute(
@@ -255,10 +311,14 @@ async def test_financial_manual_confirmation_invalidates_candidates_and_reviews(
     assert row.status == "excluded"
     async with AsyncSession(engine_app) as session:
         await owner(session, user)
-        assert (await session.get(models.RevisaoPendente, row.revisao_id)).resolvido_em is not None
+        assert (
+            cast(models.RevisaoPendente, await session.get(models.RevisaoPendente, row.revisao_id))
+        ).resolvido_em is not None
 
 
-async def test_transaction_failure_rolls_back_candidate_and_review(engine_app, novo_usuario):
+async def test_transaction_failure_rolls_back_candidate_and_review(
+    engine_app: Any, novo_usuario: Any
+) -> None:
     user = await novo_usuario()
     await create(engine_app, user, "casa")
     tip, raw, _ = await create(
@@ -275,8 +335,12 @@ async def test_transaction_failure_rolls_back_candidate_and_review(engine_app, n
 
 @pytest.mark.parametrize("exact", [False, True])
 async def test_real_collection_http_response_reports_persisted_candidate_counts(
-    engine_admin, engine_app, novo_usuario, monkeypatch, exact
-):
+    engine_admin: Any,
+    engine_app: Any,
+    novo_usuario: Any,
+    monkeypatch: pytest.MonkeyPatch,
+    exact: Any,
+) -> None:
     import httpx
     from fastapi import FastAPI
 
@@ -290,8 +354,8 @@ async def test_real_collection_http_response_reports_persisted_candidate_counts(
     body = json.loads((Path(__file__).parents[1] / "fixtures/coleta/betano.json").read_text())
     body["apostas"] = body["apostas"][:1]
     body["apostas"][0]["id"] = uuid4().hex
-    parsed = coleta.LEITORES["betano"](body["apostas"][0])
-    key = coleta.chave_casa("betano", parsed.identidade)
+    parsed = LEITORES["betano"](body["apostas"][0])
+    key = chave_casa("betano", parsed.identidade)
     await create(engine_app, user, "casa", key=key)
     await create(engine_app, user, "telegram", {} if exact else {"identidade_bilhete": None})
     token = "synthetic-" + uuid4().hex
@@ -307,7 +371,7 @@ async def test_real_collection_http_response_reports_persisted_candidate_counts(
             )
         )
 
-    async def database():
+    async def database() -> AsyncIterator[Any]:
         async with AsyncSession(engine_app) as session:
             yield session
 
@@ -315,9 +379,7 @@ async def test_real_collection_http_response_reports_persisted_candidate_counts(
     app.include_router(coleta.router)
     app.dependency_overrides[get_db] = database
     published = []
-    monkeypatch.setattr(
-        coleta.celery, "send_task", lambda *args, **kwargs: published.append(kwargs)
-    )
+    monkeypatch.setattr(celery, "send_task", lambda *args, **kwargs: published.append(kwargs))
     async with httpx.AsyncClient(
         transport=httpx.ASGITransport(app=app), base_url="http://test"
     ) as client:
@@ -332,8 +394,8 @@ async def test_real_collection_http_response_reports_persisted_candidate_counts(
 
 
 async def test_search_budget_on_one_hundred_thousand_source_rows(
-    engine_admin, engine_app, novo_usuario, record_property
-):
+    engine_admin: Any, engine_app: Any, novo_usuario: Any, record_property: Any
+) -> None:
     user = await novo_usuario()
     # Synthetic workload intentionally includes a busy tenant and records far outside the window.
     async with engine_admin.begin() as conn:
@@ -371,8 +433,8 @@ async def test_search_budget_on_one_hundred_thousand_source_rows(
 
 
 async def test_historical_page_backfill_is_resumable_and_financially_read_only(
-    engine_app, novo_usuario
-):
+    engine_app: Any, novo_usuario: Any
+) -> None:
     from bancaemdia.services.cruzamento_candidatos import rebuild_page
 
     user = await novo_usuario()
@@ -400,7 +462,9 @@ async def test_historical_page_backfill_is_resumable_and_financially_read_only(
         )
 
 
-async def test_any_source_correction_invalidates_stale_exact_eligibility(engine_app, novo_usuario):
+async def test_any_source_correction_invalidates_stale_exact_eligibility(
+    engine_app: Any, novo_usuario: Any
+) -> None:
     user = await novo_usuario()
     await create(engine_app, user, "casa")
     tip, _, _ = await create(engine_app, user, "telegram")
@@ -414,8 +478,8 @@ async def test_any_source_correction_invalidates_stale_exact_eligibility(engine_
 
 
 async def test_saturation_demotes_hidden_exact_edge_and_cannot_be_bypassed_by_refresh(
-    engine_app, novo_usuario
-):
+    engine_app: Any, novo_usuario: Any
+) -> None:
     user = await novo_usuario()
     await create(engine_app, user, "casa")
     tip, raw, _ = await create(
@@ -438,7 +502,7 @@ async def test_saturation_demotes_hidden_exact_edge_and_cannot_be_bypassed_by_re
 
 
 @pytest.fixture
-async def matching_vocabulary(engine_admin, confirmed):
+async def matching_vocabulary(engine_admin: Any, confirmed: Any) -> AsyncIterator[Any]:
     name, alias = f"Market-{uuid4().hex}", f"Alias-{uuid4().hex}"
     async with AsyncSession(engine_admin) as session, session.begin():
         market = models.Mercado(nome=name)
@@ -464,12 +528,12 @@ async def matching_vocabulary(engine_admin, confirmed):
 
 @pytest.mark.parametrize("confirmed", [False, True])
 async def test_only_confirmed_database_aliases_normalize_and_originals_survive(
-    engine_app, novo_usuario, confirmed, matching_vocabulary
-):
+    engine_app: Any, novo_usuario: Any, confirmed: Any, matching_vocabulary: Any
+) -> None:
     user = await novo_usuario()
     name, alias = matching_vocabulary
 
-    def market_state(value):
+    def market_state(value: Any) -> Any:
         legs = copy.deepcopy(BASE["selecoes"])
         legs[0]["mercado"] = value
         return {"mercado_bruto": value, "selecoes": legs}
@@ -481,7 +545,9 @@ async def test_only_confirmed_database_aliases_normalize_and_originals_survive(
     assert row.evidencia["telegram"]["original"]["mercado_bruto"] == alias
 
 
-def test_matching_migration_roundtrip_and_evidence_preservation(isolated_database, monkeypatch):
+def test_matching_migration_roundtrip_and_evidence_preservation(
+    isolated_database: Any, monkeypatch: pytest.MonkeyPatch
+) -> None:
     from alembic import command
     from alembic.config import Config
     from sqlalchemy.ext.asyncio import create_async_engine
@@ -493,7 +559,7 @@ def test_matching_migration_roundtrip_and_evidence_preservation(isolated_databas
     command.downgrade(config, "a9d6e3f1c210")
     command.upgrade(config, "head")
 
-    async def populate():
+    async def populate() -> Any:
         engine = create_async_engine(isolated_database)
         try:
             async with engine.begin() as conn:

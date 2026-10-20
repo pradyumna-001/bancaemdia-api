@@ -45,14 +45,39 @@ jobs:
           done
           BASE_URL=http://127.0.0.1:8765 ALLOW_HTTP_LOCAL=1 K6_LOCAL_SMOKE=1 k6 run k6/smoke.js
 
-  staging:
-    concurrency:
-      group: staging-load-test
-      cancel-in-progress: false
+  target:
+    name: Resolve staging concurrency
     if: >-
       github.event_name != 'pull_request' ||
       github.event.pull_request.head.repo.full_name == github.repository
     needs: validate
+    runs-on: ubuntu-latest
+    environment: staging
+    outputs:
+      group: ${{ steps.target.outputs.group }}
+      disposable: ${{ steps.target.outputs.disposable }}
+    steps:
+      - id: target
+        env:
+          BASE_URL: ${{ vars.STAGING_BASE_URL }}
+          TARGET_REF: ${{ github.event.pull_request.number || github.ref }}
+        run: |
+          if [[ -n "$BASE_URL" ]]; then
+            echo 'group=staging-load-test' >> "$GITHUB_OUTPUT"
+            echo 'disposable=false' >> "$GITHUB_OUTPUT"
+          else
+            echo "group=staging-load-test-isolated-${TARGET_REF}" >> "$GITHUB_OUTPUT"
+            echo 'disposable=true' >> "$GITHUB_OUTPUT"
+          fi
+
+  staging:
+    concurrency:
+      group: ${{ needs.target.outputs.group }}
+      cancel-in-progress: false
+    if: >-
+      github.event_name != 'pull_request' ||
+      github.event.pull_request.head.repo.full_name == github.repository
+    needs: [validate, target]
     runs-on: ubuntu-latest
     timeout-minutes: 90
     environment: staging
@@ -69,6 +94,16 @@ jobs:
       LOAD_PROFILE: ${{ github.event.inputs.profile || 'all' }}
       TESTED_HEAD_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
     steps:
+      - name: Refuse a target changed after concurrency selection
+        env:
+          DISPOSABLE_TARGET: ${{ needs.target.outputs.disposable }}
+        run: |
+          if [[ "$DISPOSABLE_TARGET" == 'true' ]]; then
+            test -z "$BASE_URL"
+          else
+            test "$DISPOSABLE_TARGET" = 'false'
+            test -n "$BASE_URL"
+          fi
       - uses: actions/checkout@v4
         with:
           ref: ${{ github.event.pull_request.head.sha || github.sha }}
@@ -122,6 +157,9 @@ jobs:
       - name: Verify persisted uploads, bets, tenant isolation and real replication
         if: vars.STAGING_BASE_URL == ''
         run: python scripts/k6_staging.py verify
+      - name: Capture numeric database timings without SQL or private values
+        if: always() && vars.STAGING_BASE_URL == ''
+        run: python scripts/k6_staging.py database-stats
       - name: Upload HTML and JSON results
         if: always()
         uses: actions/upload-artifact@v4
@@ -136,6 +174,7 @@ jobs:
             k6-coleta-preflight-report.html
             k6-coleta-preflight-evidence.json
             k6-upload-preflight-evidence.json
+            k6-database-timings.json
           if-no-files-found: warn
       - name: Sanitized backend diagnostics on failure
         if: failure() && vars.STAGING_BASE_URL == ''

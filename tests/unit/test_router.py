@@ -2,8 +2,10 @@ from __future__ import annotations
 
 import json
 import time
+from collections.abc import AsyncGenerator
 from contextlib import asynccontextmanager
 from decimal import Decimal
+from typing import Any, cast
 
 import asyncpg
 import httpx
@@ -22,7 +24,7 @@ from fastapi.testclient import TestClient
 from sqlalchemy import event
 from sqlalchemy.engine import make_url
 from sqlalchemy.exc import OperationalError
-from sqlalchemy.ext.asyncio import AsyncEngine, create_async_engine
+from sqlalchemy.ext.asyncio import AsyncConnection, AsyncEngine, AsyncSession, create_async_engine
 from starlette.requests import Request as StarletteRequest
 
 from bancaemdia import main
@@ -39,18 +41,20 @@ from bancaemdia.middleware.rls import RLSMiddleware
 from bancaemdia.middleware.router import RouterMiddleware
 
 
-def _relogio():
+def _relogio() -> Any:
     class Relogio:
-        def __init__(self):
+        def __init__(self) -> None:
             self.agora = 1000.0
 
-        def __call__(self):
+        def __call__(self) -> Any:
             return self.agora
 
     return Relogio()
 
 
-def _pedido(metodo="GET", caminho="/api/v1/apostas", consulta=b"", cabecalhos=()):
+def _pedido(
+    metodo: Any = "GET", caminho: Any = "/api/v1/apostas", consulta: Any = b"", cabecalhos: Any = ()
+) -> Any:
     return StarletteRequest({
         "type": "http",
         "method": metodo,
@@ -73,18 +77,18 @@ def _pedido(metodo="GET", caminho="/api/v1/apostas", consulta=b"", cabecalhos=()
         ("OPTIONS", False),
     ],
 )
-def test_writes_go_to_the_primary_and_safe_reads_to_the_replica(metodo, esperado) -> None:
+def test_writes_go_to_the_primary_and_safe_reads_to_the_replica(metodo: Any, esperado: Any) -> None:
     assert router.needs_primary(_pedido(metodo), 7, router.RecentWrites()) is esperado
 
 
 @pytest.mark.asyncio
 async def test_privacy_export_uses_primary_snapshot_even_when_router_chose_replica(
-    monkeypatch,
+    monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     opened = []
 
     @asynccontextmanager
-    async def fake_open(replica, *, snapshot=False):
+    async def fake_open(replica: Any, *, snapshot: Any = False) -> AsyncGenerator[Any]:
         opened.append((replica, snapshot))
         yield object()
 
@@ -107,7 +111,7 @@ async def test_privacy_export_uses_primary_snapshot_even_when_router_chose_repli
         ((), False),
     ],
 )
-def test_the_read_replica_header_can_force_the_primary(cabecalhos, esperado) -> None:
+def test_the_read_replica_header_can_force_the_primary(cabecalhos: Any, esperado: Any) -> None:
     pedido = _pedido(cabecalhos=cabecalhos)
 
     assert router.needs_primary(pedido, 7, router.RecentWrites()) is esperado
@@ -119,6 +123,10 @@ def test_the_read_replica_header_can_force_the_primary(cabecalhos, esperado) -> 
         ("/api/v1/painel", b"fresh=true", True),
         ("/api/v1/painel", b"de=2026-09&fresh=True", True),
         ("/api/v1/painel", b"fresh=1", True),
+        ("/api/v1/painel/filtrado", b"fresh=true", True),
+        ("/api/v1/painel/filtrado/metricas", b"fresh=1", True),
+        ("/api/v1/painel/filtrado/export", b"fresh=true", True),
+        ("/api/v1/painel/filtrado", b"fresh=false", False),
         ("/api/v1/painel", b"fresh=false", False),
         ("/api/v1/painel", b"fresh=0", False),
         ("/api/v1/painel", b"", False),
@@ -126,7 +134,9 @@ def test_the_read_replica_header_can_force_the_primary(cabecalhos, esperado) -> 
         ("/api/v1/apostas", b"fresh=true", False),
     ],
 )
-def test_only_a_fresh_painel_is_read_from_the_primary(caminho, consulta, esperado) -> None:
+def test_only_a_fresh_painel_is_read_from_the_primary(
+    caminho: Any, consulta: Any, esperado: Any
+) -> None:
     pedido = _pedido(caminho=caminho, consulta=consulta)
 
     assert router.needs_primary(pedido, None, router.RecentWrites()) is esperado
@@ -184,24 +194,24 @@ def test_marking_a_write_drops_the_expired_marks() -> None:
     assert escritas.expires == {8: relogio.agora + router.WRITE_WINDOW_SECONDS}
 
 
-def _sessoes(monkeypatch):
+def _sessoes(monkeypatch: pytest.MonkeyPatch) -> Any:
     abertas = []
 
     class Sessao:
         bind = None
 
-        def __init__(self, nome):
+        def __init__(self, nome: Any) -> None:
             self.nome = nome
-            self.executados = []
+            self.executados: list[Any] = []
 
-        async def __aenter__(self):
+        async def __aenter__(self) -> Any:
             abertas.append(self.nome)
             return self
 
-        async def __aexit__(self, *args):
+        async def __aexit__(self, *args: Any) -> Any:
             return False
 
-        async def execute(self, statement, params=None):
+        async def execute(self, statement: Any, params: Any = None) -> Any:
             self.executados.append((statement.text, params))
 
     monkeypatch.setattr(db_session, "SessionLocal", lambda: Sessao("primario"))
@@ -209,11 +219,13 @@ def _sessoes(monkeypatch):
     return abertas
 
 
-async def _uma(gerador):
+async def _uma(gerador: Any) -> Any:
     return [sessao async for sessao in gerador]
 
 
-async def test_get_db_follows_the_router_and_the_explicit_ones_do_not(monkeypatch) -> None:
+async def test_get_db_follows_the_router_and_the_explicit_ones_do_not(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
     abertas = _sessoes(monkeypatch)
 
     await _uma(db_session.get_db())
@@ -228,20 +240,20 @@ async def test_get_db_follows_the_router_and_the_explicit_ones_do_not(monkeypatc
     assert abertas == ["primario", "replica", "primario", "replica"]
 
 
-def _conexao_com_atraso(monkeypatch, *atrasos):
+def _conexao_com_atraso(monkeypatch: pytest.MonkeyPatch, *atrasos: Any) -> Any:
     class Conexao:
-        async def __aenter__(self):
+        async def __aenter__(self) -> Any:
             return self
 
-        async def __aexit__(self, *args):
+        async def __aexit__(self, *args: Any) -> Any:
             return False
 
     class Replica:
-        def __init__(self):
-            self.consultas = []
+        def __init__(self) -> None:
+            self.consultas: list[Any] = []
             self.fila = list(atrasos)
 
-        async def atraso(self, conexao):
+        async def atraso(self, conexao: Any) -> Any:
             self.consultas.append(conexao)
             return self.fila.pop(0)
 
@@ -251,7 +263,7 @@ def _conexao_com_atraso(monkeypatch, *atrasos):
     return replica.consultas
 
 
-def _sessao_da_replica():
+def _sessao_da_replica() -> Any:
     class Sessao:
         bind = create_async_engine("postgresql+asyncpg://u:p@127.0.0.1:1/x")
 
@@ -260,17 +272,21 @@ def _sessao_da_replica():
 
 async def test_lag_seconds_come_back_as_a_float_or_none() -> None:
     class Conexao:
-        def __init__(self, valor):
+        def __init__(self, valor: Any) -> None:
             self.valor = valor
 
-        async def scalar(self, statement):
+        async def scalar(self, statement: Any) -> Any:
             return self.valor
 
-    assert await db_session.replica_lag_seconds(Conexao(Decimal("12.5"))) == pytest.approx(12.5)
-    assert await db_session.replica_lag_seconds(Conexao(None)) is None
+    assert await db_session.replica_lag_seconds(
+        cast(AsyncConnection, Conexao(Decimal("12.5")))
+    ) == pytest.approx(12.5)
+    assert await db_session.replica_lag_seconds(cast(AsyncConnection, Conexao(None))) is None
 
 
-async def test_replica_lag_is_logged_only_above_thirty_seconds(monkeypatch) -> None:
+async def test_replica_lag_is_logged_only_above_thirty_seconds(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
     consultas = _conexao_com_atraso(monkeypatch, None, 0.0, 30.0, 45.25)
     relogio = _relogio()
     checagem = db_session.ReplicaLagCheck(clock=relogio)
@@ -278,38 +294,42 @@ async def test_replica_lag_is_logged_only_above_thirty_seconds(monkeypatch) -> N
 
     with structlog.testing.capture_logs() as avisos:
         for _ in range(4):
-            await checagem.run(sessao)
+            await checagem.run(cast(AsyncSession, sessao))
             relogio.agora += db_session.LAG_CHECK_SECONDS
 
     assert len(consultas) == 4
     assert avisos == [{"event": "replica_lag", "seconds": 45.2, "log_level": "warning"}]
 
 
-async def test_replica_lag_is_checked_at_most_once_per_interval(monkeypatch) -> None:
+async def test_replica_lag_is_checked_at_most_once_per_interval(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
     consultas = _conexao_com_atraso(monkeypatch, 0.0, 0.0)
     relogio = _relogio()
     checagem = db_session.ReplicaLagCheck(clock=relogio)
     sessao = _sessao_da_replica()
 
-    await checagem.run(sessao)
+    await checagem.run(cast(AsyncSession, sessao))
     relogio.agora += 29
-    await checagem.run(sessao)
+    await checagem.run(cast(AsyncSession, sessao))
     relogio.agora += 1
-    await checagem.run(sessao)
+    await checagem.run(cast(AsyncSession, sessao))
 
     assert len(consultas) == 2
 
 
-async def test_an_unreachable_replica_only_logs_that_the_lag_is_unknown(monkeypatch) -> None:
+async def test_an_unreachable_replica_only_logs_that_the_lag_is_unknown(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
     class Quebrada:
-        async def __aenter__(self):
+        async def __aenter__(self) -> Any:
             raise OperationalError("SELECT 1", {}, Exception("down"))
 
-        async def __aexit__(self, *args):
+        async def __aexit__(self, *args: Any) -> Any:
             return False
 
     class Lotada:
-        async def conectar(self, *args, **kwargs):
+        async def conectar(self, *args: Any, **kwargs: Any) -> Any:
             raise asyncpg.exceptions.TooManyConnectionsError("sorry, too many clients already")
 
     checagem = db_session.ReplicaLagCheck(clock=_relogio())
@@ -321,10 +341,10 @@ async def test_an_unreachable_replica_only_logs_that_the_lag_is_unknown(monkeypa
         bind = create_async_engine("postgresql+asyncpg://", async_creator=Lotada().conectar)
 
     with structlog.testing.capture_logs() as avisos:
-        await fora_do_ar.run(sessao)
-        await lotada.run(SessaoLotada())
+        await fora_do_ar.run(cast(AsyncSession, sessao))
+        await lotada.run(cast(AsyncSession, SessaoLotada()))
         monkeypatch.setattr(AsyncEngine, "connect", lambda self: Quebrada())
-        await checagem.run(sessao)
+        await checagem.run(cast(AsyncSession, sessao))
 
     assert [(a["event"], a["error"]) for a in avisos] == [
         ("replica_lag_unavailable", "ConnectionRefusedError"),
@@ -339,13 +359,13 @@ async def test_sessions_without_an_engine_skip_the_lag_check() -> None:
 
     checagem = db_session.ReplicaLagCheck(clock=_relogio())
 
-    await checagem.run(Sessao())
+    await checagem.run(cast(AsyncSession, Sessao()))
 
     assert checagem.next_at is None
 
 
 @pytest.fixture(scope="module")
-def chave():
+def chave() -> Any:
     par = rsa.generate_private_key(public_exponent=65537, key_size=2048)
     privada = par.private_bytes(Encoding.PEM, PrivateFormat.PKCS8, NoEncryption()).decode()
     return privada, {
@@ -354,7 +374,7 @@ def chave():
     }
 
 
-def _cabecalho(privada, usuario_id, **extra):
+def _cabecalho(privada: Any, usuario_id: Any, **extra: Any) -> Any:
     settings = get_settings()
     corpo = {
         "sub": str(usuario_id),
@@ -367,14 +387,14 @@ def _cabecalho(privada, usuario_id, **extra):
 
 
 class Rotas:
-    async def banco(self, request: Request, session=Depends(get_db)) -> dict[str, object]:
+    async def banco(self, request: Request, session: Any = Depends(get_db)) -> dict[str, object]:
         return {"banco": session.nome}
 
 
-def _cliente(monkeypatch, chave, relogio):
+def _cliente(monkeypatch: pytest.MonkeyPatch, chave: Any, relogio: Any) -> Any:
     _, publica = chave
 
-    def responder(request):
+    def responder(request: Any) -> Any:
         return httpx.Response(200, json={"keys": [publica]})
 
     cache = auth_jwt.JWKSCache("https://issuer.test/jwks", "RS256", httpx.MockTransport(responder))
@@ -398,12 +418,14 @@ def _cliente(monkeypatch, chave, relogio):
     return TestClient(main.app, base_url="https://testserver"), escritas
 
 
-def test_a_user_reads_the_primary_for_five_seconds_after_writing(monkeypatch, chave) -> None:
+def test_a_user_reads_the_primary_for_five_seconds_after_writing(
+    monkeypatch: pytest.MonkeyPatch, chave: Any
+) -> None:
     privada, _ = chave
     relogio = _relogio()
     cliente, escritas = _cliente(monkeypatch, chave, relogio)
 
-    def banco(metodo, usuario, caminho="/api/v1/teste", **extra):
+    def banco(metodo: Any, usuario: Any, caminho: Any = "/api/v1/teste", **extra: Any) -> Any:
         resposta = cliente.request(metodo, caminho, headers=_cabecalho(privada, usuario, **extra))
         return resposta.json()["banco"]
 
@@ -430,7 +452,9 @@ def test_a_user_reads_the_primary_for_five_seconds_after_writing(monkeypatch, ch
     assert escritas.expires == {}
 
 
-def test_requests_without_a_user_leave_no_write_mark(monkeypatch, chave) -> None:
+def test_requests_without_a_user_leave_no_write_mark(
+    monkeypatch: pytest.MonkeyPatch, chave: Any
+) -> None:
     relogio = _relogio()
     cliente, escritas = _cliente(monkeypatch, chave, relogio)
 
@@ -442,7 +466,7 @@ def test_requests_without_a_user_leave_no_write_mark(monkeypatch, chave) -> None
 
 
 def test_the_router_runs_after_authentication_and_rls() -> None:
-    camadas = [camada.cls for camada in main.app.user_middleware]
+    camadas: list[Any] = [camada.cls for camada in main.app.user_middleware]
 
     assert (
         camadas.index(JWTAuthMiddleware)
@@ -459,13 +483,13 @@ def test_process_write_marks_are_shared_by_every_request() -> None:
         router.get_recent_writes.cache_clear()
 
 
-async def _parametros_de_conexao(motor):
+async def _parametros_de_conexao(motor: Any) -> Any:
     class ConexaoInterrompidaError(Exception):
         pass
 
     capturados = []
 
-    def capturar(dialect, conn_rec, cargs, cparams):
+    def capturar(dialect: Any, conn_rec: Any, cargs: Any, cparams: Any) -> Any:
         capturados.append(cparams)
         raise ConexaoInterrompidaError
 
@@ -496,23 +520,25 @@ async def test_the_replica_engine_refuses_writes_and_both_engines_use_their_time
     assert primario["database"] == make_url(settings.DATABASE_URL).database
 
 
-async def test_the_lag_check_runs_before_the_session_takes_its_connection(monkeypatch) -> None:
+async def test_the_lag_check_runs_before_the_session_takes_its_connection(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
     ordem = []
 
     class Sessao:
         bind = None
 
-        async def __aenter__(self):
+        async def __aenter__(self) -> Any:
             return self
 
-        async def __aexit__(self, *args):
+        async def __aexit__(self, *args: Any) -> Any:
             return False
 
-        async def execute(self, statement, params=None):
+        async def execute(self, statement: Any, params: Any = None) -> Any:
             ordem.append("set_config")
 
     class Checagem:
-        async def run(self, session):
+        async def run(self, session: Any) -> Any:
             ordem.append("atraso")
 
     monkeypatch.setattr(db_session, "ReplicaSession", Sessao)
