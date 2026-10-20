@@ -7,7 +7,7 @@ from uuid import uuid4
 from fastapi import APIRouter, Depends, File, Form, Path, Query, UploadFile, status
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel, ConfigDict, Field, StrictInt, field_validator
-from sqlalchemy import select, text
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from bancaemdia.api.contracts import (
@@ -176,14 +176,9 @@ async def _travar(session: AsyncSession, usuario_id: int, chave: str) -> bool:
     # A mesma chave que o trabalhador toma ao gravar uma leitura: sem ela, a releitura e a
     # correção leem o mesmo histórico e uma das duas some. Não espera, porque o primário corta
     # qualquer consulta em 5 s.
-    from bancaemdia.repositories.cruzamento_candidato import CruzamentoCandidatoRepo
+    from bancaemdia.repositories.aposta_lock import try_lock_bet
 
-    await CruzamentoCandidatoRepo().lock(session, usuario_id)
-    livre = await session.scalar(
-        text("SELECT pg_try_advisory_xact_lock(hashtextextended(:chave, 0))"),
-        {"chave": f"{usuario_id}:{chave}"},
-    )
-    return bool(livre)
+    return await try_lock_bet(session, usuario_id, chave)
 
 
 async def _aplicar(

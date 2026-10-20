@@ -1,0 +1,33 @@
+{
+  "accepted": {
+    "intent_id": "69d366cc-3575-4ec4-a48c-3f10e37b5d2d",
+    "item_id": "3f1c9516-f8f0-4237-835f-c7b85ffdbb7b",
+    "status": "accepted",
+    "outcome": null,
+    "duplicate": false,
+    "attempt": 1,
+    "last_retry_id": null,
+    "retryable": false,
+    "error_code": null,
+    "progress_percent": null,
+    "results": null,
+    "media_expires_at": "2026-10-19T12:00:00Z",
+    "reconciliation_expires_at": "2027-01-10T12:00:00Z"
+  },
+  "completed": {
+    "intent_id": "69d366cc-3575-4ec4-a48c-3f10e37b5d2d",
+    "item_id": "3f1c9516-f8f0-4237-835f-c7b85ffdbb7b",
+    "status": "completed",
+    "outcome": "review",
+    "duplicate": false,
+    "attempt": 1,
+    "last_retry_id": null,
+    "retryable": false,
+    "error_code": null,
+    "progress_percent": 100,
+    "results": [{"type":"review", "bet_key":null, "review_ids":[123]}],
+    "media_expires_at": "2026-10-19T12:00:00Z",
+    "reconciliation_expires_at": "2027-01-10T12:00:00Z"
+  },
+  "retry": {"retry_id":"b25f6247-938c-4963-b46d-cf4d82b5fc09", "expected_attempt":1}
+}

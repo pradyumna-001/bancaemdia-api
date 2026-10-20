@@ -743,12 +743,17 @@ async def test_revisao_pendente_stats_are_for_open_rows_of_one_tenant() -> None:
 
 
 async def test_revisao_photo_is_loaded_by_open_owned_review_not_by_raw_hash() -> None:
-    session = _Session((b"jpeg", "image/jpeg"))
+    class PhotoSession(_Session):
+        async def execute(self, statement: Any, params: Any = None) -> _Result:
+            self.statements.append(statement)
+            return _Result([_revisao()] if len(self.statements) == 1 else self.objs)
+
+    session = PhotoSession((b"jpeg", "image/jpeg"))
 
     assert await RevisaoPendenteRepo().get_foto_by_id(session, 1, 6) == registros.FotoRevisao(
         b"jpeg", "image/jpeg"
     )
-    sql = _sql(session.statements[0])
+    sql = _sql(session.statements[1])
     assert "FROM revisao_pendente JOIN midias" in sql
     assert "JOIN midia_arquivos" in sql
     assert "revisao_pendente.usuario_id = " in sql

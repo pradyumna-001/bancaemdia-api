@@ -368,8 +368,18 @@ class UnhandledErrorMiddleware:
                 # outer OTel middleware export exception messages and stack frames containing PII.
                 raise ResponseStreamAbortedError("response_stream_aborted") from None
             unavailable = isinstance(error, (OperationalError, InterfaceError))
+            from bancaemdia.auth.middleware import route_path
+            from bancaemdia.domain.foto_aposta import photo_path
+
+            message = "Service unavailable" if unavailable else "Internal server error"
+            if photo_path(route_path(request)):
+                message = (
+                    "não foi possível carregar a foto agora — tente novamente em instantes"
+                    if unavailable
+                    else "não foi possível carregar a foto"
+                )
             response = JSONResponse(
-                {"detail": "Service unavailable" if unavailable else "Internal server error"},
+                {"detail": message},
                 status_code=503 if unavailable else 500,
             )
             await response(scope, receive, send)

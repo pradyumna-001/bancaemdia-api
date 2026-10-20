@@ -38,6 +38,7 @@ app = Celery(
         "bancaemdia.workers.extraction",
         "bancaemdia.workers.materialization",
         "bancaemdia.workers.upload",
+        "bancaemdia.workers.web_print",
         "bancaemdia.workers.billing",
         "bancaemdia.workers.coleta_v2",
         "bancaemdia.workers.telegram",
@@ -76,6 +77,7 @@ app.conf.beat_schedule = {
 }
 # Add schedules without replacing billing or other registered Beat entries.
 app.conf.beat_schedule.update({
+    "web-print-inbox": {"task": "materialization.web_print_tick", "schedule": 10.0},
     "telegram-privacy-purge": {"task": "telegram.purge", "schedule": 3600.0},
 })
 
@@ -115,7 +117,7 @@ def send_to_dead_letter(
             "original_task_id": task_id,
             "original_queue": delivery_info.get("routing_key"),
             "exception": "telegram_task_failed"
-            if sender.name.startswith("telegram.")
+            if sender.name.startswith(("telegram.", "materialization.web_print"))
             else repr(exception),
         },
     )
