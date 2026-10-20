@@ -15,6 +15,9 @@ from bancaemdia.services.telegram_conversation import handle_text
 from bancaemdia.workers import telegram_extraction
 from bancaemdia.workers.telegram import process_inbox_once
 
+# These tests share the PostgreSQL fixture with exclusive offline replay tests.
+pytestmark = pytest.mark.xdist_group("postgres")
+
 
 def _id() -> int:
     return uuid4().int & ((1 << 62) - 1)
