@@ -18,7 +18,8 @@ from bancaemdia.middleware.rate_limit import _limiter as api_limiter
 from bancaemdia.middleware.rate_limit import user_key
 from bancaemdia.rate_limit import anthropic_limiter
 
-pytestmark = pytest.mark.xdist_group("redis")
+# Keep the shared global Redis bucket exclusive with the database-backed pipeline.
+pytestmark = pytest.mark.xdist_group("postgres")
 
 IMAGE = "redis:7-alpine"
 
