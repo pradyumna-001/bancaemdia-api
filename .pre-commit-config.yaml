@@ -8,12 +8,14 @@ repos:
 
   - repo: local
     hooks:
+      # Use the project's installed dependencies, just as CI does. An isolated
+      # mirror with only pydantic/sqlalchemy cannot typecheck the application.
       - id: mypy
-        name: mypy (project development environment)
-        entry: python -m mypy
+        name: mypy (complete application, CI scope)
+        entry: mypy src/ --strict --ignore-missing-imports
         language: system
-        types: [python]
-        args: [--strict, --ignore-missing-imports]
+        pass_filenames: false
+        always_run: true
       - id: reader-fixture-safety
         name: Reviewed reader fixture safety
         entry: python scripts/validate_reader_fixtures.py --base-ref origin/main

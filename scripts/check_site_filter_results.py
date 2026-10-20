@@ -7,6 +7,9 @@ from pathlib import Path
 from xml.etree import ElementTree
 
 REQUIRED = {
+    "test_active_account_in_inactive_house_is_only_available_as_historical_option": 1,
+    "test_group_creation_always_starts_active_and_can_receive_links": 2,
+    "test_link_response_matches_committed_ids_in_canonical_order": 1,
     "test_visibility_pagination_and_empty_page_match_independent_sets": 3,
     "test_each_dimension_selects_before_page_and_without_duplicate_group_facts": 8,
     "test_state_origin_review_and_timezone_boundaries": 6,

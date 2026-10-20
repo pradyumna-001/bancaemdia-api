@@ -122,4 +122,21 @@ def filtros_do_site(
         ),
     ] = None,
 ) -> dict[str, object]:
-    return resolver_filtros(**locals())
+    return resolver_filtros(
+        periodo=periodo,
+        desde=desde,
+        ate=ate,
+        casa_id=casa_id,
+        tipster_id=tipster_id,
+        mercado_id=mercado_id,
+        competicao_id=competicao_id,
+        titular_id=titular_id,
+        conta_casa_id=conta_casa_id,
+        grupo_id=grupo_id,
+        banca_id=banca_id,
+        estado=estado,
+        origem=origem,
+        revisao_grave=revisao_grave,
+        visibilidade=visibilidade,
+        incluir_apagadas=incluir_apagadas,
+    )

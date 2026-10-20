@@ -582,6 +582,7 @@ async def test_commercial_read_queries_once_without_caching_live_permission(
         {"page": "2"},
         {"estado": "other"},
         {"origem": "other"},
+        {"periodo": "300d"},
         {"periodo": "30d", "desde": "2026-01-01T00:00:00Z"},
         {"desde": "2026-09-11T00:00:00Z", "ate": "2026-09-10T00:00:00Z"},
         {"visibilidade": "apagadas", "incluir_apagadas": "true"},

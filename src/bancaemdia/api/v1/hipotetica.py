@@ -3,7 +3,7 @@
 from datetime import datetime
 from typing import Annotated, Literal
 
-from fastapi import APIRouter, Depends, HTTPException, Request, Response
+from fastapi import APIRouter, Depends, HTTPException, Query, Request, Response
 from pydantic import BaseModel, ConfigDict, Field
 from sqlalchemy.exc import DBAPIError
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -146,6 +146,12 @@ async def consultar_hipotetica(
     usuario: Annotated[Usuario, Depends(get_current_user_snapshot)],
     session: Annotated[AsyncSession, Depends(get_db_snapshot)],
     filtros: Annotated[dict[str, object], Depends(filtros_do_site)],
+    periodo: Annotated[
+        PeriodoPainel | None,
+        Query(
+            description="Janela civil de São Paulo; não combinar com desde/ate. Sem janela: todo o histórico."
+        ),
+    ] = None,
     fresh: bool = False,
 ) -> HipoteticaSaida:
     _ = fresh  # Router chooses primary; never refresh MVs or commit writes.
@@ -161,7 +167,7 @@ async def consultar_hipotetica(
     normalized = {
         k: str(v) if k.endswith("_id") and v is not None else v for k, v in filtros.items()
     }
-    normalized["periodo"] = request.query_params.get("periodo")
+    normalized["periodo"] = periodo
     try:
         await require_operation_access(session, usuario.id, "hipotetica_historica")
         return HipoteticaSaida.model_validate({

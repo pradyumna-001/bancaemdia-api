@@ -3529,6 +3529,7 @@
         "properties": {
           "arquivado": {
             "default": false,
+            "description": "Na criação o grupo sempre nasce ativo; arquivado é aplicado somente no PATCH.",
             "title": "Arquivado",
             "type": "boolean"
           },
@@ -14511,7 +14512,7 @@
     },
     "/api/v1/grupos": {
       "post": {
-        "description": "Cria grupo explicitamente pertencente ao usuário; não infere vínculos de tipsters ou nomes. Escrita auditada e sujeita ao acesso vigente.",
+        "description": "Cria grupo ativo explicitamente pertencente ao usuário; arquivado é aplicado somente no PATCH. Não infere vínculos de tipsters ou nomes. Escrita auditada e sujeita ao acesso vigente.",
         "operationId": "criar_grupo_api_v1_grupos_post",
         "requestBody": {
           "content": {
@@ -16859,17 +16860,6 @@
         "operationId": "consultar_hipotetica_api_v1_painel_hipotetica_get",
         "parameters": [
           {
-            "description": "Lê no primário quando verdadeiro, sem forçar refresh das materialized views.",
-            "in": "query",
-            "name": "fresh",
-            "required": false,
-            "schema": {
-              "default": false,
-              "title": "Fresh",
-              "type": "boolean"
-            }
-          },
-          {
             "description": "Janela civil no fuso America/Sao_Paulo, aplicada a data_aposta. Lista/visão filtrada: omissão inclui todo o histórico, não combinar com desde/ate. Painel materializado legado: padrão 30d.",
             "in": "query",
             "name": "periodo",
@@ -16885,6 +16875,17 @@
               ],
               "description": "Janela civil de São Paulo; não combinar com desde/ate. Sem janela: todo o histórico.",
               "title": "Periodo"
+            }
+          },
+          {
+            "description": "Lê no primário quando verdadeiro, sem forçar refresh das materialized views.",
+            "in": "query",
+            "name": "fresh",
+            "required": false,
+            "schema": {
+              "default": false,
+              "title": "Fresh",
+              "type": "boolean"
             }
           },
           {

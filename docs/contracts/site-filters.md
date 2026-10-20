@@ -101,7 +101,7 @@ Casas/tipsters/mercados/competições são referências globais compartilhadas, 
 {"dimensao":"grupos","data":[{"id":"12","nome":"Apostas acompanhadas","ativa":true}],"pagination":{"page":1,"page_size":50,"total":1}}
 ```
 
-Parâmetros: `q` (até 160 caracteres, substring literal sem distinção de maiúsculas), `page` (mínimo 1), `page_size` (1–100, padrão 50), `incluir_inativas` (padrão false), `id` (valor canônico exato). `id` resolve diretamente uma opção, inclusive arquivada/inativa, mesmo fora da primeira página. Não combinar `id` com `q` ou `page!=1` (422). Casa `ativa=false`, titular/grupo arquivado e conta inativa/encerrada não aparecem por padrão, mas são retornados por `id` ou `incluir_inativas=true`. Entidades sem estado de ativação são sempre ativas.
+Parâmetros: `q` (até 160 caracteres, substring literal sem distinção de maiúsculas), `page` (mínimo 1), `page_size` (1–100, padrão 50), `incluir_inativas` (padrão false), `id` (valor canônico exato). `id` resolve diretamente uma opção, inclusive arquivada/inativa, mesmo fora da primeira página. Não combinar `id` com `q` ou `page!=1` (422). Casa `ativa=false`, titular/grupo arquivado e conta inativa/encerrada ou ligada a casa inativa não aparecem por padrão, mas são retornados por `id` ou `incluir_inativas=true`. Entidades sem estado de ativação são sempre ativas.
 
 Vazio é 200 com `data=[]`, `total=0`; indisponibilidade do banco é 503 com erro, nunca catálogo vazio fabricado. ID privado estrangeiro e inexistente têm a mesma resposta vazia. Busca usa parâmetros SQL vinculados; caracteres como `%`, `_` e aspas são literais, não SQL nem wildcard.
 
@@ -130,11 +130,11 @@ pytest -n 0 tests/integration/test_site_filters_db.py --junitxml=site-filter-res
 python scripts/check_site_filter_results.py site-filter-results.xml
 ```
 
-O checker exige os 52 cenários específicos completos, sem failure/error/skip. A suíte usa FastAPI real, PostgreSQL 16, papel de aplicação, RLS, dois usuários, conjuntos/contagens pré-declarados e valores financeiros independentes. Cobre toda a matriz, sete páginas, página vazia, múltiplos grupos, limites de São Paulo, desconhecidos, BIGINT exato, entidades históricas, comandos/auditoria, banco explícito/replay e exclusão/restauração. Um timeout real do PostgreSQL comprova 503 distinto de catálogo vazio; outro cenário comprova GETs/exportação permitidos e comandos/SQL bloqueados em acesso somente leitura. O mock de JWKS somente substitui a rede; assinatura e verificação são reais.
+O checker exige os 56 cenários específicos completos, sem failure/error/skip. A suíte usa FastAPI real, PostgreSQL 16, papel de aplicação, RLS, dois usuários, conjuntos/contagens pré-declarados e valores financeiros independentes. Cobre toda a matriz, sete páginas, página vazia, múltiplos grupos, limites de São Paulo, desconhecidos, BIGINT exato, entidades históricas, comandos/auditoria, banco explícito/replay e exclusão/restauração. Um timeout real do PostgreSQL comprova 503 distinto de catálogo vazio; outro cenário comprova GETs/exportação permitidos e comandos/SQL bloqueados em acesso somente leitura. O mock de JWKS somente substitui a rede; assinatura e verificação são reais.
 
 A jornada obrigatória `tests/identity/journey.py` usa issuer OIDC, e-mail, navegador, cookie HttpOnly e PostgreSQL reais, acessando os nove catálogos e os três agregados filtrados com a mesma sessão do site. Executa na CI com serviços descartáveis, junto às invariantes de identidade existentes, sem skips. Não depende de ativação de produção. Gates anteriores continuam: Ruff, mypy, regressão/cobertura ≥80%, migrations/RLS, segurança, build e OpenAPI/oasdiff `fail-on: WARN`.
 
-Baseline de compatibilidade é o SHA imutável da base do PR. O reparo de sintaxe/referências recuperado do #181 e agora integrado na main aceita somente o hash exato do artefato antigo corrompido; restaura as três definições do pai integrado imutável `00ae1e0b1d5d89224ce5028447767a23f527ad6e`. A base atual válida é usada diretamente. Nenhum schema novo deste PR vira baseline, e o diff estrito continua cobrindo todas as operações. SHA-256 do OpenAPI gerado: `ed837f9a47ea15e839c543412f9aee2bd9a90332ae0a54936c95235c6d432bd5`. O SHA final do PR e links dos checks serão registrados no relatório de entrega após a CI final.
+Baseline de compatibilidade é o SHA imutável da base do PR. O reparo de sintaxe/referências recuperado do #181 e agora integrado na main aceita somente o hash exato do artefato antigo corrompido; restaura as três definições do pai integrado imutável `00ae1e0b1d5d89224ce5028447767a23f527ad6e`. A base atual válida é usada diretamente. Nenhum schema novo deste PR vira baseline, e o diff estrito continua cobrindo todas as operações. SHA-256 do OpenAPI gerado: `cb740f3fc659a63e7f77ad24b80ba81b020e09b53f515c4daa71ea72568224f4`. O SHA final do PR e links dos checks serão registrados no relatório de entrega após a CI final.
 
 ## Próximos passos exatos do frontend
 
@@ -144,3 +144,13 @@ Baseline de compatibilidade é o SHA imutável da base do PR. O reparo de sintax
 4. Atualizar adapters de lista e Painel/métricas/XLSX para os quatro recursos da matriz. Mapear a URL apagadas para `visibilidade=apagadas` omitindo o bool legado; usar os catálogos e `id` para resolver pílulas históricas. Preservar IDs como strings decimais nos params e datas com offset; não fazer cálculos financeiros no cliente.
 5. Tratar null/desconhecido e bucket sem data explicitamente, usar `total_periodo` do servidor, exibir erro 503 separado de opções vazias e manter diferenças do Painel legado documentadas. Manter as demais lacunas da #50 abertas.
 6. Executar `pnpm lint`, `pnpm typecheck`, `pnpm test`, `pnpm build` e os testes Playwright/integração real do frontend #74 (`pnpm test:e2e`), cobrindo sessão, URL, pílulas, histórico, somente apagadas e reconciliação. Só concluir a #17 após integração/CI frontend verdes; esta entrega backend não fecha #17/#50.
+
+## Ajustes da revisão administrativa de 20/10/2026
+
+- A paginação tem guarda explícita para ausência de linhas, preservando o total obtido no mesmo statement nas páginas vazias normais.
+- O encaminhamento da dependência de filtros nomeia cada parâmetro; nenhuma variável local é repassada implicitamente.
+- A opção de conta considera também `Casa.ativa`: casa inativa oculta a conta na lista padrão, mesmo se a conta continuar ativa. `id`/`incluir_inativas=true` preservam a resolução histórica com `ativa=false`, sem alterar apostas ou atribuição.
+- POST de grupo sempre grava `arquivado=false`, inclusive se um cliente legado mandar true. O mesmo campo continua aceito no corpo para compatibilidade; arquivamento é feito pelo PATCH. Um novo grupo pode receber vínculos imediatamente.
+- PUT de vínculos faz flush e lê os IDs realmente persistidos na transação, em ordem numérica, antes de confirmar o commit. A resposta é construída dessa leitura, sem ecoar a ordem ou o objeto da requisição e sem uma releitura após liberar a trava.
+
+Os 52 aceites anteriores permanecem obrigatórios. Quatro novos casos HTTP/PostgreSQL verificam conta ativa em casa inativa, criação com arquivado false/true e retorno de vínculos persistidos em ordem canônica. Inventário total: 56, sem skips.
