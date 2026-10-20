@@ -1,5 +1,6 @@
 """Authenticated access to the account's exportable records."""
 
+from decimal import Decimal
 from io import BytesIO
 from typing import Annotated, Any, Literal
 
@@ -51,6 +52,9 @@ EXPORT_TABLES = (
     "audit_log",
     "assinaturas",
     "metas_desempenho",
+    "native_accounts",
+    "native_bets",
+    "native_bet_evidence",
 )
 EXCLUDED_COLUMNS = frozenset({
     "token_hash",
@@ -106,7 +110,10 @@ async def collect_user_data(session: AsyncSession, usuario: Usuario) -> dict[str
         statement = select(*columns).where(table.c.usuario_id == usuario.id)
         statement = statement.order_by(*(column for column in table.primary_key.columns))
         rows = await session.execute(statement)
-        data[name] = [jsonable_encoder(dict(row._mapping)) for row in rows]
+        encoders = (
+            {Decimal: lambda value: format(value, "f")} if name.startswith("native_") else None
+        )
+        data[name] = [jsonable_encoder(dict(row._mapping), custom_encoder=encoders) for row in rows]
     return data
 
 

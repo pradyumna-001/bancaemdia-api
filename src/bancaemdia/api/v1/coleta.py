@@ -9,7 +9,6 @@ from fastapi import APIRouter, Depends, Request, status
 from fastapi.concurrency import run_in_threadpool
 from fastapi.responses import JSONResponse
 from kombu.exceptions import OperationalError
-from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from bancaemdia.api.contracts import COLETA_ERROR_RESPONSES, CollectionResponse
@@ -66,12 +65,6 @@ def erro(status_code: int, mensagem: str) -> JSONResponse:
     # A extensão mostra o campo `erro` e trata tudo que não é 200 como falha, guardando o que
     # capturou para o próximo envio.
     return JSONResponse(status_code=status_code, content={"erro": mensagem})
-
-
-async def _set_current_user(session: AsyncSession, usuario_id: int) -> None:
-    await session.execute(
-        text("SELECT set_config('app.current_user_id', :uid, true)"), {"uid": str(usuario_id)}
-    )
 
 
 async def _guardar_sem_leitor(
@@ -164,7 +157,8 @@ async def registrar(
         chave = chave_casa(casa, coletada.identidade)
         # Já é aposta nossa: o que pode faltar é o resultado, e ele não passa de novo pela régua da
         # criação, como no projeto antigo.
-        if await ApostaRepo().get_by_chave(session, usuario_id, chave) is None:
+        aposta_existente = await ApostaRepo().get_by_chave(session, usuario_id, chave)
+        if aposta_existente is None:
             try:
                 validar(coletada, VALOR_UNIDADE_PADRAO_CENTAVOS)
             except ApostaInvalidaError as recusa:
@@ -176,7 +170,9 @@ async def registrar(
                 coleta_received.labels(casa=casa, status="recusada").inc()
                 continue
 
-        matching = await coletas.matching_counts(session, usuario_id, chave)
+        matching = await coletas.matching_counts(
+            session, usuario_id, None if aposta_existente is None else aposta_existente.id
+        )
         resultado.iguais_a_existentes += int(matching.get("exact", 0) > 0)
         resultado.em_duvida += int(matching.get("probable", 0) > 0)
 
@@ -230,7 +226,7 @@ async def receber_coleta(request: Request, session: AsyncSession = Depends(get_d
     usuario_id = identity.usuario_id
     request.state.usuario_id = usuario_id
     request.state.instalacao_id = identity.instalacao_id
-    await _set_current_user(session, usuario_id)
+    # authenticate() already installed the owner's transaction-local RLS scope.
     from bancaemdia.domain.access import require_write_access
 
     await require_write_access(session, usuario_id)

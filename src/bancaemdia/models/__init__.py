@@ -43,6 +43,7 @@ from bancaemdia.models.midia import Midia
 from bancaemdia.models.midia_arquivo import MidiaArquivo
 from bancaemdia.models.movimento import Movimento
 from bancaemdia.models.movimento_requisicao import MovimentoRequisicao
+from bancaemdia.models.native_financials import NativeAccount, NativeBet, NativeBetEvidence
 from bancaemdia.models.rascunho_aposta import RascunhoAposta, RascunhoCorrecao
 from bancaemdia.models.reader_quarantine import ReaderQuarantine
 from bancaemdia.models.revisao_pendente import RevisaoPendente
@@ -105,6 +106,9 @@ __all__ = [
     "MidiaArquivo",
     "Movimento",
     "MovimentoRequisicao",
+    "NativeAccount",
+    "NativeBet",
+    "NativeBetEvidence",
     "RascunhoAposta",
     "RascunhoCorrecao",
     "ReaderQuarantine",

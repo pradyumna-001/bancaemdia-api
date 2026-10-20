@@ -17,6 +17,7 @@ from slowapi.errors import RateLimitExceeded
 from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.requests import Request
 from starlette.responses import JSONResponse, Response
+from starlette.types import Receive, Scope, Send
 
 from bancaemdia.config import get_settings
 from bancaemdia.observability.metrics import rate_limiter_fallback_total
@@ -257,7 +258,13 @@ def policy_for(request: Request) -> RateLimitPolicy | None:
     path = request_path(request)
     if path == "/api/v1/coleta/catalogo":
         return COLETA_POLICY if request.method == "GET" else None
-    if path in {"/coleta", "/api/v1/coleta", "/api/v1/coleta/batches", "/api/v1/coleta/sessions"}:
+    if path in {
+        "/coleta",
+        "/api/v1/coleta",
+        "/api/v1/coleta/batches",
+        "/api/v1/coleta/sessions",
+        "/api/v1/coleta/reader-captures",
+    }:
         return COLETA_POLICY if request.method == "POST" else None
     if path == "/api/v1/upload" and request.method == "POST":
         return UPLOAD_POLICY
@@ -334,6 +341,14 @@ async def _apply_policies(
 
 class AuthRateLimitMiddleware(BaseHTTPMiddleware):
     """Throttle pre-authentication endpoints before JWT validation can short-circuit them."""
+
+    async def __call__(self, scope: Scope, receive: Receive, send: Send) -> None:
+        if scope["type"] == "http" and policy_for(Request(scope)) is not AUTH_POLICY:
+            # Keep the auth bucket on every auth operation. Other routes have
+            # their own authenticated or collection policy in the inner limiter.
+            await self.app(scope, receive, send)
+            return
+        await super().__call__(scope, receive, send)
 
     async def dispatch(
         self, request: Request, call_next: Callable[[Request], Awaitable[Response]]

@@ -32,6 +32,7 @@ from bancaemdia.api.v1 import (
     coleta_pairing,
     coleta_sessoes,
     metas,
+    native_financials,
     painel,
     revisao,
     telegram,
@@ -140,6 +141,7 @@ app.include_router(upload.router)
 app.include_router(identity_router)
 app.include_router(apostas.router)
 app.include_router(caixa.router)
+app.include_router(native_financials.router)
 app.include_router(painel.router)
 app.include_router(metas.router)
 app.include_router(revisao.router)
@@ -154,6 +156,8 @@ app.include_router(usuario.router)
 
 @app.exception_handler(RequestValidationError)
 async def validation_failure(request: Request, error: RequestValidationError) -> JSONResponse:
+    if route_path(request) == "/api/v1/coleta/reader-captures":
+        return JSONResponse({"detail": "invalid reader capture envelope"}, status_code=422)
     if route_path(request).startswith("/auth/"):
         return failure(IdentityError("invalid_request", 422))
     return await request_validation_exception_handler(request, error)
