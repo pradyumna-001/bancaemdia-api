@@ -58,9 +58,9 @@ from bancaemdia.resilience.circuit_breaker import new_anthropic_breaker
 from bancaemdia.workers import celery_app, extraction, materialization
 from bancaemdia.workers import upload as upload_worker
 
-# The limiter's global bucket is one Redis key for every user, and test_rate_limit_redis counts on
-# that bucket: the two modules take turns.
-pytestmark = pytest.mark.xdist_group("redis")
+# Share the group with both offline PostgreSQL replay and Redis limiter tests:
+# this pipeline writes the shared database and the limiter's global Redis key.
+pytestmark = pytest.mark.xdist_group("postgres")
 
 Como = Callable[[AsyncEngine, int | None], AbstractAsyncContextManager[AsyncSession]]
 NovoUsuario = Callable[[], Awaitable[int]]
