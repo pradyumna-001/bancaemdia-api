@@ -8,6 +8,7 @@ from bancaemdia.core.body_limits import (
     PLANILHA_MAX_BYTES,
     UPLOAD_FORM_MARGIN,
 )
+from bancaemdia.domain.foto_aposta import photo_path
 from bancaemdia.integrations.telegram.webhook import MAX_WEBHOOK_BYTES, WEBHOOK_PATH
 
 SECURITY_HEADERS = (
@@ -43,6 +44,27 @@ class SecurityHeadersMiddleware:
                     ]
                     + list(SECURITY_HEADERS),
                 }
+                if photo_path(scope.get("path", "").removeprefix(scope.get("root_path", ""))):
+                    from starlette.datastructures import MutableHeaders
+
+                    headers = MutableHeaders(scope=message)
+                    headers["Cache-Control"] = "private, no-store"
+                    headers["Pragma"] = "no-cache"
+                    headers["Referrer-Policy"] = "no-referrer"
+                    headers["Content-Security-Policy"] = (
+                        "default-src 'none'; frame-ancestors 'none'"
+                    )
+                    vary = [
+                        value.strip()
+                        for value in headers.get("Vary", "").split(",")
+                        if value.strip()
+                    ]
+                    for value in ("Authorization", "Cookie"):
+                        if value.lower() not in {existing.lower() for existing in vary}:
+                            vary.append(value)
+                    headers["Vary"] = ", ".join(vary)
+                    if message["status"] == 503 and "Retry-After" not in headers:
+                        headers["Retry-After"] = "5"
             await send(message)
 
         await self.app(scope, receive, send_headers)

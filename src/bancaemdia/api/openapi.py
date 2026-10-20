@@ -20,6 +20,10 @@ MANUAL_BET_HOUSES = sorted(
 
 
 OPERATION_DOCUMENTATION: dict[OperationKey, tuple[str, str]] = {
+    ("get", "/api/v1/apostas/{chave}/foto"): (
+        "Ler a foto original autorizada da aposta",
+        "Imagem binária privada por aposta e proveniência persistida no primário, inclusive após revisão. FULL_WRITE e READ_ONLY. Sem extração, escrita, redirecionamento ou credenciais em URL. 404 representa aposta/foto inexistente, inacessível, ambígua ou removida pela retenção. Ver docs/contracts/aposta-foto.md.",
+    ),
     ("post", "/api/v1/coleta/sessions"): (
         "Abrir ou retomar sessão",
         "Cria uma fronteira imutável por instalação ou retoma o UUID explícito sem ampliar o corte.",

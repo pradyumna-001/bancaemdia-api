@@ -25,6 +25,7 @@ python scripts/generate_openapi.py
 | `GET` | `/api/v1/apostas/{chave}` | Consultar aposta | `200`, `401`, `402`, `404`, `422`, `429`, `500`, `503` | — |
 | `PATCH` | `/api/v1/apostas/{chave}` | Corrigir aposta | `200`, `401`, `402`, `403`, `404`, `409`, `413`, `422`, `429`, `500`, `503` | — |
 | `DELETE` | `/api/v1/apostas/{chave}` | Excluir aposta da apuração | `200`, `401`, `402`, `403`, `404`, `409`, `422`, `429`, `500`, `503` | — |
+| `GET` | `/api/v1/apostas/{chave}/foto` | Ler a foto original autorizada da aposta | `200`, `401`, `404`, `422`, `429`, `500`, `503` | — |
 | `POST` | `/api/v1/apostas/{chave}/restaurar` | Restaurar aposta na apuração | `200`, `401`, `402`, `403`, `404`, `409`, `422`, `429`, `500`, `503` | — |
 | `POST` | `/api/v1/apostas/{chave}/resultado` | Registrar resultado da aposta | `200`, `401`, `402`, `403`, `404`, `409`, `413`, `422`, `429`, `500`, `503` | — |
 | `POST` | `/api/v1/billing/cancel` | Cancel renewal | `200`, `401`, `402`, `403`, `409`, `422`, `429`, `500`, `503` | billing |
