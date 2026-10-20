@@ -24,7 +24,7 @@ from bancaemdia.models.web_print import PrintAsset
 from bancaemdia.services.web_print import cipher, lock, now, owner, reserve_attempt
 from bancaemdia.workers.celery_app import app
 from bancaemdia.workers.extraction import RETRY_ON, extrair_bilhete
-from bancaemdia.workers.materialization import _gravar, get_engine
+from bancaemdia.workers.materialization import GravacaoConcorrenteError, _gravar, get_engine
 
 
 def reading_domain(reading: dict[str, Any]) -> LeituraRecebida:
@@ -236,7 +236,7 @@ async def process_once(engine: AsyncEngine, uid: int, asset_id: UUID) -> bool:
         if getattr(exc.orig, "sqlstate", None) != "P0402":
             raise
         error, retryable = "account_read_only", True
-    except (*RETRY_ON, ConnectionError, TimeoutError):
+    except (GravacaoConcorrenteError, *RETRY_ON, ConnectionError, TimeoutError):
         error, retryable = "unavailable", True
     except InvalidToken:
         error, retryable = "unavailable", True
