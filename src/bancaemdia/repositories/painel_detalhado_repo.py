@@ -387,9 +387,17 @@ class PainelDetalhadoRepo:
     ) -> AsyncIterator[dict[str, Any]]:
         groups, pairs = self.group_queries(owner, filters)
         source = pairs if children else groups
-        query = select(source).order_by(source.c.atribuicao_codigo, source.c.grupo_id)
         if children:
-            query = query.order_by(source.c.tipster_catalogo_id)
+            query = select(source).order_by(
+                source.c.atribuicao_codigo,
+                func.coalesce(source.c.grupo_id, 0),
+                func.coalesce(source.c.tipster_catalogo_id, 0),
+                source.c.tipster_atribuicao,
+            )
+        else:
+            query = select(source).order_by(
+                source.c.atribuicao_codigo, func.coalesce(source.c.grupo_id, 0)
+            )
         stream = await session.stream(query)
         fields = {
             "atribuicao_codigo",

@@ -3389,6 +3389,7 @@
         "properties": {
           "arquivado": {
             "default": false,
+            "description": "Na criação o grupo sempre nasce ativo; arquivado é aplicado somente no PATCH.",
             "title": "Arquivado",
             "type": "boolean"
           },
@@ -14612,7 +14613,7 @@
     },
     "/api/v1/grupos": {
       "post": {
-        "description": "Cria grupo explicitamente pertencente ao usuário; não infere vínculos de tipsters ou nomes. Escrita auditada e sujeita ao acesso vigente.",
+        "description": "Cria grupo ativo explicitamente pertencente ao usuário; arquivado é aplicado somente no PATCH. Não infere vínculos de tipsters ou nomes. Escrita auditada e sujeita ao acesso vigente.",
         "operationId": "criar_grupo_api_v1_grupos_post",
         "requestBody": {
           "content": {

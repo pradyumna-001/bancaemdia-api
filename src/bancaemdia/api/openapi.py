@@ -53,7 +53,7 @@ OPERATION_DOCUMENTATION: dict[OperationKey, tuple[str, str]] = {
     ),
     ("post", "/api/v1/grupos"): (
         "Criar grupo privado de apostas",
-        "Cria grupo explicitamente pertencente ao usuário; não infere vínculos de tipsters ou nomes. Escrita auditada e sujeita ao acesso vigente.",
+        "Cria grupo ativo explicitamente pertencente ao usuário; arquivado é aplicado somente no PATCH. Não infere vínculos de tipsters ou nomes. Escrita auditada e sujeita ao acesso vigente.",
     ),
     ("patch", "/api/v1/grupos/{grupo_id}"): (
         "Editar ou arquivar grupo",

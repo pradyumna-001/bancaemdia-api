@@ -130,7 +130,11 @@ e seleção. `PAINEL_CURSOR_SECRET` opcional permite segredo privado dedicado;
 ausente deriva por HMAC uma chave separada por propósito do segredo privado
 obrigatório existente `COLETA_TOKEN_SECRET`. Workers/reinícios com a mesma
 configuração preservam navegação. Não reutilizar JWT público como segredo.
-Mudança/rotação desse segredo invalida páginas antigas (422; reiniciar) sem expor dados.
+A chave derivada fica em `lru_cache` por processo: alterar a configuração exige
+reiniciar todos os workers para adotar o novo segredo. Antes disso, o worker
+antigo aceita seus cursores até a expiração de 24h. Depois do reinício, cursores
+da chave antiga retornam 422; durante reinício gradual pode haver rejeição por
+workers com chaves diferentes. Recomeçar a navegação após concluir a rotação.
 
 ## Exportação e erros
 
@@ -141,6 +145,28 @@ que poderiam ser fórmulas continuam escapados. SQL diário é dividido em janel
 de até 366 dias, filhos por stream. Não há truncamento silencioso: excesso exige
 refinar filtros (422). Respostas e erros: `Cache-Control: private, no-store`,
 `Vary: Authorization, Cookie`; XLSX também informa `X-Snapshot-Em`.
+
+O stream de grupos ordena categoria e BIGINT de grupo; filhos usam essas mesmas
+chaves, BIGINT do tipster e atribuição do tipster, incluindo categorias sem ID.
+O diário da exportação executa até `ceil(dias/366)` consultas limitadas (274 no
+máximo de 100000 dias), além das consultas fixas de contexto/resumo/sem data.
+Monitorar latência e número de consultas por exportação; não ampliar limites nem
+substituir snapshot consistente por cache de resultados financeiros.
+
+## Revisão administrativa de 20/10/2026
+
+Integrar #184 antes de #189 e reconciliar o trecho herdado a partir da main real,
+repetindo filtros, diário/hierarquia, contratos e todos os checks. A branch segue
+diretamente contra main, sem empilhar. Inclui também as cinco correções da revisão
+do #184: catálogo histórico de casa inativa, criação de grupo sempre ativo,
+resposta dos vínculos persistidos em ordem canônica, filtros explícitos e guarda
+de página sem linhas. Os 52 aceites de filtros anteriores continuam, acrescidos
+dos quatro novos; os 37 de diário/hierarquia continuam obrigatórios.
+
+Sem `ate`, o diário inclui o dia civil atual em America/Sao_Paulo. Ele ainda está
+em andamento; não representa fechamento do dia. Essa inclusão preserva o painel
+atual e não muda o relógio de atribuição de contas (jogo). O aceite de `all`
+verifica a presença do dia atual; datas futuras observadas conservam seus fatos.
 
 401: sessão ausente/inválida/expirada; 422: limites, filtros, cursor inválido ou
 de outro recorte; 429: limite existente de API/exportação, observar Retry-After;
