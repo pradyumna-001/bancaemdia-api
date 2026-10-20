@@ -224,3 +224,12 @@ Sandbox é ensaio, não versão integrada nem deploy. O PR frontend referencia a
 dependência backend e bloqueia publicação até merge administrativo, atualização
 do pin integrado e repetição das provas. Não provisionar serviços nem ativar
 produção para executar esta emergência.
+
+
+## Revisão do administrador — 20/10/2026
+
+1. A lista histórica inclui instalações próprias revogadas/expiradas intencionalmente, para reconciliar dispositivos e sessões anteriores. Isso não concede credencial: `revogado_em` e `expira_em` já expõem a validade; `estado_sessao` indica somente o ciclo da coleta, nunca presença ou autorização. Não ocultar o histórico nem interpretar sessão aberta como instalação válida.
+2. O modelo agora recusa seleção `ultima_encerrada` sem timestamp e seleção `atual` com encerramento. A consulta já produzia esse invariante; testes de contrato verificam ambos os estados e recusam as combinações inválidas.
+3. Leitura no primário é intencional: revogação, rotação e encerramento devem aparecer imediatamente. Um único statement com janela fornece projeção coerente sem N+1; snapshot de réplica poderia estar atrasado mesmo com REPEATABLE READ.
+4. O fixture usa o serviço real de identidade e role restrita, sem mock de autenticação. O cookie de produção também é opaco (`token_urlsafe`), persistido como digest SHA256; o conteúdo criptografado é a sessão do provedor no servidor. A premissa de cookie criptografado foi conferida e não corresponde à implementação. Casos reais de expiração/revogação, CSRF/Origin e isolamento continuam obrigatórios.
+5. Regressões ASGI de contexto, autenticação, roteamento e reset no finally são executadas; carga e standby real permanecem exigidos no HEAD final. Base main; mudanças compartilhadas com #203 exigem reconciliação após merge e nova CI.

@@ -4681,6 +4681,7 @@
                 "type": "null"
               }
             ],
+            "description": "Null para seleção atual; timestamp obrigatório para ultima_encerrada.",
             "title": "Encerrada Em"
           },
           "selecao": {

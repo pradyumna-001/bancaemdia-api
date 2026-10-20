@@ -7,7 +7,7 @@ from fastapi import APIRouter, Depends, HTTPException, Request, Security
 from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
 from fastapi.routing import APIRoute
-from pydantic import BaseModel, ConfigDict, Field, SecretStr, field_validator
+from pydantic import BaseModel, ConfigDict, Field, SecretStr, field_validator, model_validator
 from sqlalchemy import and_, func, select
 from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -86,7 +86,15 @@ class OwnerCollectionSessionResponse(BaseModel):
     selecao: Literal["atual", "ultima_encerrada"]
     coletar_desde: datetime
     criada_em: datetime
-    encerrada_em: datetime | None
+    encerrada_em: datetime | None = Field(
+        description="Null para seleção atual; timestamp obrigatório para ultima_encerrada."
+    )
+
+    @model_validator(mode="after")
+    def consistent_boundary(self) -> "OwnerCollectionSessionResponse":
+        if (self.selecao == "atual") != (self.encerrada_em is None):
+            raise ValueError("Inconsistent collection session boundary")
+        return self
 
 
 class InstallationResponse(BaseModel):

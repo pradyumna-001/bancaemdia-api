@@ -1,6 +1,29 @@
 """Web owner projection stays distinct from installation capabilities."""
 
+from datetime import UTC, datetime
+from uuid import uuid4
+
+import pytest
+from pydantic import ValidationError
+
+from bancaemdia.api.v1.coleta_pairing import OwnerCollectionSessionResponse
 from bancaemdia.main import app
+
+
+@pytest.mark.parametrize("selection", ["atual", "ultima_encerrada"])
+def test_collection_session_boundary_matches_selection(selection):
+    instant = datetime.now(UTC)
+    data = {
+        "sessao_id": uuid4(),
+        "selecao": selection,
+        "coletar_desde": instant,
+        "criada_em": instant,
+        "encerrada_em": None if selection == "atual" else instant,
+    }
+    assert OwnerCollectionSessionResponse.model_validate(data).selecao == selection
+    data["encerrada_em"] = instant if selection == "atual" else None
+    with pytest.raises(ValidationError):
+        OwnerCollectionSessionResponse.model_validate(data)
 
 
 def test_owner_session_projection_has_only_web_security_and_read_only_permission():
