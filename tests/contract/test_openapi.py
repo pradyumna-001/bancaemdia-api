@@ -25,6 +25,8 @@ from bancaemdia.main import app
 from bancaemdia.middleware import rate_limit as rate_limit_middleware
 from bancaemdia.repositories.coleta_instalacao import CollectionIdentity
 
+app.openapi()  # Build the complete contract before timed ASGI loader requests.
+
 ROOT = Path(__file__).resolve().parents[2]
 SNAPSHOT = ROOT / "tests" / "contract" / "schemas" / "openapi.json"
 WORKFLOW = ROOT / ".github" / "workflows" / "ci.yml"
@@ -218,7 +220,7 @@ def test_openapi_endpoint_matches_checked_in_snapshot(openapi_document: JsonObje
 @pytest.mark.contract
 def test_every_operation_has_human_documentation(openapi_document: JsonObject) -> None:
     operations = list(_operations(openapi_document))
-    assert len(operations) == 89
+    assert len(operations) == 90
     for method, path, operation in operations:
         location = f"{method.upper()} {path}"
         assert str(operation.get("summary", "")).strip(), location

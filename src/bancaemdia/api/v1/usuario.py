@@ -192,6 +192,9 @@ async def anonimizar_minha_conta(
     usuario: Annotated[Usuario, Depends(get_current_user)],
     session: Annotated[AsyncSession, Depends(get_db)],
 ) -> JSONResponse:
+    from bancaemdia.repositories.cruzamento_candidato import CruzamentoCandidatoRepo
+
+    await CruzamentoCandidatoRepo().lock(session, usuario.id)
     # Serializa pedidos concorrentes de exclusão. O trigger de usuário inativo
     # impede novas gravações por trabalhadores que ainda tenham tarefas antigas.
     await session.execute(

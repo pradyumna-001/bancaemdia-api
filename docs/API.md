@@ -83,8 +83,9 @@ python scripts/generate_openapi.py
 | `POST` | `/api/v1/titulares` | Criar titular | `201`, `401`, `402`, `403`, `413`, `422`, `429`, `500`, `503` | — |
 | `GET` | `/api/v1/titulares/casas/{casa_id}/matriz` | Consultar titulares por casa | `200`, `401`, `402`, `422`, `429`, `500`, `503` | — |
 | `GET` | `/api/v1/titulares/financeiro` | Consultar financeiro por titular e conta | `200`, `401`, `402`, `422`, `429`, `500`, `503` | — |
-| `POST` | `/api/v1/titulares/trocas` | Trocar conta da casa | `200`, `401`, `402`, `403`, `413`, `422`, `429`, `500`, `503` | — |
-| `POST` | `/api/v1/titulares/trocas/preview` | Prévia de troca de conta | `200`, `401`, `402`, `403`, `413`, `422`, `429`, `500`, `503` | — |
+| `POST` | `/api/v1/titulares/trocas` | Trocar conta da casa | `200`, `401`, `402`, `403`, `409`, `410`, `413`, `422`, `429`, `500`, `503` | — |
+| `GET` | `/api/v1/titulares/trocas/intencao` | Recuperar intenção de troca | `200`, `401`, `402`, `404`, `422`, `429`, `500`, `503` | — |
+| `POST` | `/api/v1/titulares/trocas/preview` | Prévia de troca de conta | `200`, `401`, `402`, `403`, `409`, `410`, `413`, `422`, `429`, `500`, `503` | — |
 | `GET` | `/api/v1/titulares/{titular_id}` | Consultar titular | `200`, `401`, `402`, `422`, `429`, `500`, `503` | — |
 | `PATCH` | `/api/v1/titulares/{titular_id}` | Editar titular | `200`, `401`, `402`, `403`, `413`, `422`, `429`, `500`, `503` | — |
 | `DELETE` | `/api/v1/titulares/{titular_id}` | Arquivar titular | `200`, `401`, `402`, `403`, `422`, `429`, `500`, `503` | — |
