@@ -96,8 +96,36 @@ As rotas antigas permanecem compatíveis. O resolver antigo recebeu `tipster_cho
 
 ## Aceites obrigatórios
 
-`pytest tests/integration/test_reviews_db.py -n 0 --tb=short --no-cov --junitxml=reviews-acceptance.xml` com `TEST_DATABASE_URL` apontando a PostgreSQL 16 real; `python scripts/check_reviews_junit.py reviews-acceptance.xml` valida o inventário congelado completo, sem omissões, duplicatas, skips ou falhas. Job `reviews-db` é pré-requisito do Docker Build. Preserva também os gates Resultados (70), Prints (35), fotos (42), matching/consolidação, contas/billing, contratos, identidade, integridade, leitores, replay/16k e carga de 55 minutos com réplica real.
+`pytest tests/integration/test_reviews_db.py -n 0 --tb=short --no-cov --junitxml=reviews-acceptance.xml` com `TEST_DATABASE_URL` apontando a PostgreSQL 16 real; `python scripts/check_reviews_junit.py reviews-acceptance.xml` valida o inventário congelado completo, sem omissões, duplicatas, skips ou falhas. Job `reviews-db` é pré-requisito do Docker Build. Preserva também os gates Resultados (72), Prints (37), fotos (43), matching/consolidação, contas/billing, contratos, identidade, integridade, leitores, replay/16k e carga de 55 minutos com réplica real.
 
 Valida caso criado pelo servidor de tipsters conflitantes e ambas escolhas com uma apuração; correção/foto; conta ausente/ambiguidade de abertura/histórica/encerrada/sem titular; par legado mesma/distinta; matching mesma/distinta/recusa; Print sem aposta corrigido/descartado; motivo desconhecido; filtros/contagens/fila vazia e consumo; CAS por escritores antigos/intermediários/candidato/concorrente/vínculo/dicionário; corrida, idempotência e resposta realmente perdida após commit; rollback provocado no PostgreSQL antes do recibo; 401/402, cookie/CSRF/revogação; outro usuário/RLS; MIME/tamanho/corrupção; dinheiro exato/ID >2^53/freebet/null; recibo imutável/expirado. Financeiro/consolidação não são mocks. A extração externa de IA em testes de Print é sintética; o materializador e a decisão financeira são reais.
 
 Demais comandos: `python scripts/generate_openapi.py --check`, `ruff check .`, `ruff format --check .`, `mypy src/ --strict --ignore-missing-imports`, suíte geral e todos os jobs aplicáveis no SHA final do GitHub. O hash definitivo é dos bytes LF versionados do schema completo no SHA entregue, e não de um arquivo de trabalho com CRLF.
+
+
+## Revisão administrativa de 20/10/2026
+
+- Token de evidência agora observa todas as agregações em **uma consulta SQL**,
+  preservando formato, ordem, dono/revisão e HMAC. São dez tabelas privadas (aposta
+  mais nove contextos) e sete catálogos. Nenhuma leitura, autorização ou resultado
+  é guardado em cache entre chamadas. O novo aceite mede uma consulta, estabilidade
+  sem mudanças e invalidação após alteração real do catálogo em outra transação.
+- Catálogos globais não possuem review_revision: to_jsonb da linha completa é
+  intencional e inclui renomeações/aliases. As tabelas privadas usam suas revisões
+  para detectar inclusive ABA/escritores antigos. Não se cria revisão fictícia
+  nem se remove catálogo/evidência da precondição.
+- A família continua derivada das relações canônicas com EXISTS por dono/chave,
+  antes da contagem e paginação. Materializar uma família persistida exigiria
+  invalidação por cada alteração de leitura, aposta ou vínculo; esse cache poderia
+  oferecer decisão desatualizada. Mantidos os filtros, contagens e recálculo
+  canônicos sob o snapshot; o gargalo das agregações foi reduzido sem esse risco.
+- As buscas de pares usam helper de leitura de apostas do dono. Candidato atual
+  continua exigindo ID/versão/status/revisão exatos; par legado usa chaves e dúvida
+  explícita. As validações distintas não foram fundidas nem se escolhe o primeiro
+  vizinho ou tipster disponível.
+- Inclui as correções das revisões de #199, #195 e #193 com seus inventários
+  ampliados. Integrar/reconciliar os trechos comuns pela main real e repetir toda
+  a CI. A candidata segue diretamente contra main, sem empilhar os PRs.
+- A entrega exige 57 aceites de Revisão, 72 Resultados, 37 Prints e 43 Foto, sem
+  skips, além de middleware, identidade e sete provas com standby/RLS reais no
+  gate de carga. Conta pelo jogo e multicontas explícitas permanecem intactas.

@@ -4,6 +4,7 @@ import sys
 import xml.etree.ElementTree as ET
 
 EXPECTED = frozenset([
+    "test_evidence_token_uses_one_query_and_reobserves_catalog_changes",
     "test_fresh_read_of_row_only_writer_cannot_overwrite_financial_evidence[odd]",
     "test_fresh_read_of_row_only_writer_cannot_overwrite_financial_evidence[stake_centavos]",
     "test_unknown_legacy_reading_stake_remains_null_until_human_completion",

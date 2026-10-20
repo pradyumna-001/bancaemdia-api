@@ -7,7 +7,7 @@ from uuid import uuid4
 
 import httpx
 import pytest
-from sqlalchemy import select, text
+from sqlalchemy import event, select, text
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from bancaemdia import models
@@ -1137,3 +1137,35 @@ async def test_review_cookie_csrf_and_real_revocation(
         await engine.dispose()
         async with engine_admin.begin() as conn:
             await conn.execute(text(f"DROP ROLE {role}"))
+
+
+async def test_evidence_token_uses_one_query_and_reobserves_catalog_changes(
+    owner, engine_app, engine_admin, como
+):
+    uid, account = owner
+    key = await seed(engine_app, como, uid, account)
+    rid = await review(engine_app, como, uid, key)
+    statements = []
+
+    def capture(conn, cursor, statement, parameters, context, executemany):
+        statements.append(statement)
+
+    async with como(engine_app, uid) as session:
+        event.listen(engine_app.sync_engine, "before_cursor_execute", capture)
+        try:
+            token = await service.evidence_token(session, uid, rid)
+        finally:
+            event.remove(engine_app.sync_engine, "before_cursor_execute", capture)
+        assert len(statements) == 1
+        assert await service.evidence_token(session, uid, rid) == token
+    async with engine_admin.begin() as conn:
+        catalog_id = await conn.scalar(
+            text("INSERT INTO tipsters(nome) VALUES(:name) RETURNING id"),
+            {"name": "Synthetic fingerprint " + uuid4().hex},
+        )
+    try:
+        async with como(engine_app, uid) as session:
+            assert await service.evidence_token(session, uid, rid) != token
+    finally:
+        async with engine_admin.begin() as conn:
+            await conn.execute(text("DELETE FROM tipsters WHERE id=:id"), {"id": catalog_id})
