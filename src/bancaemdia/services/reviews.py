@@ -132,6 +132,7 @@ async def evidence_token(session: AsyncSession, uid: int, rid: int) -> str:
     # updates by old clients and raw SQL. Aggregate all owner sources conservatively
     # so a new competitor cannot slip past the evidence the human saw.
     parts: list[object] = ["review-evidence-v1", uid, rid]
+    fingerprints = []
 
     def table_fingerprint(table: Any, identity: Any, revision: Any) -> Any:
         values = sql_cast(identity, String) + literal(":") + sql_cast(revision, String)
@@ -147,32 +148,35 @@ async def evidence_token(session: AsyncSession, uid: int, rid: int) -> str:
         )
 
     bets = models.Aposta.__table__
-    parts.append(
-        await session.scalar(table_fingerprint(bets, bets.c.id, column("result_revision")))
+    fingerprints.append(
+        table_fingerprint(bets, bets.c.id, column("result_revision")).scalar_subquery()
     )
     for name in CONTEXT_TABLES:
         table = models.Base.metadata.tables[name]
         identity = table.c.aposta_id if name == "cruzamento_entradas" else table.c.id
-        parts.append(
-            await session.scalar(table_fingerprint(table, identity, column("review_revision")))
+        fingerprints.append(
+            table_fingerprint(table, identity, column("review_revision")).scalar_subquery()
         )
     for name in ("casas", "tipsters", "apelidos", "mercados", "competicoes", "times", "esportes"):
         table = models.Base.metadata.tables[name]
-        parts.append(
-            await session.scalar(
-                select(
-                    func.coalesce(
-                        func.md5(
-                            func.string_agg(
-                                sql_cast(func.to_jsonb(table.table_valued()), String),
-                                aggregate_order_by(literal(","), table.c.id),
-                            )
-                        ),
-                        "",
-                    )
-                ).select_from(table)
+        fingerprints.append(
+            select(
+                func.coalesce(
+                    func.md5(
+                        func.string_agg(
+                            sql_cast(func.to_jsonb(table.table_valued()), String),
+                            aggregate_order_by(literal(","), table.c.id),
+                        )
+                    ),
+                    "",
+                )
             )
+            .select_from(table)
+            .scalar_subquery()
         )
+    # Preserve every ordered fingerprint and the token format. One statement
+    # observes a coherent snapshot; only SQL construction is reused, never data.
+    parts.extend((await session.execute(select(*fingerprints))).one())
     return digest(parts)
 
 
@@ -268,6 +272,14 @@ async def account_view(session: AsyncSession, uid: int, state: dict[str, Any]) -
     }
 
 
+async def _owned_pair_bets(session: AsyncSession, uid: int, selector: Any) -> list[Any]:
+    return list(
+        await session.scalars(
+            select(models.Aposta).where(models.Aposta.usuario_id == uid, selector)
+        )
+    )
+
+
 async def pair_sources(
     session: AsyncSession, uid: int, review: Any, family: str
 ) -> tuple[list[Any], Any]:
@@ -285,13 +297,8 @@ async def pair_sources(
             )
         if pair is None or pair.versao != VERSION or pair.status not in {"probable", "exact"}:
             return [], None
-        bets = list(
-            await session.scalars(
-                select(models.Aposta).where(
-                    models.Aposta.usuario_id == uid,
-                    models.Aposta.id.in_([pair.casa_aposta_id, pair.telegram_aposta_id]),
-                )
-            )
+        bets = await _owned_pair_bets(
+            session, uid, models.Aposta.id.in_([pair.casa_aposta_id, pair.telegram_aposta_id])
         )
         house = next((b for b in bets if b.id == pair.casa_aposta_id), None)
         tip = next((b for b in bets if b.id == pair.telegram_aposta_id), None)
@@ -303,16 +310,10 @@ async def pair_sources(
         ):
             return [], None
     else:
-        bets = list(
-            await session.scalars(
-                select(models.Aposta).where(
-                    models.Aposta.usuario_id == uid,
-                    models.Aposta.chave.in_([
-                        raw.get("aposta_chave"),
-                        raw.get("parceira_suspeita"),
-                    ]),
-                )
-            )
+        bets = await _owned_pair_bets(
+            session,
+            uid,
+            models.Aposta.chave.in_([raw.get("aposta_chave"), raw.get("parceira_suspeita")]),
         )
         house = next((b for b in bets if b.origem == "casa"), None)
         tip = next((b for b in bets if b.origem in {"telegram", "telegram_bot", "print"}), None)
