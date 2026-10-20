@@ -76,9 +76,12 @@ async def execute(
     request: ManualCreationRequest,
     creator: Creator,
 ) -> tuple[ManualCreationReceipt, bool]:
+    # Reject read-only requests before contending for the owner's write lock.
+    await require_write_access(session, user)
     # Same tenant/domain lock ordering as the existing writer. READ COMMITTED
     # sees a just-committed receipt after a concurrent first request releases it.
     await CruzamentoCandidatoRepo().lock(session, user)
+    # Recheck current permission after waiting; the early check is not a grant.
     await require_write_access(session, user)
     digest = fingerprint(request)
     old = await find(session, user, identity)

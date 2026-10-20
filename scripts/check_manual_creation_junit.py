@@ -4,6 +4,7 @@ import sys
 import xml.etree.ElementTree as ET
 
 EXPECTED = frozenset([
+    "test_unexpected_creator_error_rolls_back_and_preserves_safe_recovery",
     "test_real_lost_201_after_commit_recovers_without_replay",
     "test_sequential_replay_normalized_body_freezes_original_confirmation",
     "test_multiple_concurrent_posts_converge_one_fact_event_receipt",

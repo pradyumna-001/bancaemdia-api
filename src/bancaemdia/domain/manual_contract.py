@@ -40,8 +40,14 @@ class ManualCreationRequest(BaseModel):
     model_config = ConfigDict(extra="forbid", allow_inf_nan=False)
 
     casa: str = Field(min_length=1, max_length=200)
-    data_aposta: str | None = None
-    data_jogo: str | None = None
+    data_aposta: str | None = Field(
+        default=None,
+        description="Omitida ou null: relógio do servidor somente na primeira criação; replay conserva a confirmação original. Não define a conta temporal.",
+    )
+    data_jogo: str | None = Field(
+        default=None,
+        description="Define a conta pelo instante do jogo. Ausente ou ambígua: revisão sem presumir conta pela data da aposta. Multicontas explícita usa a conta informada.",
+    )
     odd: float = Field(ge=1.01, le=1000, strict=True)
     stake_unidades: float = Field(gt=0, strict=True)
     evento: str | None = Field(default=None, max_length=10000)
