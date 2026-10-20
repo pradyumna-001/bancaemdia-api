@@ -29,6 +29,7 @@ EXPORT_TABLES = (
     "eventos",
     "movimentos",
     "movimento_requisicoes",
+    "manual_creation_operations",
     "bancas",
     "contas_casa",
     "titulares",
