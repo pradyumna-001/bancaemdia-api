@@ -5,9 +5,11 @@ import time
 from datetime import UTC, date, datetime, timedelta
 from itertools import pairwise
 from typing import Any
+from zoneinfo import ZoneInfo
 
 import pytest
 from openpyxl import load_workbook
+from pydantic import SecretStr
 from sqlalchemy import event, select, text
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -15,6 +17,7 @@ from bancaemdia import models
 from bancaemdia.config import get_settings
 from bancaemdia.domain import painel_cursor
 from bancaemdia.domain.materializar import casa_canonica
+from bancaemdia.repositories.painel_detalhado_repo import PainelDetalhadoRepo
 from tests.integration.test_site_filters_db import api as api
 from tests.integration.test_site_filters_db import dataset as dataset
 
@@ -173,6 +176,7 @@ async def test_every_period_is_daily_and_fully_navigable(
     api: Any, detailed: Any, period: Any
 ) -> None:
     params = {"periodo": period, "dias_por_pagina": 31}
+    today = datetime.now(ZoneInfo("America/Sao_Paulo")).date()
     seen: list[date] = []
     expected_total = None
     count = known = 0
@@ -195,6 +199,7 @@ async def test_every_period_is_daily_and_fully_navigable(
     assert known == int(expected_total["lucro_conhecido_centavos"])
     if period == "all":
         assert seen[0] == date(2025, 12, 30)
+        assert today in seen  # The current, incomplete civil day remains visible.
         assert len(seen) > 270
     elif period in {"7d", "30d", "90d"}:
         assert len(seen) == int(period[:-1])
@@ -244,6 +249,20 @@ async def test_filters_and_complete_excel_reconcile(api: Any, detailed: Any, par
             assert sum(int(r[known_idx]) for r in rows[1:]) == int(
                 total["lucro_conhecido_centavos"]
             )
+            if name in {"Grupos", "Tipsters por grupo"}:
+                category = {"atribuida": 0, "sem_grupo": 1, "ambigua": 2, "nao_resolvida": 3}
+                heading = rows[0]
+                keys = []
+                for row in rows[1:]:
+                    value = dict(zip(heading, row, strict=True))
+                    key = (category[value["atribuicao"]], int(value["grupo_id"] or 0))
+                    if name == "Tipsters por grupo":
+                        key += (
+                            int(value["tipster_id"] or 0),
+                            value["tipster_atribuicao"],
+                        )
+                    keys.append(key)
+                assert keys == sorted(keys)
         assert "grupo_ativo" in next(book["Grupos"].values)
         assert "tipster_atribuicao" in next(book["Tipsters por grupo"].values)
         assert "escopo" in next(book["Contexto"].values)
@@ -380,6 +399,25 @@ async def test_rate_limits_and_expired_cursor_are_private(
     daily = await read(api, detailed, "/diario", {"dias_por_pagina": 1})
     token = daily["proximo_cursor"]
 
+    # A running worker retains its cached cipher. A restart/cache clear adopts
+    # the rotated key and rejects old cursors without disclosing their payload.
+    try:
+        with monkeypatch.context() as rotated:
+            rotated.setattr(get_settings(), "PAINEL_CURSOR_SECRET", SecretStr("r" * 64))
+            client, headers = api
+            params = {"cursor": token, "dias_por_pagina": 1}
+            retained = await client.get(
+                PREFIX + "/diario", params=params, headers=headers(detailed.user)
+            )
+            assert retained.status_code == 200
+            painel_cursor._cipher.cache_clear()
+            rejected = await client.get(
+                PREFIX + "/diario", params=params, headers=headers(detailed.user)
+            )
+            assert rejected.status_code == 422
+    finally:
+        painel_cursor._cipher.cache_clear()
+
     class Tomorrow(datetime):
         @classmethod
         def now(cls, tz: Any = None) -> Any:
@@ -453,7 +491,12 @@ async def test_bigint_identity_and_money_remain_exact_in_json_and_excel(
 
 
 async def test_long_history_query_count_is_bounded_and_groups_not_n_plus_one(
-    api: Any, detailed: Any, engine_app: Any, como: Any, record_property: Any
+    api: Any,
+    detailed: Any,
+    engine_app: Any,
+    como: Any,
+    record_property: Any,
+    monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     calls = []
 
@@ -505,6 +548,26 @@ async def test_long_history_query_count_is_bounded_and_groups_not_n_plus_one(
         record_property("group_queries_small", small)
         record_property("group_queries_large", large)
         record_property("daily_queries", len(calls))
+        windows = []
+        original_days = PainelDetalhadoRepo.days
+
+        async def measured_days(
+            self: Any, session: Any, owner: Any, filters: Any, start: Any, end: Any
+        ) -> Any:
+            windows.append((start, end))
+            return await original_days(self, session, owner, filters, start, end)
+
+        with monkeypatch.context() as measured:
+            measured.setattr(PainelDetalhadoRepo, "days", measured_days)
+            client, headers = api
+            exported = await client.get(
+                PREFIX + "/detalhado/export", headers=headers(detailed.user)
+            )
+            assert exported.status_code == 200, exported.text
+        assert len(windows) == (daily["intervalo_total"]["dias"] + 365) // 366
+        assert all(0 < (end - start).days <= 366 for start, end in windows)
+        assert all(previous[1] == following[0] for previous, following in pairwise(windows))
+        record_property("export_daily_queries", len(windows))
         record_property("exercise_seconds", time.perf_counter() - began)
     finally:
         event.remove(engine_app.sync_engine, "before_cursor_execute", count_queries)
