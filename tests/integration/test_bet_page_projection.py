@@ -138,6 +138,8 @@ async def create(client: Any, **extra: Any) -> Any:
         },
     )
     assert response.status_code == 201, response.text
+    assert response.json()["aposta"]["conta_contexto"] is None
+    assert response.json()["aposta"]["banca_contexto"] is None
     return response.json()["aposta"]
 
 
@@ -170,6 +172,8 @@ async def test_text_corrections_use_real_allowlist_and_list_agrees_with_detail(
     }
     response = await client.patch(f"/api/v1/apostas/{bet['chave']}", json=correction)
     assert response.status_code == 200, response.text
+    assert response.json()["aposta"]["conta_contexto"] is None
+    assert response.json()["aposta"]["banca_contexto"] is None
     row = (await page(client))["data"][0]
     assert row == await detail(client, bet["chave"])
     assert {key: row[key] for key in ("casa", "evento", "descricao")} == {
@@ -180,6 +184,7 @@ async def test_text_corrections_use_real_allowlist_and_list_agrees_with_detail(
         {"mercado_bruto": 3},
         {"lucro_centavos": 99},
         {"conta_contexto": {"apelido": "fake"}},
+        {"comeca_em": "2026-09-25T12:00:00Z"},
     ):
         rejected = await client.patch(f"/api/v1/apostas/{bet['chave']}", json=invalid)
         assert rejected.status_code == 422
@@ -252,11 +257,16 @@ async def test_legacy_freebet_review_deleted_restore_empty_pages_and_totals(page
     assert (await page(client, estado="CASHOUT"))["pagination"]["total"] == 0
     deleted = await client.delete(f"/api/v1/apostas/{normal['chave']}")
     assert deleted.status_code == 200
+    assert deleted.json()["aposta"]["conta_contexto"] is None
+    assert deleted.json()["aposta"]["banca_contexto"] is None
     assert (await page(client))["pagination"]["total"] == 3
     all_rows = await page(client, incluir_apagadas="true")
     assert all_rows["pagination"]["total"] == 4
     assert next(row for row in all_rows["data"] if row["chave"] == normal["chave"])["apagada"]
-    assert (await client.post(f"/api/v1/apostas/{normal['chave']}/restaurar")).status_code == 200
+    restored = await client.post(f"/api/v1/apostas/{normal['chave']}/restaurar")
+    assert restored.status_code == 200
+    assert restored.json()["aposta"]["conta_contexto"] is None
+    assert restored.json()["aposta"]["banca_contexto"] is None
     assert (await page(client))["pagination"]["total"] == 4
 
 
