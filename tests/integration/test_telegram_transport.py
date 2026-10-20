@@ -22,6 +22,9 @@ from bancaemdia.workers.telegram import (
     process_inbox_once,
 )
 
+# These tests share the PostgreSQL fixture with exclusive offline replay tests.
+pytestmark = pytest.mark.xdist_group("postgres")
+
 
 def _update(update_id: int, sender: int, message: str) -> dict[str, object]:
     return {

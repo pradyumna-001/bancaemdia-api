@@ -25,6 +25,7 @@ python scripts/generate_openapi.py
 | `GET` | `/api/v1/apostas/{chave}` | Consultar aposta | `200`, `401`, `402`, `404`, `422`, `429`, `500`, `503` | — |
 | `PATCH` | `/api/v1/apostas/{chave}` | Corrigir aposta | `200`, `401`, `402`, `403`, `404`, `409`, `413`, `422`, `429`, `500`, `503` | — |
 | `DELETE` | `/api/v1/apostas/{chave}` | Excluir aposta da apuração | `200`, `401`, `402`, `403`, `404`, `409`, `422`, `429`, `500`, `503` | — |
+| `PUT` | `/api/v1/apostas/{chave}/grupos` | Atribuir grupos à aposta | `200`, `401`, `402`, `403`, `413`, `422`, `429`, `500`, `503` | — |
 | `POST` | `/api/v1/apostas/{chave}/restaurar` | Restaurar aposta na apuração | `200`, `401`, `402`, `403`, `404`, `409`, `422`, `429`, `500`, `503` | — |
 | `POST` | `/api/v1/apostas/{chave}/resultado` | Registrar resultado da aposta | `200`, `401`, `402`, `403`, `404`, `409`, `413`, `422`, `429`, `500`, `503` | — |
 | `POST` | `/api/v1/billing/cancel` | Cancel renewal | `200`, `401`, `402`, `403`, `409`, `422`, `429`, `500`, `503` | billing |
@@ -59,10 +60,16 @@ python scripts/generate_openapi.py
 | `GET` | `/api/v1/coleta/status` | Consultar credencial da instalação | `200`, `400`, `401`, `402`, `403`, `404`, `422`, `429`, `500`, `503` | — |
 | `POST` | `/api/v1/consolidacoes` | Consolidar fontes após revisão | `200`, `401`, `402`, `403`, `413`, `422`, `429`, `500`, `503` | — |
 | `POST` | `/api/v1/consolidacoes/{relacao_id}/desvincular` | Desvincular fontes após revisão | `200`, `401`, `402`, `403`, `413`, `422`, `429`, `500`, `503` | — |
+| `GET` | `/api/v1/filtros/{dimensao}` | Opções autenticadas dos filtros | `200`, `401`, `402`, `422`, `429`, `500`, `503` | — |
+| `POST` | `/api/v1/grupos` | Criar grupo privado de apostas | `201`, `401`, `402`, `403`, `413`, `422`, `429`, `500`, `503` | — |
+| `PATCH` | `/api/v1/grupos/{grupo_id}` | Editar ou arquivar grupo | `200`, `401`, `402`, `403`, `413`, `422`, `429`, `500`, `503` | — |
 | `POST` | `/api/v1/integrations/telegram/webhook` | Receber atualização do bot Telegram | `202`, `400`, `403`, `413`, `415`, `429`, `503` | — |
 | `GET` | `/api/v1/painel` | Consultar painel financeiro | `200`, `401`, `402`, `422`, `429`, `500`, `503` | — |
 | `GET` | `/api/v1/painel/analises` | Consultar análises adicionais | `200`, `401`, `402`, `422`, `429`, `500`, `503` | — |
 | `GET` | `/api/v1/painel/export` | Exportar painel em Excel | `200`, `401`, `402`, `422`, `429`, `500`, `503` | — |
+| `GET` | `/api/v1/painel/filtrado` | Resumo da seleção de apostas do site | `200`, `401`, `402`, `422`, `429`, `500`, `503` | — |
+| `GET` | `/api/v1/painel/filtrado/export` | Exportação agregada da seleção do site | `200`, `401`, `402`, `422`, `429`, `500`, `503` | — |
+| `GET` | `/api/v1/painel/filtrado/metricas` | Séries diárias da seleção do site | `200`, `401`, `402`, `422`, `429`, `500`, `503` | — |
 | `GET` | `/api/v1/painel/metas` | Listar metas de desempenho | `200`, `401`, `402`, `422`, `429`, `500`, `503` | — |
 | `POST` | `/api/v1/painel/metas` | Criar meta de desempenho | `201`, `401`, `402`, `403`, `413`, `422`, `429`, `500`, `503` | — |
 | `GET` | `/api/v1/painel/metas/{meta_id}` | Consultar meta de desempenho | `200`, `401`, `402`, `422`, `429`, `500`, `503` | — |

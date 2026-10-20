@@ -9,6 +9,7 @@ from bancaemdia.models.aposta import ESTADOS
 # campo calculado derrubava a projeção para sempre no projeto antigo.
 CAMPOS_CORRIGIVEIS = frozenset({
     "conta_casa_id",
+    "banca_id",
     "tipster_id",
     "time_casa_id",
     "time_fora_id",
@@ -32,6 +33,7 @@ CAMPOS_CORRIGIVEIS = frozenset({
 # corrigida virava evento sem nunca chegar na linha da aposta.
 CAMPOS_DE_ID = (
     "conta_casa_id",
+    "banca_id",
     "tipster_id",
     "time_casa_id",
     "time_fora_id",

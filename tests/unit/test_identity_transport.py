@@ -59,8 +59,9 @@ async def test_streamed_body_status_and_private_cors_headers_are_preserved(ident
         if invalid != "cookie" or path.startswith("/auth/")
     ],
 )
+@pytest.mark.parametrize("method", ["POST", "PUT"])
 async def test_cookie_writes_fail_before_downstream_on_each_csrf_violation(
-    identity_transport, path, invalid
+    identity_transport, path, invalid, method
 ):
     app, _, calls = identity_transport
     headers = {"origin": ORIGIN, "cookie": "session=cookie", "x-csrf-token": "proof:cookie"}
@@ -73,14 +74,15 @@ async def test_cookie_writes_fail_before_downstream_on_each_csrf_violation(
         # Refresh/logout require a session; a bearer alone cannot bypass CSRF.
         headers["authorization"] = "Bearer present"
     async with httpx.AsyncClient(transport=httpx.ASGITransport(app), base_url=ORIGIN) as client:
-        response = await client.post(path, headers=headers)
+        response = await client.request(method, path, headers=headers)
     assert response.status_code == 403 and not calls
     assert response.headers["cache-control"] == "private, no-store"
 
 
 @pytest.mark.parametrize("use_bearer", [False, True])
+@pytest.mark.parametrize("method", ["POST", "PUT"])
 async def test_valid_cookie_proof_and_bearer_api_writes_reach_downstream(
-    identity_transport, use_bearer
+    identity_transport, use_bearer, method
 ):
     app, _, calls = identity_transport
     headers = {"origin": ORIGIN, "cookie": "session=cookie"}
@@ -88,14 +90,18 @@ async def test_valid_cookie_proof_and_bearer_api_writes_reach_downstream(
         {"authorization": "Bearer present"} if use_bearer else {"x-csrf-token": "proof:cookie"}
     )
     async with httpx.AsyncClient(transport=httpx.ASGITransport(app), base_url=ORIGIN) as client:
-        response = await client.post("/api/v1/apostas", headers=headers)
+        response = await client.request(method, "/api/v1/apostas", headers=headers)
     assert response.status_code == 201 and len(calls) == 1
 
 
 @pytest.mark.parametrize("violation", [None, "origin", "headers"])
 async def test_preflight_preserves_exact_origin_and_header_allowlist(identity_transport, violation):
     app, _, calls = identity_transport
-    headers = {"origin": ORIGIN, "access-control-request-headers": "Authorization, X-CSRF-Token"}
+    headers = {
+        "origin": ORIGIN,
+        "access-control-request-headers": "Authorization, X-CSRF-Token",
+        "access-control-request-method": "PUT",
+    }
     if violation == "origin":
         headers["origin"] = "https://other.example.test"
     if violation == "headers":
@@ -105,6 +111,8 @@ async def test_preflight_preserves_exact_origin_and_header_allowlist(identity_tr
     assert response.status_code == (403 if violation else 204)
     assert not calls
     assert response.headers["cache-control"] == "private, no-store"
+    if violation is None:
+        assert "PUT" in response.headers["access-control-allow-methods"].split(",")
 
 
 @pytest.mark.parametrize("path", ["/coleta", "/auth/session"])
