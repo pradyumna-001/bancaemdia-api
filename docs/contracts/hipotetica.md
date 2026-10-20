@@ -164,3 +164,24 @@ Aceite dedicado real API/PostgreSQL/RLS, sem skips, exigido pela CI e checker;
 testes incluem >100 itens, arredondamento, sete estados, freebet, filtros completos,
 datas, RLS/FKs, READ_ONLY, imutabilidade de fatos/eventos/Caixa e igualdade de
 Painel/Excel antes/depois. Gates existentes permanecem exigidos no HEAD final.
+
+## Revisão administrativa de 20/10/2026
+
+1. Integrar #184 antes de #191 e reconciliar o trecho comum pela main real,
+   repetindo toda a CI. A branch continua diretamente contra main e inclui as
+   cinco correções da revisão de filtros, com seus quatro aceites adicionais.
+2. IDs privados estrangeiros e ausentes conservam o mesmo 404 e a mesma mensagem:
+   revelar qual existe permitiria enumerar dados de outra pessoa. O aceite HTTP
+   cobre conta/titular/banca/grupo, além de RLS e FKs de dono.
+3. A dependência canônica já validava `PeriodoPainel` e os limites desde/ate antes
+   de executar a rota. A resposta agora recebe o período também por parâmetro
+   tipado, sem reler a string bruta. Um novo caso HTTP exige 422 para `300d`;
+   conflitos período/limites e datas invertidas continuam rejeitados.
+4. Middlewares ASGI preservam identidade, RLS e decisão de roteamento na mesma
+   tarefa, com limpeza ao finalizar a requisição. A entrega exige regressões de
+   autenticação/ContextVars e as sete provas com standby PostgreSQL real no gate
+   de carga: primário/réplica, fresh, leitura após escrita, lag e isolamento.
+5. `null` impede apresentar o total de um subconjunto seguro como resultado de
+   toda a população. Fatos incompletos continuam contados e explicados pelas
+   limitações; não se fabrica dinheiro zero nem se muda a atribuição pelo jogo.
+   Os aceites de dados inseguros e de mistura parcial verificam esse contrato.

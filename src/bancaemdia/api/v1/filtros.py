@@ -106,7 +106,7 @@ async def consultar_opcoes(
     elif dimensao in {"grupos", "titulares"}:
         ativa = ~entidade.arquivado
     elif dimensao == "contas":
-        ativa = entidade.ativa & (entidade.estado != "ENCERRADA")
+        ativa = entidade.ativa & (entidade.estado != "ENCERRADA") & models.Casa.ativa
     if dimensao == "contas":
         nome = func.concat(models.Casa.nome, " — ", entidade.apelido)
         query = select(entidade.id, nome.label("nome"), ativa.label("ativa")).join(
@@ -153,7 +153,10 @@ async def consultar_opcoes(
 class GrupoEntrada(BaseModel):
     model_config = ConfigDict(extra="forbid")
     nome: str = Field(min_length=1, max_length=160)
-    arquivado: bool = False
+    arquivado: bool = Field(
+        default=False,
+        description="Na criação o grupo sempre nasce ativo; arquivado é aplicado somente no PATCH.",
+    )
 
     @field_validator("nome")
     @classmethod
@@ -181,7 +184,7 @@ async def criar_grupo(
     usuario: Annotated[Usuario, Depends(get_current_user)],
     session: Annotated[AsyncSession, Depends(get_db)],
 ) -> OpcaoFiltro:
-    grupo = models.GrupoAposta(usuario_id=usuario.id, **entrada.model_dump())
+    grupo = models.GrupoAposta(usuario_id=usuario.id, nome=entrada.nome, arquivado=False)
     session.add(grupo)
     try:
         await session.flush()
@@ -257,5 +260,16 @@ async def vincular_grupos(
     session.add_all([
         models.ApostaGrupo(usuario_id=usuario.id, aposta_id=aposta.id, grupo_id=g) for g in ids
     ])
+    await session.flush()
+    persistidos = list(
+        await session.scalars(
+            select(models.ApostaGrupo.grupo_id)
+            .where(
+                models.ApostaGrupo.usuario_id == usuario.id,
+                models.ApostaGrupo.aposta_id == aposta.id,
+            )
+            .order_by(models.ApostaGrupo.grupo_id)
+        )
+    )
     await session.commit()
-    return entrada
+    return GruposDaAposta(grupo_ids=[str(ident) for ident in persistidos])

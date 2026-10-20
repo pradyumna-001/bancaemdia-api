@@ -22,7 +22,7 @@ REQUIRED = {
     "test_foreign_and_nonexistent_private_selectors_are_indistinguishable": 4,
     "test_rls_foreign_tip_fk_and_unauthenticated_private_response": 1,
     "test_read_only_permission_and_real_facts_events_caixa_exports_unchanged": 1,
-    "test_invalid_inputs_are_rejected_privately": 8,
+    "test_invalid_inputs_are_rejected_privately": 9,
     "test_real_postgres_timeout_is_503_not_empty_success": 1,
     "test_bigint_money_empty_and_published_examples_match_full_openapi": 1,
     "test_over_limit_population_is_rejected_without_truncation": 1,
