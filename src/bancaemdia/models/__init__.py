@@ -46,6 +46,7 @@ from bancaemdia.models.movimento_requisicao import MovimentoRequisicao
 from bancaemdia.models.rascunho_aposta import RascunhoAposta, RascunhoCorrecao
 from bancaemdia.models.reader_quarantine import ReaderQuarantine
 from bancaemdia.models.revisao_pendente import RevisaoPendente
+from bancaemdia.models.sheet_import import SheetConfirmation, SheetPreview, SheetSource
 from bancaemdia.models.telegram_link import (
     TelegramLink,
     TelegramLinkAttempt,
@@ -109,6 +110,9 @@ __all__ = [
     "RascunhoCorrecao",
     "ReaderQuarantine",
     "RevisaoPendente",
+    "SheetConfirmation",
+    "SheetPreview",
+    "SheetSource",
     "TelegramInbox",
     "TelegramLink",
     "TelegramLinkAttempt",

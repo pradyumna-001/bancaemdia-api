@@ -34,6 +34,7 @@ from bancaemdia.api.v1 import (
     metas,
     painel,
     revisao,
+    sheet_import,
     telegram,
     titulares,
     upload,
@@ -139,6 +140,7 @@ app.include_router(admin_casas.router)
 app.include_router(upload.router)
 app.include_router(identity_router)
 app.include_router(apostas.router)
+app.include_router(sheet_import.router)
 app.include_router(caixa.router)
 app.include_router(painel.router)
 app.include_router(metas.router)
@@ -154,6 +156,8 @@ app.include_router(usuario.router)
 
 @app.exception_handler(RequestValidationError)
 async def validation_failure(request: Request, error: RequestValidationError) -> JSONResponse:
+    if route_path(request).startswith("/api/v1/planilhas/"):
+        return JSONResponse(status_code=422, content={"detail": "invalid_import_request"})
     if route_path(request).startswith("/auth/"):
         return failure(IdentityError("invalid_request", 422))
     return await request_validation_exception_handler(request, error)
@@ -251,4 +255,17 @@ def account_read_only_error(request: Request, exc: AccountReadOnlyError) -> JSON
 def billing_database_error(request: Request, exc: DBAPIError) -> JSONResponse:
     if getattr(exc.orig, "sqlstate", None) == "P0402":
         return JSONResponse(status_code=402, content={"detail": "account_read_only"})
+    if route_path(request).startswith("/api/v1/planilhas/"):
+        return JSONResponse(
+            status_code=503, content={"detail": "import_unavailable"}, headers={"Retry-After": "5"}
+        )
+    raise exc
+
+
+@app.exception_handler(OSError)
+def sheet_connection_error(request: Request, exc: OSError) -> JSONResponse:
+    if route_path(request).startswith("/api/v1/planilhas/"):
+        return JSONResponse(
+            status_code=503, content={"detail": "import_unavailable"}, headers={"Retry-After": "5"}
+        )
     raise exc

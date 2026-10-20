@@ -5,6 +5,9 @@ from sqlalchemy import text
 from sqlalchemy.exc import DBAPIError
 from sqlalchemy.ext.asyncio import create_async_engine
 
+# These tests share the PostgreSQL fixture with exclusive offline replay tests.
+pytestmark = pytest.mark.xdist_group("postgres")
+
 
 @pytest.mark.integration
 async def test_audit_log_records_changes_without_values_and_rejects_mutation(banco) -> None:

@@ -17,6 +17,7 @@ from slowapi.errors import RateLimitExceeded
 from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.requests import Request
 from starlette.responses import JSONResponse, Response
+from starlette.types import Receive, Scope, Send
 
 from bancaemdia.config import get_settings
 from bancaemdia.observability.metrics import rate_limiter_fallback_total
@@ -327,13 +328,24 @@ async def _apply_policies(
     response = await call_next(request)
     if active is not None:
         policy, current_limit = active
+        retry_after = response.headers.get("Retry-After")
         # Header injection also reads the quota window from Redis.
         await run_in_threadpool(policy.limiter._inject_headers, response, current_limit)
+        if retry_after is not None:
+            response.headers["Retry-After"] = retry_after
     return response
 
 
 class AuthRateLimitMiddleware(BaseHTTPMiddleware):
     """Throttle pre-authentication endpoints before JWT validation can short-circuit them."""
+
+    async def __call__(self, scope: Scope, receive: Receive, send: Send) -> None:
+        if scope["type"] == "http" and policy_for(Request(scope)) is not AUTH_POLICY:
+            # Keep the auth bucket on every auth operation. Other routes have
+            # their own authenticated or collection policy in the inner limiter.
+            await self.app(scope, receive, send)
+            return
+        await super().__call__(scope, receive, send)
 
     async def dispatch(
         self, request: Request, call_next: Callable[[Request], Awaitable[Response]]

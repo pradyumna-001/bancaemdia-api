@@ -36,7 +36,7 @@ dependencies = [
     "tenacity>=8.5.0",
     "slowapi==0.1.10",
     "openpyxl>=3.1.5",
-    "pillow>=11.3.0",
+    "pillow>=13.0.0",
     "structlog>=25.1.0",
     "prometheus-client>=0.20.0",
     "prometheus-fastapi-instrumentator>=7.1.0",
@@ -48,6 +48,7 @@ dependencies = [
     "opentelemetry-instrumentation-redis>=0.49b0",
     "opentelemetry-instrumentation-celery>=0.49b0",
     "opentelemetry-exporter-otlp>=1.28.0",
+    "defusedxml>=0.7.1",
 ]
 
 [project.optional-dependencies]

@@ -43,6 +43,20 @@ class SecurityHeadersMiddleware:
                     ]
                     + list(SECURITY_HEADERS),
                 }
+                if scope.get("path", "").startswith("/api/v1/planilhas/"):
+                    private = {b"cache-control", b"vary"}
+                    message["headers"] = [
+                        (name, value)
+                        for name, value in message["headers"]
+                        if name.lower() not in private
+                    ] + [
+                        (b"cache-control", b"private, no-store"),
+                        (b"vary", b"Cookie, Authorization"),
+                    ]
+                    if message["status"] == 503 and not any(
+                        name.lower() == b"retry-after" for name, _ in message["headers"]
+                    ):
+                        message["headers"].append((b"retry-after", b"5"))
             await send(message)
 
         await self.app(scope, receive, send_headers)
@@ -64,7 +78,9 @@ class EndpointBodyLimitMiddleware:
             limit = MAX_WEBHOOK_BYTES
         elif path == "/api/v1/upload":
             limit = get_settings().UPLOAD_MAX_BYTES + UPLOAD_FORM_MARGIN
-        elif path == "/api/v1/apostas/importar-planilha":
+        elif path == "/api/v1/apostas/importar-planilha" or (
+            path.startswith("/api/v1/planilhas/fontes/") and "/previas/" in path
+        ):
             limit = PLANILHA_MAX_BYTES + UPLOAD_FORM_MARGIN
         elif path in {"/coleta", "/api/v1/coleta"}:
             limit = COLETA_MAX_BYTES

@@ -71,6 +71,16 @@ python scripts/generate_openapi.py
 | `GET` | `/api/v1/painel/metricas` | Consultar séries para gráficos | `200`, `401`, `402`, `422`, `429`, `500`, `503` | — |
 | `GET` | `/api/v1/painel/preferencias` | Consultar preferências do painel | `200`, `401`, `402`, `422`, `429`, `500`, `503` | — |
 | `PATCH` | `/api/v1/painel/preferencias` | Alterar preferências do painel | `200`, `401`, `402`, `403`, `413`, `422`, `429`, `500`, `503` | — |
+| `GET` | `/api/v1/planilhas/campos` | Catálogo de colunas XLSX | `200`, `400`, `401`, `402`, `409`, `410`, `413`, `422`, `429`, `500`, `503` | Planilhas |
+| `GET` | `/api/v1/planilhas/confirmacoes/{confirmation_id}` | Reconciliar aplicação XLSX | `200`, `400`, `401`, `402`, `409`, `410`, `413`, `422`, `429`, `500`, `503` | Planilhas |
+| `POST` | `/api/v1/planilhas/confirmacoes/{confirmation_id}` | Confirmar alterações da prévia | `200`, `400`, `401`, `402`, `403`, `409`, `410`, `413`, `422`, `429`, `500`, `503` | Planilhas |
+| `GET` | `/api/v1/planilhas/fontes` | Listar fontes próprias | `200`, `400`, `401`, `402`, `409`, `410`, `413`, `422`, `429`, `500`, `503` | Planilhas |
+| `GET` | `/api/v1/planilhas/fontes/{source_id}` | Reconciliar fonte | `200`, `400`, `401`, `402`, `409`, `410`, `413`, `422`, `429`, `500`, `503` | Planilhas |
+| `PUT` | `/api/v1/planilhas/fontes/{source_id}` | Registrar fonte estável | `200`, `400`, `401`, `402`, `403`, `409`, `410`, `413`, `422`, `429`, `500`, `503` | Planilhas |
+| `POST` | `/api/v1/planilhas/fontes/{source_id}/previas/{preview_id}` | Preparar prévia XLSX | `201`, `400`, `401`, `402`, `403`, `409`, `410`, `413`, `422`, `429`, `500`, `503` | Planilhas |
+| `GET` | `/api/v1/planilhas/previas/{preview_id}` | Consultar prévia | `200`, `400`, `401`, `402`, `409`, `410`, `413`, `422`, `429`, `500`, `503` | Planilhas |
+| `GET` | `/api/v1/planilhas/previas/{preview_id}/linhas` | Consultar linhas da prévia | `200`, `400`, `401`, `402`, `409`, `410`, `413`, `422`, `429`, `500`, `503` | Planilhas |
+| `POST` | `/api/v1/planilhas/previas/{preview_id}/remapear/{new_preview_id}` | Remapear e revalidar prévia | `201`, `400`, `401`, `402`, `403`, `409`, `410`, `413`, `422`, `429`, `500`, `503` | Planilhas |
 | `GET` | `/api/v1/revisao` | Listar revisões pendentes | `200`, `401`, `402`, `422`, `429`, `500`, `503` | — |
 | `GET` | `/api/v1/revisao/stats` | Consultar estatísticas de revisão | `200`, `401`, `402`, `422`, `429`, `500`, `503` | — |
 | `GET` | `/api/v1/revisao/{revisao_id}` | Consultar revisão | `200`, `401`, `402`, `404`, `422`, `429`, `500`, `503` | — |
