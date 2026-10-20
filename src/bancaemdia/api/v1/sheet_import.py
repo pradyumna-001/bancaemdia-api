@@ -259,6 +259,7 @@ async def upload_preview(
         workbook = await asyncio.to_thread(inspect_xlsx, content)
         await service.lock(session, usuario.id)
         source = await service.source_get(session, usuario.id, source_id)
+        current_snapshot = await service.fingerprint(session, usuario.id)
         preview = await service.save_preview(
             session,
             usuario.id,
@@ -267,8 +268,9 @@ async def upload_preview(
             digest([source_id, file_hash]),
             file_hash,
             workbook,
+            current_snapshot=current_snapshot,
         )
-        return await service.preview_view(session, preview)
+        return await service.preview_view(session, preview, current_snapshot=current_snapshot)
 
     return await run(session, operation())
 
@@ -324,6 +326,7 @@ async def remap(
         if previous.revision != body.expected_revision or source.current_preview != previous.id:
             raise SheetError("preview_obsolete", 409)
         workbook = service.unseal(previous.private_data)["workbook"]
+        current_snapshot = await service.fingerprint(session, usuario.id)
         preview = await service.save_preview(
             session,
             usuario.id,
@@ -335,8 +338,9 @@ async def remap(
             body.sheet,
             body.mapping,
             previous.expires_at,
+            current_snapshot=current_snapshot,
         )
-        return await service.preview_view(session, preview)
+        return await service.preview_view(session, preview, current_snapshot=current_snapshot)
 
     return await run(session, operation())
 

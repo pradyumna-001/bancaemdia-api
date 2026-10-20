@@ -77,3 +77,27 @@ python scripts/generate_openapi.py --check
 ```
 
 Gate exige 51 casos obrigatórios sem faltantes/duplicações/falhas/skips: API/PG/RLS/materializador reais, snapshot sem escrita em prévia/remapeamento, dados inválidos preservados, remapeamento, confirmação/reimportação/obsolescência/expiração/concorrência/resposta perdida real, 401/402/cookie/CSRF/revogação, isolamento, freebet/null/decimais, dia do jogo/multicontas, legado, limites/estrutura maliciosa, 429/503 e retenção. Nenhuma chamada paga, serviço produtivo ou resultado financeiro pronto foi usado. Gates anteriores/cobertura/segurança/carga continuam exigidos no SHA final. A PR fecha #196; não fecha a tela frontend #26.
+
+
+## Revisão administrativa de 20/10/2026
+
+- Criação e remapeamento calculam o fingerprint uma vez por operação, depois do
+  lock do dono, e o reutilizam no plano e na resposta da mesma transação
+  SERIALIZABLE. Não há cache entre requisições, commits ou escritas financeiras.
+  GET continua calculando uma observação nova; confirmação também calcula seu
+  próprio fingerprint ao replanejar, sem reutilizar o recibo da prévia. O aceite
+  mede uma chamada na criação/remapeamento e nova chamada em cada GET, preservando
+  o fingerprint completo e sua precisão, sem carregar estado de outro usuário.
+- `confirm()` já adquire o lock do dono e os locks de cada chave em ordem estável
+  **antes** de replanejar. Mantém digest, revalidação temporal e SERIALIZABLE até
+  materialização/recibo atômicos. Mudanças financeiras/temporais tornam a prévia
+  obsoleta; os aceites de concorrência e obsolescência permanecem obrigatórios.
+- Downgrade online consulta as três tabelas e recusa identidades populadas.
+  `alembic downgrade ... --sql` apenas gera texto e não observa os dados: não
+  comprova que o downgrade seja seguro para um banco. A operação suportada usa
+  downgrade online, que executa a guarda; o roundtrip real cobre recusa com dados
+  e restauração das guards no banco vazio. Nenhum downgrade foi executado fora
+  dos bancos descartáveis de teste.
+- A entrega exige regressões de autenticação/ContextVars e as sete provas reais
+  com standby/RLS/roteamento no gate de carga, além dos 51 aceites da planilha.
+  Atribuição por jogo e referência explícita de multicontas são preservadas.
