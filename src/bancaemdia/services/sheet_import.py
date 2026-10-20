@@ -129,6 +129,8 @@ async def plan(
     workbook: dict[str, Any],
     sheet_name: str,
     mapping: dict[str, int],
+    *,
+    current_snapshot: str | None = None,
 ) -> dict[str, Any]:
     sheet = next((sheet for sheet in workbook["sheets"] if sheet["name"] == sheet_name), None)
     if sheet is None:
@@ -280,7 +282,9 @@ async def plan(
         "mapping_errors": mapping_errors,
         "rows": rows,
         "counts": counts,
-        "snapshot": await fingerprint(session, uid),
+        "snapshot": current_snapshot
+        if current_snapshot is not None
+        else await fingerprint(session, uid),
     }
 
 
@@ -293,7 +297,9 @@ async def preview_get(session: AsyncSession, uid: int, identity: UUID) -> SheetP
     return preview
 
 
-async def preview_view(session: AsyncSession, preview: SheetPreview) -> dict[str, Any]:
+async def preview_view(
+    session: AsyncSession, preview: SheetPreview, *, current_snapshot: str | None = None
+) -> dict[str, Any]:
     private = unseal(preview.private_data)
     source = await source_get(session, preview.usuario_id, preview.source_id)
     plan_data = private["plan"]
@@ -301,7 +307,12 @@ async def preview_view(session: AsyncSession, preview: SheetPreview) -> dict[str
         "obsolete"
         if source.current_preview != preview.id
         or source.version != preview.source_version
-        or plan_data["snapshot"] != await fingerprint(session, preview.usuario_id)
+        or plan_data["snapshot"]
+        != (
+            current_snapshot
+            if current_snapshot is not None
+            else await fingerprint(session, preview.usuario_id)
+        )
         else "invalid"
         if plan_data["counts"]["recusadas"] or plan_data["mapping_errors"]
         else "ready"
@@ -339,6 +350,8 @@ async def save_preview(
     sheet: str | None = None,
     mapping: dict[str, int] | None = None,
     expiry: datetime | None = None,
+    *,
+    current_snapshot: str | None = None,
 ) -> SheetPreview:
     existing = await session.get(SheetPreview, (uid, identity))
     if existing is not None:
@@ -358,7 +371,15 @@ async def save_preview(
     if selected_sheet is None:
         raise SheetError("sheet_not_found")
     resolved_mapping = default_mapping(selected_sheet) if mapping is None else mapping
-    prepared = await plan(session, uid, source, workbook, selected, resolved_mapping)
+    prepared = await plan(
+        session,
+        uid,
+        source,
+        workbook,
+        selected,
+        resolved_mapping,
+        current_snapshot=current_snapshot,
+    )
     previous = (
         await session.get(SheetPreview, (uid, source.current_preview))
         if source.current_preview is not None

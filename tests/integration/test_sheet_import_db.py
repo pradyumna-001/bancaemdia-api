@@ -235,13 +235,22 @@ async def snapshot(engine: AsyncEngine, como: Any, uid: int) -> str:
 
 
 async def test_preview_remap_and_read_pages_have_zero_financial_effects(
-    api, engine_app, como, novo_usuario
+    api, engine_app, como, novo_usuario, monkeypatch
 ):
     uid = await novo_usuario()
     sid = await source(api, uid)
     before = await snapshot(engine_app, como, uid)
+    fingerprints = []
+    original = service.fingerprint
+
+    async def measured(session, owner):
+        fingerprints.append(session.sync_session.get_transaction())
+        return await original(session, owner)
+
+    monkeypatch.setattr(service, "fingerprint", measured)
     preview = await upload(api, uid, sid, xlsx([values(), values("BET-002")]))
     assert preview.status_code == 201, preview.text
+    assert len(fingerprints) == 1
     state = preview.json()
     assert state["counts"]["criadas"] == 2 and state["total_rows"] == 2
     assert preview.headers["cache-control"] == "private, no-store"
@@ -256,6 +265,14 @@ async def test_preview_remap_and_read_pages_have_zero_financial_effects(
         },
     )
     assert remap.status_code == 201, remap.text
+    assert len(fingerprints) == 2
+    assert fingerprints[0] is not fingerprints[1]
+    refreshed = await api.client.get(
+        f"{PREFIX}/previas/{remap.json()['id']}", headers=api.headers(uid)
+    )
+    assert refreshed.status_code == 200 and refreshed.json()["state"] == "ready"
+    assert len(fingerprints) == 3
+    assert fingerprints[2] is not fingerprints[1]
     for page in (1, 2, 3):
         rows = await api.client.get(
             f"{PREFIX}/previas/{remap.json()['id']}/linhas",
