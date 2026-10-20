@@ -9,11 +9,12 @@ import os
 import time
 import zipfile
 from collections import Counter
-from collections.abc import Awaitable, Callable, Iterable, Iterator
+from collections.abc import AsyncIterator, Awaitable, Callable, Iterable, Iterator
 from contextlib import AbstractAsyncContextManager
 from datetime import UTC, datetime, timedelta, timezone
 from pathlib import Path
 from types import SimpleNamespace
+from typing import Any, cast
 from uuid import uuid4
 
 import anthropic
@@ -58,9 +59,9 @@ from bancaemdia.resilience.circuit_breaker import new_anthropic_breaker
 from bancaemdia.workers import celery_app, extraction, materialization
 from bancaemdia.workers import upload as upload_worker
 
-# The limiter's global bucket is one Redis key for every user, and test_rate_limit_redis counts on
-# that bucket: the two modules take turns.
-pytestmark = pytest.mark.xdist_group("redis")
+# Share the group with both offline PostgreSQL replay and Redis limiter tests:
+# this pipeline writes the shared database and the limiter's global Redis key.
+pytestmark = pytest.mark.xdist_group("postgres")
 
 Como = Callable[[AsyncEngine, int | None], AbstractAsyncContextManager[AsyncSession]]
 NovoUsuario = Callable[[], Awaitable[int]]
@@ -104,7 +105,7 @@ def servidor_redis() -> Iterator[redis.Redis]:
 
 
 @pytest.fixture
-def tarefas_no_banco(banco, monkeypatch) -> Iterator[None]:
+def tarefas_no_banco(banco: Any, monkeypatch: pytest.MonkeyPatch) -> Iterator[None]:
     monkeypatch.setenv("DATABASE_URL", banco.url_app)
     get_settings.cache_clear()
     materialization.get_engine.cache_clear()
@@ -113,15 +114,15 @@ def tarefas_no_banco(banco, monkeypatch) -> Iterator[None]:
     materialization.get_engine.cache_clear()
 
 
-def _ia_falsa():
+def _ia_falsa() -> Any:
     respostas = json.loads((FIXTURES / "anthropic" / "respostas.json").read_text(encoding="utf-8"))
 
     class IA:
-        def __init__(self):
-            self.leituras = {}
-            self.pedidos = []
+        def __init__(self) -> None:
+            self.leituras: dict[bytes, str] = {}
+            self.pedidos: list[Any] = []
 
-        def responder(self, request):
+        def responder(self, request: Any) -> Any:
             corpo = json.loads(request.content)
             imagem = base64.b64decode(corpo["messages"][0]["content"][0]["source"]["data"])
             resposta = respostas[self.leituras[imagem]]
@@ -147,7 +148,7 @@ def _ia_falsa():
 
 
 @pytest.fixture
-def ia(servidor_redis, tarefas_no_banco, monkeypatch):
+def ia(servidor_redis: Any, tarefas_no_banco: Any, monkeypatch: pytest.MonkeyPatch) -> Any:
     falsa = _ia_falsa()
     leitor = LeitorDeBilhetes(
         anthropic.Anthropic(
@@ -172,7 +173,7 @@ def ia(servidor_redis, tarefas_no_banco, monkeypatch):
     return falsa
 
 
-def _mensagens(ia, tipos: Iterable[str]) -> list[tuple[int, bytes]]:
+def _mensagens(ia: Any, tipos: Iterable[str]) -> list[tuple[int, bytes]]:
     mensagens = []
     for message_id, tipo in enumerate(tipos, start=1):
         imagem = f"print-{uuid4().hex}".encode()
@@ -181,33 +182,39 @@ def _mensagens(ia, tipos: Iterable[str]) -> list[tuple[int, bytes]]:
     return mensagens
 
 
-def _extrair(usuario: int, message_id: int, imagem: bytes, legenda: str) -> dict[str, object]:
-    return extraction.extrair_bilhete_task.apply(
-        kwargs={
-            "usuario_id": usuario,
-            "imagem_base64": base64.b64encode(imagem).decode("ascii"),
-            "nome_do_arquivo": f"photo_{message_id}@10-09-2026_21-00-00.jpg",
-            "legenda": legenda,
-            "postada_em": POSTADA_EM,
-            "chat_id": CHAT,
-            "message_id": message_id,
-        }
-    ).get()
+def _extrair(usuario: int, message_id: int, imagem: bytes, legenda: str) -> dict[str, Any]:
+    return cast(
+        dict[str, Any],
+        extraction.extrair_bilhete_task.apply(
+            kwargs={
+                "usuario_id": usuario,
+                "imagem_base64": base64.b64encode(imagem).decode("ascii"),
+                "nome_do_arquivo": f"photo_{message_id}@10-09-2026_21-00-00.jpg",
+                "legenda": legenda,
+                "postada_em": POSTADA_EM,
+                "chat_id": CHAT,
+                "message_id": message_id,
+            }
+        ).get(),
+    )
 
 
-def _materializar(usuario: int, extracao: dict[str, object], imagem: bytes) -> dict[str, object]:
-    return materialization.materializar_aposta_task.apply(
-        kwargs={
-            "usuario_id": usuario,
-            "extracao_json": extracao,
-            "midia_hash": hashlib.sha256(imagem).hexdigest(),
-        }
-    ).get()
+def _materializar(usuario: int, extracao: dict[str, Any], imagem: bytes) -> dict[str, Any]:
+    return cast(
+        dict[str, Any],
+        materialization.materializar_aposta_task.apply(
+            kwargs={
+                "usuario_id": usuario,
+                "extracao_json": extracao,
+                "midia_hash": hashlib.sha256(imagem).hexdigest(),
+            }
+        ).get(),
+    )
 
 
 async def _processar(
     usuario: int, mensagens: list[tuple[int, bytes]], legenda: str = ""
-) -> list[tuple[dict[str, object], dict[str, object]]]:
+) -> list[tuple[dict[str, Any], dict[str, Any]]]:
     lidas = []
     for message_id, imagem in mensagens:
         extracao = await asyncio.to_thread(_extrair, usuario, message_id, imagem, legenda)
@@ -223,14 +230,16 @@ def _amostra(nome: str, **rotulos: str) -> float:
 
 
 async def test_prints_read_by_the_ai_become_bets_with_their_creation_events(
-    engine_app: AsyncEngine, como: Como, novo_usuario: NovoUsuario, ia
+    engine_app: AsyncEngine, como: Como, novo_usuario: NovoUsuario, ia: Any
 ) -> None:
     usuario = await novo_usuario()
 
     lidas = await _processar(usuario, _mensagens(ia, LOTE))
 
     async with como(engine_app, usuario) as session:
-        apostas = {a.chave: a for a in await ApostaRepo().list_by_usuario(session, usuario)}
+        apostas = {
+            cast(str, a.chave): a for a in await ApostaRepo().list_by_usuario(session, usuario)
+        }
         eventos = {
             chave: await EventoRepo().list_by_aposta_chave(session, usuario, chave)
             for chave in apostas
@@ -253,7 +262,7 @@ async def test_prints_read_by_the_ai_become_bets_with_their_creation_events(
 
 
 async def test_prints_that_fail_their_checks_open_reviews_and_an_illegible_one_is_no_bet(
-    engine_app: AsyncEngine, como: Como, novo_usuario: NovoUsuario, ia
+    engine_app: AsyncEngine, como: Como, novo_usuario: NovoUsuario, ia: Any
 ) -> None:
     usuario = await novo_usuario()
     mensagens = _mensagens(ia, LOTE)
@@ -263,13 +272,22 @@ async def test_prints_that_fail_their_checks_open_reviews_and_an_illegible_one_i
     async with como(engine_app, usuario) as session:
         revisoes = await RevisaoPendenteRepo().list_by_usuario(session, usuario)
         graves = {
-            a.chave for a in await ApostaRepo().list_by_usuario(session, usuario) if a.revisao_grave
+            cast(str, a.chave)
+            for a in await ApostaRepo().list_by_usuario(session, usuario)
+            if a.revisao_grave
         }
     da_imagem = {hashlib.sha256(imagem).hexdigest(): message_id for message_id, imagem in mensagens}
-    conta_reviews = [r for r in revisoes if r.extracao_bruta.get("tipo_revisao") == "conta"]
-    extracao_reviews = [r for r in revisoes if r.extracao_bruta.get("tipo_revisao") != "conta"]
+    conta_reviews = [
+        r for r in revisoes if cast(dict[str, Any], r.extracao_bruta).get("tipo_revisao") == "conta"
+    ]
+    extracao_reviews = [
+        r for r in revisoes if cast(dict[str, Any], r.extracao_bruta).get("tipo_revisao") != "conta"
+    ]
     motivos = {
-        (da_imagem[r.midia_hash], r.extracao_bruta["aposta_chave"]): r.motivo
+        (
+            da_imagem[cast(str, r.midia_hash)],
+            cast(dict[str, Any], r.extracao_bruta)["aposta_chave"],
+        ): r.motivo
         for r in extracao_reviews
     }
     assert [extracao["degrau"] for extracao, _ in lidas] == [
@@ -295,7 +313,7 @@ async def test_prints_that_fail_their_checks_open_reviews_and_an_illegible_one_i
 
 
 async def test_what_the_ai_billed_the_user_adds_up_call_by_call_and_bet_by_bet(
-    novo_usuario: NovoUsuario, ia
+    novo_usuario: NovoUsuario, ia: Any
 ) -> None:
     usuario = await novo_usuario()
     custo = _amostra("anthropic_cost_usd_total", usuario_id=str(usuario))
@@ -322,7 +340,7 @@ async def test_what_the_ai_billed_the_user_adds_up_call_by_call_and_bet_by_bet(
 
 
 async def test_reading_the_same_prints_again_comes_from_the_cache_and_appends_nothing(
-    engine_app: AsyncEngine, como: Como, novo_usuario: NovoUsuario, ia
+    engine_app: AsyncEngine, como: Como, novo_usuario: NovoUsuario, ia: Any
 ) -> None:
     usuario = await novo_usuario()
     mensagens = _mensagens(ia, LOTE)
@@ -351,7 +369,7 @@ async def test_reading_the_same_prints_again_comes_from_the_cache_and_appends_no
 
 
 async def test_an_edited_caption_that_changes_the_reading_is_appended_to_the_bets_history(
-    engine_app: AsyncEngine, como: Como, novo_usuario: NovoUsuario, ia
+    engine_app: AsyncEngine, como: Como, novo_usuario: NovoUsuario, ia: Any
 ) -> None:
     usuario = await novo_usuario()
     mensagens = _mensagens(ia, ["simples"])
@@ -376,7 +394,7 @@ async def test_an_edited_caption_that_changes_the_reading_is_appended_to_the_bet
 
 
 async def test_two_hundred_prints_become_bets_in_under_five_minutes(
-    engine_app: AsyncEngine, como: Como, novo_usuario: NovoUsuario, ia
+    engine_app: AsyncEngine, como: Como, novo_usuario: NovoUsuario, ia: Any
 ) -> None:
     usuario = await novo_usuario()
     mensagens = _mensagens(ia, ["simples"] * 200)
@@ -403,8 +421,11 @@ async def test_two_hundred_prints_become_bets_in_under_five_minutes(
     ) == 200
 
 
-def _envio(casa: str) -> dict[str, object]:
-    return json.loads((FIXTURES / "coleta" / f"{casa}.json").read_text(encoding="utf-8"))
+def _envio(casa: str) -> dict[str, Any]:
+    return cast(
+        dict[str, Any],
+        json.loads((FIXTURES / "coleta" / f"{casa}.json").read_text(encoding="utf-8")),
+    )
 
 
 async def _token(engine: AsyncEngine, como: Como, usuario: int) -> str:
@@ -424,7 +445,7 @@ async def _token(engine: AsyncEngine, como: Como, usuario: int) -> str:
 
 
 @pytest.fixture(scope="module")
-def chave():
+def chave() -> Any:
     par = rsa.generate_private_key(public_exponent=65537, key_size=2048)
     privada = par.private_bytes(Encoding.PEM, PrivateFormat.PKCS8, NoEncryption()).decode()
     return privada, {
@@ -433,9 +454,9 @@ def chave():
     }
 
 
-def _sessoes(url: str):
+def _sessoes(url: str) -> Any:
     class Sessoes:
-        async def abrir(self):
+        async def abrir(self) -> AsyncIterator[Any]:
             engine = create_async_engine(url, poolclass=NullPool)
             try:
                 async with AsyncSession(engine) as session:
@@ -446,36 +467,40 @@ def _sessoes(url: str):
     return Sessoes().abrir
 
 
-def _fila():
+def _fila() -> Any:
     class Fila:
-        def __init__(self):
-            self.tarefas = []
+        def __init__(self) -> None:
+            self.tarefas: list[Any] = []
 
-        def send_task(self, nome, args=None, kwargs=None, **opcoes):
+        def send_task(self, nome: Any, args: Any = None, kwargs: Any = None, **opcoes: Any) -> Any:
             self.tarefas.append((nome, kwargs, opcoes))
 
     return Fila()
 
 
-def _rodar(nome: str, kwargs: dict[str, object]) -> dict[str, object]:
-    return celery_app.app.tasks[nome].apply(kwargs=kwargs).get()
+def _run_chain(chain: Any) -> Any:
+    return chain.apply().get()
+
+
+def _rodar(nome: str, kwargs: dict[str, Any]) -> dict[str, Any]:
+    return cast(dict[str, Any], celery_app.app.tasks[nome].apply(kwargs=kwargs).get())
 
 
 async def test_house_sends_reach_the_materialization_queue_and_become_bets(
-    banco,
+    banco: Any,
     engine_admin: AsyncEngine,
     engine_app: AsyncEngine,
     como: Como,
     novo_usuario: NovoUsuario,
-    tarefas_no_banco,
-    monkeypatch,
+    tarefas_no_banco: Any,
+    monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     async with engine_admin.begin() as conn:
         await seed_canonical(conn)
     usuario = await novo_usuario()
     token = await _token(engine_app, como, usuario)
     fila = _fila()
-    monkeypatch.setattr(coleta.celery, "send_task", fila.send_task)
+    monkeypatch.setattr(celery_app.app, "send_task", fila.send_task)
     monkeypatch.setattr(coleta.limiter, "enabled", False)
     monkeypatch.setitem(main.app.dependency_overrides, get_db, _sessoes(banco.url_app))
     cliente = TestClient(main.app, base_url="https://testserver")
@@ -492,8 +517,10 @@ async def test_house_sends_reach_the_materialization_queue_and_become_bets(
         apostas = await ApostaRepo().list_by_usuario(session, usuario, origem="casa")
         guardadas = {}
         for casa in CASAS:
-            casa_id = await CasaRepo().get_id_by_nome(session, casa_canonica(casa))
-            guardadas[casa] = len(await ColetaCasaRepo().list_by_casa(session, usuario, casa_id))
+            casa_id = await CasaRepo().get_id_by_nome(session, cast(str, casa_canonica(casa)))
+            guardadas[casa] = len(
+                await ColetaCasaRepo().list_by_casa(session, usuario, cast(int, casa_id))
+            )
     assert {casa: (status, r["novas_contando"]) for casa, (status, r) in respostas.items()} == {
         "betano": (200, 2),
         "betfair": (200, 2),
@@ -550,10 +577,10 @@ def _zip_do_export(mensagens: list[tuple[int, bytes]]) -> bytes:
 
 
 @pytest.fixture
-def api_do_upload(banco, chave, monkeypatch):
+def api_do_upload(banco: Any, chave: Any, monkeypatch: pytest.MonkeyPatch) -> Any:
     _, publica = chave
 
-    def responder(request):
+    def responder(request: Any) -> Any:
         return httpx.Response(200, json={"keys": [publica]})
 
     cache = auth_jwt.JWKSCache("https://issuer.test/jwks", "RS256", httpx.MockTransport(responder))
@@ -565,7 +592,7 @@ def api_do_upload(banco, chave, monkeypatch):
     return cliente
 
 
-def _cabecalho_do_usuario(privada, usuario_id):
+def _cabecalho_do_usuario(privada: Any, usuario_id: Any) -> Any:
     settings = get_settings()
     corpo = {
         "sub": str(usuario_id),
@@ -577,14 +604,14 @@ def _cabecalho_do_usuario(privada, usuario_id):
 
 
 async def test_a_telegram_export_uploaded_to_the_api_is_read_and_reported_complete(
-    banco,
+    banco: Any,
     engine_app: AsyncEngine,
     como: Como,
     novo_usuario: NovoUsuario,
-    ia,
-    api_do_upload,
-    chave,
-    monkeypatch,
+    ia: Any,
+    api_do_upload: Any,
+    chave: Any,
+    monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     privada, _ = chave
     usuario = await novo_usuario()
@@ -593,7 +620,7 @@ async def test_a_telegram_export_uploaded_to_the_api_is_read_and_reported_comple
     cadeias = []
     monkeypatch.setattr(celery_app.app, "send_task", fila.send_task)
 
-    def registrar_cadeia(*args, **kwargs):
+    def registrar_cadeia(*args: Any, **kwargs: Any) -> Any:
         # A corrente é montada de verdade e guardada; quem a roda é o teste, fora do laço do
         # trabalhador (publicar de dentro dele aninharia dois asyncio.run).
         cadeias.append(extraction.cadeia_do_bilhete(*args, **kwargs))
@@ -612,7 +639,7 @@ async def test_a_telegram_export_uploaded_to_the_api_is_read_and_reported_comple
     fila.tarefas.clear()
     await asyncio.to_thread(_rodar, nome, kwargs)
     for cadeia in cadeias:
-        await asyncio.to_thread(lambda c=cadeia: c.apply().get())
+        await asyncio.to_thread(_run_chain, cadeia)
     avisos = [(n, k) for n, k, _ in fila.tarefas if n == "materialization.notificar_upload"]
     for nome_do_aviso, kwargs_do_aviso in avisos:
         await asyncio.to_thread(_rodar, nome_do_aviso, kwargs_do_aviso)
@@ -623,7 +650,9 @@ async def test_a_telegram_export_uploaded_to_the_api_is_read_and_reported_comple
     )
 
     async with como(engine_app, usuario) as session:
-        apostas = {a.chave: a for a in await ApostaRepo().list_by_usuario(session, usuario)}
+        apostas = {
+            cast(str, a.chave): a for a in await ApostaRepo().list_by_usuario(session, usuario)
+        }
         guardadas = (
             await session.execute(
                 select(models.Mensagem.message_id).where(models.Mensagem.chat_id == CHAT)
@@ -660,7 +689,9 @@ async def test_a_telegram_export_uploaded_to_the_api_is_read_and_reported_comple
     )
 
 
-async def test_painel_totals_match_the_conferir_numeros_logic(isolated_banco, monkeypatch) -> None:
+async def test_painel_totals_match_the_conferir_numeros_logic(
+    isolated_banco: Any, monkeypatch: pytest.MonkeyPatch
+) -> None:
     import sys
     from runpy import run_path
 
@@ -693,6 +724,11 @@ async def test_painel_totals_match_the_conferir_numeros_logic(isolated_banco, mo
             assert panel.resumo.giro_centavos == 10000
             assert panel.resumo.lucro_centavos == 10000
             assert panel.resumo.roi_basis_points == 10000
+            from bancaemdia.repositories.painel_filtrado_repo import PainelFiltradoRepo
+
+            filtered = await PainelFiltradoRepo().resumo(session, user, {})
+            assert filtered["total_apostas"] == 1
+            assert filtered["giro_centavos"] == filtered["lucro_centavos"] == 10000
         checker = run_path(str(Path(__file__).parents[2] / "scripts/conferir_numeros.py"))
         monkeypatch.setattr(replay, "get_engine", lambda: checker_engine)
         monkeypatch.setattr(sys, "argv", ["conferir_numeros.py", "--usuario-id", str(user)])

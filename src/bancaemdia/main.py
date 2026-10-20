@@ -31,8 +31,11 @@ from bancaemdia.api.v1 import (
     coleta_catalogo,
     coleta_pairing,
     coleta_sessoes,
+    filtros,
     metas,
     painel,
+    painel_detalhado,
+    painel_filtrado,
     revisao,
     telegram,
     titulares,
@@ -142,6 +145,9 @@ app.include_router(apostas.router)
 app.include_router(caixa.router)
 app.include_router(painel.router)
 app.include_router(metas.router)
+app.include_router(painel_filtrado.router)
+app.include_router(painel_detalhado.router)
+app.include_router(filtros.router)
 app.include_router(revisao.router)
 app.include_router(calculators.router)
 app.include_router(billing_webhook.router)
