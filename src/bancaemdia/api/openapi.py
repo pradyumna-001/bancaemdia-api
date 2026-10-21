@@ -4,6 +4,7 @@ from typing import Any, cast
 from fastapi import FastAPI
 from fastapi.openapi.utils import get_openapi
 
+from bancaemdia.api.policies import instalar as install_policies
 from bancaemdia.domain.vocabulario import CASAS
 
 HTTP_METHODS = frozenset({"delete", "get", "patch", "post", "put"})
@@ -1211,6 +1212,7 @@ def build_openapi(app: FastAPI) -> JsonObject:
     _install_manual_request_bodies(document)
     _install_body_limit_responses(document)
     _document_operations(document)
+    install_policies(document, list(_operations(document)))
     _install_collection_security(document)
     owner_listing = _object(
         document["paths"]["/api/v1/coleta/installations"]["get"], context="owner listing"
