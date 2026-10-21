@@ -63,6 +63,10 @@ def _banco(recebidas_hoje=0):
 
     class ColetaInstalacaoRepo:
         async def authenticate(self, session, token_hash):
+            if token_hash == coleta.hash_do_token(TOKEN):
+                await session.execute(
+                    "SELECT set_config('app.current_user_id', :uid, true)", {"uid": "7"}
+                )
             return (
                 SimpleNamespace(usuario_id=7, instalacao_id=17)
                 if token_hash == coleta.hash_do_token(TOKEN)
@@ -101,6 +105,10 @@ def _banco(recebidas_hoje=0):
             return {"Betano": 1, "KTO": 2, "bet365": 3}.get(nome)
 
     class ApostaRepo:
+        async def get_id_by_chave(self, session, usuario_id, chave):
+            row = banco.apostas.get((usuario_id, chave))
+            return None if row is None else row.id
+
         async def get_by_chave(self, session, usuario_id, chave):
             return banco.apostas.get((usuario_id, chave))
 
@@ -374,7 +382,7 @@ def test_new_capture_of_an_existing_bet_skips_the_creation_rules(monkeypatch) ->
     banco = _banco()
     cliente = _cliente(monkeypatch, banco)
     _enviar(cliente, [_bilhete(resultado=None)])
-    banco.apostas[7, "c:betano:20753556039"] = SimpleNamespace(estado="PENDENTE")
+    banco.apostas[7, "c:betano:20753556039"] = SimpleNamespace(id=23, estado="PENDENTE")
 
     resposta = _enviar(cliente, [_bilhete(odd=1.0)])
 
