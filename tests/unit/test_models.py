@@ -204,7 +204,10 @@ def test_event_and_ledger_indexes() -> None:
         "idx_movimentos_transferencia": ["usuario_id", "transferencia_id"],
     }
     unidades = {i.name: [c.name for c in i.columns] for i in Unidade.__table__.indexes}
-    assert unidades == {"idx_unidades_usuario": ["usuario_id", "vigente_de"]}
+    assert unidades == {
+        "idx_unidades_usuario": ["usuario_id", "vigente_de"],
+        "uq_unidades_usuario_chave": ["usuario_id", "chave_idempotencia"],
+    }
     contas = {i.name: [c.name for c in i.columns] for i in ContaCasa.__table__.indexes}
     assert contas == {
         "idx_contas_casa_usuario": ["usuario_id", "ativa"],

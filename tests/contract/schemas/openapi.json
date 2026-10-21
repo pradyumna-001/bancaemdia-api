@@ -1506,6 +1506,33 @@
         "title": "CalculationResponse",
         "type": "object"
       },
+      "CampoInvalidoSaida": {
+        "additionalProperties": false,
+        "properties": {
+          "campo": {
+            "title": "Campo",
+            "type": "string"
+          },
+          "codigo": {
+            "enum": [
+              "obrigatorio",
+              "inteiro",
+              "positivo",
+              "acima_do_limite",
+              "desconhecido",
+              "invalido"
+            ],
+            "title": "Codigo",
+            "type": "string"
+          }
+        },
+        "required": [
+          "campo",
+          "codigo"
+        ],
+        "title": "CampoInvalidoSaida",
+        "type": "object"
+      },
       "Capture": {
         "additionalProperties": false,
         "properties": {
@@ -5097,6 +5124,40 @@
         "title": "ReadinessResponse",
         "type": "object"
       },
+      "ReciboVigenciaSaida": {
+        "additionalProperties": false,
+        "properties": {
+          "anterior": {
+            "$ref": "#/components/schemas/VigenciaSaida"
+          },
+          "apostas_existentes_alteradas": {
+            "const": 0,
+            "title": "Apostas Existentes Alteradas",
+            "type": "integer"
+          },
+          "fuso_horario": {
+            "title": "Fuso Horario",
+            "type": "string"
+          },
+          "vale_a_partir_de": {
+            "format": "date-time",
+            "title": "Vale A Partir De",
+            "type": "string"
+          },
+          "vigencia": {
+            "$ref": "#/components/schemas/VigenciaSaida"
+          }
+        },
+        "required": [
+          "vigencia",
+          "anterior",
+          "vale_a_partir_de",
+          "apostas_existentes_alteradas",
+          "fuso_horario"
+        ],
+        "title": "ReciboVigenciaSaida",
+        "type": "object"
+      },
       "ResolucaoNova": {
         "additionalProperties": false,
         "properties": {
@@ -6155,6 +6216,65 @@
         "title": "TrustRoots",
         "type": "object"
       },
+      "UnidadeInvalidaSaida": {
+        "additionalProperties": false,
+        "properties": {
+          "campos": {
+            "items": {
+              "$ref": "#/components/schemas/CampoInvalidoSaida"
+            },
+            "title": "Campos",
+            "type": "array"
+          },
+          "detail": {
+            "const": "unidade_invalida",
+            "title": "Detail",
+            "type": "string"
+          }
+        },
+        "required": [
+          "detail",
+          "campos"
+        ],
+        "title": "UnidadeInvalidaSaida",
+        "type": "object"
+      },
+      "UnidadeSaida": {
+        "additionalProperties": false,
+        "properties": {
+          "fuso_horario": {
+            "title": "Fuso Horario",
+            "type": "string"
+          },
+          "historico": {
+            "items": {
+              "$ref": "#/components/schemas/VigenciaSaida"
+            },
+            "title": "Historico",
+            "type": "array"
+          },
+          "limite_centavos": {
+            "title": "Limite Centavos",
+            "type": "integer"
+          },
+          "padrao_centavos": {
+            "title": "Padrao Centavos",
+            "type": "integer"
+          },
+          "vigente": {
+            "$ref": "#/components/schemas/VigenciaSaida"
+          }
+        },
+        "required": [
+          "vigente",
+          "historico",
+          "fuso_horario",
+          "padrao_centavos",
+          "limite_centavos"
+        ],
+        "title": "UnidadeSaida",
+        "type": "object"
+      },
       "UploadAcceptedResponse": {
         "additionalProperties": false,
         "properties": {
@@ -6454,6 +6574,95 @@
           "type"
         ],
         "title": "ValidationIssueResponse",
+        "type": "object"
+      },
+      "VigenciaNova": {
+        "additionalProperties": false,
+        "properties": {
+          "valor_centavos": {
+            "exclusiveMinimum": 0.0,
+            "maximum": 10000000.0,
+            "title": "Valor Centavos",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "valor_centavos"
+        ],
+        "title": "VigenciaNova",
+        "type": "object"
+      },
+      "VigenciaSaida": {
+        "additionalProperties": false,
+        "properties": {
+          "id": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Id"
+          },
+          "origem": {
+            "enum": [
+              "padrao",
+              "usuario"
+            ],
+            "title": "Origem",
+            "type": "string"
+          },
+          "valor_centavos": {
+            "title": "Valor Centavos",
+            "type": "integer"
+          },
+          "vigente_ate": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Vigente Ate"
+          },
+          "vigente_de": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Vigente De"
+          },
+          "vigente_de_local": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Vigente De Local"
+          }
+        },
+        "required": [
+          "id",
+          "valor_centavos",
+          "origem",
+          "vigente_de",
+          "vigente_ate",
+          "vigente_de_local"
+        ],
+        "title": "VigenciaSaida",
         "type": "object"
       },
       "VinculoBancaNovo": {
@@ -17743,6 +17952,407 @@
           }
         ],
         "summary": "Consultar casas do titular"
+      }
+    },
+    "/api/v1/unidade": {
+      "get": {
+        "description": "Unidade vigente agora e histórico de vigências do usuário, com centavos exatos, origem (padrao/usuario) e início no fuso do usuário. Sem vigência vale o padrão de 10.000 centavos. Permitida em READ_ONLY.",
+        "operationId": "consultar_unidade_api_v1_unidade_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/UnidadeSaida"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Missing, expired, or invalid bearer token.",
+            "headers": {
+              "X-Auth-Error": {
+                "description": "Identity error code when AUTH_ENABLED; legacy response body is preserved.",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "402": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "account_read_only: writes require confirmed trial or paid access."
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorOrValidationResponse"
+                }
+              }
+            },
+            "description": "The request does not satisfy the published contract or a domain rule."
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "The caller exceeded an applicable request limit."
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unexpected internal failure with no sensitive exception details."
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "A required dependency is temporarily unavailable.",
+            "headers": {
+              "X-Auth-Error": {
+                "description": "Identity error code when AUTH_ENABLED; legacy response body is preserved.",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          },
+          {
+            "SessionCookie": []
+          }
+        ],
+        "summary": "Consultar valor da unidade"
+      }
+    },
+    "/api/v1/unidade/vigencias": {
+      "post": {
+        "description": "Abre nova vigência no instante do servidor e encerra a anterior nesse instante. Apostas existentes guardam a unidade com que foram criadas e não mudam; criação manual, coleta, Telegram e XLSX leem a vigência do instante da aposta. Idempotency-Key obrigatória: mesmo corpo devolve o recibo original, corpo diferente 409. FULL_WRITE e CSRF.",
+        "operationId": "definir_unidade_api_v1_unidade_vigencias_post",
+        "parameters": [
+          {
+            "description": "Chave opaca obrigatória do cliente; reutilizá-la com o mesmo corpo reproduz a resposta original sem repetir a operação.",
+            "in": "header",
+            "name": "Idempotency-Key",
+            "required": true,
+            "schema": {
+              "description": "Chave opaca escolhida pelo cliente antes do envio. Repetir a mesma chave e o mesmo corpo devolve o recibo original sem criar outra vigência.",
+              "maxLength": 200,
+              "minLength": 1,
+              "pattern": "^[!-~]+$",
+              "title": "Idempotency-Key",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "examples": {
+                "default": {
+                  "summary": "Unidade de R$ 50,00",
+                  "value": {
+                    "valor_centavos": 5000
+                  }
+                }
+              },
+              "schema": {
+                "$ref": "#/components/schemas/VigenciaNova"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReciboVigenciaSaida"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Missing, expired, or invalid bearer token.",
+            "headers": {
+              "X-Auth-Error": {
+                "description": "Identity error code when AUTH_ENABLED; legacy response body is preserved.",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "402": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "account_read_only: writes require confirmed trial or paid access."
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Cookie mutation requires exact Origin and current CSRF proof."
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "idempotency_key_conflict: a chave já foi usada com outro corpo."
+          },
+          "413": {
+            "content": {
+              "text/plain": {
+                "example": "Content Too Large",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            },
+            "description": "The request body exceeds this endpoint's streaming limit."
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/UnidadeInvalidaSaida"
+                }
+              }
+            },
+            "description": "Pedido inválido; um código estável por campo, sem msg/input/ctx."
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "The caller exceeded an applicable request limit."
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unexpected internal failure with no sensitive exception details."
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "A required dependency is temporarily unavailable.",
+            "headers": {
+              "X-Auth-Error": {
+                "description": "Identity error code when AUTH_ENABLED; legacy response body is preserved.",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          },
+          {
+            "CsrfProof": [],
+            "SessionCookie": []
+          }
+        ],
+        "summary": "Definir valor da unidade"
+      }
+    },
+    "/api/v1/unidade/vigencias/intencao": {
+      "get": {
+        "description": "Lê no primário o recibo gravado para a Idempotency-Key após resposta perdida; 404 se nada foi gravado. Não cria nem renova vigência. Permitida em READ_ONLY.",
+        "operationId": "recuperar_intencao_api_v1_unidade_vigencias_intencao_get",
+        "parameters": [
+          {
+            "description": "Chave opaca obrigatória do cliente; reutilizá-la com o mesmo corpo reproduz a resposta original sem repetir a operação.",
+            "in": "header",
+            "name": "Idempotency-Key",
+            "required": true,
+            "schema": {
+              "description": "Chave opaca escolhida pelo cliente antes do envio. Repetir a mesma chave e o mesmo corpo devolve o recibo original sem criar outra vigência.",
+              "maxLength": 200,
+              "minLength": 1,
+              "pattern": "^[!-~]+$",
+              "title": "Idempotency-Key",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReciboVigenciaSaida"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Missing, expired, or invalid bearer token.",
+            "headers": {
+              "X-Auth-Error": {
+                "description": "Identity error code when AUTH_ENABLED; legacy response body is preserved.",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "402": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "account_read_only: writes require confirmed trial or paid access."
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "intencao_nao_encontrada: nenhuma troca foi gravada com esta chave."
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/UnidadeInvalidaSaida"
+                }
+              }
+            },
+            "description": "Pedido inválido; um código estável por campo, sem msg/input/ctx."
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "The caller exceeded an applicable request limit."
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unexpected internal failure with no sensitive exception details."
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "A required dependency is temporarily unavailable.",
+            "headers": {
+              "X-Auth-Error": {
+                "description": "Identity error code when AUTH_ENABLED; legacy response body is preserved.",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          },
+          {
+            "SessionCookie": []
+          }
+        ],
+        "summary": "Recuperar troca de unidade"
       }
     },
     "/api/v1/upload": {

@@ -92,6 +92,9 @@ python scripts/generate_openapi.py
 | `PATCH` | `/api/v1/titulares/{titular_id}/contas/{conta_id}` | Editar conta da casa | `200`, `401`, `402`, `403`, `413`, `422`, `429`, `500`, `503` | — |
 | `POST` | `/api/v1/titulares/{titular_id}/contas/{conta_id}/ativar` | Ativar primeira conta da casa | `200`, `401`, `402`, `403`, `422`, `429`, `500`, `503` | — |
 | `GET` | `/api/v1/titulares/{titular_id}/matriz` | Consultar casas do titular | `200`, `401`, `402`, `422`, `429`, `500`, `503` | — |
+| `GET` | `/api/v1/unidade` | Consultar valor da unidade | `200`, `401`, `402`, `422`, `429`, `500`, `503` | — |
+| `POST` | `/api/v1/unidade/vigencias` | Definir valor da unidade | `201`, `401`, `402`, `403`, `409`, `413`, `422`, `429`, `500`, `503` | — |
+| `GET` | `/api/v1/unidade/vigencias/intencao` | Recuperar troca de unidade | `200`, `401`, `402`, `404`, `422`, `429`, `500`, `503` | — |
 | `POST` | `/api/v1/upload` | Enviar exportação do Telegram | `202`, `400`, `401`, `402`, `403`, `413`, `422`, `429`, `500`, `503` | — |
 | `GET` | `/api/v1/upload/{job_id}` | Consultar processamento do upload | `200`, `401`, `402`, `404`, `422`, `429`, `500`, `503` | — |
 | `DELETE` | `/api/v1/usuario/me` | Desativar e anonimizar minha conta | `200`, `401`, `402`, `403`, `409`, `422`, `429`, `500`, `503` | — |
