@@ -28,13 +28,25 @@ from bancaemdia.cli.refresh_painel import refresh_painel
 from bancaemdia.config import get_settings
 from bancaemdia.core.context import current_user_id
 from bancaemdia.db.seed import seed_canonical
-from bancaemdia.db.session import get_db, get_db_primary, get_db_snapshot
+from bancaemdia.db.session import get_db, get_db_primary, get_db_primary_snapshot, get_db_snapshot
 from bancaemdia.main import app
+from bancaemdia.middleware.compression import COMPRESSIBLE_READS
 
 pytestmark = pytest.mark.xdist_group("postgres")
 TOTAL_BETS = 600
-# Mudam a cada pedido (relógio e idade da visão); o restante da resposta tem de ser idêntico.
-VOLATILE = {"respondido_em", "idade_mv_segundos", "replica_atraso_segundos"}
+# Mudam a cada pedido (relógio, idade da visão e cursores HMAC emitidos de novo a cada resposta);
+# o restante da resposta tem de ser idêntico.
+VOLATILE = {
+    "respondido_em",
+    "idade_mv_segundos",
+    "replica_atraso_segundos",
+    "snapshot_em",
+    "observado_em",
+    "fronteira_iniciada_em",
+    "proximo_cursor",
+    "anterior_cursor",
+    "next_cursor",
+}
 
 
 async def _seed(engine: AsyncEngine, usuario_id: int) -> None:
@@ -151,7 +163,7 @@ async def client(
                 )
             yield session
 
-    for dependency in (get_db, get_db_primary, get_db_snapshot):
+    for dependency in (get_db, get_db_primary, get_db_primary_snapshot, get_db_snapshot):
         monkeypatch.setitem(app.dependency_overrides, dependency, sessions)
     settings = get_settings()
     token = jwt.encode(
@@ -191,13 +203,31 @@ def _stable(value: Any) -> Any:
     return value
 
 
+MAIN_READS = [
+    "/api/v1/painel/analises?periodo=all",
+    "/api/v1/painel?periodo=all",
+    "/api/v1/apostas?page_size=100",
+]
+# Leituras dos PRs #184/#189/#199: entram sozinhas quando a rota existe na árvore integrada, sem
+# edição na reconciliação. Na main a rota não existe, então não há caso a pular.
+INTEGRATED_READS = {
+    "/api/v1/resultados/fila": "/api/v1/resultados/fila",
+    "/api/v1/painel/filtrado": "/api/v1/painel/filtrado?periodo=all",
+    "/api/v1/painel/filtrado/metricas": "/api/v1/painel/filtrado/metricas?periodo=all",
+    "/api/v1/painel/filtrado/diario": "/api/v1/painel/filtrado/diario?periodo=all",
+    "/api/v1/painel/filtrado/grupos": "/api/v1/painel/filtrado/grupos?periodo=all",
+}
+# As rotas publicadas pelo próprio app; `app.routes` não lista routers incluídos em todo FastAPI.
+ROUTES = set(app.openapi()["paths"])
+
+
+def test_every_registered_allowlisted_read_has_a_real_case() -> None:
+    assert set(INTEGRATED_READS) | {url.split("?")[0] for url in MAIN_READS} == COMPRESSIBLE_READS
+    assert {url.split("?")[0] for url in MAIN_READS} <= ROUTES
+
+
 @pytest.mark.parametrize(
-    "url",
-    [
-        "/api/v1/painel/analises?periodo=all",
-        "/api/v1/painel?periodo=all",
-        "/api/v1/apostas?page_size=100",
-    ],
+    "url", MAIN_READS + [url for path, url in INTEGRATED_READS.items() if path in ROUTES]
 )
 async def test_allowlisted_read_compresses_without_changing_the_json(
     client: httpx.AsyncClient, url: str, record_property: Callable[[str, object], None]
