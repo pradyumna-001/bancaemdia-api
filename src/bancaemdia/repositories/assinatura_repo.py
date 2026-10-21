@@ -3,7 +3,7 @@
 from datetime import datetime
 from typing import cast
 
-from sqlalchemy import func, select
+from sqlalchemy import bindparam, func, lambda_stmt, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from bancaemdia.domain.billing import (
@@ -15,23 +15,32 @@ from bancaemdia.domain.billing import (
 from bancaemdia.models.assinatura import Assinatura
 from bancaemdia.models.billing_rollout import BillingRollout
 
+_subscription_by_owner = lambda_stmt(
+    lambda: select(Assinatura).where(Assinatura.usuario_id == bindparam("billing_owner"))
+)
+_live_billing_status = lambda_stmt(
+    lambda: (
+        select(func.clock_timestamp(), BillingRollout.activated_at, Assinatura)
+        .select_from(BillingRollout)
+        .outerjoin(Assinatura, Assinatura.usuario_id == bindparam("billing_owner"))
+        .where(BillingRollout.id == 1)
+    )
+).execution_options(populate_existing=True)
+
 
 class AssinaturaRepo:
     async def get(self, session: AsyncSession, usuario_id: int) -> Assinatura | None:
         return cast(
             Assinatura | None,
-            await session.scalar(select(Assinatura).where(Assinatura.usuario_id == usuario_id)),
+            await session.scalar(_subscription_by_owner, {"billing_owner": usuario_id}),
         )
 
     async def read_status(self, session: AsyncSession, usuario_id: int) -> BillingReadModel:
-        now, rollout_at = (
-            await session.execute(
-                select(func.clock_timestamp(), BillingRollout.activated_at).where(
-                    BillingRollout.id == 1
-                )
-            )
+        # Cache SQL construction, never entitlements or rows. Every call reads
+        # the current database clock, rollout and owned subscription in one trip.
+        now, rollout_at, assinatura = (
+            await session.execute(_live_billing_status, {"billing_owner": usuario_id})
         ).one()
-        assinatura = await self.get(session, usuario_id)
         snapshot = (
             None
             if assinatura is None
