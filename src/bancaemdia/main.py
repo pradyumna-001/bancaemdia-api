@@ -56,6 +56,7 @@ from bancaemdia.domain.access import AccountReadOnlyError
 from bancaemdia.integrations.telegram import webhook as telegram_webhook
 from bancaemdia.middleware.coleta_body import CollectionBodyLimit
 from bancaemdia.middleware.coleta_credentials import CollectionCredentialMiddleware
+from bancaemdia.middleware.compression import ReadCompressionMiddleware
 from bancaemdia.middleware.rate_limit import AuthRateLimitMiddleware, RateLimitMiddleware
 from bancaemdia.middleware.rls import RLSMiddleware
 from bancaemdia.middleware.router import RouterMiddleware
@@ -194,6 +195,8 @@ configure_tracing(
     environment=settings.APP_ENV,
     otlp_endpoint=settings.OTEL_EXPORTER_OTLP_ENDPOINT,
 )
+# A compressão envolve request_id, erros e métricas: todos eles continuam vendo o JSON original.
+app.add_middleware(ReadCompressionMiddleware)
 app.add_middleware(SecurityHeadersMiddleware)
 
 
