@@ -2,6 +2,7 @@ from bancaemdia.db.models import Base
 from bancaemdia.models.apelido import Apelido
 from bancaemdia.models.aposta import Aposta
 from bancaemdia.models.aposta_consolidacao import ApostaConsolidacao
+from bancaemdia.models.aposta_lote import ApostaLote
 from bancaemdia.models.assinatura import Assinatura
 from bancaemdia.models.audit_log import AuditLog
 from bancaemdia.models.banca import Banca
@@ -67,6 +68,7 @@ __all__ = [
     "Apelido",
     "Aposta",
     "ApostaConsolidacao",
+    "ApostaLote",
     "Assinatura",
     "AuditLog",
     "Banca",
