@@ -556,6 +556,83 @@
         "title": "AuthFailure",
         "type": "object"
       },
+      "BancaemdiaPolicy": {
+        "additionalProperties": false,
+        "description": "Política da operação: modos de acesso comercial em que ela pode ter efeito, retry automático permitido ao cliente e identidade de idempotência com retenção e recuperação.",
+        "properties": {
+          "access_modes": {
+            "items": {
+              "enum": [
+                "FULL_WRITE",
+                "READ_ONLY"
+              ],
+              "type": "string"
+            },
+            "minItems": 1,
+            "type": "array",
+            "uniqueItems": true
+          },
+          "automatic_retry": {
+            "additionalProperties": false,
+            "properties": {
+              "allowed": {
+                "type": "boolean"
+              },
+              "max_attempts": {
+                "minimum": 2,
+                "type": [
+                  "integer",
+                  "null"
+                ]
+              }
+            },
+            "required": [
+              "allowed",
+              "max_attempts"
+            ],
+            "type": "object"
+          },
+          "idempotency": {
+            "additionalProperties": false,
+            "properties": {
+              "identity": {
+                "pattern": "^(none|header:[A-Za-z][A-Za-z0-9-]*|path:[a-z_]+|body:[a-z_]+)$",
+                "type": "string"
+              },
+              "recovery": {
+                "pattern": "^(replay|GET /\\S+)$",
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "retention": {
+                "enum": [
+                  "until_account_deletion",
+                  "while_resource_exists",
+                  null
+                ],
+                "type": [
+                  "string",
+                  "null"
+                ]
+              }
+            },
+            "required": [
+              "identity",
+              "retention",
+              "recovery"
+            ],
+            "type": "object"
+          }
+        },
+        "required": [
+          "access_modes",
+          "automatic_retry",
+          "idempotency"
+        ],
+        "type": "object"
+      },
       "BankrollRequest": {
         "additionalProperties": false,
         "properties": {
@@ -6703,16 +6780,6 @@
             },
             "description": "Missing, expired, or invalid bearer token."
           },
-          "402": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponse"
-                }
-              }
-            },
-            "description": "account_read_only: writes require confirmed trial or paid access."
-          },
           "403": {
             "content": {
               "application/json": {
@@ -6779,7 +6846,22 @@
             "BearerAuth": []
           }
         ],
-        "summary": "Consultar catálogo administrativo"
+        "summary": "Consultar catálogo administrativo",
+        "x-bancaemdia-policy": {
+          "access_modes": [
+            "FULL_WRITE",
+            "READ_ONLY"
+          ],
+          "automatic_retry": {
+            "allowed": true,
+            "max_attempts": 3
+          },
+          "idempotency": {
+            "identity": "none",
+            "recovery": null,
+            "retention": null
+          }
+        }
       }
     },
     "/api/v1/admin/casas/export": {
@@ -6821,16 +6903,6 @@
             },
             "description": "Missing, expired, or invalid bearer token."
           },
-          "402": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponse"
-                }
-              }
-            },
-            "description": "account_read_only: writes require confirmed trial or paid access."
-          },
           "403": {
             "content": {
               "application/json": {
@@ -6897,7 +6969,22 @@
             "BearerAuth": []
           }
         ],
-        "summary": "Exportar catálogo administrativo"
+        "summary": "Exportar catálogo administrativo",
+        "x-bancaemdia-policy": {
+          "access_modes": [
+            "FULL_WRITE",
+            "READ_ONLY"
+          ],
+          "automatic_retry": {
+            "allowed": true,
+            "max_attempts": 3
+          },
+          "idempotency": {
+            "identity": "none",
+            "recovery": null,
+            "retention": null
+          }
+        }
       }
     },
     "/api/v1/apostas": {
@@ -7162,16 +7249,6 @@
               }
             }
           },
-          "402": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponse"
-                }
-              }
-            },
-            "description": "account_read_only: writes require confirmed trial or paid access."
-          },
           "422": {
             "content": {
               "application/json": {
@@ -7229,7 +7306,22 @@
             "SessionCookie": []
           }
         ],
-        "summary": "Listar apostas"
+        "summary": "Listar apostas",
+        "x-bancaemdia-policy": {
+          "access_modes": [
+            "FULL_WRITE",
+            "READ_ONLY"
+          ],
+          "automatic_retry": {
+            "allowed": true,
+            "max_attempts": 3
+          },
+          "idempotency": {
+            "identity": "none",
+            "recovery": null,
+            "retention": null
+          }
+        }
       },
       "post": {
         "description": "Cria uma aposta manual e registra o primeiro evento em seu histórico auditável.",
@@ -7387,7 +7479,21 @@
             "SessionCookie": []
           }
         ],
-        "summary": "Criar aposta manual"
+        "summary": "Criar aposta manual",
+        "x-bancaemdia-policy": {
+          "access_modes": [
+            "FULL_WRITE"
+          ],
+          "automatic_retry": {
+            "allowed": false,
+            "max_attempts": null
+          },
+          "idempotency": {
+            "identity": "none",
+            "recovery": null,
+            "retention": null
+          }
+        }
       }
     },
     "/api/v1/apostas/importar-planilha": {
@@ -7547,7 +7653,21 @@
             "SessionCookie": []
           }
         ],
-        "summary": "Importar apostas do Excel"
+        "summary": "Importar apostas do Excel",
+        "x-bancaemdia-policy": {
+          "access_modes": [
+            "FULL_WRITE"
+          ],
+          "automatic_retry": {
+            "allowed": false,
+            "max_attempts": null
+          },
+          "idempotency": {
+            "identity": "none",
+            "recovery": null,
+            "retention": null
+          }
+        }
       }
     },
     "/api/v1/apostas/{chave}": {
@@ -7693,7 +7813,21 @@
             "SessionCookie": []
           }
         ],
-        "summary": "Excluir aposta da apuração"
+        "summary": "Excluir aposta da apuração",
+        "x-bancaemdia-policy": {
+          "access_modes": [
+            "FULL_WRITE"
+          ],
+          "automatic_retry": {
+            "allowed": true,
+            "max_attempts": 3
+          },
+          "idempotency": {
+            "identity": "path:chave",
+            "recovery": "GET /api/v1/apostas/{chave}",
+            "retention": "while_resource_exists"
+          }
+        }
       },
       "get": {
         "description": "Retorna a aposta materializada, suas seleções, eventos e eventual revisão pendente.",
@@ -7738,16 +7872,6 @@
                 }
               }
             }
-          },
-          "402": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponse"
-                }
-              }
-            },
-            "description": "account_read_only: writes require confirmed trial or paid access."
           },
           "404": {
             "content": {
@@ -7816,7 +7940,22 @@
             "SessionCookie": []
           }
         ],
-        "summary": "Consultar aposta"
+        "summary": "Consultar aposta",
+        "x-bancaemdia-policy": {
+          "access_modes": [
+            "FULL_WRITE",
+            "READ_ONLY"
+          ],
+          "automatic_retry": {
+            "allowed": true,
+            "max_attempts": 3
+          },
+          "idempotency": {
+            "identity": "none",
+            "recovery": null,
+            "retention": null
+          }
+        }
       },
       "patch": {
         "description": "Acrescenta uma correção manual ao histórico e rematerializa a aposta.",
@@ -7991,7 +8130,21 @@
             "SessionCookie": []
           }
         ],
-        "summary": "Corrigir aposta"
+        "summary": "Corrigir aposta",
+        "x-bancaemdia-policy": {
+          "access_modes": [
+            "FULL_WRITE"
+          ],
+          "automatic_retry": {
+            "allowed": false,
+            "max_attempts": null
+          },
+          "idempotency": {
+            "identity": "none",
+            "recovery": null,
+            "retention": null
+          }
+        }
       }
     },
     "/api/v1/apostas/{chave}/restaurar": {
@@ -8137,7 +8290,21 @@
             "SessionCookie": []
           }
         ],
-        "summary": "Restaurar aposta na apuração"
+        "summary": "Restaurar aposta na apuração",
+        "x-bancaemdia-policy": {
+          "access_modes": [
+            "FULL_WRITE"
+          ],
+          "automatic_retry": {
+            "allowed": true,
+            "max_attempts": 3
+          },
+          "idempotency": {
+            "identity": "path:chave",
+            "recovery": "GET /api/v1/apostas/{chave}",
+            "retention": "while_resource_exists"
+          }
+        }
       }
     },
     "/api/v1/apostas/{chave}/resultado": {
@@ -8313,7 +8480,21 @@
             "SessionCookie": []
           }
         ],
-        "summary": "Registrar resultado da aposta"
+        "summary": "Registrar resultado da aposta",
+        "x-bancaemdia-policy": {
+          "access_modes": [
+            "FULL_WRITE"
+          ],
+          "automatic_retry": {
+            "allowed": false,
+            "max_attempts": null
+          },
+          "idempotency": {
+            "identity": "none",
+            "recovery": null,
+            "retention": null
+          }
+        }
       }
     },
     "/api/v1/billing/cancel": {
@@ -8352,16 +8533,6 @@
                 }
               }
             }
-          },
-          "402": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponse"
-                }
-              }
-            },
-            "description": "account_read_only: writes require confirmed trial or paid access."
           },
           "403": {
             "content": {
@@ -8444,7 +8615,22 @@
         "summary": "Cancel renewal",
         "tags": [
           "billing"
-        ]
+        ],
+        "x-bancaemdia-policy": {
+          "access_modes": [
+            "FULL_WRITE",
+            "READ_ONLY"
+          ],
+          "automatic_retry": {
+            "allowed": false,
+            "max_attempts": null
+          },
+          "idempotency": {
+            "identity": "none",
+            "recovery": null,
+            "retention": null
+          }
+        }
       }
     },
     "/api/v1/billing/portal": {
@@ -8479,16 +8665,6 @@
                 }
               }
             }
-          },
-          "402": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponse"
-                }
-              }
-            },
-            "description": "account_read_only: writes require confirmed trial or paid access."
           },
           "403": {
             "content": {
@@ -8571,7 +8747,22 @@
         "summary": "Manage subscription",
         "tags": [
           "billing"
-        ]
+        ],
+        "x-bancaemdia-policy": {
+          "access_modes": [
+            "FULL_WRITE",
+            "READ_ONLY"
+          ],
+          "automatic_retry": {
+            "allowed": false,
+            "max_attempts": null
+          },
+          "idempotency": {
+            "identity": "none",
+            "recovery": null,
+            "retention": null
+          }
+        }
       }
     },
     "/api/v1/billing/status": {
@@ -8606,16 +8797,6 @@
                 }
               }
             }
-          },
-          "402": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponse"
-                }
-              }
-            },
-            "description": "account_read_only: writes require confirmed trial or paid access."
           },
           "409": {
             "content": {
@@ -8687,7 +8868,22 @@
         "summary": "Subscription status",
         "tags": [
           "billing"
-        ]
+        ],
+        "x-bancaemdia-policy": {
+          "access_modes": [
+            "FULL_WRITE",
+            "READ_ONLY"
+          ],
+          "automatic_retry": {
+            "allowed": true,
+            "max_attempts": 3
+          },
+          "idempotency": {
+            "identity": "none",
+            "recovery": null,
+            "retention": null
+          }
+        }
       }
     },
     "/api/v1/billing/subscribe": {
@@ -8755,16 +8951,6 @@
                 }
               }
             }
-          },
-          "402": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponse"
-                }
-              }
-            },
-            "description": "account_read_only: writes require confirmed trial or paid access."
           },
           "403": {
             "content": {
@@ -8858,7 +9044,22 @@
         "summary": "Start hosted Checkout",
         "tags": [
           "billing"
-        ]
+        ],
+        "x-bancaemdia-policy": {
+          "access_modes": [
+            "FULL_WRITE",
+            "READ_ONLY"
+          ],
+          "automatic_retry": {
+            "allowed": true,
+            "max_attempts": 3
+          },
+          "idempotency": {
+            "identity": "header:Idempotency-Key",
+            "recovery": "replay",
+            "retention": "until_account_deletion"
+          }
+        }
       }
     },
     "/api/v1/billing/webhook": {
@@ -8946,7 +9147,22 @@
             "StripeSignature": []
           }
         ],
-        "summary": "Receive Stripe events"
+        "summary": "Receive Stripe events",
+        "x-bancaemdia-policy": {
+          "access_modes": [
+            "FULL_WRITE",
+            "READ_ONLY"
+          ],
+          "automatic_retry": {
+            "allowed": false,
+            "max_attempts": null
+          },
+          "idempotency": {
+            "identity": "none",
+            "recovery": null,
+            "retention": null
+          }
+        }
       }
     },
     "/api/v1/caixa": {
@@ -9101,16 +9317,6 @@
               }
             }
           },
-          "402": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponse"
-                }
-              }
-            },
-            "description": "account_read_only: writes require confirmed trial or paid access."
-          },
           "422": {
             "content": {
               "application/json": {
@@ -9176,7 +9382,22 @@
             "SessionCookie": []
           }
         ],
-        "summary": "Listar movimentos de caixa"
+        "summary": "Listar movimentos de caixa",
+        "x-bancaemdia-policy": {
+          "access_modes": [
+            "FULL_WRITE",
+            "READ_ONLY"
+          ],
+          "automatic_retry": {
+            "allowed": true,
+            "max_attempts": 3
+          },
+          "idempotency": {
+            "identity": "none",
+            "recovery": null,
+            "retention": null
+          }
+        }
       },
       "post": {
         "description": "Registra depósito, saque, ajuste ou transferência como lançamentos auditáveis.",
@@ -9365,7 +9586,21 @@
             "SessionCookie": []
           }
         ],
-        "summary": "Registrar movimento de caixa"
+        "summary": "Registrar movimento de caixa",
+        "x-bancaemdia-policy": {
+          "access_modes": [
+            "FULL_WRITE"
+          ],
+          "automatic_retry": {
+            "allowed": true,
+            "max_attempts": 3
+          },
+          "idempotency": {
+            "identity": "header:Idempotency-Key",
+            "recovery": "replay",
+            "retention": "until_account_deletion"
+          }
+        }
       }
     },
     "/api/v1/caixa/contas/{conta_casa_id}/banca": {
@@ -9532,7 +9767,21 @@
             "SessionCookie": []
           }
         ],
-        "summary": "Vincular conta à banca"
+        "summary": "Vincular conta à banca",
+        "x-bancaemdia-policy": {
+          "access_modes": [
+            "FULL_WRITE"
+          ],
+          "automatic_retry": {
+            "allowed": false,
+            "max_attempts": null
+          },
+          "idempotency": {
+            "identity": "none",
+            "recovery": null,
+            "retention": null
+          }
+        }
       }
     },
     "/api/v1/caixa/extrato": {
@@ -9651,16 +9900,6 @@
               }
             }
           },
-          "402": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponse"
-                }
-              }
-            },
-            "description": "account_read_only: writes require confirmed trial or paid access."
-          },
           "422": {
             "content": {
               "application/json": {
@@ -9718,7 +9957,22 @@
             "SessionCookie": []
           }
         ],
-        "summary": "Consultar extrato"
+        "summary": "Consultar extrato",
+        "x-bancaemdia-policy": {
+          "access_modes": [
+            "FULL_WRITE",
+            "READ_ONLY"
+          ],
+          "automatic_retry": {
+            "allowed": true,
+            "max_attempts": 3
+          },
+          "idempotency": {
+            "identity": "none",
+            "recovery": null,
+            "retention": null
+          }
+        }
       }
     },
     "/api/v1/caixa/saldo": {
@@ -9774,16 +10028,6 @@
               }
             }
           },
-          "402": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponse"
-                }
-              }
-            },
-            "description": "account_read_only: writes require confirmed trial or paid access."
-          },
           "422": {
             "content": {
               "application/json": {
@@ -9841,7 +10085,22 @@
             "SessionCookie": []
           }
         ],
-        "summary": "Consultar saldos"
+        "summary": "Consultar saldos",
+        "x-bancaemdia-policy": {
+          "access_modes": [
+            "FULL_WRITE",
+            "READ_ONLY"
+          ],
+          "automatic_retry": {
+            "allowed": true,
+            "max_attempts": 3
+          },
+          "idempotency": {
+            "identity": "none",
+            "recovery": null,
+            "retention": null
+          }
+        }
       }
     },
     "/api/v1/calculadoras/cobertura-ao-vivo": {
@@ -9896,16 +10155,6 @@
                 }
               }
             }
-          },
-          "402": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponse"
-                }
-              }
-            },
-            "description": "account_read_only: writes require confirmed trial or paid access."
           },
           "403": {
             "content": {
@@ -9989,7 +10238,22 @@
         "summary": "Calcular cobertura ao vivo",
         "tags": [
           "calculadoras"
-        ]
+        ],
+        "x-bancaemdia-policy": {
+          "access_modes": [
+            "FULL_WRITE",
+            "READ_ONLY"
+          ],
+          "automatic_retry": {
+            "allowed": true,
+            "max_attempts": 3
+          },
+          "idempotency": {
+            "identity": "none",
+            "recovery": null,
+            "retention": null
+          }
+        }
       }
     },
     "/api/v1/calculadoras/distribuir-entre-resultados": {
@@ -10052,16 +10316,6 @@
                 }
               }
             }
-          },
-          "402": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponse"
-                }
-              }
-            },
-            "description": "account_read_only: writes require confirmed trial or paid access."
           },
           "403": {
             "content": {
@@ -10145,7 +10399,22 @@
         "summary": "Distribuir entre resultados",
         "tags": [
           "calculadoras"
-        ]
+        ],
+        "x-bancaemdia-policy": {
+          "access_modes": [
+            "FULL_WRITE",
+            "READ_ONLY"
+          ],
+          "automatic_retry": {
+            "allowed": true,
+            "max_attempts": 3
+          },
+          "idempotency": {
+            "identity": "none",
+            "recovery": null,
+            "retention": null
+          }
+        }
       }
     },
     "/api/v1/calculadoras/mercado-justo": {
@@ -10207,16 +10476,6 @@
                 }
               }
             }
-          },
-          "402": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponse"
-                }
-              }
-            },
-            "description": "account_read_only: writes require confirmed trial or paid access."
           },
           "403": {
             "content": {
@@ -10300,7 +10559,22 @@
         "summary": "Normalizar mercado justo",
         "tags": [
           "calculadoras"
-        ]
+        ],
+        "x-bancaemdia-policy": {
+          "access_modes": [
+            "FULL_WRITE",
+            "READ_ONLY"
+          ],
+          "automatic_retry": {
+            "allowed": true,
+            "max_attempts": 3
+          },
+          "idempotency": {
+            "identity": "none",
+            "recovery": null,
+            "retention": null
+          }
+        }
       }
     },
     "/api/v1/calculadoras/percentual-banca": {
@@ -10354,16 +10628,6 @@
                 }
               }
             }
-          },
-          "402": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponse"
-                }
-              }
-            },
-            "description": "account_read_only: writes require confirmed trial or paid access."
           },
           "403": {
             "content": {
@@ -10447,7 +10711,22 @@
         "summary": "Calcular percentual da banca",
         "tags": [
           "calculadoras"
-        ]
+        ],
+        "x-bancaemdia-policy": {
+          "access_modes": [
+            "FULL_WRITE",
+            "READ_ONLY"
+          ],
+          "automatic_retry": {
+            "allowed": true,
+            "max_attempts": 3
+          },
+          "idempotency": {
+            "identity": "none",
+            "recovery": null,
+            "retention": null
+          }
+        }
       }
     },
     "/api/v1/catalogo/candidatos": {
@@ -10506,16 +10785,6 @@
               }
             },
             "description": "Missing, expired, or invalid bearer token."
-          },
-          "402": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponse"
-                }
-              }
-            },
-            "description": "account_read_only: writes require confirmed trial or paid access."
           },
           "403": {
             "content": {
@@ -10594,7 +10863,22 @@
             "BearerAuth": []
           }
         ],
-        "summary": "Confirmar acesso a domínio exato"
+        "summary": "Confirmar acesso a domínio exato",
+        "x-bancaemdia-policy": {
+          "access_modes": [
+            "FULL_WRITE",
+            "READ_ONLY"
+          ],
+          "automatic_retry": {
+            "allowed": false,
+            "max_attempts": null
+          },
+          "idempotency": {
+            "identity": "none",
+            "recovery": null,
+            "retention": null
+          }
+        }
       }
     },
     "/api/v1/coleta": {
@@ -10746,7 +11030,21 @@
             "CollectionToken": []
           }
         ],
-        "summary": "Receber coleta da extensão"
+        "summary": "Receber coleta da extensão",
+        "x-bancaemdia-policy": {
+          "access_modes": [
+            "FULL_WRITE"
+          ],
+          "automatic_retry": {
+            "allowed": false,
+            "max_attempts": null
+          },
+          "idempotency": {
+            "identity": "none",
+            "recovery": null,
+            "retention": null
+          }
+        }
       }
     },
     "/api/v1/coleta/batches": {
@@ -10921,7 +11219,21 @@
             "CollectionToken": []
           }
         ],
-        "summary": "Receber lote v2"
+        "summary": "Receber lote v2",
+        "x-bancaemdia-policy": {
+          "access_modes": [
+            "FULL_WRITE"
+          ],
+          "automatic_retry": {
+            "allowed": true,
+            "max_attempts": 3
+          },
+          "idempotency": {
+            "identity": "body:batch_id",
+            "recovery": "GET /api/v1/coleta/jobs/{job_id}",
+            "retention": "until_account_deletion"
+          }
+        }
       }
     },
     "/api/v1/coleta/catalogo": {
@@ -11110,7 +11422,22 @@
             "InstallationToken": []
           }
         ],
-        "summary": "Consultar catálogo assinado"
+        "summary": "Consultar catálogo assinado",
+        "x-bancaemdia-policy": {
+          "access_modes": [
+            "FULL_WRITE",
+            "READ_ONLY"
+          ],
+          "automatic_retry": {
+            "allowed": true,
+            "max_attempts": 3
+          },
+          "idempotency": {
+            "identity": "none",
+            "recovery": null,
+            "retention": null
+          }
+        }
       }
     },
     "/api/v1/coleta/contract": {
@@ -11147,16 +11474,6 @@
               }
             },
             "description": "Missing, expired, or invalid bearer token."
-          },
-          "402": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponse"
-                }
-              }
-            },
-            "description": "account_read_only: retain the extension outbox."
           },
           "403": {
             "content": {
@@ -11229,7 +11546,22 @@
             "description": "The collection was saved but could not be queued."
           }
         },
-        "summary": "Consultar versão do contrato"
+        "summary": "Consultar versão do contrato",
+        "x-bancaemdia-policy": {
+          "access_modes": [
+            "FULL_WRITE",
+            "READ_ONLY"
+          ],
+          "automatic_retry": {
+            "allowed": true,
+            "max_attempts": 3
+          },
+          "idempotency": {
+            "identity": "none",
+            "recovery": null,
+            "retention": null
+          }
+        }
       }
     },
     "/api/v1/coleta/contract/schema": {
@@ -11271,16 +11603,6 @@
             },
             "description": "Missing, expired, or invalid bearer token."
           },
-          "402": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponse"
-                }
-              }
-            },
-            "description": "account_read_only: retain the extension outbox."
-          },
           "403": {
             "content": {
               "application/json": {
@@ -11352,7 +11674,22 @@
             "description": "The collection was saved but could not be queued."
           }
         },
-        "summary": "Baixar contrato canônico"
+        "summary": "Baixar contrato canônico",
+        "x-bancaemdia-policy": {
+          "access_modes": [
+            "FULL_WRITE",
+            "READ_ONLY"
+          ],
+          "automatic_retry": {
+            "allowed": true,
+            "max_attempts": 3
+          },
+          "idempotency": {
+            "identity": "none",
+            "recovery": null,
+            "retention": null
+          }
+        }
       }
     },
     "/api/v1/coleta/installations": {
@@ -11401,16 +11738,6 @@
                 }
               }
             }
-          },
-          "402": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponse"
-                }
-              }
-            },
-            "description": "account_read_only: retain the extension outbox."
           },
           "403": {
             "content": {
@@ -11489,7 +11816,22 @@
             "SessionCookie": []
           }
         ],
-        "summary": "Listar instalações"
+        "summary": "Listar instalações",
+        "x-bancaemdia-policy": {
+          "access_modes": [
+            "FULL_WRITE",
+            "READ_ONLY"
+          ],
+          "automatic_retry": {
+            "allowed": true,
+            "max_attempts": 3
+          },
+          "idempotency": {
+            "identity": "none",
+            "recovery": null,
+            "retention": null
+          }
+        }
       }
     },
     "/api/v1/coleta/installations/{instalacao_id}": {
@@ -11539,16 +11881,6 @@
                 }
               }
             }
-          },
-          "402": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponse"
-                }
-              }
-            },
-            "description": "account_read_only: retain the extension outbox."
           },
           "403": {
             "content": {
@@ -11628,7 +11960,22 @@
             "SessionCookie": []
           }
         ],
-        "summary": "Revogar instalação"
+        "summary": "Revogar instalação",
+        "x-bancaemdia-policy": {
+          "access_modes": [
+            "FULL_WRITE",
+            "READ_ONLY"
+          ],
+          "automatic_retry": {
+            "allowed": false,
+            "max_attempts": null
+          },
+          "idempotency": {
+            "identity": "none",
+            "recovery": null,
+            "retention": null
+          }
+        }
       }
     },
     "/api/v1/coleta/installations/{instalacao_id}/rotate": {
@@ -11686,16 +12033,6 @@
               }
             }
           },
-          "402": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponse"
-                }
-              }
-            },
-            "description": "account_read_only: retain the extension outbox."
-          },
           "403": {
             "content": {
               "application/json": {
@@ -11774,7 +12111,22 @@
             "SessionCookie": []
           }
         ],
-        "summary": "Rotacionar credencial"
+        "summary": "Rotacionar credencial",
+        "x-bancaemdia-policy": {
+          "access_modes": [
+            "FULL_WRITE",
+            "READ_ONLY"
+          ],
+          "automatic_retry": {
+            "allowed": false,
+            "max_attempts": null
+          },
+          "idempotency": {
+            "identity": "none",
+            "recovery": null,
+            "retention": null
+          }
+        }
       }
     },
     "/api/v1/coleta/jobs/{job_id}": {
@@ -11911,7 +12263,22 @@
             "CollectionToken": []
           }
         ],
-        "summary": "Consultar entrega v2"
+        "summary": "Consultar entrega v2",
+        "x-bancaemdia-policy": {
+          "access_modes": [
+            "FULL_WRITE",
+            "READ_ONLY"
+          ],
+          "automatic_retry": {
+            "allowed": true,
+            "max_attempts": 3
+          },
+          "idempotency": {
+            "identity": "none",
+            "recovery": null,
+            "retention": null
+          }
+        }
       }
     },
     "/api/v1/coleta/pairing-codes": {
@@ -11956,16 +12323,6 @@
                 }
               }
             }
-          },
-          "402": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponse"
-                }
-              }
-            },
-            "description": "account_read_only: retain the extension outbox."
           },
           "403": {
             "content": {
@@ -12045,7 +12402,22 @@
             "SessionCookie": []
           }
         ],
-        "summary": "Criar código de pareamento"
+        "summary": "Criar código de pareamento",
+        "x-bancaemdia-policy": {
+          "access_modes": [
+            "FULL_WRITE",
+            "READ_ONLY"
+          ],
+          "automatic_retry": {
+            "allowed": false,
+            "max_attempts": null
+          },
+          "idempotency": {
+            "identity": "none",
+            "recovery": null,
+            "retention": null
+          }
+        }
       }
     },
     "/api/v1/coleta/pairing-exchange": {
@@ -12102,16 +12474,6 @@
               }
             },
             "description": "Missing, expired, or invalid bearer token."
-          },
-          "402": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponse"
-                }
-              }
-            },
-            "description": "account_read_only: retain the extension outbox."
           },
           "403": {
             "content": {
@@ -12186,7 +12548,22 @@
           }
         },
         "security": [],
-        "summary": "Parear instalação"
+        "summary": "Parear instalação",
+        "x-bancaemdia-policy": {
+          "access_modes": [
+            "FULL_WRITE",
+            "READ_ONLY"
+          ],
+          "automatic_retry": {
+            "allowed": false,
+            "max_attempts": null
+          },
+          "idempotency": {
+            "identity": "none",
+            "recovery": null,
+            "retention": null
+          }
+        }
       }
     },
     "/api/v1/coleta/sessions": {
@@ -12340,7 +12717,22 @@
             "CollectionToken": []
           }
         ],
-        "summary": "Abrir ou retomar sessão"
+        "summary": "Abrir ou retomar sessão",
+        "x-bancaemdia-policy": {
+          "access_modes": [
+            "FULL_WRITE",
+            "READ_ONLY"
+          ],
+          "automatic_retry": {
+            "allowed": false,
+            "max_attempts": null
+          },
+          "idempotency": {
+            "identity": "none",
+            "recovery": null,
+            "retention": null
+          }
+        }
       }
     },
     "/api/v1/coleta/sessions/{sessao_id}": {
@@ -12470,7 +12862,22 @@
             "CollectionToken": []
           }
         ],
-        "summary": "Encerrar sessão"
+        "summary": "Encerrar sessão",
+        "x-bancaemdia-policy": {
+          "access_modes": [
+            "FULL_WRITE",
+            "READ_ONLY"
+          ],
+          "automatic_retry": {
+            "allowed": false,
+            "max_attempts": null
+          },
+          "idempotency": {
+            "identity": "none",
+            "recovery": null,
+            "retention": null
+          }
+        }
       },
       "get": {
         "description": "Consulta somente sessão da instalação autenticada no primário.",
@@ -12605,7 +13012,22 @@
             "CollectionToken": []
           }
         ],
-        "summary": "Consultar sessão"
+        "summary": "Consultar sessão",
+        "x-bancaemdia-policy": {
+          "access_modes": [
+            "FULL_WRITE",
+            "READ_ONLY"
+          ],
+          "automatic_retry": {
+            "allowed": true,
+            "max_attempts": 3
+          },
+          "idempotency": {
+            "identity": "none",
+            "recovery": null,
+            "retention": null
+          }
+        }
       }
     },
     "/api/v1/coleta/status": {
@@ -12642,16 +13064,6 @@
               }
             },
             "description": "Missing, expired, or invalid bearer token."
-          },
-          "402": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponse"
-                }
-              }
-            },
-            "description": "account_read_only: retain the extension outbox."
           },
           "403": {
             "content": {
@@ -12719,7 +13131,22 @@
             "CollectionToken": []
           }
         ],
-        "summary": "Consultar credencial da instalação"
+        "summary": "Consultar credencial da instalação",
+        "x-bancaemdia-policy": {
+          "access_modes": [
+            "FULL_WRITE",
+            "READ_ONLY"
+          ],
+          "automatic_retry": {
+            "allowed": true,
+            "max_attempts": 3
+          },
+          "idempotency": {
+            "identity": "none",
+            "recovery": null,
+            "retention": null
+          }
+        }
       }
     },
     "/api/v1/consolidacoes": {
@@ -12863,7 +13290,21 @@
             "SessionCookie": []
           }
         ],
-        "summary": "Consolidar fontes após revisão"
+        "summary": "Consolidar fontes após revisão",
+        "x-bancaemdia-policy": {
+          "access_modes": [
+            "FULL_WRITE"
+          ],
+          "automatic_retry": {
+            "allowed": false,
+            "max_attempts": null
+          },
+          "idempotency": {
+            "identity": "none",
+            "recovery": null,
+            "retention": null
+          }
+        }
       }
     },
     "/api/v1/consolidacoes/{relacao_id}/desvincular": {
@@ -13020,7 +13461,21 @@
             "SessionCookie": []
           }
         ],
-        "summary": "Desvincular fontes após revisão"
+        "summary": "Desvincular fontes após revisão",
+        "x-bancaemdia-policy": {
+          "access_modes": [
+            "FULL_WRITE"
+          ],
+          "automatic_retry": {
+            "allowed": false,
+            "max_attempts": null
+          },
+          "idempotency": {
+            "identity": "none",
+            "recovery": null,
+            "retention": null
+          }
+        }
       }
     },
     "/api/v1/integrations/telegram/webhook": {
@@ -13169,7 +13624,22 @@
             "TelegramWebhookSecret": []
           }
         ],
-        "summary": "Receber atualização do bot Telegram"
+        "summary": "Receber atualização do bot Telegram",
+        "x-bancaemdia-policy": {
+          "access_modes": [
+            "FULL_WRITE",
+            "READ_ONLY"
+          ],
+          "automatic_retry": {
+            "allowed": false,
+            "max_attempts": null
+          },
+          "idempotency": {
+            "identity": "none",
+            "recovery": null,
+            "retention": null
+          }
+        }
       }
     },
     "/api/v1/painel": {
@@ -13287,16 +13757,6 @@
               }
             }
           },
-          "402": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponse"
-                }
-              }
-            },
-            "description": "account_read_only: writes require confirmed trial or paid access."
-          },
           "422": {
             "content": {
               "application/json": {
@@ -13354,7 +13814,22 @@
             "SessionCookie": []
           }
         ],
-        "summary": "Consultar painel financeiro"
+        "summary": "Consultar painel financeiro",
+        "x-bancaemdia-policy": {
+          "access_modes": [
+            "FULL_WRITE",
+            "READ_ONLY"
+          ],
+          "automatic_retry": {
+            "allowed": true,
+            "max_attempts": 3
+          },
+          "idempotency": {
+            "identity": "none",
+            "recovery": null,
+            "retention": null
+          }
+        }
       }
     },
     "/api/v1/painel/analises": {
@@ -13460,16 +13935,6 @@
               }
             }
           },
-          "402": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponse"
-                }
-              }
-            },
-            "description": "account_read_only: writes require confirmed trial or paid access."
-          },
           "422": {
             "content": {
               "application/json": {
@@ -13527,7 +13992,22 @@
             "SessionCookie": []
           }
         ],
-        "summary": "Consultar análises adicionais"
+        "summary": "Consultar análises adicionais",
+        "x-bancaemdia-policy": {
+          "access_modes": [
+            "FULL_WRITE",
+            "READ_ONLY"
+          ],
+          "automatic_retry": {
+            "allowed": true,
+            "max_attempts": 3
+          },
+          "idempotency": {
+            "identity": "none",
+            "recovery": null,
+            "retention": null
+          }
+        }
       }
     },
     "/api/v1/painel/export": {
@@ -13634,16 +14114,6 @@
               }
             }
           },
-          "402": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponse"
-                }
-              }
-            },
-            "description": "account_read_only: writes require confirmed trial or paid access."
-          },
           "422": {
             "content": {
               "application/json": {
@@ -13701,7 +14171,22 @@
             "SessionCookie": []
           }
         ],
-        "summary": "Exportar painel em Excel"
+        "summary": "Exportar painel em Excel",
+        "x-bancaemdia-policy": {
+          "access_modes": [
+            "FULL_WRITE",
+            "READ_ONLY"
+          ],
+          "automatic_retry": {
+            "allowed": true,
+            "max_attempts": 3
+          },
+          "idempotency": {
+            "identity": "none",
+            "recovery": null,
+            "retention": null
+          }
+        }
       }
     },
     "/api/v1/painel/metas": {
@@ -13741,16 +14226,6 @@
               }
             }
           },
-          "402": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponse"
-                }
-              }
-            },
-            "description": "account_read_only: writes require confirmed trial or paid access."
-          },
           "422": {
             "content": {
               "application/json": {
@@ -13808,7 +14283,22 @@
             "SessionCookie": []
           }
         ],
-        "summary": "Listar metas de desempenho"
+        "summary": "Listar metas de desempenho",
+        "x-bancaemdia-policy": {
+          "access_modes": [
+            "FULL_WRITE",
+            "READ_ONLY"
+          ],
+          "automatic_retry": {
+            "allowed": true,
+            "max_attempts": 3
+          },
+          "idempotency": {
+            "identity": "none",
+            "recovery": null,
+            "retention": null
+          }
+        }
       },
       "post": {
         "description": "Cria uma meta privada para uma métrica canônica e um intervalo civil.",
@@ -13954,7 +14444,21 @@
             "SessionCookie": []
           }
         ],
-        "summary": "Criar meta de desempenho"
+        "summary": "Criar meta de desempenho",
+        "x-bancaemdia-policy": {
+          "access_modes": [
+            "FULL_WRITE"
+          ],
+          "automatic_retry": {
+            "allowed": false,
+            "max_attempts": null
+          },
+          "idempotency": {
+            "identity": "none",
+            "recovery": null,
+            "retention": null
+          }
+        }
       }
     },
     "/api/v1/painel/metas/{meta_id}": {
@@ -14080,7 +14584,21 @@
             "SessionCookie": []
           }
         ],
-        "summary": "Arquivar meta de desempenho"
+        "summary": "Arquivar meta de desempenho",
+        "x-bancaemdia-policy": {
+          "access_modes": [
+            "FULL_WRITE"
+          ],
+          "automatic_retry": {
+            "allowed": false,
+            "max_attempts": null
+          },
+          "idempotency": {
+            "identity": "none",
+            "recovery": null,
+            "retention": null
+          }
+        }
       },
       "get": {
         "description": "Retorna uma meta privada e seu progresso atual.",
@@ -14125,16 +14643,6 @@
                 }
               }
             }
-          },
-          "402": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponse"
-                }
-              }
-            },
-            "description": "account_read_only: writes require confirmed trial or paid access."
           },
           "422": {
             "content": {
@@ -14193,7 +14701,22 @@
             "SessionCookie": []
           }
         ],
-        "summary": "Consultar meta de desempenho"
+        "summary": "Consultar meta de desempenho",
+        "x-bancaemdia-policy": {
+          "access_modes": [
+            "FULL_WRITE",
+            "READ_ONLY"
+          ],
+          "automatic_retry": {
+            "allowed": true,
+            "max_attempts": 3
+          },
+          "idempotency": {
+            "identity": "none",
+            "recovery": null,
+            "retention": null
+          }
+        }
       },
       "patch": {
         "description": "Altera os parâmetros ou o estado de uma meta privada.",
@@ -14346,7 +14869,21 @@
             "SessionCookie": []
           }
         ],
-        "summary": "Alterar meta de desempenho"
+        "summary": "Alterar meta de desempenho",
+        "x-bancaemdia-policy": {
+          "access_modes": [
+            "FULL_WRITE"
+          ],
+          "automatic_retry": {
+            "allowed": false,
+            "max_attempts": null
+          },
+          "idempotency": {
+            "identity": "none",
+            "recovery": null,
+            "retention": null
+          }
+        }
       }
     },
     "/api/v1/painel/metricas": {
@@ -14452,16 +14989,6 @@
               }
             }
           },
-          "402": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponse"
-                }
-              }
-            },
-            "description": "account_read_only: writes require confirmed trial or paid access."
-          },
           "422": {
             "content": {
               "application/json": {
@@ -14519,7 +15046,22 @@
             "SessionCookie": []
           }
         ],
-        "summary": "Consultar séries para gráficos"
+        "summary": "Consultar séries para gráficos",
+        "x-bancaemdia-policy": {
+          "access_modes": [
+            "FULL_WRITE",
+            "READ_ONLY"
+          ],
+          "automatic_retry": {
+            "allowed": true,
+            "max_attempts": 3
+          },
+          "idempotency": {
+            "identity": "none",
+            "recovery": null,
+            "retention": null
+          }
+        }
       }
     },
     "/api/v1/painel/preferencias": {
@@ -14555,16 +15097,6 @@
               }
             }
           },
-          "402": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponse"
-                }
-              }
-            },
-            "description": "account_read_only: writes require confirmed trial or paid access."
-          },
           "422": {
             "content": {
               "application/json": {
@@ -14622,7 +15154,22 @@
             "SessionCookie": []
           }
         ],
-        "summary": "Consultar preferências do painel"
+        "summary": "Consultar preferências do painel",
+        "x-bancaemdia-policy": {
+          "access_modes": [
+            "FULL_WRITE",
+            "READ_ONLY"
+          ],
+          "automatic_retry": {
+            "allowed": true,
+            "max_attempts": 3
+          },
+          "idempotency": {
+            "identity": "none",
+            "recovery": null,
+            "retention": null
+          }
+        }
       },
       "patch": {
         "description": "Configura o fuso IANA usado no mapa de horário das apostas.",
@@ -14763,7 +15310,21 @@
             "SessionCookie": []
           }
         ],
-        "summary": "Alterar preferências do painel"
+        "summary": "Alterar preferências do painel",
+        "x-bancaemdia-policy": {
+          "access_modes": [
+            "FULL_WRITE"
+          ],
+          "automatic_retry": {
+            "allowed": false,
+            "max_attempts": null
+          },
+          "idempotency": {
+            "identity": "none",
+            "recovery": null,
+            "retention": null
+          }
+        }
       }
     },
     "/api/v1/revisao": {
@@ -14880,16 +15441,6 @@
               }
             }
           },
-          "402": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponse"
-                }
-              }
-            },
-            "description": "account_read_only: writes require confirmed trial or paid access."
-          },
           "422": {
             "content": {
               "application/json": {
@@ -14947,7 +15498,22 @@
             "SessionCookie": []
           }
         ],
-        "summary": "Listar revisões pendentes"
+        "summary": "Listar revisões pendentes",
+        "x-bancaemdia-policy": {
+          "access_modes": [
+            "FULL_WRITE",
+            "READ_ONLY"
+          ],
+          "automatic_retry": {
+            "allowed": true,
+            "max_attempts": 3
+          },
+          "idempotency": {
+            "identity": "none",
+            "recovery": null,
+            "retention": null
+          }
+        }
       }
     },
     "/api/v1/revisao/stats": {
@@ -14983,16 +15549,6 @@
               }
             }
           },
-          "402": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponse"
-                }
-              }
-            },
-            "description": "account_read_only: writes require confirmed trial or paid access."
-          },
           "422": {
             "content": {
               "application/json": {
@@ -15050,7 +15606,22 @@
             "SessionCookie": []
           }
         ],
-        "summary": "Consultar estatísticas de revisão"
+        "summary": "Consultar estatísticas de revisão",
+        "x-bancaemdia-policy": {
+          "access_modes": [
+            "FULL_WRITE",
+            "READ_ONLY"
+          ],
+          "automatic_retry": {
+            "allowed": true,
+            "max_attempts": 3
+          },
+          "idempotency": {
+            "identity": "none",
+            "recovery": null,
+            "retention": null
+          }
+        }
       }
     },
     "/api/v1/revisao/{revisao_id}": {
@@ -15099,16 +15670,6 @@
                 }
               }
             }
-          },
-          "402": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponse"
-                }
-              }
-            },
-            "description": "account_read_only: writes require confirmed trial or paid access."
           },
           "404": {
             "content": {
@@ -15177,7 +15738,22 @@
             "SessionCookie": []
           }
         ],
-        "summary": "Consultar revisão"
+        "summary": "Consultar revisão",
+        "x-bancaemdia-policy": {
+          "access_modes": [
+            "FULL_WRITE",
+            "READ_ONLY"
+          ],
+          "automatic_retry": {
+            "allowed": true,
+            "max_attempts": 3
+          },
+          "idempotency": {
+            "identity": "none",
+            "recovery": null,
+            "retention": null
+          }
+        }
       }
     },
     "/api/v1/revisao/{revisao_id}/foto": {
@@ -15252,16 +15828,6 @@
               }
             }
           },
-          "402": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponse"
-                }
-              }
-            },
-            "description": "account_read_only: writes require confirmed trial or paid access."
-          },
           "404": {
             "content": {
               "application/json": {
@@ -15329,7 +15895,22 @@
             "SessionCookie": []
           }
         ],
-        "summary": "Consultar foto da revisão"
+        "summary": "Consultar foto da revisão",
+        "x-bancaemdia-policy": {
+          "access_modes": [
+            "FULL_WRITE",
+            "READ_ONLY"
+          ],
+          "automatic_retry": {
+            "allowed": true,
+            "max_attempts": 3
+          },
+          "idempotency": {
+            "identity": "none",
+            "recovery": null,
+            "retention": null
+          }
+        }
       }
     },
     "/api/v1/revisao/{revisao_id}/resolver": {
@@ -15517,7 +16098,21 @@
             "SessionCookie": []
           }
         ],
-        "summary": "Resolver revisão"
+        "summary": "Resolver revisão",
+        "x-bancaemdia-policy": {
+          "access_modes": [
+            "FULL_WRITE"
+          ],
+          "automatic_retry": {
+            "allowed": false,
+            "max_attempts": null
+          },
+          "idempotency": {
+            "identity": "none",
+            "recovery": null,
+            "retention": null
+          }
+        }
       }
     },
     "/api/v1/telegram/link": {
@@ -15553,16 +16148,6 @@
               }
             }
           },
-          "402": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponse"
-                }
-              }
-            },
-            "description": "account_read_only: writes require confirmed trial or paid access."
-          },
           "403": {
             "content": {
               "application/json": {
@@ -15631,7 +16216,22 @@
             "SessionCookie": []
           }
         ],
-        "summary": "Revogar vínculo Telegram"
+        "summary": "Revogar vínculo Telegram",
+        "x-bancaemdia-policy": {
+          "access_modes": [
+            "FULL_WRITE",
+            "READ_ONLY"
+          ],
+          "automatic_retry": {
+            "allowed": false,
+            "max_attempts": null
+          },
+          "idempotency": {
+            "identity": "none",
+            "recovery": null,
+            "retention": null
+          }
+        }
       },
       "get": {
         "description": "Consulta o vínculo ativo da conta sem expor identificadores do Telegram.",
@@ -15664,16 +16264,6 @@
                 }
               }
             }
-          },
-          "402": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponse"
-                }
-              }
-            },
-            "description": "account_read_only: writes require confirmed trial or paid access."
           },
           "422": {
             "content": {
@@ -15732,7 +16322,22 @@
             "SessionCookie": []
           }
         ],
-        "summary": "Consultar vínculo Telegram"
+        "summary": "Consultar vínculo Telegram",
+        "x-bancaemdia-policy": {
+          "access_modes": [
+            "FULL_WRITE",
+            "READ_ONLY"
+          ],
+          "automatic_retry": {
+            "allowed": true,
+            "max_attempts": 3
+          },
+          "idempotency": {
+            "identity": "none",
+            "recovery": null,
+            "retention": null
+          }
+        }
       }
     },
     "/api/v1/telegram/link-codes": {
@@ -15768,16 +16373,6 @@
               }
             }
           },
-          "402": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponse"
-                }
-              }
-            },
-            "description": "account_read_only: writes require confirmed trial or paid access."
-          },
           "403": {
             "content": {
               "application/json": {
@@ -15846,7 +16441,22 @@
             "SessionCookie": []
           }
         ],
-        "summary": "Emitir código de vínculo Telegram"
+        "summary": "Emitir código de vínculo Telegram",
+        "x-bancaemdia-policy": {
+          "access_modes": [
+            "FULL_WRITE",
+            "READ_ONLY"
+          ],
+          "automatic_retry": {
+            "allowed": false,
+            "max_attempts": null
+          },
+          "idempotency": {
+            "identity": "none",
+            "recovery": null,
+            "retention": null
+          }
+        }
       }
     },
     "/api/v1/titulares": {
@@ -15938,16 +16548,6 @@
               }
             }
           },
-          "402": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponse"
-                }
-              }
-            },
-            "description": "account_read_only: writes require confirmed trial or paid access."
-          },
           "422": {
             "content": {
               "application/json": {
@@ -16005,7 +16605,22 @@
             "SessionCookie": []
           }
         ],
-        "summary": "Listar titulares"
+        "summary": "Listar titulares",
+        "x-bancaemdia-policy": {
+          "access_modes": [
+            "FULL_WRITE",
+            "READ_ONLY"
+          ],
+          "automatic_retry": {
+            "allowed": true,
+            "max_attempts": 3
+          },
+          "idempotency": {
+            "identity": "none",
+            "recovery": null,
+            "retention": null
+          }
+        }
       },
       "post": {
         "description": "Cria um titular pertencente ao usuário autenticado.",
@@ -16146,7 +16761,21 @@
             "SessionCookie": []
           }
         ],
-        "summary": "Criar titular"
+        "summary": "Criar titular",
+        "x-bancaemdia-policy": {
+          "access_modes": [
+            "FULL_WRITE"
+          ],
+          "automatic_retry": {
+            "allowed": false,
+            "max_attempts": null
+          },
+          "idempotency": {
+            "identity": "none",
+            "recovery": null,
+            "retention": null
+          }
+        }
       }
     },
     "/api/v1/titulares/casas/{casa_id}/matriz": {
@@ -16193,16 +16822,6 @@
                 }
               }
             }
-          },
-          "402": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponse"
-                }
-              }
-            },
-            "description": "account_read_only: writes require confirmed trial or paid access."
           },
           "422": {
             "content": {
@@ -16261,7 +16880,22 @@
             "SessionCookie": []
           }
         ],
-        "summary": "Consultar titulares por casa"
+        "summary": "Consultar titulares por casa",
+        "x-bancaemdia-policy": {
+          "access_modes": [
+            "FULL_WRITE",
+            "READ_ONLY"
+          ],
+          "automatic_retry": {
+            "allowed": true,
+            "max_attempts": 3
+          },
+          "idempotency": {
+            "identity": "none",
+            "recovery": null,
+            "retention": null
+          }
+        }
       }
     },
     "/api/v1/titulares/financeiro": {
@@ -16389,16 +17023,6 @@
               }
             }
           },
-          "402": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponse"
-                }
-              }
-            },
-            "description": "account_read_only: writes require confirmed trial or paid access."
-          },
           "422": {
             "content": {
               "application/json": {
@@ -16456,7 +17080,22 @@
             "SessionCookie": []
           }
         ],
-        "summary": "Consultar financeiro por titular e conta"
+        "summary": "Consultar financeiro por titular e conta",
+        "x-bancaemdia-policy": {
+          "access_modes": [
+            "FULL_WRITE",
+            "READ_ONLY"
+          ],
+          "automatic_retry": {
+            "allowed": true,
+            "max_attempts": 3
+          },
+          "idempotency": {
+            "identity": "none",
+            "recovery": null,
+            "retention": null
+          }
+        }
       }
     },
     "/api/v1/titulares/trocas": {
@@ -16617,7 +17256,21 @@
             "SessionCookie": []
           }
         ],
-        "summary": "Trocar conta da casa"
+        "summary": "Trocar conta da casa",
+        "x-bancaemdia-policy": {
+          "access_modes": [
+            "FULL_WRITE"
+          ],
+          "automatic_retry": {
+            "allowed": true,
+            "max_attempts": 3
+          },
+          "idempotency": {
+            "identity": "header:Idempotency-Key",
+            "recovery": "replay",
+            "retention": "until_account_deletion"
+          }
+        }
       }
     },
     "/api/v1/titulares/trocas/preview": {
@@ -16778,7 +17431,21 @@
             "SessionCookie": []
           }
         ],
-        "summary": "Prévia de troca de conta"
+        "summary": "Prévia de troca de conta",
+        "x-bancaemdia-policy": {
+          "access_modes": [
+            "FULL_WRITE"
+          ],
+          "automatic_retry": {
+            "allowed": true,
+            "max_attempts": 3
+          },
+          "idempotency": {
+            "identity": "header:Idempotency-Key",
+            "recovery": "replay",
+            "retention": "until_account_deletion"
+          }
+        }
       }
     },
     "/api/v1/titulares/{titular_id}": {
@@ -16904,7 +17571,21 @@
             "SessionCookie": []
           }
         ],
-        "summary": "Arquivar titular"
+        "summary": "Arquivar titular",
+        "x-bancaemdia-policy": {
+          "access_modes": [
+            "FULL_WRITE"
+          ],
+          "automatic_retry": {
+            "allowed": false,
+            "max_attempts": null
+          },
+          "idempotency": {
+            "identity": "none",
+            "recovery": null,
+            "retention": null
+          }
+        }
       },
       "get": {
         "description": "Retorna um titular pertencente ao usuário.",
@@ -16949,16 +17630,6 @@
                 }
               }
             }
-          },
-          "402": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponse"
-                }
-              }
-            },
-            "description": "account_read_only: writes require confirmed trial or paid access."
           },
           "422": {
             "content": {
@@ -17017,7 +17688,22 @@
             "SessionCookie": []
           }
         ],
-        "summary": "Consultar titular"
+        "summary": "Consultar titular",
+        "x-bancaemdia-policy": {
+          "access_modes": [
+            "FULL_WRITE",
+            "READ_ONLY"
+          ],
+          "automatic_retry": {
+            "allowed": true,
+            "max_attempts": 3
+          },
+          "idempotency": {
+            "identity": "none",
+            "recovery": null,
+            "retention": null
+          }
+        }
       },
       "patch": {
         "description": "Atualiza o nome de um titular ativo.",
@@ -17170,7 +17856,21 @@
             "SessionCookie": []
           }
         ],
-        "summary": "Editar titular"
+        "summary": "Editar titular",
+        "x-bancaemdia-policy": {
+          "access_modes": [
+            "FULL_WRITE"
+          ],
+          "automatic_retry": {
+            "allowed": false,
+            "max_attempts": null
+          },
+          "idempotency": {
+            "identity": "none",
+            "recovery": null,
+            "retention": null
+          }
+        }
       }
     },
     "/api/v1/titulares/{titular_id}/contas": {
@@ -17326,7 +18026,21 @@
             "SessionCookie": []
           }
         ],
-        "summary": "Criar conta da casa"
+        "summary": "Criar conta da casa",
+        "x-bancaemdia-policy": {
+          "access_modes": [
+            "FULL_WRITE"
+          ],
+          "automatic_retry": {
+            "allowed": false,
+            "max_attempts": null
+          },
+          "idempotency": {
+            "identity": "none",
+            "recovery": null,
+            "retention": null
+          }
+        }
       }
     },
     "/api/v1/titulares/{titular_id}/contas/{conta_id}": {
@@ -17491,7 +18205,21 @@
             "SessionCookie": []
           }
         ],
-        "summary": "Editar conta da casa"
+        "summary": "Editar conta da casa",
+        "x-bancaemdia-policy": {
+          "access_modes": [
+            "FULL_WRITE"
+          ],
+          "automatic_retry": {
+            "allowed": false,
+            "max_attempts": null
+          },
+          "idempotency": {
+            "identity": "none",
+            "recovery": null,
+            "retention": null
+          }
+        }
       }
     },
     "/api/v1/titulares/{titular_id}/contas/{conta_id}/ativar": {
@@ -17627,7 +18355,21 @@
             "SessionCookie": []
           }
         ],
-        "summary": "Ativar primeira conta da casa"
+        "summary": "Ativar primeira conta da casa",
+        "x-bancaemdia-policy": {
+          "access_modes": [
+            "FULL_WRITE"
+          ],
+          "automatic_retry": {
+            "allowed": false,
+            "max_attempts": null
+          },
+          "idempotency": {
+            "identity": "none",
+            "recovery": null,
+            "retention": null
+          }
+        }
       }
     },
     "/api/v1/titulares/{titular_id}/matriz": {
@@ -17674,16 +18416,6 @@
                 }
               }
             }
-          },
-          "402": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponse"
-                }
-              }
-            },
-            "description": "account_read_only: writes require confirmed trial or paid access."
           },
           "422": {
             "content": {
@@ -17742,7 +18474,22 @@
             "SessionCookie": []
           }
         ],
-        "summary": "Consultar casas do titular"
+        "summary": "Consultar casas do titular",
+        "x-bancaemdia-policy": {
+          "access_modes": [
+            "FULL_WRITE",
+            "READ_ONLY"
+          ],
+          "automatic_retry": {
+            "allowed": true,
+            "max_attempts": 3
+          },
+          "idempotency": {
+            "identity": "none",
+            "recovery": null,
+            "retention": null
+          }
+        }
       }
     },
     "/api/v1/upload": {
@@ -17928,7 +18675,21 @@
             "SessionCookie": []
           }
         ],
-        "summary": "Enviar exportação do Telegram"
+        "summary": "Enviar exportação do Telegram",
+        "x-bancaemdia-policy": {
+          "access_modes": [
+            "FULL_WRITE"
+          ],
+          "automatic_retry": {
+            "allowed": false,
+            "max_attempts": null
+          },
+          "idempotency": {
+            "identity": "none",
+            "recovery": null,
+            "retention": null
+          }
+        }
       }
     },
     "/api/v1/upload/{job_id}": {
@@ -17976,16 +18737,6 @@
                 }
               }
             }
-          },
-          "402": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponse"
-                }
-              }
-            },
-            "description": "account_read_only: writes require confirmed trial or paid access."
           },
           "404": {
             "content": {
@@ -18054,7 +18805,22 @@
             "SessionCookie": []
           }
         ],
-        "summary": "Consultar processamento do upload"
+        "summary": "Consultar processamento do upload",
+        "x-bancaemdia-policy": {
+          "access_modes": [
+            "FULL_WRITE",
+            "READ_ONLY"
+          ],
+          "automatic_retry": {
+            "allowed": true,
+            "max_attempts": 3
+          },
+          "idempotency": {
+            "identity": "none",
+            "recovery": null,
+            "retention": null
+          }
+        }
       }
     },
     "/api/v1/usuario/me": {
@@ -18089,16 +18855,6 @@
                 }
               }
             }
-          },
-          "402": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponse"
-                }
-              }
-            },
-            "description": "account_read_only: writes require confirmed trial or paid access."
           },
           "403": {
             "content": {
@@ -18178,7 +18934,22 @@
             "SessionCookie": []
           }
         ],
-        "summary": "Desativar e anonimizar minha conta"
+        "summary": "Desativar e anonimizar minha conta",
+        "x-bancaemdia-policy": {
+          "access_modes": [
+            "FULL_WRITE",
+            "READ_ONLY"
+          ],
+          "automatic_retry": {
+            "allowed": false,
+            "max_attempts": null
+          },
+          "idempotency": {
+            "identity": "none",
+            "recovery": null,
+            "retention": null
+          }
+        }
       }
     },
     "/api/v1/usuario/me/export": {
@@ -18510,16 +19281,6 @@
               }
             }
           },
-          "402": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponse"
-                }
-              }
-            },
-            "description": "account_read_only: writes require confirmed trial or paid access."
-          },
           "422": {
             "content": {
               "application/json": {
@@ -18577,7 +19338,22 @@
             "SessionCookie": []
           }
         ],
-        "summary": "Exportar meus registros"
+        "summary": "Exportar meus registros",
+        "x-bancaemdia-policy": {
+          "access_modes": [
+            "FULL_WRITE",
+            "READ_ONLY"
+          ],
+          "automatic_retry": {
+            "allowed": true,
+            "max_attempts": 3
+          },
+          "idempotency": {
+            "identity": "none",
+            "recovery": null,
+            "retention": null
+          }
+        }
       }
     },
     "/auth/callback": {
@@ -18735,7 +19511,22 @@
         "summary": "Concluir identidade verificada",
         "tags": [
           "Identity"
-        ]
+        ],
+        "x-bancaemdia-policy": {
+          "access_modes": [
+            "FULL_WRITE",
+            "READ_ONLY"
+          ],
+          "automatic_retry": {
+            "allowed": false,
+            "max_attempts": null
+          },
+          "idempotency": {
+            "identity": "none",
+            "recovery": null,
+            "retention": null
+          }
+        }
       }
     },
     "/auth/jwks": {
@@ -18846,7 +19637,22 @@
         "summary": "Consultar chaves públicas",
         "tags": [
           "Identity"
-        ]
+        ],
+        "x-bancaemdia-policy": {
+          "access_modes": [
+            "FULL_WRITE",
+            "READ_ONLY"
+          ],
+          "automatic_retry": {
+            "allowed": true,
+            "max_attempts": 3
+          },
+          "idempotency": {
+            "identity": "none",
+            "recovery": null,
+            "retention": null
+          }
+        }
       }
     },
     "/auth/logout": {
@@ -18976,7 +19782,22 @@
         "summary": "Revogar sessão",
         "tags": [
           "Identity"
-        ]
+        ],
+        "x-bancaemdia-policy": {
+          "access_modes": [
+            "FULL_WRITE",
+            "READ_ONLY"
+          ],
+          "automatic_retry": {
+            "allowed": false,
+            "max_attempts": null
+          },
+          "idempotency": {
+            "identity": "none",
+            "recovery": null,
+            "retention": null
+          }
+        }
       }
     },
     "/auth/refresh": {
@@ -19092,7 +19913,22 @@
         "summary": "Renovar sessão",
         "tags": [
           "Identity"
-        ]
+        ],
+        "x-bancaemdia-policy": {
+          "access_modes": [
+            "FULL_WRITE",
+            "READ_ONLY"
+          ],
+          "automatic_retry": {
+            "allowed": false,
+            "max_attempts": null
+          },
+          "idempotency": {
+            "identity": "none",
+            "recovery": null,
+            "retention": null
+          }
+        }
       }
     },
     "/auth/session": {
@@ -19207,7 +20043,22 @@
         "summary": "Consultar sessão",
         "tags": [
           "Identity"
-        ]
+        ],
+        "x-bancaemdia-policy": {
+          "access_modes": [
+            "FULL_WRITE",
+            "READ_ONLY"
+          ],
+          "automatic_retry": {
+            "allowed": true,
+            "max_attempts": 3
+          },
+          "idempotency": {
+            "identity": "none",
+            "recovery": null,
+            "retention": null
+          }
+        }
       }
     },
     "/auth/start": {
@@ -19350,7 +20201,22 @@
         "summary": "Iniciar login hospedado",
         "tags": [
           "Identity"
-        ]
+        ],
+        "x-bancaemdia-policy": {
+          "access_modes": [
+            "FULL_WRITE",
+            "READ_ONLY"
+          ],
+          "automatic_retry": {
+            "allowed": false,
+            "max_attempts": null
+          },
+          "idempotency": {
+            "identity": "none",
+            "recovery": null,
+            "retention": null
+          }
+        }
       }
     },
     "/coleta": {
@@ -19502,7 +20368,21 @@
             "CollectionToken": []
           }
         ],
-        "summary": "Receber coleta da extensão"
+        "summary": "Receber coleta da extensão",
+        "x-bancaemdia-policy": {
+          "access_modes": [
+            "FULL_WRITE"
+          ],
+          "automatic_retry": {
+            "allowed": false,
+            "max_attempts": null
+          },
+          "idempotency": {
+            "identity": "none",
+            "recovery": null,
+            "retention": null
+          }
+        }
       }
     },
     "/health": {
@@ -19531,7 +20411,22 @@
             "description": "Unexpected internal failure with no sensitive exception details."
           }
         },
-        "summary": "Consultar liveness"
+        "summary": "Consultar liveness",
+        "x-bancaemdia-policy": {
+          "access_modes": [
+            "FULL_WRITE",
+            "READ_ONLY"
+          ],
+          "automatic_retry": {
+            "allowed": true,
+            "max_attempts": 3
+          },
+          "idempotency": {
+            "identity": "none",
+            "recovery": null,
+            "retention": null
+          }
+        }
       }
     },
     "/metrics": {
@@ -19560,7 +20455,22 @@
             "description": "Unexpected internal failure with no sensitive exception details."
           }
         },
-        "summary": "Exportar métricas Prometheus"
+        "summary": "Exportar métricas Prometheus",
+        "x-bancaemdia-policy": {
+          "access_modes": [
+            "FULL_WRITE",
+            "READ_ONLY"
+          ],
+          "automatic_retry": {
+            "allowed": true,
+            "max_attempts": 3
+          },
+          "idempotency": {
+            "identity": "none",
+            "recovery": null,
+            "retention": null
+          }
+        }
       }
     },
     "/ready": {
@@ -19599,7 +20509,22 @@
             "description": "One or more required dependencies are not ready."
           }
         },
-        "summary": "Consultar readiness"
+        "summary": "Consultar readiness",
+        "x-bancaemdia-policy": {
+          "access_modes": [
+            "FULL_WRITE",
+            "READ_ONLY"
+          ],
+          "automatic_retry": {
+            "allowed": true,
+            "max_attempts": 3
+          },
+          "idempotency": {
+            "identity": "none",
+            "recovery": null,
+            "retention": null
+          }
+        }
       }
     }
   }
