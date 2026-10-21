@@ -226,17 +226,21 @@ OPERATION_DOCUMENTATION: dict[OperationKey, tuple[str, str]] = {
         "Restaurar aposta na apuraÃ§Ã£o",
         "Volta a incluir uma aposta anteriormente excluÃ­da, preservando todo o histÃ³rico.",
     ),
+    ("post", "/api/v1/apostas/{chave}/restaurar"): (
+        "Restaurar aposta na apuração",
+        "Volta a incluir uma aposta anteriormente excluída, preservando todo o histórico.",
+    ),
     ("get", "/api/v1/apostas/lotes/previa-apagar"): (
-        "PrÃ©via de apagar todas as apostas",
-        "Conta as apostas ativas e devolve a frase que a pessoa precisa digitar e um token de confirmaÃ§Ã£o assinado, vÃ¡lido por 10 minutos e preso a este conjunto exato. Escopo: apostas apenas; movimentos, bancas, cadastro, titulares, assinatura, Telegram e coleta nÃ£o mudam.",
+        "Prévia de apagar todas as apostas",
+        "Conta as apostas ativas e devolve a frase que a pessoa precisa digitar e um token de confirmação assinado, válido por 10 minutos e preso a este conjunto exato. Escopo: apostas apenas; movimentos, bancas, cadastro, titulares, assinatura, Telegram e coleta não mudam.",
     ),
     ("post", "/api/v1/apostas/lotes"): (
         "Apagar todas as apostas",
-        "Apaga de uma vez, numa transaÃ§Ã£o, todas as apostas ativas da prÃ©via, com a mesma semÃ¢ntica do DELETE individual: um evento por aposta, nada removido fisicamente, visÃ­veis com incluir_apagadas. Exige frase e token da prÃ©via; 409 se o conjunto mudou, a prÃ©via expirou ou outro lote estÃ¡ em curso. Idempotency-Key obrigatÃ³ria: mesmo pedido devolve o recibo original. FULL_WRITE e CSRF; 402 sem efeito.",
+        "Apaga de uma vez, numa transação, todas as apostas ativas da prévia, com a mesma semântica do DELETE individual: um evento por aposta, nada removido fisicamente, visíveis com incluir_apagadas. Exige frase e token da prévia; 409 se o conjunto mudou, a prévia expirou ou outro lote está em curso. Idempotency-Key obrigatória: mesmo pedido devolve o recibo original. FULL_WRITE e CSRF; 402 sem efeito.",
     ),
     ("get", "/api/v1/apostas/lotes/intencao"): (
         "Recuperar lote de apostas",
-        "LÃª no primÃ¡rio a operaÃ§Ã£o, o status e o recibo gravados para a Idempotency-Key apÃ³s resposta perdida; 404 se nada foi gravado. Permitida em READ_ONLY.",
+        "Lê no primário a operação, o status e o recibo gravados para a Idempotency-Key após resposta perdida; 404 se nada foi gravado. Permitida em READ_ONLY.",
     ),
     ("get", "/api/v1/apostas/lotes/{lote_id}"): (
         "Consultar lote de apostas",
@@ -244,27 +248,41 @@ OPERATION_DOCUMENTATION: dict[OperationKey, tuple[str, str]] = {
     ),
     ("post", "/api/v1/apostas/lotes/{lote_id}/restaurar"): (
         "Restaurar lote de apostas",
-        "Restaura de uma vez exatamente as apostas que este lote apagou e que continuam apagadas; as alteradas uma a uma depois do lote ficam como estÃ£o. Um lote restaura uma vez (409 lote_restaurado). Idempotency-Key obrigatÃ³ria; FULL_WRITE e CSRF.",
+        "Restaura de uma vez exatamente as apostas que este lote apagou e que continuam apagadas; as alteradas uma a uma depois do lote ficam como estão. Um lote restaura uma vez (409 lote_restaurado). Idempotency-Key obrigatória; FULL_WRITE e CSRF.",
     ),
     ("get", "/api/v1/bancas"): (
         "Listar bancas",
-        "Bancas do usuÃ¡rio com id, nome, estado (ativa/arquivada), capital inicial em centavos ou null (nÃ£o informado) e contas vinculadas. Permitida em READ_ONLY.",
+        "Bancas do usuário com id, nome, estado (ativa/arquivada), capital inicial em centavos ou null (não informado) e contas vinculadas. Permitida em READ_ONLY.",
     ),
     ("post", "/api/v1/bancas"): (
         "Criar banca",
-        "Cria banca ativa; capital ausente ou null fica nÃ£o informado e a progressÃ£o segue null. Nome Ãºnico por usuÃ¡rio, inclusive entre arquivadas (409 nome_em_uso). Idempotency-Key obrigatÃ³ria: mesmo pedido devolve a resposta original, outro pedido 409. FULL_WRITE e CSRF.",
+        "Cria banca ativa; capital ausente ou null fica não informado e a progressão segue null. Nome único por usuário, inclusive entre arquivadas (409 nome_em_uso). Idempotency-Key obrigatória: mesmo pedido devolve a resposta original, outro pedido 409. FULL_WRITE e CSRF.",
     ),
     ("patch", "/api/v1/bancas/{banca_id}"): (
         "Alterar banca",
-        "Renomeia ou define/remove o capital inicial (null apaga); sÃ³ os campos enviados mudam. Banca arquivada recusa com 409 banca_arquivada. Idempotency-Key obrigatÃ³ria; FULL_WRITE e CSRF.",
+        "Renomeia ou define/remove o capital inicial (null apaga); só os campos enviados mudam. Banca arquivada recusa com 409 banca_arquivada. Idempotency-Key obrigatória; FULL_WRITE e CSRF.",
     ),
     ("post", "/api/v1/bancas/{banca_id}/arquivar"): (
         "Arquivar banca",
-        "Marca a banca como arquivada sem apagar movimentos, apostas nem vÃ­nculos histÃ³ricos. Recusa com 409 banca_com_contas enquanto houver conta vinculada; banca arquivada nÃ£o aceita novos vÃ­nculos. Idempotency-Key obrigatÃ³ria; FULL_WRITE e CSRF.",
+        "Marca a banca como arquivada sem apagar movimentos, apostas nem vínculos históricos. Recusa com 409 banca_com_contas enquanto houver conta vinculada; banca arquivada não aceita novos vínculos. Idempotency-Key obrigatória; FULL_WRITE e CSRF.",
     ),
     ("get", "/api/v1/bancas/intencao"): (
         "Recuperar escrita de banca",
-        "LÃª no primÃ¡rio a operaÃ§Ã£o, o status e a resposta gravados para a Idempotency-Key apÃ³s resposta perdida; 404 se nada foi gravado. Permitida em READ_ONLY.",
+        "Lê no primário a operação, o status e a resposta gravados para a Idempotency-Key após resposta perdida; 404 se nada foi gravado. Permitida em READ_ONLY.",
+    ),
+    ("get", "/api/v1/unidade"): (
+        "Consultar valor da unidade",
+        "Unidade vigente agora e histórico de vigências do usuário, com centavos exatos, origem (padrao/usuario) e início no fuso do usuário. Sem vigência vale o padrão de 10.000 centavos. Permitida em READ_ONLY.",
+    ),
+    ("post", "/api/v1/unidade/vigencias"): (
+        "Definir valor da unidade",
+        "Abre nova vigência no instante do servidor e encerra a anterior nesse instante. Apostas existentes guardam a unidade com que foram criadas e não mudam; criação manual, coleta, Telegram e XLSX leem a vigência do instante da aposta. Idempotency-Key obrigatória: mesmo corpo devolve o recibo original, corpo diferente 409. FULL_WRITE e CSRF.",
+    ),
+    ("get", "/api/v1/unidade/vigencias/intencao"): (
+        "Recuperar troca de unidade",
+        "Lê no primário o recibo gravado para a Idempotency-Key após resposta perdida; 404 se nada foi gravado. Não cria nem renova vigência. Permitida em READ_ONLY.",
+    ),
+    ("post", "/api/v1/caixa"): ( (feat(unidade): publicar o valor da unidade com vigencia para o site (#210))
     ),
     ("post", "/api/v1/caixa"): (
         "Registrar movimento de caixa",
@@ -620,7 +638,7 @@ REQUEST_EXAMPLES: dict[OperationKey, tuple[str, JsonObject]] = {
         {"estado": "GREEN", "retorno_centavos": 19_500},
     ),
     ("post", "/api/v1/apostas/lotes"): (
-        "ConfirmaÃ§Ã£o da prÃ©via",
+        "Confirmação da prévia",
         {
             "acao": "apagar_todas",
             "confirmacao": "token-devolvido-pela-previa",
@@ -634,6 +652,11 @@ REQUEST_EXAMPLES: dict[OperationKey, tuple[str, JsonObject]] = {
     ("patch", "/api/v1/bancas/{banca_id}"): (
         "Remover capital",
         {"saldo_inicial_centavos": None},
+    ),
+    ("post", "/api/v1/unidade/vigencias"): (
+        "Unidade de R$ 50,00",
+        {"valor_centavos": 5_000},
+    ), (feat(unidade): publicar o valor da unidade com vigencia para o site (#210))
     ),
     ("post", "/api/v1/caixa"): (
         "DepÃ³sito",
