@@ -32,7 +32,17 @@ def artifact() -> dict[str, Any]:
     from bancaemdia.main import app
 
     document = app.openapi()
-    paths = {path: value for path, value in document["paths"].items() if path in CONTRACT_PATHS}
+    from bancaemdia.api.policies import EXTENSION
+
+    # A política vive no documento da API; o artefato da extensão continua o publicado na v2.
+    paths = {
+        path: {
+            method: {key: item for key, item in operation.items() if key != EXTENSION}
+            for method, operation in value.items()
+        }
+        for path, value in document["paths"].items()
+        if path in CONTRACT_PATHS
+    }
     definitions = document["components"]["schemas"]
     needed: set[str] = set()
 
