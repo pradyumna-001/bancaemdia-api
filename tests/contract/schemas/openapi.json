@@ -556,6 +556,169 @@
         "title": "AuthFailure",
         "type": "object"
       },
+      "BancaAlteracao": {
+        "additionalProperties": false,
+        "properties": {
+          "nome": {
+            "anyOf": [
+              {
+                "maxLength": 80,
+                "minLength": 1,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Nome"
+          },
+          "saldo_inicial_centavos": {
+            "anyOf": [
+              {
+                "maximum": 100000000000.0,
+                "minimum": 0.0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Saldo Inicial Centavos"
+          }
+        },
+        "title": "BancaAlteracao",
+        "type": "object"
+      },
+      "BancaInvalidaSaida": {
+        "additionalProperties": false,
+        "properties": {
+          "campos": {
+            "items": {
+              "$ref": "#/components/schemas/CampoInvalidoSaida"
+            },
+            "title": "Campos",
+            "type": "array"
+          },
+          "detail": {
+            "const": "banca_invalida",
+            "title": "Detail",
+            "type": "string"
+          }
+        },
+        "required": [
+          "detail",
+          "campos"
+        ],
+        "title": "BancaInvalidaSaida",
+        "type": "object"
+      },
+      "BancaNova": {
+        "additionalProperties": false,
+        "properties": {
+          "nome": {
+            "maxLength": 80,
+            "minLength": 1,
+            "title": "Nome",
+            "type": "string"
+          },
+          "saldo_inicial_centavos": {
+            "anyOf": [
+              {
+                "maximum": 100000000000.0,
+                "minimum": 0.0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Saldo Inicial Centavos"
+          }
+        },
+        "required": [
+          "nome"
+        ],
+        "title": "BancaNova",
+        "type": "object"
+      },
+      "BancaSaida": {
+        "additionalProperties": false,
+        "properties": {
+          "arquivada_em": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Arquivada Em"
+          },
+          "contas": {
+            "items": {
+              "$ref": "#/components/schemas/ContaVinculadaSaida"
+            },
+            "title": "Contas",
+            "type": "array"
+          },
+          "estado": {
+            "enum": [
+              "ativa",
+              "arquivada"
+            ],
+            "title": "Estado",
+            "type": "string"
+          },
+          "id": {
+            "title": "Id",
+            "type": "integer"
+          },
+          "nome": {
+            "title": "Nome",
+            "type": "string"
+          },
+          "saldo_inicial_centavos": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Saldo Inicial Centavos"
+          }
+        },
+        "required": [
+          "id",
+          "nome",
+          "estado",
+          "arquivada_em",
+          "saldo_inicial_centavos",
+          "contas"
+        ],
+        "title": "BancaSaida",
+        "type": "object"
+      },
+      "BancasSaida": {
+        "additionalProperties": false,
+        "properties": {
+          "bancas": {
+            "items": {
+              "$ref": "#/components/schemas/BancaSaida"
+            },
+            "title": "Bancas",
+            "type": "array"
+          }
+        },
+        "required": [
+          "bancas"
+        ],
+        "title": "BancasSaida",
+        "type": "object"
+      },
       "BankrollRequest": {
         "additionalProperties": false,
         "properties": {
@@ -1506,6 +1669,35 @@
         "title": "CalculationResponse",
         "type": "object"
       },
+      "CampoInvalidoSaida": {
+        "additionalProperties": false,
+        "properties": {
+          "campo": {
+            "title": "Campo",
+            "type": "string"
+          },
+          "codigo": {
+            "enum": [
+              "obrigatorio",
+              "inteiro",
+              "nao_negativo",
+              "acima_do_limite",
+              "tamanho",
+              "vazio",
+              "desconhecido",
+              "invalido"
+            ],
+            "title": "Codigo",
+            "type": "string"
+          }
+        },
+        "required": [
+          "campo",
+          "codigo"
+        ],
+        "title": "CampoInvalidoSaida",
+        "type": "object"
+      },
       "Capture": {
         "additionalProperties": false,
         "properties": {
@@ -2295,6 +2487,30 @@
           "acoes_validas"
         ],
         "title": "ContaMatrizSaida",
+        "type": "object"
+      },
+      "ContaVinculadaSaida": {
+        "additionalProperties": false,
+        "properties": {
+          "apelido": {
+            "title": "Apelido",
+            "type": "string"
+          },
+          "casa_id": {
+            "title": "Casa Id",
+            "type": "integer"
+          },
+          "id": {
+            "title": "Id",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "id",
+          "casa_id",
+          "apelido"
+        ],
+        "title": "ContaVinculadaSaida",
         "type": "object"
       },
       "Correcao": {
@@ -3291,6 +3507,34 @@
           "token"
         ],
         "title": "InstallationTokenResponse",
+        "type": "object"
+      },
+      "IntencaoSaida": {
+        "additionalProperties": false,
+        "properties": {
+          "operacao": {
+            "enum": [
+              "CRIAR",
+              "ALTERAR",
+              "ARQUIVAR"
+            ],
+            "title": "Operacao",
+            "type": "string"
+          },
+          "resposta": {
+            "$ref": "#/components/schemas/BancaSaida"
+          },
+          "status_code": {
+            "title": "Status Code",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "operacao",
+          "status_code",
+          "resposta"
+        ],
+        "title": "IntencaoSaida",
         "type": "object"
       },
       "IntervaloSaida": {
@@ -8316,6 +8560,759 @@
         "summary": "Registrar resultado da aposta"
       }
     },
+    "/api/v1/bancas": {
+      "get": {
+        "description": "Bancas do usuário com id, nome, estado (ativa/arquivada), capital inicial em centavos ou null (não informado) e contas vinculadas. Permitida em READ_ONLY.",
+        "operationId": "listar_bancas_api_v1_bancas_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BancasSaida"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Missing, expired, or invalid bearer token.",
+            "headers": {
+              "X-Auth-Error": {
+                "description": "Identity error code when AUTH_ENABLED; legacy response body is preserved.",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "402": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "account_read_only: writes require confirmed trial or paid access."
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorOrValidationResponse"
+                }
+              }
+            },
+            "description": "The request does not satisfy the published contract or a domain rule."
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "The caller exceeded an applicable request limit."
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unexpected internal failure with no sensitive exception details."
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "A required dependency is temporarily unavailable.",
+            "headers": {
+              "X-Auth-Error": {
+                "description": "Identity error code when AUTH_ENABLED; legacy response body is preserved.",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          },
+          {
+            "SessionCookie": []
+          }
+        ],
+        "summary": "Listar bancas"
+      },
+      "post": {
+        "description": "Cria banca ativa; capital ausente ou null fica não informado e a progressão segue null. Nome único por usuário, inclusive entre arquivadas (409 nome_em_uso). Idempotency-Key obrigatória: mesmo pedido devolve a resposta original, outro pedido 409. FULL_WRITE e CSRF.",
+        "operationId": "criar_banca_api_v1_bancas_post",
+        "parameters": [
+          {
+            "description": "Chave opaca obrigatória do cliente; reutilizá-la com o mesmo corpo reproduz a resposta original sem repetir a operação.",
+            "in": "header",
+            "name": "Idempotency-Key",
+            "required": true,
+            "schema": {
+              "description": "Chave opaca escolhida pelo cliente antes do envio. Repetir a mesma chave e o mesmo pedido devolve a resposta original sem repetir o efeito.",
+              "maxLength": 200,
+              "minLength": 1,
+              "pattern": "^[!-~]+$",
+              "title": "Idempotency-Key",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "examples": {
+                "default": {
+                  "summary": "Banca com capital",
+                  "value": {
+                    "nome": "Banca principal",
+                    "saldo_inicial_centavos": 100000
+                  }
+                }
+              },
+              "schema": {
+                "$ref": "#/components/schemas/BancaNova"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BancaSaida"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Missing, expired, or invalid bearer token.",
+            "headers": {
+              "X-Auth-Error": {
+                "description": "Identity error code when AUTH_ENABLED; legacy response body is preserved.",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "402": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "account_read_only: writes require confirmed trial or paid access."
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Cookie mutation requires exact Origin and current CSRF proof."
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "nome_em_uso ou idempotency_key_conflict."
+          },
+          "413": {
+            "content": {
+              "text/plain": {
+                "example": "Content Too Large",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            },
+            "description": "The request body exceeds this endpoint's streaming limit."
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BancaInvalidaSaida"
+                }
+              }
+            },
+            "description": "Pedido inválido; um código estável por campo, sem msg/input/ctx."
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "The caller exceeded an applicable request limit."
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unexpected internal failure with no sensitive exception details."
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "A required dependency is temporarily unavailable.",
+            "headers": {
+              "X-Auth-Error": {
+                "description": "Identity error code when AUTH_ENABLED; legacy response body is preserved.",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          },
+          {
+            "CsrfProof": [],
+            "SessionCookie": []
+          }
+        ],
+        "summary": "Criar banca"
+      }
+    },
+    "/api/v1/bancas/intencao": {
+      "get": {
+        "description": "Lê no primário a operação, o status e a resposta gravados para a Idempotency-Key após resposta perdida; 404 se nada foi gravado. Permitida em READ_ONLY.",
+        "operationId": "recuperar_intencao_api_v1_bancas_intencao_get",
+        "parameters": [
+          {
+            "description": "Chave opaca obrigatória do cliente; reutilizá-la com o mesmo corpo reproduz a resposta original sem repetir a operação.",
+            "in": "header",
+            "name": "Idempotency-Key",
+            "required": true,
+            "schema": {
+              "description": "Chave opaca escolhida pelo cliente antes do envio. Repetir a mesma chave e o mesmo pedido devolve a resposta original sem repetir o efeito.",
+              "maxLength": 200,
+              "minLength": 1,
+              "pattern": "^[!-~]+$",
+              "title": "Idempotency-Key",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/IntencaoSaida"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Missing, expired, or invalid bearer token.",
+            "headers": {
+              "X-Auth-Error": {
+                "description": "Identity error code when AUTH_ENABLED; legacy response body is preserved.",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "402": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "account_read_only: writes require confirmed trial or paid access."
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "intencao_nao_encontrada: nenhuma escrita foi gravada com esta chave."
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BancaInvalidaSaida"
+                }
+              }
+            },
+            "description": "Pedido inválido; um código estável por campo, sem msg/input/ctx."
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "The caller exceeded an applicable request limit."
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unexpected internal failure with no sensitive exception details."
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "A required dependency is temporarily unavailable.",
+            "headers": {
+              "X-Auth-Error": {
+                "description": "Identity error code when AUTH_ENABLED; legacy response body is preserved.",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          },
+          {
+            "SessionCookie": []
+          }
+        ],
+        "summary": "Recuperar escrita de banca"
+      }
+    },
+    "/api/v1/bancas/{banca_id}": {
+      "patch": {
+        "description": "Renomeia ou define/remove o capital inicial (null apaga); só os campos enviados mudam. Banca arquivada recusa com 409 banca_arquivada. Idempotency-Key obrigatória; FULL_WRITE e CSRF.",
+        "operationId": "alterar_banca_api_v1_bancas__banca_id__patch",
+        "parameters": [
+          {
+            "description": "Identificador da banca do usuário.",
+            "in": "path",
+            "name": "banca_id",
+            "required": true,
+            "schema": {
+              "maximum": 9223372036854775807,
+              "minimum": 1,
+              "title": "Banca Id",
+              "type": "integer"
+            }
+          },
+          {
+            "description": "Chave opaca obrigatória do cliente; reutilizá-la com o mesmo corpo reproduz a resposta original sem repetir a operação.",
+            "in": "header",
+            "name": "Idempotency-Key",
+            "required": true,
+            "schema": {
+              "description": "Chave opaca escolhida pelo cliente antes do envio. Repetir a mesma chave e o mesmo pedido devolve a resposta original sem repetir o efeito.",
+              "maxLength": 200,
+              "minLength": 1,
+              "pattern": "^[!-~]+$",
+              "title": "Idempotency-Key",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "examples": {
+                "default": {
+                  "summary": "Remover capital",
+                  "value": {
+                    "saldo_inicial_centavos": null
+                  }
+                }
+              },
+              "schema": {
+                "$ref": "#/components/schemas/BancaAlteracao"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BancaSaida"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Missing, expired, or invalid bearer token.",
+            "headers": {
+              "X-Auth-Error": {
+                "description": "Identity error code when AUTH_ENABLED; legacy response body is preserved.",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "402": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "account_read_only: writes require confirmed trial or paid access."
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Cookie mutation requires exact Origin and current CSRF proof."
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "banca_nao_encontrada."
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "nome_em_uso, banca_arquivada ou idempotency_key_conflict."
+          },
+          "413": {
+            "content": {
+              "text/plain": {
+                "example": "Content Too Large",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            },
+            "description": "The request body exceeds this endpoint's streaming limit."
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BancaInvalidaSaida"
+                }
+              }
+            },
+            "description": "Pedido inválido; um código estável por campo, sem msg/input/ctx."
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "The caller exceeded an applicable request limit."
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unexpected internal failure with no sensitive exception details."
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "A required dependency is temporarily unavailable.",
+            "headers": {
+              "X-Auth-Error": {
+                "description": "Identity error code when AUTH_ENABLED; legacy response body is preserved.",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          },
+          {
+            "CsrfProof": [],
+            "SessionCookie": []
+          }
+        ],
+        "summary": "Alterar banca"
+      }
+    },
+    "/api/v1/bancas/{banca_id}/arquivar": {
+      "post": {
+        "description": "Marca a banca como arquivada sem apagar movimentos, apostas nem vínculos históricos. Recusa com 409 banca_com_contas enquanto houver conta vinculada; banca arquivada não aceita novos vínculos. Idempotency-Key obrigatória; FULL_WRITE e CSRF.",
+        "operationId": "arquivar_banca_api_v1_bancas__banca_id__arquivar_post",
+        "parameters": [
+          {
+            "description": "Identificador da banca do usuário.",
+            "in": "path",
+            "name": "banca_id",
+            "required": true,
+            "schema": {
+              "maximum": 9223372036854775807,
+              "minimum": 1,
+              "title": "Banca Id",
+              "type": "integer"
+            }
+          },
+          {
+            "description": "Chave opaca obrigatória do cliente; reutilizá-la com o mesmo corpo reproduz a resposta original sem repetir a operação.",
+            "in": "header",
+            "name": "Idempotency-Key",
+            "required": true,
+            "schema": {
+              "description": "Chave opaca escolhida pelo cliente antes do envio. Repetir a mesma chave e o mesmo pedido devolve a resposta original sem repetir o efeito.",
+              "maxLength": 200,
+              "minLength": 1,
+              "pattern": "^[!-~]+$",
+              "title": "Idempotency-Key",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BancaSaida"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Missing, expired, or invalid bearer token.",
+            "headers": {
+              "X-Auth-Error": {
+                "description": "Identity error code when AUTH_ENABLED; legacy response body is preserved.",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "402": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "account_read_only: writes require confirmed trial or paid access."
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Cookie mutation requires exact Origin and current CSRF proof."
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "banca_nao_encontrada."
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "banca_com_contas (desvincule as contas antes), banca_arquivada ou idempotency_key_conflict."
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BancaInvalidaSaida"
+                }
+              }
+            },
+            "description": "Pedido inválido; um código estável por campo, sem msg/input/ctx."
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "The caller exceeded an applicable request limit."
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unexpected internal failure with no sensitive exception details."
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "A required dependency is temporarily unavailable.",
+            "headers": {
+              "X-Auth-Error": {
+                "description": "Identity error code when AUTH_ENABLED; legacy response body is preserved.",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          },
+          {
+            "CsrfProof": [],
+            "SessionCookie": []
+          }
+        ],
+        "summary": "Arquivar banca"
+      }
+    },
     "/api/v1/billing/cancel": {
       "post": {
         "description": "Idempotently schedule cancellation while preserving the remainder of the trial or paid period.",
@@ -9462,6 +10459,16 @@
               }
             },
             "description": "Conta ou banca não encontrada"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErroSaida"
+                }
+              }
+            },
+            "description": "A banca está arquivada"
           },
           "413": {
             "content": {
@@ -18246,6 +19253,15 @@
                       },
                       "type": "array"
                     },
+                    "bancas_requisicoes": {
+                      "items": {
+                        "additionalProperties": {
+                          "$ref": "#/components/schemas/JsonValue"
+                        },
+                        "type": "object"
+                      },
+                      "type": "array"
+                    },
                     "chamadas_ia": {
                       "items": {
                         "additionalProperties": {
@@ -18458,6 +19474,7 @@
                     "movimentos",
                     "movimento_requisicoes",
                     "bancas",
+                    "bancas_requisicoes",
                     "contas_casa",
                     "titulares",
                     "usos_conta_casa",

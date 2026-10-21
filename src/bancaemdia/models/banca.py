@@ -30,3 +30,5 @@ class Banca(Base):
     nome: Mapped[str] = mapped_column(String)
     saldo_inicial_centavos: Mapped[int | None] = mapped_column(BigInteger)
     criado_em: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+    # Arquivada sai das escolhas do site e de novos vínculos; apostas e movimentos mantêm a história.
+    arquivada_em: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))

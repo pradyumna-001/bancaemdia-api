@@ -5,6 +5,7 @@ from bancaemdia.models.aposta_consolidacao import ApostaConsolidacao
 from bancaemdia.models.assinatura import Assinatura
 from bancaemdia.models.audit_log import AuditLog
 from bancaemdia.models.banca import Banca
+from bancaemdia.models.banca_requisicao import BancaRequisicao
 from bancaemdia.models.billing_checkout import BillingCheckout
 from bancaemdia.models.billing_event import BillingEvent
 from bancaemdia.models.billing_price import BillingPrice
@@ -70,6 +71,7 @@ __all__ = [
     "Assinatura",
     "AuditLog",
     "Banca",
+    "BancaRequisicao",
     "Base",
     "BillingPrice",
     "BillingPriceAudit",

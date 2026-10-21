@@ -27,6 +27,11 @@ python scripts/generate_openapi.py
 | `DELETE` | `/api/v1/apostas/{chave}` | Excluir aposta da apuração | `200`, `401`, `402`, `403`, `404`, `409`, `422`, `429`, `500`, `503` | — |
 | `POST` | `/api/v1/apostas/{chave}/restaurar` | Restaurar aposta na apuração | `200`, `401`, `402`, `403`, `404`, `409`, `422`, `429`, `500`, `503` | — |
 | `POST` | `/api/v1/apostas/{chave}/resultado` | Registrar resultado da aposta | `200`, `401`, `402`, `403`, `404`, `409`, `413`, `422`, `429`, `500`, `503` | — |
+| `GET` | `/api/v1/bancas` | Listar bancas | `200`, `401`, `402`, `422`, `429`, `500`, `503` | — |
+| `POST` | `/api/v1/bancas` | Criar banca | `201`, `401`, `402`, `403`, `409`, `413`, `422`, `429`, `500`, `503` | — |
+| `GET` | `/api/v1/bancas/intencao` | Recuperar escrita de banca | `200`, `401`, `402`, `404`, `422`, `429`, `500`, `503` | — |
+| `PATCH` | `/api/v1/bancas/{banca_id}` | Alterar banca | `200`, `401`, `402`, `403`, `404`, `409`, `413`, `422`, `429`, `500`, `503` | — |
+| `POST` | `/api/v1/bancas/{banca_id}/arquivar` | Arquivar banca | `200`, `401`, `402`, `403`, `404`, `409`, `422`, `429`, `500`, `503` | — |
 | `POST` | `/api/v1/billing/cancel` | Cancel renewal | `200`, `401`, `402`, `403`, `409`, `422`, `429`, `500`, `503` | billing |
 | `POST` | `/api/v1/billing/portal` | Manage subscription | `200`, `401`, `402`, `403`, `409`, `422`, `429`, `500`, `503` | billing |
 | `GET` | `/api/v1/billing/status` | Subscription status | `200`, `401`, `402`, `409`, `422`, `429`, `500`, `503` | billing |
@@ -34,7 +39,7 @@ python scripts/generate_openapi.py
 | `POST` | `/api/v1/billing/webhook` | Receive Stripe events | `200`, `400`, `413`, `503` | — |
 | `GET` | `/api/v1/caixa` | Listar movimentos de caixa | `200`, `401`, `402`, `422`, `429`, `500`, `503` | — |
 | `POST` | `/api/v1/caixa` | Registrar movimento de caixa | `201`, `401`, `402`, `403`, `404`, `409`, `413`, `422`, `429`, `500`, `503` | — |
-| `PATCH` | `/api/v1/caixa/contas/{conta_casa_id}/banca` | Vincular conta à banca | `200`, `401`, `402`, `403`, `404`, `413`, `422`, `429`, `500`, `503` | — |
+| `PATCH` | `/api/v1/caixa/contas/{conta_casa_id}/banca` | Vincular conta à banca | `200`, `401`, `402`, `403`, `404`, `409`, `413`, `422`, `429`, `500`, `503` | — |
 | `GET` | `/api/v1/caixa/extrato` | Consultar extrato | `200`, `401`, `402`, `422`, `429`, `500`, `503` | — |
 | `GET` | `/api/v1/caixa/saldo` | Consultar saldos | `200`, `401`, `402`, `422`, `429`, `500`, `503` | — |
 | `POST` | `/api/v1/calculadoras/cobertura-ao-vivo` | Calcular cobertura ao vivo | `200`, `401`, `402`, `403`, `413`, `422`, `429`, `500`, `503` | calculadoras |

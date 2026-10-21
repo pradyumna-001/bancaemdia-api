@@ -22,6 +22,7 @@ class Banca:
     nome: str
     saldo_inicial_centavos: int | None
     criado_em: datetime
+    arquivada_em: datetime | None = None
 
 
 @dataclass(frozen=True)
