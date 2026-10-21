@@ -220,6 +220,18 @@ OPERATION_DOCUMENTATION: dict[OperationKey, tuple[str, str]] = {
         "Restaurar aposta na apuração",
         "Volta a incluir uma aposta anteriormente excluída, preservando todo o histórico.",
     ),
+    ("get", "/api/v1/unidade"): (
+        "Consultar valor da unidade",
+        "Unidade vigente agora e histórico de vigências do usuário, com centavos exatos, origem (padrao/usuario) e início no fuso do usuário. Sem vigência vale o padrão de 10.000 centavos. Permitida em READ_ONLY.",
+    ),
+    ("post", "/api/v1/unidade/vigencias"): (
+        "Definir valor da unidade",
+        "Abre nova vigência no instante do servidor e encerra a anterior nesse instante. Apostas existentes guardam a unidade com que foram criadas e não mudam; criação manual, coleta, Telegram e XLSX leem a vigência do instante da aposta. Idempotency-Key obrigatória: mesmo corpo devolve o recibo original, corpo diferente 409. FULL_WRITE e CSRF.",
+    ),
+    ("get", "/api/v1/unidade/vigencias/intencao"): (
+        "Recuperar troca de unidade",
+        "Lê no primário o recibo gravado para a Idempotency-Key após resposta perdida; 404 se nada foi gravado. Não cria nem renova vigência. Permitida em READ_ONLY.",
+    ),
     ("post", "/api/v1/caixa"): (
         "Registrar movimento de caixa",
         "Registra depósito, saque, ajuste ou transferência como lançamentos auditáveis.",
@@ -570,6 +582,10 @@ REQUEST_EXAMPLES: dict[OperationKey, tuple[str, JsonObject]] = {
     ("post", "/api/v1/apostas/{chave}/resultado"): (
         "Liquidação green",
         {"estado": "GREEN", "retorno_centavos": 19_500},
+    ),
+    ("post", "/api/v1/unidade/vigencias"): (
+        "Unidade de R$ 50,00",
+        {"valor_centavos": 5_000},
     ),
     ("post", "/api/v1/caixa"): (
         "Depósito",

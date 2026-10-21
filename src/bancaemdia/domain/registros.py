@@ -45,6 +45,9 @@ class Unidade:
     valor_centavos: int
     vigente_de: datetime
     vigente_ate: datetime | None
+    chave_idempotencia: str | None = None
+    requisicao_hash: str | None = None
+    recibo_json: dict[str, Any] | None = None
 
 
 @dataclass(frozen=True)
