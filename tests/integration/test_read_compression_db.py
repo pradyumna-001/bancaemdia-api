@@ -5,6 +5,7 @@ import json
 import time
 from collections.abc import AsyncIterator, Awaitable, Callable
 from datetime import UTC, datetime
+from pathlib import Path
 from typing import Any
 from uuid import uuid4
 
@@ -65,16 +66,9 @@ async def _seed(engine: AsyncEngine, usuario_id: int) -> None:
                 )
             ).scalars()
         )
+        # Os mercados canônicos já existem: o catálogo compartilhado tem contagem exata em test_rls.
         mercados = list(
-            (
-                await conn.execute(
-                    text(
-                        "INSERT INTO mercados (nome, familia) SELECT :p || ' mercado ' || g, 'GOLS' "
-                        "FROM generate_series(1, 12) g RETURNING id"
-                    ),
-                    {"p": prefix},
-                )
-            ).scalars()
+            (await conn.execute(text("SELECT id FROM mercados ORDER BY id LIMIT 12"))).scalars()
         )
         banca = await conn.scalar(
             text(
@@ -217,8 +211,15 @@ INTEGRATED_READS = {
     "/api/v1/painel/filtrado/diario": "/api/v1/painel/filtrado/diario?periodo=all",
     "/api/v1/painel/filtrado/grupos": "/api/v1/painel/filtrado/grupos?periodo=all",
 }
-# As rotas publicadas pelo próprio app; `app.routes` não lista routers incluídos em todo FastAPI.
-ROUTES = set(app.openapi()["paths"])
+# O snapshot versionado, que o teste de contrato mantém igual ao app. Gerar `app.openapi()` aqui
+# deixaria em cache, na coleta, o schema que esse mesmo teste compara (medido na CI).
+ROUTES = set(
+    json.loads(
+        (Path(__file__).parents[1] / "contract" / "schemas" / "openapi.json").read_text(
+            encoding="utf-8"
+        )
+    )["paths"]
+)
 
 
 def test_every_registered_allowlisted_read_has_a_real_case() -> None:
