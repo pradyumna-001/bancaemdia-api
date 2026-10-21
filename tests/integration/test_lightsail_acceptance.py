@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import gzip
 import json
 import os
 import secrets
@@ -174,6 +175,58 @@ def test_real_dump_roundtrip_through_private_object_transport(
         run(["docker", "stop", source], check=False, capture_output=True)
 
 
+def start_edge(tmp_path, name, config):
+    path = tmp_path / "Caddyfile"
+    path.write_text(config)
+    run = subprocess.run
+    pull_image("caddy:2.10")
+    # Docker's automatic port range overlaps Linux outbound ephemeral ports.
+    # The full suite opens many PostgreSQL/Redis connections concurrently;
+    # reserve a free test port below that range instead of racing them.
+    for _ in range(30):
+        host_port = 10000 + secrets.randbelow(10000)
+        with socket.socket() as reservation:
+            try:
+                reservation.bind(("127.0.0.1", host_port))
+            except OSError:
+                continue
+            break
+    else:
+        pytest.fail("No free isolated Caddy acceptance port")
+    started = run(
+        [
+            "docker",
+            "run",
+            "-d",
+            "--rm",
+            "--name",
+            name,
+            "-p",
+            f"127.0.0.1:{host_port}:8080",
+            "-v",
+            f"{path.resolve()}:/etc/caddy/Caddyfile:ro",
+            "caddy:2.10",
+        ],
+        capture_output=True,
+        text=True,
+    )
+    assert started.returncode == 0, started.stderr
+    port = (
+        run(["docker", "port", name, "8080"], check=True, capture_output=True, text=True)
+        .stdout.strip()
+        .split(":")[-1]
+    )
+    base = f"http://127.0.0.1:{port}"
+    for _ in range(30):
+        try:
+            if httpx.get(base + "/health").status_code == 200:
+                return base
+        except httpx.HTTPError:
+            pass
+        time.sleep(1)
+    pytest.fail("Actual Caddy configuration did not start")
+
+
 def test_actual_caddy_filters_sensitive_logs_and_hides_metrics(tmp_path, docker_available):
     name = "phase1-edge-" + uuid4().hex
     config = (ROOT / "deploy/lightsail/Caddyfile").read_text()
@@ -181,57 +234,9 @@ def test_actual_caddy_filters_sensitive_logs_and_hides_metrics(tmp_path, docker_
     config = config.replace("{$SITE_DOMAIN}", ":8080").replace(
         "reverse_proxy api:8000", "respond 200"
     )
-    path = tmp_path / "Caddyfile"
-    path.write_text(config)
     run = subprocess.run
-    pull_image("caddy:2.10")
     try:
-        # Docker's automatic port range overlaps Linux outbound ephemeral ports.
-        # The full suite opens many PostgreSQL/Redis connections concurrently;
-        # reserve a free test port below that range instead of racing them.
-        for _ in range(30):
-            host_port = 10000 + secrets.randbelow(10000)
-            with socket.socket() as reservation:
-                try:
-                    reservation.bind(("127.0.0.1", host_port))
-                except OSError:
-                    continue
-                break
-        else:
-            pytest.fail("No free isolated Caddy acceptance port")
-        started = run(
-            [
-                "docker",
-                "run",
-                "-d",
-                "--rm",
-                "--name",
-                name,
-                "-p",
-                f"127.0.0.1:{host_port}:8080",
-                "-v",
-                f"{path.resolve()}:/etc/caddy/Caddyfile:ro",
-                "caddy:2.10",
-            ],
-            capture_output=True,
-            text=True,
-        )
-        assert started.returncode == 0, started.stderr
-        port = (
-            run(["docker", "port", name, "8080"], check=True, capture_output=True, text=True)
-            .stdout.strip()
-            .split(":")[-1]
-        )
-        base = f"http://127.0.0.1:{port}"
-        for _ in range(30):
-            try:
-                if httpx.get(base + "/health").status_code == 200:
-                    break
-            except httpx.HTTPError:
-                pass
-            time.sleep(1)
-        else:
-            pytest.fail("Actual Caddy configuration did not start")
+        base = start_edge(tmp_path, name, config)
         assert httpx.get(base + "/metrics").status_code == 404
         assert httpx.get(base + "/metrics/private").status_code == 404
         sentinel = "PHASE1_PRIVATE_SENTINEL"
@@ -258,5 +263,49 @@ def test_actual_caddy_filters_sensitive_logs_and_hides_metrics(tmp_path, docker_
         assert any(r.get("status") == 404 for r in access)
         assert any(r.get("status") == 200 for r in access)
         assert all("headers" not in r["request"] and "uri" not in r["request"] for r in access)
+    finally:
+        run(["docker", "stop", name], check=False, capture_output=True)
+
+
+def test_actual_caddy_relays_the_api_encoding_and_never_compresses_on_its_own(
+    tmp_path, docker_available
+):
+    name = "phase1-edge-encoding-" + uuid4().hex
+    sentinel = "EDGE_CSRF_SENTINEL"
+    body = '{"csrf_token":"' + sentinel + '","data":"' + "x" * 4000 + '"}'
+    # The shipped site proxies to a stand-in API that compresses only its allowlisted read when
+    # asked, exactly as the application does; /auth/session is never compressed upstream.
+    config = (ROOT / "deploy/lightsail/Caddyfile").read_text()
+    config = config.replace("{$SITE_DOMAIN}", ":8080").replace(
+        "reverse_proxy api:8000", "reverse_proxy 127.0.0.1:8081"
+    )
+    config += (
+        "\n:8081 {\n"
+        "    @read path /api/v1/painel/analises\n"
+        "    encode @read gzip\n"
+        "    header Content-Type application/json\n"
+        f"    respond `{body}` 200\n"
+        "}\n"
+    )
+    run = subprocess.run
+    try:
+        base = start_edge(tmp_path, name, config)
+        with httpx.Client() as client:
+            del client.headers["accept-encoding"]
+
+            def fetch(path, accept):
+                headers = {} if accept is None else {"Accept-Encoding": accept}
+                with client.stream("GET", base + path, headers=headers) as response:
+                    return response, b"".join(response.iter_raw())
+
+            relayed, raw = fetch("/api/v1/painel/analises", "gzip")
+            assert relayed.headers["content-encoding"] == "gzip"
+            assert gzip.decompress(raw) == body.encode()
+            plain, raw = fetch("/api/v1/painel/analises", None)
+            assert "content-encoding" not in plain.headers and raw == body.encode()
+            for accept in ("gzip", "zstd, gzip, br"):
+                identity, raw = fetch("/auth/session", accept)
+                assert "content-encoding" not in identity.headers, accept
+                assert sentinel.encode() in raw
     finally:
         run(["docker", "stop", name], check=False, capture_output=True)

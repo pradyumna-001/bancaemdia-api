@@ -39,6 +39,14 @@ Monitor `uploads` in `processing` for jobs older than the expected worker window
 Celery task and `upload_arquivos` row, and alert before retained 50 MiB payloads exhaust disk.
 The dashboard known-balance exception is documented in [panel refresh](painel-refresh.md).
 
+Response compression belongs to the API allowlist, not to the edge: do not add `encode` to the
+Caddyfile or another proxy in front of `/api/*` and `/auth/*`, which would also compress session
+CSRF proofs and temporary codes. Caddy's `reverse_proxy` relays `Accept-Encoding` and the API's
+`Content-Encoding` unchanged. To verify after deploy, run
+`curl -s -o /dev/null -D - -H 'Accept-Encoding: gzip' -H "Authorization: Bearer $TOKEN" https://YOUR_DOMAIN/api/v1/painel/analises`
+(expect `Content-Encoding: gzip`) and the same against `/auth/session` (expect no
+`Content-Encoding`). See [read compression](../contracts/compressao-leituras.md).
+
 Install the included `bancaemdia-upload-watchdog` systemd service/timer after copying the
 `deploy/lightsail/systemd/` units to `/etc/systemd/system/`. Run `systemctl daemon-reload`,
 enable the timer, and run the service once. Every five minutes it queries uploads still
