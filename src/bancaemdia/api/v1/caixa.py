@@ -604,7 +604,10 @@ async def consultar_saldo(
 @router.patch(
     "/api/v1/caixa/contas/{conta_casa_id}/banca",
     response_model=VinculoBancaSaida,
-    responses={404: {"model": ErroSaida, "description": "Conta ou banca não encontrada"}},
+    responses={
+        404: {"model": ErroSaida, "description": "Conta ou banca não encontrada"},
+        409: {"model": ErroSaida, "description": "A banca está arquivada"},
+    },
 )
 async def vincular_banca(
     conta_casa_id: Annotated[int, Path(ge=1, le=BIGINT_MAX)],
@@ -616,6 +619,8 @@ async def vincular_banca(
         banca = await BancaRepo().get_by_id(session, usuario.id, pedido.banca_id)
         if banca is None:
             return erro(status.HTTP_404_NOT_FOUND, "não achei esta banca")
+        if banca.arquivada_em is not None:
+            return erro(status.HTTP_409_CONFLICT, "esta banca está arquivada")
     conta = await ContaCasaRepo().update_banca(session, usuario.id, conta_casa_id, pedido.banca_id)
     if conta is None:
         return erro(status.HTTP_404_NOT_FOUND, "não achei esta conta")

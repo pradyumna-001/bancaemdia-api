@@ -246,6 +246,26 @@ OPERATION_DOCUMENTATION: dict[OperationKey, tuple[str, str]] = {
         "Restaurar lote de apostas",
         "Restaura de uma vez exatamente as apostas que este lote apagou e que continuam apagadas; as alteradas uma a uma depois do lote ficam como estão. Um lote restaura uma vez (409 lote_restaurado). Idempotency-Key obrigatória; FULL_WRITE e CSRF.",
     ),
+    ("get", "/api/v1/bancas"): (
+        "Listar bancas",
+        "Bancas do usuário com id, nome, estado (ativa/arquivada), capital inicial em centavos ou null (não informado) e contas vinculadas. Permitida em READ_ONLY.",
+    ),
+    ("post", "/api/v1/bancas"): (
+        "Criar banca",
+        "Cria banca ativa; capital ausente ou null fica não informado e a progressão segue null. Nome único por usuário, inclusive entre arquivadas (409 nome_em_uso). Idempotency-Key obrigatória: mesmo pedido devolve a resposta original, outro pedido 409. FULL_WRITE e CSRF.",
+    ),
+    ("patch", "/api/v1/bancas/{banca_id}"): (
+        "Alterar banca",
+        "Renomeia ou define/remove o capital inicial (null apaga); só os campos enviados mudam. Banca arquivada recusa com 409 banca_arquivada. Idempotency-Key obrigatória; FULL_WRITE e CSRF.",
+    ),
+    ("post", "/api/v1/bancas/{banca_id}/arquivar"): (
+        "Arquivar banca",
+        "Marca a banca como arquivada sem apagar movimentos, apostas nem vínculos históricos. Recusa com 409 banca_com_contas enquanto houver conta vinculada; banca arquivada não aceita novos vínculos. Idempotency-Key obrigatória; FULL_WRITE e CSRF.",
+    ),
+    ("get", "/api/v1/bancas/intencao"): (
+        "Recuperar escrita de banca",
+        "Lê no primário a operação, o status e a resposta gravados para a Idempotency-Key após resposta perdida; 404 se nada foi gravado. Permitida em READ_ONLY.",
+    ),
     ("post", "/api/v1/caixa"): (
         "Registrar movimento de caixa",
         "Registra depósito, saque, ajuste ou transferência como lançamentos auditáveis.",
@@ -430,6 +450,7 @@ PARAMETER_DESCRIPTIONS = {
     "competicao_id": "Identificador canônico da competição usada como filtro.",
     "conta_casa_id": "Identificador da conta da casa usada como filtro.",
     "lote_id": "Identificador do lote de exclusão devolvido no recibo.",
+    "banca_id": "Identificador da banca do usuário.",
     "conta_id": "Identificador da conta estável da casa pertencente ao titular.",
     "data_corte": "Data civil opcional para reconstruir o saldo histórico.",
     "desde": "Limite inicial inclusivo do intervalo, em ISO 8601.",
@@ -605,6 +626,14 @@ REQUEST_EXAMPLES: dict[OperationKey, tuple[str, JsonObject]] = {
             "confirmacao": "token-devolvido-pela-previa",
             "frase": "APAGAR 1234 APOSTAS",
         },
+    ),
+    ("post", "/api/v1/bancas"): (
+        "Banca com capital",
+        {"nome": "Banca principal", "saldo_inicial_centavos": 100_000},
+    ),
+    ("patch", "/api/v1/bancas/{banca_id}"): (
+        "Remover capital",
+        {"saldo_inicial_centavos": None},
     ),
     ("post", "/api/v1/caixa"): (
         "Depósito",
