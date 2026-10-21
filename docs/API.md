@@ -22,6 +22,11 @@ python scripts/generate_openapi.py
 | `GET` | `/api/v1/apostas` | Listar apostas | `200`, `401`, `402`, `422`, `429`, `500`, `503` | — |
 | `POST` | `/api/v1/apostas` | Criar aposta manual | `201`, `401`, `402`, `403`, `409`, `413`, `422`, `429`, `500`, `503` | — |
 | `POST` | `/api/v1/apostas/importar-planilha` | Importar apostas do Excel | `200`, `401`, `402`, `403`, `413`, `422`, `429`, `500`, `503` | — |
+| `POST` | `/api/v1/apostas/lotes` | Apagar todas as apostas | `201`, `401`, `402`, `403`, `409`, `413`, `422`, `429`, `500`, `503` | — |
+| `GET` | `/api/v1/apostas/lotes/intencao` | Recuperar lote de apostas | `200`, `401`, `402`, `404`, `422`, `429`, `500`, `503` | — |
+| `GET` | `/api/v1/apostas/lotes/previa-apagar` | Prévia de apagar todas as apostas | `200`, `401`, `402`, `422`, `429`, `500`, `503` | — |
+| `GET` | `/api/v1/apostas/lotes/{lote_id}` | Consultar lote de apostas | `200`, `401`, `402`, `404`, `422`, `429`, `500`, `503` | — |
+| `POST` | `/api/v1/apostas/lotes/{lote_id}/restaurar` | Restaurar lote de apostas | `200`, `401`, `402`, `403`, `404`, `409`, `422`, `429`, `500`, `503` | — |
 | `GET` | `/api/v1/apostas/{chave}` | Consultar aposta | `200`, `401`, `402`, `404`, `422`, `429`, `500`, `503` | — |
 | `PATCH` | `/api/v1/apostas/{chave}` | Corrigir aposta | `200`, `401`, `402`, `403`, `404`, `409`, `413`, `422`, `429`, `500`, `503` | — |
 | `DELETE` | `/api/v1/apostas/{chave}` | Excluir aposta da apuração | `200`, `401`, `402`, `403`, `404`, `409`, `422`, `429`, `500`, `503` | — |

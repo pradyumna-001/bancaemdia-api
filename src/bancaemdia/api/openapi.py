@@ -220,6 +220,26 @@ OPERATION_DOCUMENTATION: dict[OperationKey, tuple[str, str]] = {
         "Restaurar aposta na apuração",
         "Volta a incluir uma aposta anteriormente excluída, preservando todo o histórico.",
     ),
+    ("get", "/api/v1/apostas/lotes/previa-apagar"): (
+        "Prévia de apagar todas as apostas",
+        "Conta as apostas ativas e devolve a frase que a pessoa precisa digitar e um token de confirmação assinado, válido por 10 minutos e preso a este conjunto exato. Escopo: apostas apenas; movimentos, bancas, cadastro, titulares, assinatura, Telegram e coleta não mudam.",
+    ),
+    ("post", "/api/v1/apostas/lotes"): (
+        "Apagar todas as apostas",
+        "Apaga de uma vez, numa transação, todas as apostas ativas da prévia, com a mesma semântica do DELETE individual: um evento por aposta, nada removido fisicamente, visíveis com incluir_apagadas. Exige frase e token da prévia; 409 se o conjunto mudou, a prévia expirou ou outro lote está em curso. Idempotency-Key obrigatória: mesmo pedido devolve o recibo original. FULL_WRITE e CSRF; 402 sem efeito.",
+    ),
+    ("get", "/api/v1/apostas/lotes/intencao"): (
+        "Recuperar lote de apostas",
+        "Lê no primário a operação, o status e o recibo gravados para a Idempotency-Key após resposta perdida; 404 se nada foi gravado. Permitida em READ_ONLY.",
+    ),
+    ("get", "/api/v1/apostas/lotes/{lote_id}"): (
+        "Consultar lote de apostas",
+        "Recibo do lote, com contagem apagada e, se houver, quando e quantas foram restauradas. Permitida em READ_ONLY.",
+    ),
+    ("post", "/api/v1/apostas/lotes/{lote_id}/restaurar"): (
+        "Restaurar lote de apostas",
+        "Restaura de uma vez exatamente as apostas que este lote apagou e que continuam apagadas; as alteradas uma a uma depois do lote ficam como estão. Um lote restaura uma vez (409 lote_restaurado). Idempotency-Key obrigatória; FULL_WRITE e CSRF.",
+    ),
     ("post", "/api/v1/caixa"): (
         "Registrar movimento de caixa",
         "Registra depósito, saque, ajuste ou transferência como lançamentos auditáveis.",
@@ -403,6 +423,7 @@ PARAMETER_DESCRIPTIONS = {
     "chave": "Chave estável e opaca da aposta.",
     "competicao_id": "Identificador canônico da competição usada como filtro.",
     "conta_casa_id": "Identificador da conta da casa usada como filtro.",
+    "lote_id": "Identificador do lote de exclusão devolvido no recibo.",
     "conta_id": "Identificador da conta estável da casa pertencente ao titular.",
     "data_corte": "Data civil opcional para reconstruir o saldo histórico.",
     "desde": "Limite inicial inclusivo do intervalo, em ISO 8601.",
@@ -570,6 +591,14 @@ REQUEST_EXAMPLES: dict[OperationKey, tuple[str, JsonObject]] = {
     ("post", "/api/v1/apostas/{chave}/resultado"): (
         "Liquidação green",
         {"estado": "GREEN", "retorno_centavos": 19_500},
+    ),
+    ("post", "/api/v1/apostas/lotes"): (
+        "Confirmação da prévia",
+        {
+            "acao": "apagar_todas",
+            "confirmacao": "token-devolvido-pela-previa",
+            "frase": "APAGAR 1234 APOSTAS",
+        },
     ),
     ("post", "/api/v1/caixa"): (
         "Depósito",

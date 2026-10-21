@@ -26,6 +26,7 @@ router = APIRouter(responses=AUTHENTICATED_ERROR_RESPONSES)
 # attributed to one account; see docs/SECURITY.md before calling this a full export.
 EXPORT_TABLES = (
     "apostas",
+    "apostas_lotes",
     "eventos",
     "movimentos",
     "movimento_requisicoes",
