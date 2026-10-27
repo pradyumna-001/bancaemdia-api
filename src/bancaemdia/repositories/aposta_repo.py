@@ -12,6 +12,56 @@ from bancaemdia.repositories.aposta_consolidacao import financial_predicate
 from bancaemdia.repositories.base import colunas
 
 IMUTAVEIS = frozenset({"id", "usuario_id", "chave", "criada_em"})
+_bet_by_key = lambda_stmt(
+    lambda: select(models.Aposta).where(
+        models.Aposta.usuario_id == bindparam("usuario_id_1"),
+        models.Aposta.chave == bindparam("chave_1"),
+    )
+)
+# Cache these two fixed materialization shapes. Tenant, key, amounts and account
+# remain execution parameters; replays with a source timestamp use the generic
+# path below, including its stale-write comparison.
+_collected_fields = frozenset({
+    "usuario_id",
+    "chave",
+    "origem",
+    "data_aposta",
+    "data_jogo",
+    "stake_unidades",
+    "stake_centavos",
+    "valor_aposta_centavos",
+    "odd",
+    "freebet",
+    "estado",
+    "retorno_centavos",
+    "revisao_grave",
+})
+
+
+def _collected_upsert(fields: frozenset[str]) -> ReturningInsert[tuple[models.Aposta]]:
+    statement = insert(models.Aposta).values(
+        **{field: bindparam(field) for field in sorted(fields)},
+        atualizada_em=func.clock_timestamp(),
+    )
+    return statement.on_conflict_do_update(
+        index_elements=["usuario_id", "chave"],
+        index_where=text("chave IS NOT NULL"),
+        set_={
+            **{field: getattr(statement.excluded, field) for field in fields - IMUTAVEIS},
+            "atualizada_em": statement.excluded.atualizada_em,
+        },
+        where=statement.excluded.atualizada_em > models.Aposta.atualizada_em,
+    ).returning(models.Aposta)
+
+
+_collected_update = _collected_upsert(_collected_fields)
+_collected_creation = _collected_upsert(_collected_fields | {"conta_casa_id"})
+_cached_collected_update = lambda_stmt(lambda: _collected_update).execution_options(
+    dml_strategy="orm"
+)
+_cached_collected_creation = lambda_stmt(lambda: _collected_creation).execution_options(
+    dml_strategy="orm"
+)
 
 _bet_by_key = lambda_stmt(
     lambda: select(models.Aposta).where(
