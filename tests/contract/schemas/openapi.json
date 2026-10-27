@@ -6341,6 +6341,207 @@
         "title": "SessionStatus",
         "type": "object"
       },
+<<<<<<< HEAD
+=======
+      "SourceEvidence": {
+        "additionalProperties": false,
+        "properties": {
+          "casa": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Casa"
+          },
+          "chave": {
+            "title": "Chave",
+            "type": "string"
+          },
+          "data_aposta": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Data Aposta"
+          },
+          "data_jogo": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Data Jogo"
+          },
+          "descricao": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Descricao"
+          },
+          "evento": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Evento"
+          },
+          "freebet": {
+            "title": "Freebet",
+            "type": "boolean"
+          },
+          "mercado": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Mercado"
+          },
+          "odd": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Odd"
+          },
+          "origem": {
+            "title": "Origem",
+            "type": "string"
+          },
+          "papel": {
+            "enum": [
+              "aposta",
+              "casa",
+              "telegram"
+            ],
+            "title": "Papel",
+            "type": "string"
+          },
+          "retorno_centavos": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Retorno Centavos"
+          },
+          "selecionada": {
+            "title": "Selecionada",
+            "type": "boolean"
+          },
+          "stake_centavos": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Stake Centavos"
+          },
+          "stake_unidades": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Stake Unidades"
+          },
+          "tipster": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Tipster"
+          },
+          "tipster_id": {
+            "anyOf": [
+              {
+                "pattern": "^[1-9][0-9]{0,18}$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Tipster Id"
+          },
+          "valor_aposta_centavos": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Valor Aposta Centavos"
+          }
+        },
+        "required": [
+          "chave",
+          "papel",
+          "origem",
+          "casa",
+          "evento",
+          "descricao",
+          "mercado",
+          "data_jogo",
+          "data_aposta",
+          "tipster",
+          "tipster_id",
+          "odd",
+          "stake_unidades",
+          "stake_centavos",
+          "valor_aposta_centavos",
+          "retorno_centavos",
+          "freebet",
+          "selecionada"
+        ],
+        "title": "SourceEvidence",
+        "type": "object"
+      },
+>>>>>>> e2b7f17 (fix(revisao): preservar evidência financeira e revisões independentes)
       "StakeMarketRequest": {
         "additionalProperties": false,
         "properties": {

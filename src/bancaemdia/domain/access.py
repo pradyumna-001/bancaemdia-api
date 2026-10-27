@@ -4,6 +4,16 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from bancaemdia.domain.billing import AccessMode
 from bancaemdia.repositories.assinatura_repo import AssinaturaRepo
 
+# Evidence reading is explicitly available independently of write entitlement.
+READ_OPERATION_MODES = {"aposta_foto": frozenset({AccessMode.FULL_WRITE, AccessMode.READ_ONLY})}
+
+
+async def require_read_operation(session: AsyncSession, usuario_id: int, operation: str) -> None:
+    modes = READ_OPERATION_MODES[operation]
+    read = await AssinaturaRepo().read_status(session, usuario_id)
+    if read.access not in modes:
+        raise AccountReadOnlyError("account_read_only")
+
 
 class AccountReadOnlyError(Exception):
     pass

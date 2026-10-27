@@ -1,0 +1,11 @@
+{
+  "request": {"method": "GET", "path": "/api/v1/apostas/chave-autorizada/foto", "query": {}},
+  "success": {"status": 200, "content_type": "image/png", "headers": {"Cache-Control": "private, no-store", "Content-Disposition": "inline; filename=\"foto-aposta.png\"", "X-Content-Type-Options": "nosniff", "Vary": "Authorization, Cookie"}},
+  "errors": [
+    {"status": 401, "body": {"detail": "sessão necessária para consultar a foto"}},
+    {"status": 404, "body": {"detail": "não achei a foto desta aposta"}},
+    {"status": 422, "body": {"detail": "a foto armazenada é inválida, incompatível ou excede o limite permitido"}},
+    {"status": 429, "body": {"error": "rate_limited", "retry_after": 60, "detail": "Muitas requisições. Tente novamente em instantes."}, "headers": {"Retry-After": "60"}},
+    {"status": 503, "body": {"detail": "não foi possível carregar a foto agora — tente novamente em instantes"}, "headers": {"Retry-After": "5"}}
+  ]
+}

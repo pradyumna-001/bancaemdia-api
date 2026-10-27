@@ -53,6 +53,8 @@ def needs_primary(request: Request, usuario_id: int | None, writes: RecentWrites
         return True
     if route_path(request) == "/api/v1/titulares/trocas/intencao":
         return True
+    if route_path(request).startswith("/api/v1/resultados/"):
+        return True
     if route_path(request).startswith(CALCULATOR_PREFIX):
         return False
     if request.method not in SAFE_METHODS:
