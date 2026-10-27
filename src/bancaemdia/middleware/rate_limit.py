@@ -262,7 +262,15 @@ def policy_for(request: Request) -> RateLimitPolicy | None:
         return COLETA_POLICY if request.method == "POST" else None
     if path == "/api/v1/upload" and request.method == "POST":
         return UPLOAD_POLICY
-    if path == "/api/v1/painel/export" and request.method == "GET":
+    if (
+        path
+        in {
+            "/api/v1/painel/export",
+            "/api/v1/painel/filtrado/export",
+            "/api/v1/painel/filtrado/detalhado/export",
+        }
+        and request.method == "GET"
+    ):
         return PANEL_EXPORT_POLICY
     if path == "/api/v1" or path.startswith("/api/v1/"):
         return API_POLICY

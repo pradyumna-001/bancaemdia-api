@@ -38,6 +38,7 @@ from bancaemdia.api.v1 import (
     metas,
     painel,
     painel_filtrado,
+    painel_detalhado,
     filtros,
     hipotetica,
     results,
@@ -163,6 +164,7 @@ app.include_router(filtros.router)
 app.include_router(hipotetica.router)
 app.include_router(metas.router)
 app.include_router(painel_filtrado.router)
+app.include_router(painel_detalhado.router)
 app.include_router(filtros.router)
 app.include_router(hipotetica.router)
 app.include_router(revisao.router)
