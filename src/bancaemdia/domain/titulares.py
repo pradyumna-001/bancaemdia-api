@@ -5,7 +5,7 @@ from __future__ import annotations
 import hashlib
 import json
 from dataclasses import dataclass
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 from typing import Literal
 
 from sqlalchemy import func, insert, or_, select, update
@@ -23,6 +23,21 @@ class TrocaInvalidaError(ValueError):
 
 class ChaveIdempotenciaEmConflitoError(TrocaInvalidaError):
     pass
+
+
+class PreviaObsoletaError(TrocaInvalidaError):
+    pass
+
+
+class PreviaExpiradaError(TrocaInvalidaError):
+    pass
+
+
+PREVIEW_TTL = timedelta(hours=24)
+
+
+def resposta_publica(value: dict[str, object]) -> dict[str, object]:
+    return {key: item for key, item in value.items() if not key.startswith("_")}
 
 
 @dataclass(frozen=True)
@@ -93,7 +108,8 @@ async def trocar_conta(
     if existing is not None:
         if existing.pedido_hash != digest:
             raise ChaveIdempotenciaEmConflitoError("Idempotency-Key já usada com outro pedido")
-        return existing.resposta
+        return resposta_publica(existing.resposta)
+    preview = None
     if aplicar:
         preview = (
             await session.execute(
@@ -109,6 +125,8 @@ async def trocar_conta(
     now = await session.scalar(select(func.clock_timestamp()))
     if now is None or pedido.efetiva_em > now:
         raise TrocaInvalidaError("efetiva_em não pode estar no futuro")
+    if preview is not None and now >= preview.criado_em + PREVIEW_TTL:
+        raise PreviaExpiradaError("swap_preview_expired")
     accounts = list(
         (
             await session.execute(
@@ -162,6 +180,7 @@ async def trocar_conta(
         ).scalars()
     )
     default_impacted = []
+    game_times = []
     from bancaemdia.domain.projecao import projetar
 
     for ident in impacted:
@@ -183,7 +202,42 @@ async def trocar_conta(
             and not state.get("conta_referencia_explicita")
         ):
             default_impacted.append(ident)
+            assert bet.data_jogo is not None
+            game_times.append([str(ident), bet.data_jogo.isoformat()])
     impacted = default_impacted
+    # Only context presented/used by this decision. Financial results and unrelated
+    # bets do not alter a switch that never rewrites existing financial facts.
+    usages = await UsoContaCasaRepo().list_by_house(session, usuario_id, pedido.casa_id)
+    holders = list(
+        (
+            await session.execute(
+                select(models.Titular.id, models.Titular.nome, models.Titular.arquivado)
+                .where(
+                    models.Titular.usuario_id == usuario_id,
+                    models.Titular.id.in_([a.titular_id for a in accounts]),
+                )
+                .order_by(models.Titular.id)
+            )
+        ).all()
+    )
+    evidence = {
+        "version": 1,
+        "accounts": [
+            [str(a.id), a.titular_id, a.apelido, a.estado, a.ativa, a.desde, a.ate]
+            for a in accounts
+        ],
+        "holders": [list(row) for row in holders],
+        "usages": [
+            [str(u.id), str(u.conta_casa_id), u.vigente_de, u.vigente_ate, u.origem] for u in usages
+        ],
+        "games": game_times,
+    }
+    evidence_hash = hashlib.sha256(
+        json.dumps(evidence, sort_keys=True, default=str).encode()
+    ).hexdigest()
+    if preview is not None and preview.resposta.get("_evidencia_hash") != evidence_hash:
+        # No writes occurred. The caller rolls back and renews with a NEW intention.
+        raise PreviaObsoletaError("swap_preview_stale")
     result: dict[str, object] = {
         "casa_id": pedido.casa_id,
         "conta_origem_id": source.id,
@@ -218,7 +272,7 @@ async def trocar_conta(
                 tipo=tipo,
                 chave=chave,
                 pedido_hash=digest,
-                resposta=result,
+                resposta={**result, "_evidencia_hash": evidence_hash},
             )
             .returning(models.TrocaTitularRequisicao.id)
         )
