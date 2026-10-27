@@ -21,9 +21,20 @@ MANUAL_BET_HOUSES = sorted(
 
 
 OPERATION_DOCUMENTATION: dict[OperationKey, tuple[str, str]] = {
+  OPERATION_DOCUMENTATION: dict[OperationKey, tuple[str, str]] = {
     ("get", "/api/v1/titulares/trocas/intencao"): (
-        "Recuperar inten√ß√£o de troca",
-        "Leitura do propriet√°rio no prim√°rio por Idempotency-Key, inclusive READ_ONLY. APPLIED devolve recibo original. PREVIEW/EXPIRED/404 n√£o provam rollback. Reten√ß√£o at√© exclus√£o da conta; sem reenvio autom√°tico.",
+        "Recuperar intenÁ„o de troca",
+        "Leitura do propriet·rio no prim·rio por Idempotency-Key, inclusive READ_ONLY. APPLIED devolve recibo original. PREVIEW/EXPIRED/404 n„o provam rollback. RetenÁ„o atÈ exclus„o da conta; sem reenvio autom·tico.",
+    ),
+    ("post", "/api/v1/apostas-manuais/operacoes/{intencao_id}"): (
+        "Criar aposta manual reconcili·vel",
+        "FULL_WRITE e CSRF atuais. UUID escolhido antes do POST; aposta, eventos, eventual revis„o e recibo no mesmo commit. Mesmo UUID/corpo normalizado devolve confirmaÁ„o original sem recalcular data, unidade ou conta; outro corpo conflita. RecuperaÁ„o por 90 dias; identidade n„o È reutilizada apÛs expirar. Nenhum POST recebe retry autom·tico.",
+    ),
+    ("get", "/api/v1/apostas-manuais/operacoes/{intencao_id}"): (
+        "Recuperar confirmaÁ„o original manual",
+        "READ_ONLY explÌcito no prim·rio, por UUID e usu·rio autenticado. Recibo original disponÌvel por 90 dias, mesmo apÛs correÁ„o/apagamento da aposta. 404/410 n„o provam rollback nem autorizam repetiÁ„o autom·tica. Somente confirmado tem chave para navegar ao detalhe atual; nenhuma fila assÌncrona È publicada.",
+    ),
+    ("post", "/api/v1/coleta/sessions"): ( (feat(apostas): criar e recuperar aposta manual por inten√ß√£o (#202))
     ),
     ("post", "/api/v1/coleta/sessions"): (
         "Abrir ou retomar sess√£o",
@@ -448,6 +459,7 @@ OPERATION_DOCUMENTATION: dict[OperationKey, tuple[str, str]] = {
 
 
 PARAMETER_DESCRIPTIONS = {
+    "intencao_id": "UUID escolhido pela SPA antes do POST e persistido na URL. A refer√™ncia n√£o concede acesso e fica ocupada para o mesmo usu√°rio ap√≥s expira√ß√£o do recibo.",
     "sessao_id": "UUID opaco da sess√£o pertencente √† instala√ß√£o autenticada.",
     "instalacao_id": "ID interno da instala√ß√£o do usu√°rio autenticado.",
     "client_version": "Vers√£o est√°vel do cliente em tr√™s componentes.",
@@ -499,6 +511,22 @@ PARAMETER_DESCRIPTIONS = {
 
 
 REQUEST_EXAMPLES: dict[OperationKey, tuple[str, JsonObject]] = {
+    ("post", "/api/v1/apostas-manuais/operacoes/{intencao_id}"): (
+        "Aposta manual/freebet com face positiva e conta opcional expl√≠cita",
+        {
+            "casa": "Betano",
+            "data_aposta": "2026-10-15T14:00:00-03:00",
+            "data_jogo": "2026-10-16T19:00:00-03:00",
+            "odd": 2.0,
+            "stake_unidades": 1.0,
+            "freebet": True,
+            "comissao_centavos": "0",
+            "conta_casa_id": "9007199254740995",
+            "evento": "Casa x Fora",
+            "descricao": "Casa vence",
+            "mercado_bruto": "Resultado final",
+        },
+    ),
     ("post", "/api/v1/coleta/sessions"): (
         "Nova sess√£o expl√≠cita",
         {"coletar_desde": "2026-08-01T00:00:00Z", "retomar_sessao_id": None},

@@ -42,6 +42,7 @@ from bancaemdia.models.cruzamento_candidato import CruzamentoCandidato, Cruzamen
 from bancaemdia.models.esporte import Esporte
 from bancaemdia.models.evento import Evento
 from bancaemdia.models.extracao_cache import ExtracaoCache
+from bancaemdia.models.manual_creation import ManualCreationOperation
 from bancaemdia.models.mensagem import Mensagem
 from bancaemdia.models.mensagem_versao import MensagemVersao
 from bancaemdia.models.mercado import FAMILIAS, Mercado
@@ -72,6 +73,7 @@ from bancaemdia.models.usuario import Usuario
 NUCLEO = (Usuario, Banca, ContaCasa, Unidade, Movimento, Aposta, Evento)
 CANONICOS = (Casa, Esporte, Competicao, Time, Mercado, Tipster, Apelido)
 SUPORTE = (
+    ManualCreationOperation,
     ApostaConsolidacao,
     CruzamentoCandidato,
     CruzamentoEntrada,
@@ -101,6 +103,7 @@ TELEGRAM_LINKING = (TelegramLink, TelegramLinkCode, TelegramLinkAttempt, Telegra
 TELEGRAM_TRANSPORT = (TelegramInbox, TelegramOutbox)
 TELEGRAM_DRAFTS = (RascunhoAposta, RascunhoCorrecao)
 POR_USUARIO = (
+    ManualCreationOperation,
     ChamadaIA,
     ColetaCasa,
     ColetaToken,
@@ -182,6 +185,7 @@ def test_all_forty_eight_tables_are_registered() -> None:
         "apelidos",
     }
     assert {m.__tablename__ for m in SUPORTE} == {
+        "manual_creation_operations",
         "aposta_consolidacoes",
         "cruzamento_candidatos",
         "cruzamento_entradas",
@@ -356,6 +360,7 @@ def test_revisao_pendente_indexes() -> None:
 
 def test_bigserial_except_composite_and_billing_owner_keys() -> None:
     for nome in set(Base.metadata.tables) - {
+        "manual_creation_operations",
         "cruzamento_entradas",
         "extracoes_cache",
         "assinaturas",
@@ -368,3 +373,11 @@ def test_bigserial_except_composite_and_billing_owner_keys() -> None:
         "rascunhos_aposta",
     }:
         assert "id BIGSERIAL NOT NULL" in _create_table(nome)
+
+
+def test_manual_receipt_uuid_is_scoped_to_owner_and_survives_bet_deletion() -> None:
+    table = ManualCreationOperation.__table__
+    assert list(table.primary_key.columns.keys()) == ["usuario_id", "id"]
+    assert "id UUID NOT NULL" in _create_table("manual_creation_operations")
+    assert _fk_targets(ManualCreationOperation) == {"usuario_id": "usuarios.id"}
+    assert table.c.receipt.type.__class__.__name__ == "JSONB"

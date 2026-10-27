@@ -33,6 +33,7 @@ from bancaemdia.api.v1 import (
     coleta_catalogo,
     coleta_pairing,
     coleta_sessoes,
+    manual_bets,
     metas,
     painel,
     revisao,
@@ -143,6 +144,7 @@ app.include_router(admin_casas.router)
 app.include_router(upload.router)
 app.include_router(identity_router)
 app.include_router(apostas.router)
+app.include_router(manual_bets.router)
 app.include_router(caixa.router)
 app.include_router(painel.router)
 app.include_router(metas.router)
@@ -169,6 +171,8 @@ async def validation_failure(request: Request, error: RequestValidationError) ->
         return unidade.validacao(error)
     if route_path(request).startswith("/api/v1/titulares/trocas"):
         return JSONResponse(status_code=422, content={"detail": "swap_invalid_request"})
+    if route_path(request).startswith("/api/v1/apostas-manuais/"):
+        return manual_bets.validation_failure(error)
     if route_path(request).startswith("/auth/"):
         return failure(IdentityError("invalid_request", 422))
     return await request_validation_exception_handler(request, error)

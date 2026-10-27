@@ -21,7 +21,11 @@ REVISAO_RESOLVIDA = "f2a9c4e7b106"
 PAINEL = "d3f6a8c1e209"
 CAIXA_REVISAO_MERGE = "e5a1c7d9b204"
 PAINEL_CAIXA_MERGE = "f8b2d4a6c901"
+<<<<<<< HEAD
 HEAD = "a212lote2026"
+=======
+HEAD = "m202manual2026"
+>>>>>>> 36b26b6 (fix(ci): preservar inventários e reduzir custo de execução ASGI)
 USUARIO_ATUAL = "NULLIF(current_setting('app.current_user_id', true), '')::bigint"
 JOB_OFERECIDO = "NULLIF(current_setting('app.upload_job_id', true), '')::uuid"
 POR_USUARIO = {
@@ -117,7 +121,9 @@ def test_rls_revision_follows_the_baseline() -> None:
 
 
 def test_protected_and_shared_tables_cover_the_whole_schema() -> None:
-    protegidas = POR_USUARIO | POR_USUARIO_UPLOAD | POR_USUARIO_IDEMPOTENCIA
+    protegidas = (
+        POR_USUARIO | POR_USUARIO_UPLOAD | POR_USUARIO_IDEMPOTENCIA | {"manual_creation_operations"}
+    )
     billing = {
         "assinaturas",
         "billing_prices",
@@ -367,3 +373,17 @@ def test_integrated_pairing_tables_keep_dedicated_rls_and_quota_boundary() -> No
         assert "usuario_id=NULLIF(current_setting('app.current_user_id',true),'')::bigint" in sql
     assert "REVOKE ALL ON FUNCTION coleta_pairing_limit(text,integer,integer) FROM PUBLIC" in sql
     assert "SET search_path=pg_catalog,public" in sql
+
+
+def test_manual_receipts_have_forced_rls_write_guard_and_immutable_identity() -> None:
+    sql = _upgrade_sql("j6main2026:m202manual2026")
+    assert "ALTER TABLE manual_creation_operations ENABLE ROW LEVEL SECURITY" in sql
+    assert "ALTER TABLE manual_creation_operations FORCE ROW LEVEL SECURITY" in sql
+    assert "CREATE POLICY manual_creation_owner" in sql
+    assert (
+        "WITH CHECK(usuario_id=NULLIF(current_setting('app.current_user_id',true),'')::bigint)"
+        in sql
+    )
+    assert "CREATE TRIGGER billing_write_guard" in sql
+    assert "EXECUTE FUNCTION billing_require_write()" in sql
+    assert "CREATE TRIGGER manual_creation_immutable" in sql
