@@ -37,6 +37,9 @@ from bancaemdia.api.v1 import (
     manual_bets,
     metas,
     painel,
+    painel_filtrado,
+    filtros,
+    hipotetica,
     results,
     reviews,
     revisao,
@@ -155,7 +158,13 @@ app.include_router(results.router)
 app.include_router(aposta_foto.router)
 app.include_router(caixa.router)
 app.include_router(painel.router)
+app.include_router(painel_filtrado.router)
+app.include_router(filtros.router)
+app.include_router(hipotetica.router)
 app.include_router(metas.router)
+app.include_router(painel_filtrado.router)
+app.include_router(filtros.router)
+app.include_router(hipotetica.router)
 app.include_router(revisao.router)
 app.include_router(calculators.router)
 app.include_router(billing_webhook.router)
@@ -181,6 +190,10 @@ async def validation_failure(request: Request, error: RequestValidationError) ->
         return JSONResponse(status_code=422, content={"detail": "swap_invalid_request"})
     if route_path(request).startswith("/api/v1/apostas-manuais/"):
         return manual_bets.validation_failure(error)
+    if route_path(request).startswith("/api/v1/hipotetica"):
+        return hipotetica.validation_failure(error)
+    if route_path(request).startswith("/api/v1/filtros"):
+        return filtros.validation_failure(error)
     if request.url.path.startswith("/api/v1/revisao-operacional/"):
         errors = error.errors()
         from bancaemdia.domain.aposta_service import CAMPOS_CORRIGIVEIS

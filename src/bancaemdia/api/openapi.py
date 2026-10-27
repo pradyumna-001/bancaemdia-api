@@ -19,9 +19,7 @@ MANUAL_BET_HOUSES = sorted(
     | {domain.split(".", maxsplit=1)[0] for _, domain in CASAS}
 )
 
-
 OPERATION_DOCUMENTATION: dict[OperationKey, tuple[str, str]] = {
-<<<<<<< HEAD
   OPERATION_DOCUMENTATION: dict[OperationKey, tuple[str, str]] = {
     ("get", "/api/v1/titulares/trocas/intencao"): (
         "Recuperar inten��o de troca",
@@ -35,32 +33,12 @@ OPERATION_DOCUMENTATION: dict[OperationKey, tuple[str, str]] = {
         "Recuperar confirma��o original manual",
         "READ_ONLY expl�cito no prim�rio, por UUID e usu�rio autenticado. Recibo original dispon�vel por 90 dias, mesmo ap�s corre��o/apagamento da aposta. 404/410 n�o provam rollback nem autorizam repeti��o autom�tica. Somente confirmado tem chave para navegar ao detalhe atual; nenhuma fila ass�ncrona � publicada.",
     ),
+        ("get", "/api/v1/painel/hipotetica"): (
+        "Compara��o hist�rica seguindo a stake do tipster",
+        "Somente leitura, inclusive READ_ONLY. Popula��o completa (m�ximo 10000) com os filtros can�nicos; dicas confirmadas resolvidas separadamente e nunca contadas duas vezes. Usa stake da dica, odd e resultado reais, centavos em strings e HALF_EVEN. Cashout, taxas, b�nus, retorno fixo e evid�ncia insuficiente impedem compara��o completa. Null n�o � zero. Sem par�metros livres de stake nem pagina��o. Contrato: docs/contracts/hipotetica.md.",
+    ),
     ("post", "/api/v1/coleta/sessions"): ( (feat(apostas): criar e recuperar aposta manual por intenção (#202))
-=======
-    ("get", "/api/v1/resultados/fila"): (
-        "Fila global por antiguidade",
-        "Snapshot do primário, data_jogo crescente com fallback criada_em, cursor privado de 30 minutos; apenas pendentes selecionadas, financeiras, atribuídas e sem revisão grave. Total da fronteira no mesmo snapshot.",
-    ),
-    ("get", "/api/v1/resultados/apostas/{chave}"): (
-        "Consultar revisão e elegibilidade",
-        "Estado atual autorizado no primário para criar uma nova intenção após conflito; não reutilizar intenção incerta.",
-    ),
-    ("post", "/api/v1/resultados/operacoes/{intention_id}"): (
-        "Registrar resultado condicional",
-        "UUID criado antes da escrita, revisão esperada comparada sob lock no primário; FULL_WRITE e um evento por gesto. Replay do mesmo payload recupera recibo antes da comparação de versão.",
-    ),
-    ("post", "/api/v1/resultados/operacoes/{intention_id}/desfazer"): (
-        "Desfazer resultado confirmado",
-        "Nova intenção ligada à operação do mesmo usuário e à revisão produzida por ela, válida por 24h; restaura pré-imagem autoritativa com evento auditável.",
-    ),
-    ("get", "/api/v1/resultados/operacoes/{intention_id}"): (
-        "Recuperar resposta perdida",
-        "Recibo privado do primário por 90 dias; não é estado atual. 404/410 não provam rollback e não autorizam replay automático.",
-    ),
-    ("get", "/api/v1/apostas/{chave}/foto"): (
-        "Ler a foto original autorizada da aposta",
-        "Imagem binária privada por aposta e proveniência persistida no primário, inclusive após revisão. FULL_WRITE e READ_ONLY. Sem extração, escrita, redirecionamento ou credenciais em URL. 404 representa aposta/foto inexistente, inacessível, ambígua ou removida pela retenção. Ver docs/contracts/aposta-foto.md.",
->>>>>>> 2fe8bf1 (feat(revisao): motivos tipados, escolha por fonte e decisões recuperáveis (#200))
+ (feat(painel): comparar historico pela stake da dica confirmada (#190))
     ),
     ("post", "/api/v1/coleta/sessions"): (
         "Abrir ou retomar sessão",
@@ -89,6 +67,34 @@ OPERATION_DOCUMENTATION: dict[OperationKey, tuple[str, str]] = {
     ("get", "/api/v1/coleta/contract/schema"): (
         "Baixar contrato canônico",
         "OpenAPI canônico gerado dos mesmos modelos usados pela API.",
+    ),
+    ("get", "/api/v1/filtros/{dimensao}"): (
+        "Opções autenticadas dos filtros",
+        "IDs canônicos em texto decimal; id resolve inclusive inativas fora da página. Referências globais públicas e entidades privadas do usuário. Vazio=200; indisponibilidade=503.",
+    ),
+    ("post", "/api/v1/grupos"): (
+        "Criar grupo privado de apostas",
+        "Cria grupo ativo explicitamente pertencente ao usuário; arquivado é aplicado somente no PATCH. Não infere vínculos de tipsters ou nomes. Escrita auditada e sujeita ao acesso vigente.",
+    ),
+    ("patch", "/api/v1/grupos/{grupo_id}"): (
+        "Editar ou arquivar grupo",
+        "Arquivamento preserva vínculos históricos e consultas; impede novas associações. Escrita auditada.",
+    ),
+    ("put", "/api/v1/apostas/{chave}/grupos"): (
+        "Atribuir grupos à aposta",
+        "Substitui vínculos explícitos, privados e auditados da aposta estável. Não altera contas nem valores; sem associação histórica presumida.",
+    ),
+    ("get", "/api/v1/painel/filtrado"): (
+        "Resumo da seleção de apostas do site",
+        "Mesma seleção do GET apostas, antes de qualquer paginação; agregados ao vivo em snapshot. Revisão grave não contribui financeiramente; retorno desconhecido produz null. Não usa materialized views.",
+    ),
+    ("get", "/api/v1/painel/filtrado/metricas"): (
+        "Séries diárias da seleção do site",
+        "Mesma seleção e regras do resumo. Dia civil de São Paulo; labels null identificam data_aposta ausente. Dias sem fatos não são inventados. Total fornecido pelo servidor; fresh só escolhe primário.",
+    ),
+    ("get", "/api/v1/painel/filtrado/export"): (
+        "Exportação agregada da seleção do site",
+        "XLSX streaming com as seis seções e cabeçalhos existentes do Painel. Conjunto-base idêntico ao resumo, gráficos e lista. Campos sem atribuição/conhecimento permanecem vazios; não é exportação de IDs de apostas.",
     ),
     ("post", "/api/v1/coleta/pairing-codes"): (
         "Criar código de pareamento",
@@ -483,19 +489,23 @@ OPERATION_DOCUMENTATION: dict[OperationKey, tuple[str, str]] = {
     ),
 }
 
-
 PARAMETER_DESCRIPTIONS = {
-<<<<<<< HEAD
     "intencao_id": "UUID escolhido pela SPA antes do POST e persistido na URL. A referência não concede acesso e fica ocupada para o mesmo usuário após expiração do recibo.",
-=======
     "cursor": "Cursor privado vinculado à pessoa/filtros/fronteira, válido por 30 minutos; não usar offset.",
     "intention_id": "UUID da intenção escolhido antes da escrita; identifica, nunca autoriza.",
     "banca_id": "Identificador da banca própria usado como filtro.",
     "time_casa_id": "Identificador canônico do time da casa usado como filtro.",
     "time_fora_id": "Identificador canônico do time visitante usado como filtro.",
     "freebet": "Filtra por aposta com valor de face e custo próprio distintos.",
->>>>>>> 2fe8bf1 (feat(revisao): motivos tipados, escolha por fonte e decisões recuperáveis (#200))
+ (feat(revisao): motivos tipados, escolha por fonte e decisões recuperáveis (#200))
     "sessao_id": "UUID opaco da sessão pertencente à instalação autenticada.",
+    "q": "Busca textual literal por nome, sem curingas SQL; limite 160 caracteres.",
+    "dimensao": "casas/tipsters/mercados/competicoes/origens/grupos/bancas/titulares/contas; sessão normal do site.",
+    "id": "ID canônico exato em texto decimal (BIGINT 1..9223372036854775807); origens usa o valor textual do domínio. Resolve inativas; não combinar com q ou page diferente de 1.",
+    "incluir_inativas": "Inclui opções arquivadas/inativas; resolução por id sempre preserva histórico.",
+    "grupo_id": "ID BIGINT do grupo privado, vínculo explícito por aposta. Ausente ou de outro usuário produz seleção vazia.",
+    "banca_id": "ID BIGINT da banca gravada na aposta; não usa a banca atual da conta. Ausente ou de outro usuário produz seleção vazia.",
+    "visibilidade": "ativas/apagadas/todas; padrão ativas. Legado incluir_apagadas=true significa todas; combinação conflitante retorna 422.",
     "instalacao_id": "ID interno da instalação do usuário autenticado.",
     "client_version": "Versão estável do cliente em três componentes.",
     "environment": "Ambiente esperado, vinculado à assinatura.",
@@ -513,7 +523,7 @@ PARAMETER_DESCRIPTIONS = {
         "Chave opaca obrigatória do cliente; reutilizá-la com o mesmo corpo reproduz a resposta "
         "original sem repetir a operação."
     ),
-    "ate": "Limite final exclusivo do intervalo, em ISO 8601.",
+    "ate": "data_aposta: limite final exclusivo, ISO 8601 com offset; legado sem offset significa UTC. Não combinar com periodo na lista/visão filtrada.",
     "casa_id": "Identificador canônico da casa usada como filtro.",
     "chave": "Chave estável e opaca da aposta.",
     "competicao_id": "Identificador canônico da competição usada como filtro.",
@@ -522,11 +532,11 @@ PARAMETER_DESCRIPTIONS = {
     "banca_id": "Identificador da banca do usuário.",
     "conta_id": "Identificador da conta estável da casa pertencente ao titular.",
     "data_corte": "Data civil opcional para reconstruir o saldo histórico.",
-    "desde": "Limite inicial inclusivo do intervalo, em ISO 8601.",
+    "desde": "data_aposta: limite inicial inclusivo, ISO 8601 com offset; legado sem offset significa UTC. Não combinar com periodo na lista/visão filtrada.",
     "estado": "Estado de liquidação da aposta usado como filtro.",
     "fresh": "Lê no primário quando verdadeiro, sem forçar refresh das materialized views.",
     "formato": "Formato da exportação dos dados da conta: JSON ou Excel.",
-    "incluir_apagadas": "Inclui apostas retiradas da apuração quando verdadeiro.",
+    "incluir_apagadas": "Compatibilidade: false=ativas, true=todas. Omitir ao pedir visibilidade=apagadas; combinações conflitantes retornam 422.",
     "include_archived": "Inclui titulares arquivados na listagem quando verdadeiro.",
     "job_id": "UUID público retornado quando o upload foi aceito.",
     "mercado_id": "Identificador canônico do mercado usado como filtro.",
@@ -535,7 +545,7 @@ PARAMETER_DESCRIPTIONS = {
     "origem": "Canal de origem da aposta usado como filtro.",
     "page": "Número da página, começando em 1.",
     "page_size": "Quantidade máxima de itens retornados na página.",
-    "periodo": "Janela civil de agregação no fuso America/Sao_Paulo.",
+    "periodo": "Janela civil no fuso America/Sao_Paulo, aplicada a data_aposta. Lista/visão filtrada: omissão inclui todo o histórico, não combinar com desde/ate. Painel materializado legado: padrão 30d.",
     "revisao_grave": "Filtra apostas pela marca de revisão grave.",
     "revisao_id": "Identificador numérico da revisão pertencente ao usuário.",
     "search": "Busca textual pelo nome do titular.",
@@ -544,9 +554,7 @@ PARAMETER_DESCRIPTIONS = {
     "tipster_id": "Identificador canônico do tipster usado como filtro.",
 }
 
-
 REQUEST_EXAMPLES: dict[OperationKey, tuple[str, JsonObject]] = {
-<<<<<<< HEAD
     ("post", "/api/v1/apostas-manuais/operacoes/{intencao_id}"): (
         "Aposta manual/freebet com face positiva e conta opcional explícita",
         {
@@ -561,21 +569,7 @@ REQUEST_EXAMPLES: dict[OperationKey, tuple[str, JsonObject]] = {
             "evento": "Casa x Fora",
             "descricao": "Casa vence",
             "mercado_bruto": "Resultado final",
-=======
-    ("post", "/api/v1/resultados/operacoes/{intention_id}"): (
-        "Uma intenção por gesto",
-        {
-            "chave": "m:synthetic",
-            "revisao_esperada": "00000000-0000-4000-8000-000000000001",
-            "estado": "GREEN",
-        },
-    ),
-    ("post", "/api/v1/resultados/operacoes/{intention_id}/desfazer"): (
-        "Reverter a intenção confirmada",
-        {
-            "operacao_id": "00000000-0000-4000-8000-000000000002",
-            "revisao_esperada": "00000000-0000-4000-8000-000000000003",
->>>>>>> 2fe8bf1 (feat(revisao): motivos tipados, escolha por fonte e decisões recuperáveis (#200))
+ (feat(revisao): motivos tipados, escolha por fonte e decisões recuperáveis (#200))
         },
     ),
     ("post", "/api/v1/coleta/sessions"): (
@@ -609,6 +603,18 @@ REQUEST_EXAMPLES: dict[OperationKey, tuple[str, JsonObject]] = {
                 }
             ],
         },
+    ),
+    ("post", "/api/v1/grupos"): (
+        "Grupo privado",
+        {"nome": "Apostas acompanhadas", "arquivado": False},
+    ),
+    ("patch", "/api/v1/grupos/{grupo_id}"): (
+        "Arquivar preservando histórico",
+        {"nome": "Apostas acompanhadas", "arquivado": True},
+    ),
+    ("put", "/api/v1/apostas/{chave}/grupos"): (
+        "Substituir vínculos explícitos",
+        {"grupo_ids": ["12", "34"]},
     ),
     ("post", "/api/v1/coleta/pairing-exchange"): (
         "Código descartável e instalação opaca",
@@ -825,6 +831,7 @@ def _correction_schema(*, review: bool) -> JsonObject:
     text = _nullable({"type": "string"})
     properties: JsonObject = {
         "conta_casa_id": identifier,
+        "banca_id": identifier,
         "tipster_id": identifier,
         "time_casa_id": identifier,
         "time_fora_id": identifier,
@@ -879,7 +886,6 @@ def _configure_domain_request_schemas(schemas: JsonObject) -> None:
     manual_properties["stake_unidades"] = {"type": "number", "exclusiveMinimum": 0}
     manual_properties["data_aposta"] = _nullable({"type": "string", "format": "date-time"})
     manual_properties["comissao_centavos"] = _nullable({"type": "integer", "minimum": 0})
-
     result = _object(schemas["Resultado"], context="Resultado schema")
     result_properties = _object(result["properties"], context="Resultado properties")
     result_properties["estado"] = {
@@ -1010,7 +1016,6 @@ def _install_manual_request_bodies(document: JsonObject) -> None:
                 }
             },
         }
-
     upload_operation = _object(
         _object(paths["/api/v1/upload"], context="path /api/v1/upload")["post"],
         context="POST /api/v1/upload",
@@ -1042,7 +1047,6 @@ def _install_manual_request_bodies(document: JsonObject) -> None:
             }
         },
     }
-
     planilha_operation = _object(
         _object(paths["/api/v1/apostas/importar-planilha"], context="path importar-planilha")[
             "post"
@@ -1190,7 +1194,7 @@ def _document_operations(document: JsonObject) -> None:
                 ["FULL_WRITE", "READ_ONLY"] if method == "get" else ["FULL_WRITE"]
             )
             operation["x-automatic-retry"] = method == "get"
-
+ica confirmada (#190))
         parameters = operation.get("parameters", [])
         if not isinstance(parameters, list):
             raise RuntimeError(f"parameters for {method.upper()} {path} must be a list")
@@ -1215,7 +1219,6 @@ def _document_operations(document: JsonObject) -> None:
                 raise RuntimeError(
                     f"missing description for parameter {name!r} in {method.upper()} {path}"
                 ) from error
-
         example = REQUEST_EXAMPLES.get(key)
         if example is not None:
             title, value = example
@@ -1227,7 +1230,6 @@ def _document_operations(document: JsonObject) -> None:
             for media_value in content.values():
                 media = _object(media_value, context="request media type")
                 media["examples"] = {"default": {"summary": title, "value": value}}
-
     missing = set(OPERATION_DOCUMENTATION).difference(seen)
     if missing:
         rendered = ", ".join(f"{method.upper()} {path}" for method, path in sorted(missing))
@@ -1355,17 +1357,14 @@ def _strictify_schema(schema: JsonObject) -> None:
             schema["additionalProperties"] = False
         elif additional is True or additional == {}:
             schema["additionalProperties"] = {"$ref": "#/components/schemas/JsonValue"}
-
     properties = schema.get("properties")
     if isinstance(properties, dict):
         for child in properties.values():
             _strictify_schema(_object(child, context="property schema"))
-
     for key in ("additionalProperties", "contains", "else", "if", "items", "not", "then"):
         child = schema.get(key)
         if isinstance(child, dict):
             _strictify_schema(cast(JsonObject, child))
-
     for key in ("allOf", "anyOf", "oneOf", "prefixItems"):
         children = schema.get(key)
         if isinstance(children, list):
@@ -1382,7 +1381,6 @@ def _strictify_document(document: JsonObject) -> None:
     _configure_domain_request_schemas(schemas)
     for schema_value in schemas.values():
         _strictify_schema(_object(schema_value, context="component schema"))
-
     for method, path, operation in _operations(document):
         parameters = operation.get("parameters", [])
         if isinstance(parameters, list):
@@ -1391,7 +1389,6 @@ def _strictify_document(document: JsonObject) -> None:
                 schema_value = parameter.get("schema")
                 if isinstance(schema_value, dict):
                     _strictify_schema(cast(JsonObject, schema_value))
-
         request_body_value = operation.get("requestBody")
         if isinstance(request_body_value, dict):
             request_body = cast(JsonObject, request_body_value)
@@ -1400,7 +1397,6 @@ def _strictify_document(document: JsonObject) -> None:
                 media = _object(media_value, context="request media type")
                 schema_value = _object(media.get("schema"), context="request schema")
                 _strictify_schema(schema_value)
-
         responses = _object(operation.get("responses"), context=f"responses {method} {path}")
         for response_value in responses.values():
             response = _object(response_value, context="response")
@@ -1416,7 +1412,6 @@ def _strictify_document(document: JsonObject) -> None:
 def build_openapi(app: FastAPI) -> JsonObject:
     if app.openapi_schema is not None:
         return app.openapi_schema
-
     document = get_openapi(
         title=app.title,
         version=app.version,
