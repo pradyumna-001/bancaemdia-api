@@ -1506,6 +1506,31 @@
         "title": "CalculationResponse",
         "type": "object"
       },
+      "CampoInvalidoSaida": {
+        "additionalProperties": false,
+        "properties": {
+          "campo": {
+            "title": "Campo",
+            "type": "string"
+          },
+          "codigo": {
+            "enum": [
+              "obrigatorio",
+              "tamanho",
+              "desconhecido",
+              "invalido"
+            ],
+            "title": "Codigo",
+            "type": "string"
+          }
+        },
+        "required": [
+          "campo",
+          "codigo"
+        ],
+        "title": "CampoInvalidoSaida",
+        "type": "object"
+      },
       "Capture": {
         "additionalProperties": false,
         "properties": {
@@ -3293,6 +3318,33 @@
         "title": "InstallationTokenResponse",
         "type": "object"
       },
+      "IntencaoSaida": {
+        "additionalProperties": false,
+        "properties": {
+          "operacao": {
+            "enum": [
+              "APAGAR",
+              "RESTAURAR"
+            ],
+            "title": "Operacao",
+            "type": "string"
+          },
+          "resposta": {
+            "$ref": "#/components/schemas/LoteSaida"
+          },
+          "status_code": {
+            "title": "Status Code",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "operacao",
+          "status_code",
+          "resposta"
+        ],
+        "title": "IntencaoSaida",
+        "type": "object"
+      },
       "IntervaloSaida": {
         "additionalProperties": false,
         "properties": {
@@ -3605,6 +3657,125 @@
         "title": "LogoutStatus",
         "type": "object"
       },
+      "LoteInvalidoSaida": {
+        "additionalProperties": false,
+        "properties": {
+          "campos": {
+            "items": {
+              "$ref": "#/components/schemas/CampoInvalidoSaida"
+            },
+            "title": "Campos",
+            "type": "array"
+          },
+          "detail": {
+            "const": "lote_invalido",
+            "title": "Detail",
+            "type": "string"
+          }
+        },
+        "required": [
+          "detail",
+          "campos"
+        ],
+        "title": "LoteInvalidoSaida",
+        "type": "object"
+      },
+      "LoteNovo": {
+        "additionalProperties": false,
+        "properties": {
+          "acao": {
+            "const": "apagar_todas",
+            "title": "Acao",
+            "type": "string"
+          },
+          "confirmacao": {
+            "maxLength": 512,
+            "minLength": 1,
+            "title": "Confirmacao",
+            "type": "string"
+          },
+          "frase": {
+            "maxLength": 64,
+            "minLength": 1,
+            "title": "Frase",
+            "type": "string"
+          }
+        },
+        "required": [
+          "acao",
+          "confirmacao",
+          "frase"
+        ],
+        "title": "LoteNovo",
+        "type": "object"
+      },
+      "LoteRecusadoSaida": {
+        "anyOf": [
+          {
+            "$ref": "#/components/schemas/LoteInvalidoSaida"
+          },
+          {
+            "$ref": "#/components/schemas/ErrorResponse"
+          }
+        ]
+      },
+      "LoteSaida": {
+        "additionalProperties": false,
+        "properties": {
+          "apostas_afetadas": {
+            "title": "Apostas Afetadas",
+            "type": "integer"
+          },
+          "apostas_restauradas": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Apostas Restauradas"
+          },
+          "criado_em": {
+            "format": "date-time",
+            "title": "Criado Em",
+            "type": "string"
+          },
+          "escopo": {
+            "const": "apostas",
+            "title": "Escopo",
+            "type": "string"
+          },
+          "lote_id": {
+            "format": "uuid",
+            "title": "Lote Id",
+            "type": "string"
+          },
+          "restaurado_em": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Restaurado Em"
+          }
+        },
+        "required": [
+          "lote_id",
+          "escopo",
+          "apostas_afetadas",
+          "criado_em",
+          "restaurado_em",
+          "apostas_restauradas"
+        ],
+        "title": "LoteSaida",
+        "type": "object"
+      },
       "ManualCandidate": {
         "additionalProperties": false,
         "properties": {
@@ -3760,7 +3931,6 @@
                 "type": "number"
               },
               {
-                "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
                 "type": "string"
               },
               {
@@ -3799,7 +3969,6 @@
                 "type": "number"
               },
               {
-                "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
                 "type": "string"
               },
               {
@@ -3868,7 +4037,6 @@
                 "type": "number"
               },
               {
-                "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
                 "type": "string"
               }
             ],
@@ -3890,7 +4058,6 @@
                 "type": "number"
               },
               {
-                "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
                 "type": "string"
               }
             ],
@@ -4929,6 +5096,42 @@
           "ignoradas"
         ],
         "title": "PlanilhaImportada",
+        "type": "object"
+      },
+      "PreviaSaida": {
+        "additionalProperties": false,
+        "properties": {
+          "confirmacao": {
+            "title": "Confirmacao",
+            "type": "string"
+          },
+          "escopo": {
+            "const": "apostas",
+            "title": "Escopo",
+            "type": "string"
+          },
+          "expira_em": {
+            "format": "date-time",
+            "title": "Expira Em",
+            "type": "string"
+          },
+          "frase": {
+            "title": "Frase",
+            "type": "string"
+          },
+          "total": {
+            "title": "Total",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "escopo",
+          "total",
+          "frase",
+          "confirmacao",
+          "expira_em"
+        ],
+        "title": "PreviaSaida",
         "type": "object"
       },
       "PublicKey": {
@@ -7552,6 +7755,696 @@
           }
         ],
         "summary": "Importar apostas do Excel"
+      }
+    },
+    "/api/v1/apostas/lotes": {
+      "post": {
+        "description": "Apaga de uma vez, numa transação, todas as apostas ativas da prévia, com a mesma semântica do DELETE individual: um evento por aposta, nada removido fisicamente, visíveis com incluir_apagadas. Exige frase e token da prévia; 409 se o conjunto mudou, a prévia expirou ou outro lote está em curso. Idempotency-Key obrigatória: mesmo pedido devolve o recibo original. FULL_WRITE e CSRF; 402 sem efeito.",
+        "operationId": "apagar_todas_api_v1_apostas_lotes_post",
+        "parameters": [
+          {
+            "description": "Chave opaca obrigatória do cliente; reutilizá-la com o mesmo corpo reproduz a resposta original sem repetir a operação.",
+            "in": "header",
+            "name": "Idempotency-Key",
+            "required": true,
+            "schema": {
+              "description": "Chave opaca escolhida pelo cliente antes do envio. Repetir a mesma chave e o mesmo pedido devolve o recibo original sem repetir o efeito.",
+              "maxLength": 200,
+              "minLength": 1,
+              "pattern": "^[!-~]+$",
+              "title": "Idempotency-Key",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "examples": {
+                "default": {
+                  "summary": "Confirmação da prévia",
+                  "value": {
+                    "acao": "apagar_todas",
+                    "confirmacao": "token-devolvido-pela-previa",
+                    "frase": "APAGAR 1234 APOSTAS"
+                  }
+                }
+              },
+              "schema": {
+                "$ref": "#/components/schemas/LoteNovo"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LoteSaida"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Missing, expired, or invalid bearer token.",
+            "headers": {
+              "X-Auth-Error": {
+                "description": "Identity error code when AUTH_ENABLED; legacy response body is preserved.",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "402": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "account_read_only: writes require confirmed trial or paid access."
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Cookie mutation requires exact Origin and current CSRF proof."
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "confirmacao_desatualizada, confirmacao_expirada, nada_a_apagar, lote_em_curso ou idempotency_key_conflict."
+          },
+          "413": {
+            "content": {
+              "text/plain": {
+                "example": "Content Too Large",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            },
+            "description": "The request body exceeds this endpoint's streaming limit."
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LoteRecusadoSaida"
+                }
+              }
+            },
+            "description": "lote_invalido (código por campo), frase_incorreta ou confirmacao_invalida; sem msg/input/ctx."
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "The caller exceeded an applicable request limit."
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unexpected internal failure with no sensitive exception details."
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "A required dependency is temporarily unavailable.",
+            "headers": {
+              "X-Auth-Error": {
+                "description": "Identity error code when AUTH_ENABLED; legacy response body is preserved.",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          },
+          {
+            "CsrfProof": [],
+            "SessionCookie": []
+          }
+        ],
+        "summary": "Apagar todas as apostas"
+      }
+    },
+    "/api/v1/apostas/lotes/intencao": {
+      "get": {
+        "description": "Lê no primário a operação, o status e o recibo gravados para a Idempotency-Key após resposta perdida; 404 se nada foi gravado. Permitida em READ_ONLY.",
+        "operationId": "recuperar_intencao_api_v1_apostas_lotes_intencao_get",
+        "parameters": [
+          {
+            "description": "Chave opaca obrigatória do cliente; reutilizá-la com o mesmo corpo reproduz a resposta original sem repetir a operação.",
+            "in": "header",
+            "name": "Idempotency-Key",
+            "required": true,
+            "schema": {
+              "description": "Chave opaca escolhida pelo cliente antes do envio. Repetir a mesma chave e o mesmo pedido devolve o recibo original sem repetir o efeito.",
+              "maxLength": 200,
+              "minLength": 1,
+              "pattern": "^[!-~]+$",
+              "title": "Idempotency-Key",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/IntencaoSaida"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Missing, expired, or invalid bearer token.",
+            "headers": {
+              "X-Auth-Error": {
+                "description": "Identity error code when AUTH_ENABLED; legacy response body is preserved.",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "402": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "account_read_only: writes require confirmed trial or paid access."
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "intencao_nao_encontrada: nenhum lote foi gravado com esta chave."
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LoteRecusadoSaida"
+                }
+              }
+            },
+            "description": "lote_invalido (código por campo), frase_incorreta ou confirmacao_invalida; sem msg/input/ctx."
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "The caller exceeded an applicable request limit."
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unexpected internal failure with no sensitive exception details."
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "A required dependency is temporarily unavailable.",
+            "headers": {
+              "X-Auth-Error": {
+                "description": "Identity error code when AUTH_ENABLED; legacy response body is preserved.",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          },
+          {
+            "SessionCookie": []
+          }
+        ],
+        "summary": "Recuperar lote de apostas"
+      }
+    },
+    "/api/v1/apostas/lotes/previa-apagar": {
+      "get": {
+        "description": "Conta as apostas ativas e devolve a frase que a pessoa precisa digitar e um token de confirmação assinado, válido por 10 minutos e preso a este conjunto exato. Escopo: apostas apenas; movimentos, bancas, cadastro, titulares, assinatura, Telegram e coleta não mudam.",
+        "operationId": "previa_apagar_api_v1_apostas_lotes_previa_apagar_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PreviaSaida"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Missing, expired, or invalid bearer token.",
+            "headers": {
+              "X-Auth-Error": {
+                "description": "Identity error code when AUTH_ENABLED; legacy response body is preserved.",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "402": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "account_read_only: writes require confirmed trial or paid access."
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorOrValidationResponse"
+                }
+              }
+            },
+            "description": "The request does not satisfy the published contract or a domain rule."
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "The caller exceeded an applicable request limit."
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unexpected internal failure with no sensitive exception details."
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "A required dependency is temporarily unavailable.",
+            "headers": {
+              "X-Auth-Error": {
+                "description": "Identity error code when AUTH_ENABLED; legacy response body is preserved.",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          },
+          {
+            "SessionCookie": []
+          }
+        ],
+        "summary": "Prévia de apagar todas as apostas"
+      }
+    },
+    "/api/v1/apostas/lotes/{lote_id}": {
+      "get": {
+        "description": "Recibo do lote, com contagem apagada e, se houver, quando e quantas foram restauradas. Permitida em READ_ONLY.",
+        "operationId": "consultar_lote_api_v1_apostas_lotes__lote_id__get",
+        "parameters": [
+          {
+            "description": "Identificador do lote de exclusão devolvido no recibo.",
+            "in": "path",
+            "name": "lote_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Lote Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LoteSaida"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Missing, expired, or invalid bearer token.",
+            "headers": {
+              "X-Auth-Error": {
+                "description": "Identity error code when AUTH_ENABLED; legacy response body is preserved.",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "402": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "account_read_only: writes require confirmed trial or paid access."
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "lote_nao_encontrado."
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorOrValidationResponse"
+                }
+              }
+            },
+            "description": "The request does not satisfy the published contract or a domain rule."
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "The caller exceeded an applicable request limit."
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unexpected internal failure with no sensitive exception details."
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "A required dependency is temporarily unavailable.",
+            "headers": {
+              "X-Auth-Error": {
+                "description": "Identity error code when AUTH_ENABLED; legacy response body is preserved.",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          },
+          {
+            "SessionCookie": []
+          }
+        ],
+        "summary": "Consultar lote de apostas"
+      }
+    },
+    "/api/v1/apostas/lotes/{lote_id}/restaurar": {
+      "post": {
+        "description": "Restaura de uma vez exatamente as apostas que este lote apagou e que continuam apagadas; as alteradas uma a uma depois do lote ficam como estão. Um lote restaura uma vez (409 lote_restaurado). Idempotency-Key obrigatória; FULL_WRITE e CSRF.",
+        "operationId": "restaurar_lote_api_v1_apostas_lotes__lote_id__restaurar_post",
+        "parameters": [
+          {
+            "description": "Identificador do lote de exclusão devolvido no recibo.",
+            "in": "path",
+            "name": "lote_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Lote Id",
+              "type": "string"
+            }
+          },
+          {
+            "description": "Chave opaca obrigatória do cliente; reutilizá-la com o mesmo corpo reproduz a resposta original sem repetir a operação.",
+            "in": "header",
+            "name": "Idempotency-Key",
+            "required": true,
+            "schema": {
+              "description": "Chave opaca escolhida pelo cliente antes do envio. Repetir a mesma chave e o mesmo pedido devolve o recibo original sem repetir o efeito.",
+              "maxLength": 200,
+              "minLength": 1,
+              "pattern": "^[!-~]+$",
+              "title": "Idempotency-Key",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LoteSaida"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Missing, expired, or invalid bearer token.",
+            "headers": {
+              "X-Auth-Error": {
+                "description": "Identity error code when AUTH_ENABLED; legacy response body is preserved.",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "402": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "account_read_only: writes require confirmed trial or paid access."
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Cookie mutation requires exact Origin and current CSRF proof."
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "lote_nao_encontrado."
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "lote_restaurado, lote_em_curso ou idempotency_key_conflict."
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LoteRecusadoSaida"
+                }
+              }
+            },
+            "description": "lote_invalido (código por campo), frase_incorreta ou confirmacao_invalida; sem msg/input/ctx."
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "The caller exceeded an applicable request limit."
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unexpected internal failure with no sensitive exception details."
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "A required dependency is temporarily unavailable.",
+            "headers": {
+              "X-Auth-Error": {
+                "description": "Identity error code when AUTH_ENABLED; legacy response body is preserved.",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          },
+          {
+            "CsrfProof": [],
+            "SessionCookie": []
+          }
+        ],
+        "summary": "Restaurar lote de apostas"
       }
     },
     "/api/v1/apostas/{chave}": {
@@ -18223,6 +19116,15 @@
                       },
                       "type": "array"
                     },
+                    "apostas_lotes": {
+                      "items": {
+                        "additionalProperties": {
+                          "$ref": "#/components/schemas/JsonValue"
+                        },
+                        "type": "object"
+                      },
+                      "type": "array"
+                    },
                     "assinaturas": {
                       "items": {
                         "additionalProperties": {
@@ -18458,6 +19360,7 @@
                   "required": [
                     "usuario",
                     "apostas",
+                    "apostas_lotes",
                     "eventos",
                     "movimentos",
                     "movimento_requisicoes",

@@ -8,6 +8,7 @@ from bancaemdia.db.models import Base
 from bancaemdia.models.apelido import ENTIDADES, Apelido
 from bancaemdia.models.aposta import Aposta
 from bancaemdia.models.aposta_consolidacao import ApostaConsolidacao
+from bancaemdia.models.aposta_lote import ApostaLote
 from bancaemdia.models.assinatura import Assinatura
 from bancaemdia.models.audit_log import AuditLog
 from bancaemdia.models.banca import Banca
@@ -108,6 +109,7 @@ POR_USUARIO = (
     UploadBilhete,
     UploadArquivo,
     MovimentoRequisicao,
+    ApostaLote,
     MetaDesempenho,
 )
 
@@ -164,10 +166,11 @@ def test_all_forty_eight_tables_are_registered() -> None:
             ColetaPairingQuota,
             ColetaSessao,
             ColetaEntrega,
+            ApostaLote,
         )
     }
     esperadas |= {"telegram_media", "telegram_rate_buckets"}
-    assert len(esperadas) == 65
+    assert len(esperadas) == 66
     assert set(Base.metadata.tables) == esperadas
     assert {m.__tablename__ for m in CANONICOS} == {
         "casas",
