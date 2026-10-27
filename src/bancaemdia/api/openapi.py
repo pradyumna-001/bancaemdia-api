@@ -57,8 +57,13 @@ OPERATION_DOCUMENTATION: dict[OperationKey, tuple[str, str]] = {
         "Troca código uma única vez por credencial restrita; requer HTTPS, sem Bearer.",
     ),
     ("get", "/api/v1/coleta/installations"): (
-        "Listar instalações",
-        "Lista somente instalações do usuário, sem hashes ou segredos.",
+        "Listar instalações e sessões próprias",
+        "Leitura READ_ONLY por sessão web ou Bearer do proprietário, sem X-Coleta-Token. "
+        "Retorna todas as instalações em id crescente, sem paginação/truncamento, em uma consulta "
+        "de projeção. Prioriza a sessão aberta; sem aberta, a última por criada_em DESC e id DESC. "
+        "estado_sessao=sem_sessao e sessao_coleta=null significam nenhuma sessão. "
+        "aberta/atual e encerrada/ultima_encerrada são estados do banco, não presença online "
+        "ou validade da credencial. Não altera uso, fronteira, sessão ou captura; no-store.",
     ),
     ("post", "/api/v1/coleta/installations/{instalacao_id}/rotate"): (
         "Rotacionar credencial",
@@ -1207,6 +1212,10 @@ def build_openapi(app: FastAPI) -> JsonObject:
     _install_body_limit_responses(document)
     _document_operations(document)
     _install_collection_security(document)
+    owner_listing = _object(
+        document["paths"]["/api/v1/coleta/installations"]["get"], context="owner listing"
+    )
+    owner_listing["responses"].pop("402", None)
     _strictify_document(document)
     app.openapi_schema = document
     return document

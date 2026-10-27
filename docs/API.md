@@ -52,7 +52,7 @@ python scripts/generate_openapi.py
 | `GET` | `/api/v1/coleta/catalogo` | Consultar catálogo assinado | `200`, `304`, `400`, `403`, `405`, `409`, `422`, `426`, `429`, `500`, `503` | — |
 | `GET` | `/api/v1/coleta/contract` | Consultar versão do contrato | `200`, `400`, `401`, `402`, `403`, `404`, `409`, `422`, `429`, `500`, `503` | — |
 | `GET` | `/api/v1/coleta/contract/schema` | Baixar contrato canônico | `200`, `400`, `401`, `402`, `403`, `404`, `409`, `422`, `429`, `500`, `503` | — |
-| `GET` | `/api/v1/coleta/installations` | Listar instalações | `200`, `400`, `401`, `402`, `403`, `404`, `422`, `429`, `500`, `503` | — |
+| `GET` | `/api/v1/coleta/installations` | Listar instalações e sessões próprias | `200`, `400`, `401`, `403`, `404`, `422`, `429`, `500`, `503` | — |
 | `DELETE` | `/api/v1/coleta/installations/{instalacao_id}` | Revogar instalação | `204`, `400`, `401`, `402`, `403`, `404`, `422`, `429`, `500`, `503` | — |
 | `POST` | `/api/v1/coleta/installations/{instalacao_id}/rotate` | Rotacionar credencial | `200`, `400`, `401`, `402`, `403`, `404`, `422`, `429`, `500`, `503` | — |
 | `GET` | `/api/v1/coleta/jobs/{job_id}` | Consultar entrega v2 | `200`, `400`, `401`, `402`, `403`, `404`, `409`, `422`, `429`, `500`, `503` | — |

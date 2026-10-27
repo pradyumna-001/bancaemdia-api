@@ -25,6 +25,8 @@ from bancaemdia.main import app
 from bancaemdia.middleware import rate_limit as rate_limit_middleware
 from bancaemdia.repositories.coleta_instalacao import CollectionIdentity
 
+app.openapi()  # Build the complete contract before timed ASGI loader requests.
+
 ROOT = Path(__file__).resolve().parents[2]
 SNAPSHOT = ROOT / "tests" / "contract" / "schemas" / "openapi.json"
 WORKFLOW = ROOT / ".github" / "workflows" / "ci.yml"

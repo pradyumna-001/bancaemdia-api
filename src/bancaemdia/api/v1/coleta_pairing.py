@@ -1,14 +1,15 @@
 from collections.abc import Callable, Coroutine
 from datetime import datetime
-from typing import Any
+from typing import Any, Literal
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, Request, Security
 from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
 from fastapi.routing import APIRoute
-from pydantic import BaseModel, ConfigDict, Field, SecretStr, field_validator
-from sqlalchemy import select
+from pydantic import BaseModel, ConfigDict, Field, SecretStr, field_validator, model_validator
+from sqlalchemy import and_, func, select
+from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.ext.asyncio import AsyncSession
 from starlette.responses import Response
 
@@ -20,6 +21,7 @@ from bancaemdia.api.contracts import (
 from bancaemdia.api.deps import _current_user, security
 from bancaemdia.db.session import get_db_primary
 from bancaemdia.models.coleta_instalacao import ColetaInstalacao
+from bancaemdia.models.coleta_sessao import ColetaSessao
 from bancaemdia.observability.credentials import COLLECTION_SECRET
 from bancaemdia.repositories.coleta_instalacao import ColetaInstalacaoRepo
 from bancaemdia.services import coleta_tokens
@@ -76,6 +78,25 @@ class InstallationTokenResponse(BaseModel):
     token: str
 
 
+class OwnerCollectionSessionResponse(BaseModel):
+    """Original collection boundary; this is not presence or credential validity."""
+
+    model_config = ConfigDict(extra="forbid")
+    sessao_id: UUID
+    selecao: Literal["atual", "ultima_encerrada"]
+    coletar_desde: datetime
+    criada_em: datetime
+    encerrada_em: datetime | None = Field(
+        description="Null para seleção atual; timestamp obrigatório para ultima_encerrada."
+    )
+
+    @model_validator(mode="after")
+    def consistent_boundary(self) -> "OwnerCollectionSessionResponse":
+        if (self.selecao == "atual") != (self.encerrada_em is None):
+            raise ValueError("Inconsistent collection session boundary")
+        return self
+
+
 class InstallationResponse(BaseModel):
     model_config = ConfigDict(from_attributes=True)
     id: int
@@ -88,6 +109,12 @@ class InstallationResponse(BaseModel):
     rotacionado_em: datetime | None
     revogado_em: datetime | None
     expira_em: datetime | None
+    estado_sessao: Literal["sem_sessao", "aberta", "encerrada"] = Field(
+        description="Collection session state; never online presence."
+    )
+    sessao_coleta: OwnerCollectionSessionResponse | None = Field(
+        description="Null only when this installation has no persisted session."
+    )
 
 
 class InstallationStatusResponse(BaseModel):
@@ -100,7 +127,12 @@ async def owner(
     session: AsyncSession = Depends(get_db_primary),
     _: object = Security(security),
 ) -> int:
-    return (await _current_user(request, session)).id
+    try:
+        return (await _current_user(request, session)).id
+    except SQLAlchemyError:
+        raise HTTPException(
+            503, "Collection management temporarily unavailable", headers={"Retry-After": "5"}
+        ) from None
 
 
 @router.post("/pairing-codes", response_model=PairingCodeResponse, status_code=201)
@@ -125,16 +157,107 @@ async def exchange_code(
     return InstallationTokenResponse(instalacao_id=installation, token=token)
 
 
-@router.get("/installations", response_model=list[InstallationResponse])
+@router.get(
+    "/installations",
+    response_model=list[InstallationResponse],
+    responses={
+        503: {
+            "model": ErrorResponse,
+            "description": "Owner authentication/read dependency unavailable; no collection effects.",
+            "headers": {"Retry-After": {"schema": {"type": "string"}}},
+        },
+    },
+    openapi_extra={
+        "x-permission": "READ_ONLY",
+        "x-session-selection": {
+            "order": ["open_first", "criada_em_desc", "id_desc"],
+            "absence": {"estado_sessao": "sem_sessao", "sessao_coleta_is_null": True},
+            "presence": "not_available",
+            "pagination": "none_all_owned_installations_in_id_ascending_order",
+        },
+    },
+)
 async def list_installations(
     usuario_id: int = Depends(owner), session: AsyncSession = Depends(get_db_primary)
 ) -> list[InstallationResponse]:
-    rows = await session.scalars(
-        select(ColetaInstalacao)
+    # One statement/snapshot for the whole owner population, not one query/device.
+    # Only public projection columns are loaded; no token hash or capture payload.
+    ranked = (
+        select(
+            ColetaSessao.instalacao_id,
+            ColetaSessao.sessao_id,
+            ColetaSessao.coletar_desde,
+            ColetaSessao.criada_em,
+            ColetaSessao.encerrada_em,
+            func
+            .row_number()
+            .over(
+                partition_by=ColetaSessao.instalacao_id,
+                order_by=(
+                    ColetaSessao.encerrada_em.is_(None).desc(),
+                    ColetaSessao.criada_em.desc(),
+                    ColetaSessao.id.desc(),
+                ),
+            )
+            .label("position"),
+        )
+        .where(ColetaSessao.usuario_id == usuario_id)
+        .subquery()
+    )
+    fields = (
+        "id",
+        "instalacao_publica_id",
+        "nome_dispositivo",
+        "token_prefixo",
+        "criado_em",
+        "pareado_em",
+        "ultimo_uso_em",
+        "rotacionado_em",
+        "revogado_em",
+        "expira_em",
+    )
+    query = (
+        select(
+            *(getattr(ColetaInstalacao, field) for field in fields),
+            ranked.c.sessao_id,
+            ranked.c.coletar_desde,
+            ranked.c.criada_em,
+            ranked.c.encerrada_em,
+        )
+        .outerjoin(
+            ranked,
+            and_(ranked.c.instalacao_id == ColetaInstalacao.id, ranked.c.position == 1),
+        )
         .where(ColetaInstalacao.usuario_id == usuario_id)
         .order_by(ColetaInstalacao.id)
     )
-    return [InstallationResponse.model_validate(row) for row in rows]
+    try:
+        rows = (await session.execute(query)).mappings().all()
+    except SQLAlchemyError:
+        raise HTTPException(
+            503, "Collection management temporarily unavailable", headers={"Retry-After": "5"}
+        ) from None
+    result = []
+    for row in rows:
+        projection = None
+        state: Literal["sem_sessao", "aberta", "encerrada"] = "sem_sessao"
+        if row["sessao_id"] is not None:
+            state = "aberta" if row["encerrada_em"] is None else "encerrada"
+            projection = OwnerCollectionSessionResponse(
+                sessao_id=row["sessao_id"],
+                selecao="atual" if state == "aberta" else "ultima_encerrada",
+                coletar_desde=row["coletar_desde"],
+                criada_em=row["criada_em"],
+                encerrada_em=row["encerrada_em"],
+            )
+        result.append(
+            InstallationResponse(
+                **{field: row[field] for field in fields},
+                estado_sessao=state,
+                sessao_coleta=projection,
+            )
+        )
+    return result
 
 
 @router.post("/installations/{instalacao_id}/rotate", response_model=InstallationTokenResponse)
