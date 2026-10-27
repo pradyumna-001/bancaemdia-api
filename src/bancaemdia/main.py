@@ -38,6 +38,7 @@ from bancaemdia.api.v1 import (
     revisao,
     telegram,
     titulares,
+    unidade,
     upload,
     usuario,
 )
@@ -152,6 +153,7 @@ app.include_router(billing.router)
 app.include_router(titulares.router)
 app.include_router(apostas_lotes.router)
 app.include_router(bancas.router)
+app.include_router(unidade.router)
 app.include_router(telegram.router)
 app.include_router(telegram_webhook.router)
 app.include_router(usuario.router)
@@ -163,6 +165,8 @@ async def validation_failure(request: Request, error: RequestValidationError) ->
         return apostas_lotes.validacao(error)
     if route_path(request).startswith(bancas.PREFIXO):
         return bancas.validacao(error)
+    if route_path(request).startswith(unidade.PREFIXO):
+        return unidade.validacao(error)
     if route_path(request).startswith("/auth/"):
         return failure(IdentityError("invalid_request", 422))
     return await request_validation_exception_handler(request, error)
