@@ -31,6 +31,7 @@ EXPORT_TABLES = (
     "movimentos",
     "movimento_requisicoes",
     "bancas",
+    "bancas_requisicoes",
     "contas_casa",
     "titulares",
     "usos_conta_casa",
