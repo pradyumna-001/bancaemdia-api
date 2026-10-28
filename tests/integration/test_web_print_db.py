@@ -919,8 +919,7 @@ async def test_web_print_migration_roundtrip_refuses_populated_downgrade(banco_m
             await asyncio.to_thread(command.downgrade, config, "j6main2026")
         async with engine.connect() as conn:
             assert (
-                await conn.scalar(text("SELECT version_num FROM alembic_version"))
-                == "r200review2026"
+                await conn.scalar(text("SELECT version_num FROM alembic_version")) == "j7main2026"
             )
             assert await conn.scalar(text("SELECT count(*) FROM print_intents")) == 1
     finally:
