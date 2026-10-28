@@ -13,7 +13,9 @@ The 2026-10-27 rebase of the merged PRs left two conflict blocks in the main
 snapshot whose HEAD side is empty; the other side holds the definitions those
 accepted PRs published. Only that exact digest has its marker lines dropped.
 The same rebase deleted ManualAssignmentNotice; it is restored verbatim from
-the accepted head of #203 (bc368106da04a24c8a8b9a9827978ce476963e19).
+the accepted head of #203 (bc368106da04a24c8a8b9a9827978ce476963e19). It also
+dropped the Decimal text pattern of the four goal fields that the accepted parent
+b916f54331f14cf47a3800324bd61d8638043c06 publishes; those patterns are restored.
 """
 
 from __future__ import annotations
@@ -29,6 +31,14 @@ from typing import Any
 MAIN_SNAPSHOT_SHA256 = "2d5d9b20cc227a356a26c0569ef0af47146fedd1c7e358fc3fae0630e5172a2f"
 REBASE_SNAPSHOT_SHA256 = "d09fa6c244f942955bef7587ac73a622150d737350d1432719f7c939b90b85a0"
 REBASE_CONFLICT_BLOCKS = 2
+# Published by b916f54 for MetaEntrada/MetaAlteracao alvo and linha_base text alternatives.
+_GOAL_DECIMAL_PATTERN = r"^(?!^[-+.]*$)[+-]?0*\d*\.?\d*$"
+_GOAL_DECIMAL_FIELDS = (
+    ("MetaEntrada", "alvo"),
+    ("MetaEntrada", "linha_base"),
+    ("MetaAlteracao", "alvo"),
+    ("MetaAlteracao", "linha_base"),
+)
 _DUPLICATED_END = """        "title": "MatrizTitularSaida",
         "type": "object"
       }
@@ -197,7 +207,16 @@ def parse_baseline(raw: bytes) -> dict[str, Any]:
             if name in schemas:
                 raise ValueError(f"Known rebase unexpectedly contains restored schema: {name}")
             schemas[name] = definition
-        logging.warning("Restored the definition deleted by the known rebase")
+        for name, field in _GOAL_DECIMAL_FIELDS:
+            texts = [
+                variant
+                for variant in schemas[name]["properties"][field]["anyOf"]
+                if variant.get("type") == "string"
+            ]
+            if len(texts) != 1 or "pattern" in texts[0]:
+                raise ValueError(f"Known rebase no longer matches the {name}.{field} repair")
+            texts[0]["pattern"] = _GOAL_DECIMAL_PATTERN
+        logging.warning("Restored the definition and goal patterns deleted by the known rebase")
     _validate_references(document)
     return document
 

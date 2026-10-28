@@ -889,6 +889,7 @@ async def test_known_stake_review_preserves_private_original(
 async def test_web_print_migration_roundtrip_refuses_populated_downgrade(banco_migracao):
     from alembic import command
     from alembic.config import Config
+    from alembic.script import ScriptDirectory
     from sqlalchemy.exc import DBAPIError
     from sqlalchemy.ext.asyncio import create_async_engine
     from sqlalchemy.pool import NullPool
@@ -919,7 +920,8 @@ async def test_web_print_migration_roundtrip_refuses_populated_downgrade(banco_m
             await asyncio.to_thread(command.downgrade, config, "j6main2026")
         async with engine.connect() as conn:
             assert (
-                await conn.scalar(text("SELECT version_num FROM alembic_version")) == "j7main2026"
+                await conn.scalar(text("SELECT version_num FROM alembic_version"))
+                == ScriptDirectory.from_config(config).get_current_head()
             )
             assert await conn.scalar(text("SELECT count(*) FROM print_intents")) == 1
     finally:
