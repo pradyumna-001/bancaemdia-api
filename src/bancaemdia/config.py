@@ -133,6 +133,11 @@ class Settings(BaseSettings):
     UPLOAD_MAX_BYTES: int = Field(
         default=50 * 1024 * 1024, gt=0, description="Largest Telegram export accepted, in bytes"
     )
+    PRINT_DAILY_ATTEMPT_LIMIT: int = Field(
+        default=200,
+        gt=0,
+        description="Internal web-print admission/retry ceiling per user per UTC day; never a browser spending approval",
+    )
     UPLOAD_DAILY_PHOTO_LIMIT: int = Field(
         default=200, ge=0, description="Photos per user per day sent to the AI; 0 disables"
     )
@@ -144,6 +149,10 @@ class Settings(BaseSettings):
     )
     # Reserved for an issuer that does not exist yet. RS256 verification uses JWT_JWKS_URL,
     # never this secret; do not wire it into the verifier as a fallback.
+    PAINEL_CURSOR_SECRET: SecretStr | None = Field(
+        default=None,
+        description="Optional dedicated private secret for encrypted dashboard pagination; absent derives a purpose-separated key from COLETA_TOKEN_SECRET.",
+    )
     JWT_SECRET_KEY: str = Field(..., description="Reserved issuer signing key, not a verifier key")
     JWT_ALGORITHM: str = Field(default="RS256", description="JWT signing algorithm")
     JWT_JWKS_URL: str | None = Field(

@@ -8,6 +8,7 @@ from bancaemdia.core.body_limits import (
     PLANILHA_MAX_BYTES,
     UPLOAD_FORM_MARGIN,
 )
+from bancaemdia.domain.foto_aposta import photo_path
 from bancaemdia.integrations.telegram.webhook import MAX_WEBHOOK_BYTES, WEBHOOK_PATH
 
 SECURITY_HEADERS = (
@@ -33,6 +34,19 @@ class SecurityHeadersMiddleware:
 
         async def send_headers(message: Message) -> None:
             if message["type"] == "http.response.start":
+                if scope.get("path", "").startswith("/api/v1/apostas-manuais/"):
+                    message = {
+                        **message,
+                        "headers": [
+                            (n, v)
+                            for n, v in message.get("headers", [])
+                            if n.lower() not in {b"cache-control", b"vary"}
+                        ]
+                        + [
+                            (b"cache-control", b"private, no-store"),
+                            (b"vary", b"Cookie, Authorization"),
+                        ],
+                    }
                 names = {name for name, _ in SECURITY_HEADERS}
                 message = {
                     **message,
@@ -43,6 +57,37 @@ class SecurityHeadersMiddleware:
                     ]
                     + list(SECURITY_HEADERS),
                 }
+                private_path = scope.get("path", "").removeprefix(scope.get("root_path", ""))
+                if (
+                    private_path.startswith("/api/v1/resultados/")
+                    or private_path.startswith("/api/v1/revisao")
+                    or photo_path(private_path)
+                    or private_path.startswith("/api/v1/prints/")
+                    or (
+                        private_path.startswith("/api/v1/revisao/")
+                        and private_path.endswith("/foto")
+                    )
+                ):
+                    from starlette.datastructures import MutableHeaders
+
+                    headers = MutableHeaders(scope=message)
+                    headers["Cache-Control"] = "private, no-store"
+                    headers["Pragma"] = "no-cache"
+                    headers["Referrer-Policy"] = "no-referrer"
+                    headers["Content-Security-Policy"] = (
+                        "default-src 'none'; frame-ancestors 'none'"
+                    )
+                    vary = [
+                        value.strip()
+                        for value in headers.get("Vary", "").split(",")
+                        if value.strip()
+                    ]
+                    for value in ("Authorization", "Cookie"):
+                        if value.lower() not in {existing.lower() for existing in vary}:
+                            vary.append(value)
+                    headers["Vary"] = ", ".join(vary)
+                    if message["status"] == 503 and "Retry-After" not in headers:
+                        headers["Retry-After"] = "5"
             await send(message)
 
         await self.app(scope, receive, send_headers)
@@ -64,6 +109,10 @@ class EndpointBodyLimitMiddleware:
             limit = MAX_WEBHOOK_BYTES
         elif path == "/api/v1/upload":
             limit = get_settings().UPLOAD_MAX_BYTES + UPLOAD_FORM_MARGIN
+        elif path.startswith("/api/v1/prints/intencoes/") and not path.endswith("/retry"):
+            from bancaemdia.integrations.telegram.media import MAX_PHOTO_BYTES
+
+            limit = MAX_PHOTO_BYTES + UPLOAD_FORM_MARGIN
         elif path == "/api/v1/apostas/importar-planilha":
             limit = PLANILHA_MAX_BYTES + UPLOAD_FORM_MARGIN
         elif path in {"/coleta", "/api/v1/coleta"}:

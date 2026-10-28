@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import io
 from pathlib import Path
+from typing import cast
 
 from alembic import command
 from alembic.config import Config
@@ -43,6 +44,8 @@ POR_USUARIO_UPLOAD = {
 }
 POR_USUARIO_IDEMPOTENCIA = {"movimento_requisicoes"}
 POR_USUARIO_NATIVAS = {"native_accounts", "native_bets", "native_bet_evidence"}
+POR_USUARIO_LOTES = {"apostas_lotes"}
+POR_USUARIO_BANCAS = {"bancas_requisicoes"}
 POR_USUARIO_TITULARES = {
     "titulares",
     "usos_conta_casa",
@@ -117,7 +120,13 @@ def test_rls_revision_follows_the_baseline() -> None:
 
 
 def test_protected_and_shared_tables_cover_the_whole_schema() -> None:
-    protegidas = POR_USUARIO | POR_USUARIO_UPLOAD | POR_USUARIO_IDEMPOTENCIA
+    protegidas = (
+        POR_USUARIO
+        | POR_USUARIO_UPLOAD
+        | POR_USUARIO_IDEMPOTENCIA
+        | {"manual_creation_operations"}
+        | {"print_intents", "print_items", "print_assets"}
+    )
     billing = {
         "assinaturas",
         "billing_prices",
@@ -130,6 +139,8 @@ def test_protected_and_shared_tables_cover_the_whole_schema() -> None:
         protegidas
         | POR_USUARIO_NATIVAS
         | POR_USUARIO_TITULARES
+        | POR_USUARIO_LOTES
+        | POR_USUARIO_BANCAS
         | POR_USUARIO_TELEGRAM
         | GLOBAIS_TELEGRAM
         | COMPARTILHADAS
@@ -145,6 +156,8 @@ def test_protected_and_shared_tables_cover_the_whole_schema() -> None:
             "cruzamento_entradas",
             "cruzamento_candidatos",
             "reader_quarantine",
+            "result_operations",
+            "review_operations",
             "catalogo_operadores",
             "casa_dominios",
             "catalogo_fontes",
@@ -152,6 +165,8 @@ def test_protected_and_shared_tables_cover_the_whole_schema() -> None:
             "catalogo_publicacoes",
             "catalogo_confirmacoes",
             "catalogo_auditoria",
+            "grupos_aposta",
+            "apostas_grupos",
             "usuarios",
             "audit_log",
         }
@@ -173,7 +188,7 @@ def test_billing_rls_is_added_in_its_own_revision() -> None:
 
 
 def test_native_financial_policies_preserve_owner_and_evidence_boundaries() -> None:
-    sql = _upgrade_sql("j6main2026:n115native2026")
+    sql = _upgrade_sql("j7main2026:n115native2026")
     for table in POR_USUARIO_NATIVAS:
         assert f"ALTER TABLE {table} ENABLE ROW LEVEL SECURITY" in sql
         assert f"ALTER TABLE {table} FORCE ROW LEVEL SECURITY" in sql
@@ -295,12 +310,15 @@ def test_late_branches_merge_without_rewriting_published_revisions() -> None:
     assert script.get_revision(REVISAO_RESOLVIDA).down_revision == TRANSFERENCIA
     assert "007_revisao_resolvida_evento" in script.get_revision(REVISAO_RESOLVIDA).doc
     caixa_revisao = script.get_revision(CAIXA_REVISAO_MERGE)
-    assert set(caixa_revisao.down_revision) == {IDEMPOTENCIA_CAIXA, REVISAO_RESOLVIDA}
+    assert set(cast(tuple[str, ...], caixa_revisao.down_revision)) == {
+        IDEMPOTENCIA_CAIXA,
+        REVISAO_RESOLVIDA,
+    }
     assert "008_merge_caixa_revisao" in caixa_revisao.doc
     assert script.get_revision(PAINEL).down_revision == REVISAO_RESOLVIDA
     assert "008_painel_materialized_views" in script.get_revision(PAINEL).doc
     merge = script.get_revision(PAINEL_CAIXA_MERGE)
-    assert set(merge.down_revision) == {CAIXA_REVISAO_MERGE, PAINEL}
+    assert set(cast(tuple[str, ...], merge.down_revision)) == {CAIXA_REVISAO_MERGE, PAINEL}
     assert "009_merge_painel_caixa" in merge.doc
 
 
@@ -392,3 +410,17 @@ def test_integrated_pairing_tables_keep_dedicated_rls_and_quota_boundary() -> No
         assert "usuario_id=NULLIF(current_setting('app.current_user_id',true),'')::bigint" in sql
     assert "REVOKE ALL ON FUNCTION coleta_pairing_limit(text,integer,integer) FROM PUBLIC" in sql
     assert "SET search_path=pg_catalog,public" in sql
+
+
+def test_manual_receipts_have_forced_rls_write_guard_and_immutable_identity() -> None:
+    sql = _upgrade_sql("j6main2026:m202manual2026")
+    assert "ALTER TABLE manual_creation_operations ENABLE ROW LEVEL SECURITY" in sql
+    assert "ALTER TABLE manual_creation_operations FORCE ROW LEVEL SECURITY" in sql
+    assert "CREATE POLICY manual_creation_owner" in sql
+    assert (
+        "WITH CHECK(usuario_id=NULLIF(current_setting('app.current_user_id',true),'')::bigint)"
+        in sql
+    )
+    assert "CREATE TRIGGER billing_write_guard" in sql
+    assert "EXECUTE FUNCTION billing_require_write()" in sql
+    assert "CREATE TRIGGER manual_creation_immutable" in sql

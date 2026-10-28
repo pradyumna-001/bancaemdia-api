@@ -2,9 +2,11 @@ from bancaemdia.db.models import Base
 from bancaemdia.models.apelido import Apelido
 from bancaemdia.models.aposta import Aposta
 from bancaemdia.models.aposta_consolidacao import ApostaConsolidacao
+from bancaemdia.models.aposta_lote import ApostaLote
 from bancaemdia.models.assinatura import Assinatura
 from bancaemdia.models.audit_log import AuditLog
 from bancaemdia.models.banca import Banca
+from bancaemdia.models.banca_requisicao import BancaRequisicao
 from bancaemdia.models.billing_checkout import BillingCheckout
 from bancaemdia.models.billing_event import BillingEvent
 from bancaemdia.models.billing_price import BillingPrice
@@ -35,6 +37,8 @@ from bancaemdia.models.cruzamento_candidato import CruzamentoCandidato, Cruzamen
 from bancaemdia.models.esporte import Esporte
 from bancaemdia.models.evento import Evento
 from bancaemdia.models.extracao_cache import ExtracaoCache
+from bancaemdia.models.grupo_aposta import ApostaGrupo, GrupoAposta
+from bancaemdia.models.manual_creation import ManualCreationOperation
 from bancaemdia.models.mensagem import Mensagem
 from bancaemdia.models.mensagem_versao import MensagemVersao
 from bancaemdia.models.mercado import Mercado
@@ -46,6 +50,8 @@ from bancaemdia.models.movimento_requisicao import MovimentoRequisicao
 from bancaemdia.models.native_financials import NativeAccount, NativeBet, NativeBetEvidence
 from bancaemdia.models.rascunho_aposta import RascunhoAposta, RascunhoCorrecao
 from bancaemdia.models.reader_quarantine import ReaderQuarantine
+from bancaemdia.models.result_operation import ResultOperation as ResultOperation
+from bancaemdia.models.review_operation import ReviewOperation as ReviewOperation
 from bancaemdia.models.revisao_pendente import RevisaoPendente
 from bancaemdia.models.telegram_link import (
     TelegramLink,
@@ -63,14 +69,18 @@ from bancaemdia.models.unidade import Unidade
 from bancaemdia.models.upload import Upload, UploadArquivo, UploadBilhete
 from bancaemdia.models.uso_conta_casa import UsoContaCasa
 from bancaemdia.models.usuario import Usuario
+from bancaemdia.models.web_print import PrintAsset, PrintIntent, PrintItem
 
 __all__ = [
     "Apelido",
     "Aposta",
     "ApostaConsolidacao",
+    "ApostaGrupo",
+    "ApostaLote",
     "Assinatura",
     "AuditLog",
     "Banca",
+    "BancaRequisicao",
     "Base",
     "BillingPrice",
     "BillingPriceAudit",
@@ -98,6 +108,8 @@ __all__ = [
     "Esporte",
     "Evento",
     "ExtracaoCache",
+    "GrupoAposta",
+    "ManualCreationOperation",
     "Mensagem",
     "MensagemVersao",
     "Mercado",
@@ -109,6 +121,9 @@ __all__ = [
     "NativeAccount",
     "NativeBet",
     "NativeBetEvidence",
+    "PrintAsset",
+    "PrintIntent",
+    "PrintItem",
     "RascunhoAposta",
     "RascunhoCorrecao",
     "ReaderQuarantine",

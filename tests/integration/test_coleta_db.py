@@ -1,9 +1,10 @@
 from __future__ import annotations
 
 import asyncio
-from collections.abc import Awaitable, Callable
+from collections.abc import AsyncIterator, Awaitable, Callable
 from contextlib import AbstractAsyncContextManager
 from datetime import UTC, datetime, timedelta
+from typing import Any, cast
 from uuid import uuid4
 
 import pytest
@@ -16,6 +17,7 @@ from sqlalchemy.pool import NullPool
 from bancaemdia import main, models
 from bancaemdia.api.v1 import coleta
 from bancaemdia.db.session import get_db
+from bancaemdia.domain.coleta_casa import Resultado
 from bancaemdia.repositories.aposta_repo import ApostaRepo
 from bancaemdia.repositories.coleta_casa_repo import ColetaCasaRepo
 from bancaemdia.repositories.coleta_token_repo import ColetaTokenRepo
@@ -32,7 +34,9 @@ PLACED = 1785708161930
 START = 1785709800000
 
 
-def _bilhete(id_=None, *, resultado="Lose", ganho=0.0, odd=1.90, **extra):
+def _bilhete(
+    id_: Any = None, *, resultado: Any = "Lose", ganho: Any = 0.0, odd: Any = 1.90, **extra: Any
+) -> Any:
     bruto = {
         "id": id_ or str(uuid4().int)[:11],
         "bonusType": 0,
@@ -86,14 +90,14 @@ async def _token(
 
 async def _enviar(
     engine: AsyncEngine, como: Como, usuario: int, casa_id: int, bilhetes: list[object]
-) -> tuple[coleta.Resultado, list[int]]:
+) -> tuple[Resultado, list[int]]:
     async with como(engine, usuario) as session:
         resultado, fila = await coleta.registrar(session, usuario, "betano", casa_id, bilhetes)
         await session.commit()
     return resultado, fila
 
 
-async def _aposta(engine: AsyncEngine, como: Como, usuario: int, chave: str):
+async def _aposta(engine: AsyncEngine, como: Como, usuario: int, chave: str) -> Any:
     async with como(engine, usuario) as session:
         return await ApostaRepo().get_by_chave(session, usuario, chave)
 
@@ -354,7 +358,9 @@ async def test_held_house_bet_opens_a_review_linked_to_its_raw_row(
 
     async with como(engine_app, usuario) as session:
         revisoes = await RevisaoPendenteRepo().list_by_usuario(session, usuario)
-    (revisao,) = [r for r in revisoes if r.extracao_bruta.get("tipo_revisao") != "conta"]
+    (revisao,) = [
+        r for r in revisoes if cast(dict[str, Any], r.extracao_bruta).get("tipo_revisao") != "conta"
+    ]
     assert len(revisoes) == 2
     assert "bonusType=3" in revisao.motivo
     assert revisao.extracao_bruta is not None
@@ -395,7 +401,9 @@ async def test_bet_jsonb_cannot_hold_is_refused_and_the_rest_of_the_send_is_stor
     assert (resultado.novas_contando, len(fila)) == (1, 1)
 
 
-def test_route_stores_the_send_through_the_row_policies(banco, monkeypatch) -> None:
+def test_route_stores_the_send_through_the_row_policies(
+    banco: Any, monkeypatch: pytest.MonkeyPatch
+) -> None:
     async def preparar() -> tuple[int, str, int]:
         engine = create_async_engine(banco.url_admin, poolclass=NullPool)
         app = create_async_engine(banco.url_app, poolclass=NullPool)
@@ -430,7 +438,7 @@ def test_route_stores_the_send_through_the_row_policies(banco, monkeypatch) -> N
     enfileiradas = []
 
     class Sessoes:
-        async def abrir(self):
+        async def abrir(self) -> AsyncIterator[Any]:
             engine = create_async_engine(banco.url_app, poolclass=NullPool)
             try:
                 async with AsyncSession(engine) as session:

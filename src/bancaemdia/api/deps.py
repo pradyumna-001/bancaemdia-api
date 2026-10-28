@@ -10,43 +10,24 @@ security = HTTPBearer(auto_error=False)
 
 
 async def _current_user(request: Request, session: AsyncSession) -> Usuario:
+    from bancaemdia.auth.middleware import route_path
+    from bancaemdia.domain.foto_aposta import photo_path
+
     usuario_id = getattr(request.state, "usuario_id", None)
     usuario = None if usuario_id is None else await UsuarioRepo().get_by_id(session, usuario_id)
     # O token não sabe que a conta foi desativada depois de emitido: a conta é conferida a cada pedido.
     if usuario is None or not usuario.ativo:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Invalid token",
+            detail="sessão inválida ou encerrada"
+            if photo_path(route_path(request))
+            else "Invalid token",
             headers={"WWW-Authenticate": 'Bearer error="invalid_token"'},
         )
     from bancaemdia.auth.middleware import route_path
+    from bancaemdia.domain.access import require_write_access, requires_full_write
 
-    path = route_path(request)
-    control_operation = (request.method, path) in {
-        ("POST", "/api/v1/telegram/link-codes"),
-        ("DELETE", "/api/v1/telegram/link"),
-        ("DELETE", "/api/v1/usuario/me"),
-        ("POST", "/api/v1/coleta/pairing-codes"),
-    }
-    installation_path = path.split("/")
-    if installation_path[:5] == ["", "api", "v1", "coleta", "installations"]:
-        control_operation |= (
-            len(installation_path) == 6
-            and installation_path[5].isdigit()
-            and request.method == "DELETE"
-        ) or (
-            len(installation_path) == 7
-            and installation_path[5].isdigit()
-            and installation_path[6] == "rotate"
-            and request.method == "POST"
-        )
-    if (
-        not control_operation
-        and request.method not in {"GET", "HEAD", "OPTIONS"}
-        and not path.startswith("/api/v1/billing/")
-    ):
-        from bancaemdia.domain.access import require_write_access
-
+    if requires_full_write(request.method, route_path(request)):
         await require_write_access(session, usuario.id)
     return usuario
 

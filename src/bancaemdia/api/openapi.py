@@ -5,6 +5,7 @@ from typing import Any, cast
 from fastapi import FastAPI
 from fastapi.openapi.utils import get_openapi
 
+from bancaemdia.api.policies import instalar as install_policies
 from bancaemdia.domain.vocabulario import CASAS
 
 HTTP_METHODS = frozenset({"delete", "get", "patch", "post", "put"})
@@ -19,8 +20,47 @@ MANUAL_BET_HOUSES = sorted(
     | {domain.split(".", maxsplit=1)[0] for _, domain in CASAS}
 )
 
-
 OPERATION_DOCUMENTATION: dict[OperationKey, tuple[str, str]] = {
+    ("get", "/api/v1/titulares/trocas/intencao"): (
+        "Recuperar intenção de troca",
+        "Leitura do proprietário no primário por Idempotency-Key, inclusive READ_ONLY. APPLIED devolve recibo original. PREVIEW/EXPIRED/404 não provam rollback. Retenção até exclusão da conta; sem reenvio automático.",
+    ),
+    ("post", "/api/v1/apostas-manuais/operacoes/{intencao_id}"): (
+        "Criar aposta manual reconciliável",
+        "FULL_WRITE e CSRF atuais. UUID escolhido antes do POST; aposta, eventos, eventual revisão e recibo no mesmo commit. Mesmo UUID/corpo normalizado devolve confirmação original sem recalcular data, unidade ou conta; outro corpo conflita. Recuperação por 90 dias; identidade não é reutilizada após expirar. Nenhum POST recebe retry automático.",
+    ),
+    ("get", "/api/v1/apostas-manuais/operacoes/{intencao_id}"): (
+        "Recuperar confirmação original manual",
+        "READ_ONLY explícito no primário, por UUID e usuário autenticado. Recibo original disponível por 90 dias, mesmo após correção/apagamento da aposta. 404/410 não provam rollback nem autorizam repetição automática. Somente confirmado tem chave para navegar ao detalhe atual; nenhuma fila assíncrona é publicada.",
+    ),
+    ("get", "/api/v1/resultados/fila"): (
+        "Fila global por antiguidade",
+        "Snapshot do primário, data_jogo crescente com fallback criada_em, cursor privado de 30 minutos; apenas pendentes selecionadas, financeiras, atribuídas e sem revisão grave. Total da fronteira no mesmo snapshot.",
+    ),
+    ("get", "/api/v1/resultados/apostas/{chave}"): (
+        "Consultar revisão e elegibilidade",
+        "Estado atual autorizado no primário para criar uma nova intenção após conflito; não reutilizar intenção incerta.",
+    ),
+    ("post", "/api/v1/resultados/operacoes/{intention_id}"): (
+        "Registrar resultado condicional",
+        "UUID criado antes da escrita, revisão esperada comparada sob lock no primário; FULL_WRITE e um evento por gesto. Replay do mesmo payload recupera recibo antes da comparação de versão.",
+    ),
+    ("post", "/api/v1/resultados/operacoes/{intention_id}/desfazer"): (
+        "Desfazer resultado confirmado",
+        "Nova intenção ligada à operação do mesmo usuário e à revisão produzida por ela, válida por 24h; restaura pré-imagem autoritativa com evento auditável.",
+    ),
+    ("get", "/api/v1/resultados/operacoes/{intention_id}"): (
+        "Recuperar resposta perdida",
+        "Recibo privado do primário por 90 dias; não é estado atual. 404/410 não provam rollback e não autorizam replay automático.",
+    ),
+    ("get", "/api/v1/apostas/{chave}/foto"): (
+        "Ler a foto original autorizada da aposta",
+        "Imagem binária privada por aposta e proveniência persistida no primário, inclusive após revisão. FULL_WRITE e READ_ONLY. Sem extração, escrita, redirecionamento ou credenciais em URL. 404 representa aposta/foto inexistente, inacessível, ambígua ou removida pela retenção. Ver docs/contracts/aposta-foto.md.",
+    ),
+    ("get", "/api/v1/painel/hipotetica"): (
+        "Comparação histórica seguindo a stake do tipster",
+        "Somente leitura, inclusive READ_ONLY. População completa (máximo 10000) com os filtros canônicos; dicas confirmadas resolvidas separadamente e nunca contadas duas vezes. Usa stake da dica, odd e resultado reais, centavos em strings e HALF_EVEN. Cashout, taxas, bônus, retorno fixo e evidência insuficiente impedem comparação completa. Null não é zero. Sem parâmetros livres de stake nem paginação. Contrato: docs/contracts/hipotetica.md.",
+    ),
     ("post", "/api/v1/coleta/reader-captures"): (
         "Receber fonte textual com moeda nativa",
         "ReaderEnvelope lossless reader-capture-1 por X-Coleta-Token/HTTPS. Preserva USDT exato; conta pelo jogo e multicontas explícita. Duplicatas são no-op; conflitos sem versão vão à revisão. Admissão fechada até corpus financeiro aprovado e ativação explícita. Não altera coleta-v2.",
@@ -69,6 +109,46 @@ OPERATION_DOCUMENTATION: dict[OperationKey, tuple[str, str]] = {
         "Baixar contrato canônico",
         "OpenAPI canônico gerado dos mesmos modelos usados pela API.",
     ),
+    ("get", "/api/v1/filtros/{dimensao}"): (
+        "Opções autenticadas dos filtros",
+        "IDs canônicos em texto decimal; id resolve inclusive inativas fora da página. Referências globais públicas e entidades privadas do usuário. Vazio=200; indisponibilidade=503.",
+    ),
+    ("post", "/api/v1/grupos"): (
+        "Criar grupo privado de apostas",
+        "Cria grupo ativo explicitamente pertencente ao usuário; arquivado é aplicado somente no PATCH. Não infere vínculos de tipsters ou nomes. Escrita auditada e sujeita ao acesso vigente.",
+    ),
+    ("patch", "/api/v1/grupos/{grupo_id}"): (
+        "Editar ou arquivar grupo",
+        "Arquivamento preserva vínculos históricos e consultas; impede novas associações. Escrita auditada.",
+    ),
+    ("put", "/api/v1/apostas/{chave}/grupos"): (
+        "Atribuir grupos à aposta",
+        "Substitui vínculos explícitos, privados e auditados da aposta estável. Não altera contas nem valores; sem associação histórica presumida.",
+    ),
+    ("get", "/api/v1/painel/filtrado/diario"): (
+        "Consultar diário completo em janelas limitadas",
+        "Dias civis de data_aposta em America/Sao_Paulo para 7d/30d/90d/1y/all. Total completo, subtotal da janela, parcela sem data e estados explícitos. Cursor cifrado vinculado ao usuário e filtros; valores monetários em strings exatas. Não atualiza MV.",
+    ),
+    ("get", "/api/v1/painel/filtrado/grupos"): (
+        "Consultar grupos de origem e seus tipsters em lote",
+        "Vínculo explícito único da aposta canônica; sem grupo/ambiguidade/não resolvida são parcelas explícitas. Paginação de pares grupo-tipster, com totais completos de cada grupo e do período em todas as páginas. Rótulos atuais e grupos arquivados preservados.",
+    ),
+    ("get", "/api/v1/painel/filtrado/detalhado/export"): (
+        "Exportar diário completo e hierarquia reconciliáveis",
+        "XLSX do mesmo snapshot/seletores: Contexto, Resumo, Grupos únicos, Tipsters por grupo, Diario. Dinheiro e IDs como texto exato. Limite explícito de 100000 dias/pares; excesso retorna 422, nunca truncamento. READ_ONLY permite exportação.",
+    ),
+    ("get", "/api/v1/painel/filtrado"): (
+        "Resumo da seleção de apostas do site",
+        "Mesma seleção do GET apostas, antes de qualquer paginação; agregados ao vivo em snapshot. Revisão grave não contribui financeiramente; retorno desconhecido produz null. Não usa materialized views.",
+    ),
+    ("get", "/api/v1/painel/filtrado/metricas"): (
+        "Séries diárias da seleção do site",
+        "Mesma seleção e regras do resumo. Dia civil de São Paulo; labels null identificam data_aposta ausente. Dias sem fatos não são inventados. Total fornecido pelo servidor; fresh só escolhe primário.",
+    ),
+    ("get", "/api/v1/painel/filtrado/export"): (
+        "Exportação agregada da seleção do site",
+        "XLSX streaming com as seis seções e cabeçalhos existentes do Painel. Conjunto-base idêntico ao resumo, gráficos e lista. Campos sem atribuição/conhecimento permanecem vazios; não é exportação de IDs de apostas.",
+    ),
     ("post", "/api/v1/coleta/pairing-codes"): (
         "Criar código de pareamento",
         "Emite código descartável para uma instalação; requer JWT e HTTPS.",
@@ -78,8 +158,13 @@ OPERATION_DOCUMENTATION: dict[OperationKey, tuple[str, str]] = {
         "Troca código uma única vez por credencial restrita; requer HTTPS, sem Bearer.",
     ),
     ("get", "/api/v1/coleta/installations"): (
-        "Listar instalações",
-        "Lista somente instalações do usuário, sem hashes ou segredos.",
+        "Listar instalações e sessões próprias",
+        "Leitura READ_ONLY por sessão web ou Bearer do proprietário, sem X-Coleta-Token. "
+        "Retorna todas as instalações em id crescente, sem paginação/truncamento, em uma consulta "
+        "de projeção. Prioriza a sessão aberta; sem aberta, a última por criada_em DESC e id DESC. "
+        "estado_sessao=sem_sessao e sessao_coleta=null significam nenhuma sessão. "
+        "aberta/atual e encerrada/ultima_encerrada são estados do banco, não presença online "
+        "ou validade da credencial. Não altera uso, fronteira, sessão ou captura; no-store.",
     ),
     ("post", "/api/v1/coleta/installations/{instalacao_id}/rotate"): (
         "Rotacionar credencial",
@@ -211,7 +296,7 @@ OPERATION_DOCUMENTATION: dict[OperationKey, tuple[str, str]] = {
     ),
     ("get", "/api/v1/apostas"): (
         "Listar apostas",
-        "Lista apostas do usuário com filtros temporais, dimensionais e paginação.",
+        "Lista apostas do usuário com filtros temporais, dimensionais e paginação. Projeta os textos do histórico canônico e rótulos atuais autorizados das referências gravadas, em lote somente para a página. Leitura em snapshot; não reatribui contas nem recalcula finanças no cliente.",
     ),
     ("post", "/api/v1/apostas"): (
         "Criar aposta manual",
@@ -240,6 +325,58 @@ OPERATION_DOCUMENTATION: dict[OperationKey, tuple[str, str]] = {
     ("post", "/api/v1/apostas/{chave}/restaurar"): (
         "Restaurar aposta na apuração",
         "Volta a incluir uma aposta anteriormente excluída, preservando todo o histórico.",
+    ),
+    ("get", "/api/v1/apostas/lotes/previa-apagar"): (
+        "Prévia de apagar todas as apostas",
+        "Conta as apostas ativas e devolve a frase que a pessoa precisa digitar e um token de confirmação assinado, válido por 10 minutos e preso a este conjunto exato. Escopo: apostas apenas; movimentos, bancas, cadastro, titulares, assinatura, Telegram e coleta não mudam.",
+    ),
+    ("post", "/api/v1/apostas/lotes"): (
+        "Apagar todas as apostas",
+        "Apaga de uma vez, numa transação, todas as apostas ativas da prévia, com a mesma semântica do DELETE individual: um evento por aposta, nada removido fisicamente, visíveis com incluir_apagadas. Exige frase e token da prévia; 409 se o conjunto mudou, a prévia expirou ou outro lote está em curso. Idempotency-Key obrigatória: mesmo pedido devolve o recibo original. FULL_WRITE e CSRF; 402 sem efeito.",
+    ),
+    ("get", "/api/v1/apostas/lotes/intencao"): (
+        "Recuperar lote de apostas",
+        "Lê no primário a operação, o status e o recibo gravados para a Idempotency-Key após resposta perdida; 404 se nada foi gravado. Permitida em READ_ONLY.",
+    ),
+    ("get", "/api/v1/apostas/lotes/{lote_id}"): (
+        "Consultar lote de apostas",
+        "Recibo do lote, com contagem apagada e, se houver, quando e quantas foram restauradas. Permitida em READ_ONLY.",
+    ),
+    ("post", "/api/v1/apostas/lotes/{lote_id}/restaurar"): (
+        "Restaurar lote de apostas",
+        "Restaura de uma vez exatamente as apostas que este lote apagou e que continuam apagadas; as alteradas uma a uma depois do lote ficam como estão. Um lote restaura uma vez (409 lote_restaurado). Idempotency-Key obrigatória; FULL_WRITE e CSRF.",
+    ),
+    ("get", "/api/v1/bancas"): (
+        "Listar bancas",
+        "Bancas do usuário com id, nome, estado (ativa/arquivada), capital inicial em centavos ou null (não informado) e contas vinculadas. Permitida em READ_ONLY.",
+    ),
+    ("post", "/api/v1/bancas"): (
+        "Criar banca",
+        "Cria banca ativa; capital ausente ou null fica não informado e a progressão segue null. Nome único por usuário, inclusive entre arquivadas (409 nome_em_uso). Idempotency-Key obrigatória: mesmo pedido devolve a resposta original, outro pedido 409. FULL_WRITE e CSRF.",
+    ),
+    ("patch", "/api/v1/bancas/{banca_id}"): (
+        "Alterar banca",
+        "Renomeia ou define/remove o capital inicial (null apaga); só os campos enviados mudam. Banca arquivada recusa com 409 banca_arquivada. Idempotency-Key obrigatória; FULL_WRITE e CSRF.",
+    ),
+    ("post", "/api/v1/bancas/{banca_id}/arquivar"): (
+        "Arquivar banca",
+        "Marca a banca como arquivada sem apagar movimentos, apostas nem vínculos históricos. Recusa com 409 banca_com_contas enquanto houver conta vinculada; banca arquivada não aceita novos vínculos. Idempotency-Key obrigatória; FULL_WRITE e CSRF.",
+    ),
+    ("get", "/api/v1/bancas/intencao"): (
+        "Recuperar escrita de banca",
+        "Lê no primário a operação, o status e a resposta gravados para a Idempotency-Key após resposta perdida; 404 se nada foi gravado. Permitida em READ_ONLY.",
+    ),
+    ("get", "/api/v1/unidade"): (
+        "Consultar valor da unidade",
+        "Unidade vigente agora e histórico de vigências do usuário, com centavos exatos, origem (padrao/usuario) e início no fuso do usuário. Sem vigência vale o padrão de 10.000 centavos. Permitida em READ_ONLY.",
+    ),
+    ("post", "/api/v1/unidade/vigencias"): (
+        "Definir valor da unidade",
+        "Abre nova vigência no instante do servidor e encerra a anterior nesse instante. Apostas existentes guardam a unidade com que foram criadas e não mudam; criação manual, coleta, Telegram e XLSX leem a vigência do instante da aposta. Idempotency-Key obrigatória: mesmo corpo devolve o recibo original, corpo diferente 409. FULL_WRITE e CSRF.",
+    ),
+    ("get", "/api/v1/unidade/vigencias/intencao"): (
+        "Recuperar troca de unidade",
+        "Lê no primário o recibo gravado para a Idempotency-Key após resposta perdida; 404 se nada foi gravado. Não cria nem renova vigência. Permitida em READ_ONLY.",
     ),
     ("post", "/api/v1/caixa"): (
         "Registrar movimento de caixa",
@@ -323,11 +460,11 @@ OPERATION_DOCUMENTATION: dict[OperationKey, tuple[str, str]] = {
     ),
     ("post", "/api/v1/titulares/trocas/preview"): (
         "Prévia de troca de conta",
-        "Mostra as apostas cuja atribuição difere após a troca, sem alterar as contas.",
+        "Persiste evidência por usuário/chave para confirmação em até 24h. Repetir devolve a prévia original. IDs são itens para revisão; a troca não migra apostas. Renovar exige nova chave e confirmação. FULL_WRITE/CSRF.",
     ),
     ("post", "/api/v1/titulares/trocas"): (
         "Trocar conta da casa",
-        "Aplica uma prévia feita com a mesma chave; fecha a origem e abre o destino no instante escolhido.",
+        "Exige prévia com mesma chave/corpo e evidência idêntica; 409 swap_preview_stale ou 410 swap_preview_expired exigem nova chave/prévia/confirmação. Fecha/abre vigências atomicamente, preservando apostas. Replay aplicado retorna o recibo original; sem retry automático.",
     ),
     ("post", "/api/v1/titulares"): (
         "Criar titular",
@@ -399,14 +536,29 @@ OPERATION_DOCUMENTATION: dict[OperationKey, tuple[str, str]] = {
     ),
 }
 
+PAINEL_DETALHADO_CURSOR = "Cursor privado cifrado, até 2048 caracteres, vinculado ao usuário/capacidade/filtros; expira em 24h. Reiniciar a paginação em 422."
 
 PARAMETER_DESCRIPTIONS = {
+    "intencao_id": "UUID escolhido pela SPA antes do POST e persistido na URL. A referência não concede acesso e fica ocupada para o mesmo usuário após expiração do recibo.",
+    "cursor": "Cursor privado vinculado à pessoa/filtros/fronteira, válido por 30 minutos; não usar offset.",
+    "intention_id": "UUID da intenção escolhido antes da escrita; identifica, nunca autoriza.",
+    "time_casa_id": "Identificador canônico do time da casa usado como filtro.",
+    "time_fora_id": "Identificador canônico do time visitante usado como filtro.",
+    "freebet": "Filtra por aposta com valor de face e custo próprio distintos.",
+    "dias_por_pagina": "Número de dias civis por janela, 1-366; não altera o total completo.",
+    "inicio_dia": "Início civil opcional dentro do recorte diário completo; não combinar com cursor.",
     "since": "Início inclusivo pelo instante do jogo, com fuso explícito.",
     "until": "Fim exclusivo pelo instante do jogo, com fuso explícito.",
     "account_id": "ID da conta nativa do próprio usuário; inexistente ou de terceiro retorna conjunto vazio.",
     "currency": "Moeda nativa explícita, BRL ou USDT; sem conversão.",
     "limit": "Máximo de apostas nativas, entre 1 e 100; padrão 50.",
     "sessao_id": "UUID opaco da sessão pertencente à instalação autenticada.",
+    "q": "Busca textual literal por nome, sem curingas SQL; limite 160 caracteres.",
+    "dimensao": "casas/tipsters/mercados/competicoes/origens/grupos/bancas/titulares/contas; sessão normal do site.",
+    "id": "ID canônico exato em texto decimal (BIGINT 1..9223372036854775807); origens usa o valor textual do domínio. Resolve inativas; não combinar com q ou page diferente de 1.",
+    "incluir_inativas": "Inclui opções arquivadas/inativas; resolução por id sempre preserva histórico.",
+    "grupo_id": "ID BIGINT do grupo privado, vínculo explícito por aposta. Ausente ou de outro usuário produz seleção vazia.",
+    "visibilidade": "ativas/apagadas/todas; padrão ativas. Legado incluir_apagadas=true significa todas; combinação conflitante retorna 422.",
     "instalacao_id": "ID interno da instalação do usuário autenticado.",
     "client_version": "Versão estável do cliente em três componentes.",
     "environment": "Ambiente esperado, vinculado à assinatura.",
@@ -424,18 +576,20 @@ PARAMETER_DESCRIPTIONS = {
         "Chave opaca obrigatória do cliente; reutilizá-la com o mesmo corpo reproduz a resposta "
         "original sem repetir a operação."
     ),
-    "ate": "Limite final exclusivo do intervalo, em ISO 8601.",
+    "ate": "data_aposta: limite final exclusivo, ISO 8601 com offset; legado sem offset significa UTC. Não combinar com periodo na lista/visão filtrada.",
     "casa_id": "Identificador canônico da casa usada como filtro.",
     "chave": "Chave estável e opaca da aposta.",
     "competicao_id": "Identificador canônico da competição usada como filtro.",
     "conta_casa_id": "Identificador da conta da casa usada como filtro.",
+    "lote_id": "Identificador do lote de exclusão devolvido no recibo.",
+    "banca_id": "Identificador da banca do usuário.",
     "conta_id": "Identificador da conta estável da casa pertencente ao titular.",
     "data_corte": "Data civil opcional para reconstruir o saldo histórico.",
-    "desde": "Limite inicial inclusivo do intervalo, em ISO 8601.",
+    "desde": "data_aposta: limite inicial inclusivo, ISO 8601 com offset; legado sem offset significa UTC. Não combinar com periodo na lista/visão filtrada.",
     "estado": "Estado de liquidação da aposta usado como filtro.",
     "fresh": "Lê no primário quando verdadeiro, sem forçar refresh das materialized views.",
     "formato": "Formato da exportação dos dados da conta: JSON ou Excel.",
-    "incluir_apagadas": "Inclui apostas retiradas da apuração quando verdadeiro.",
+    "incluir_apagadas": "Compatibilidade: false=ativas, true=todas. Omitir ao pedir visibilidade=apagadas; combinações conflitantes retornam 422.",
     "include_archived": "Inclui titulares arquivados na listagem quando verdadeiro.",
     "job_id": "UUID público retornado quando o upload foi aceito.",
     "mercado_id": "Identificador canônico do mercado usado como filtro.",
@@ -444,7 +598,7 @@ PARAMETER_DESCRIPTIONS = {
     "origem": "Canal de origem da aposta usado como filtro.",
     "page": "Número da página, começando em 1.",
     "page_size": "Quantidade máxima de itens retornados na página.",
-    "periodo": "Janela civil de agregação no fuso America/Sao_Paulo.",
+    "periodo": "Janela civil no fuso America/Sao_Paulo, aplicada a data_aposta. Lista/visão filtrada: omissão inclui todo o histórico, não combinar com desde/ate. Painel materializado legado: padrão 30d.",
     "revisao_grave": "Filtra apostas pela marca de revisão grave.",
     "revisao_id": "Identificador numérico da revisão pertencente ao usuário.",
     "search": "Busca textual pelo nome do titular.",
@@ -457,6 +611,37 @@ PARAMETER_DESCRIPTIONS = {
 _NATIVE_SOURCE_EXAMPLE = '{"bet":{"id":"example-native-bet","createdAt":"2026-01-02T02:00:00Z","currencyCode":"USDT","wallet":"example-wallet","status":2,"amount":12.34,"cf":2.5,"profitAmount":30.85,"freebetAmount":0,"bonusAmount":0,"bonusPercent":0,"betType":"ordinary"},"selections":[{"match":{"id":"example-event","startAt":1767484800,"competitors":[{"name":"Example A"},{"name":"Example B"}]},"odd":{"id":"example-odd","name":"Example selection","groupName":"Example market","cf":2.5},"status":2,"isHalfReturn":false}]}'
 
 REQUEST_EXAMPLES: dict[OperationKey, tuple[str, JsonObject]] = {
+    ("post", "/api/v1/apostas-manuais/operacoes/{intencao_id}"): (
+        "Aposta manual/freebet com face positiva e conta opcional explícita",
+        {
+            "casa": "Betano",
+            "data_aposta": "2026-10-15T14:00:00-03:00",
+            "data_jogo": "2026-10-16T19:00:00-03:00",
+            "odd": 2.0,
+            "stake_unidades": 1.0,
+            "freebet": True,
+            "comissao_centavos": "0",
+            "conta_casa_id": "9007199254740995",
+            "evento": "Casa x Fora",
+            "descricao": "Casa vence",
+            "mercado_bruto": "Resultado final",
+        },
+    ),
+    ("post", "/api/v1/resultados/operacoes/{intention_id}"): (
+        "Uma intenção por gesto",
+        {
+            "chave": "m:synthetic",
+            "revisao_esperada": "00000000-0000-4000-8000-000000000001",
+            "estado": "GREEN",
+        },
+    ),
+    ("post", "/api/v1/resultados/operacoes/{intention_id}/desfazer"): (
+        "Reverter a intenção confirmada",
+        {
+            "operacao_id": "00000000-0000-4000-8000-000000000002",
+            "revisao_esperada": "00000000-0000-4000-8000-000000000003",
+        },
+    ),
     ("post", "/api/v1/financeiro/nativo/contas"): (
         "Conta sintética em USDT",
         {
@@ -522,6 +707,18 @@ REQUEST_EXAMPLES: dict[OperationKey, tuple[str, JsonObject]] = {
                 }
             ],
         },
+    ),
+    ("post", "/api/v1/grupos"): (
+        "Grupo privado",
+        {"nome": "Apostas acompanhadas", "arquivado": False},
+    ),
+    ("patch", "/api/v1/grupos/{grupo_id}"): (
+        "Arquivar preservando histórico",
+        {"nome": "Apostas acompanhadas", "arquivado": True},
+    ),
+    ("put", "/api/v1/apostas/{chave}/grupos"): (
+        "Substituir vínculos explícitos",
+        {"grupo_ids": ["12", "34"]},
     ),
     ("post", "/api/v1/coleta/pairing-exchange"): (
         "Código descartável e instalação opaca",
@@ -633,6 +830,26 @@ REQUEST_EXAMPLES: dict[OperationKey, tuple[str, JsonObject]] = {
         "Liquidação green",
         {"estado": "GREEN", "retorno_centavos": 19_500},
     ),
+    ("post", "/api/v1/apostas/lotes"): (
+        "Confirmação da prévia",
+        {
+            "acao": "apagar_todas",
+            "confirmacao": "token-devolvido-pela-previa",
+            "frase": "APAGAR 1234 APOSTAS",
+        },
+    ),
+    ("post", "/api/v1/bancas"): (
+        "Banca com capital",
+        {"nome": "Banca principal", "saldo_inicial_centavos": 100_000},
+    ),
+    ("patch", "/api/v1/bancas/{banca_id}"): (
+        "Remover capital",
+        {"saldo_inicial_centavos": None},
+    ),
+    ("post", "/api/v1/unidade/vigencias"): (
+        "Unidade de R$ 50,00",
+        {"valor_centavos": 5_000},
+    ),
     ("post", "/api/v1/caixa"): (
         "Depósito",
         {
@@ -717,6 +934,7 @@ def _correction_schema(*, review: bool) -> JsonObject:
     text = _nullable({"type": "string"})
     properties: JsonObject = {
         "conta_casa_id": identifier,
+        "banca_id": identifier,
         "tipster_id": identifier,
         "time_casa_id": identifier,
         "time_fora_id": identifier,
@@ -725,6 +943,7 @@ def _correction_schema(*, review: bool) -> JsonObject:
         "casa": text,
         "evento": text,
         "descricao": text,
+        "mercado_bruto": text,
         "odd": {"type": "number", "minimum": 1.01, "maximum": 1000},
         "stake_unidades": {"type": "number", "exclusiveMinimum": 0},
         "data_aposta": _nullable({"type": "string", "format": "date-time"}),
@@ -759,7 +978,7 @@ def _correction_schema(*, review: bool) -> JsonObject:
 
 
 def _configure_domain_request_schemas(schemas: JsonObject) -> None:
-    # Keep the published Decimal text contract stable across Pydantic emitters.
+    # Preserve the published Decimal text contract across Pydantic emitters.
     for name in ("MetaEntrada", "MetaAlteracao"):
         goal = _object(schemas[name], context=f"{name} schema")
         properties = _object(goal["properties"], context=f"{name} properties")
@@ -785,7 +1004,6 @@ def _configure_domain_request_schemas(schemas: JsonObject) -> None:
     manual_properties["stake_unidades"] = {"type": "number", "exclusiveMinimum": 0}
     manual_properties["data_aposta"] = _nullable({"type": "string", "format": "date-time"})
     manual_properties["comissao_centavos"] = _nullable({"type": "integer", "minimum": 0})
-
     result = _object(schemas["Resultado"], context="Resultado schema")
     result_properties = _object(result["properties"], context="Resultado properties")
     result_properties["estado"] = {
@@ -916,7 +1134,6 @@ def _install_manual_request_bodies(document: JsonObject) -> None:
                 }
             },
         }
-
     upload_operation = _object(
         _object(paths["/api/v1/upload"], context="path /api/v1/upload")["post"],
         context="POST /api/v1/upload",
@@ -948,7 +1165,6 @@ def _install_manual_request_bodies(document: JsonObject) -> None:
             }
         },
     }
-
     planilha_operation = _object(
         _object(paths["/api/v1/apostas/importar-planilha"], context="path importar-planilha")[
             "post"
@@ -1004,6 +1220,80 @@ def _install_body_limit_responses(document: JsonObject) -> None:
             )
 
 
+OPERATION_DOCUMENTATION.update({
+    ("post", "/api/v1/prints/revisoes/{revisao_id}/resolver"): (
+        "Resolver revisão de print sem valores financeiros inventados",
+        "FULL_WRITE, cookie+CSRF. CORRIGIR exige stake/odd válidas e materializa uma vez; DESCARTAR fecha a revisão e retorna aposta=null sem criar fato financeiro. Apenas revisão de print cujo resultado canônico/proveniência pertence ao usuário. A resolução padrão da Revisão permanece com seu contrato anterior para apostas já materializadas.",
+    ),
+    ("post", "/api/v1/prints/intencoes/{intent_id}/itens/{item_id}"): (
+        "Receber um print web com identidade durável",
+        "Multipart, um arquivo por item; vários itens por intenção. UUIDs persistidos antes do envio, dedupe por usuário/bytes reais, 202 não é aposta criada. 20 itens/100 MiB por intenção e 20 MiB/40 milhões de pixels/256 frames por raster JPEG/PNG/GIF/WebP. Cookie+CSRF, FULL_WRITE; sem custos/consentimento no contrato. Consultar GET com os mesmos UUIDs após timeout/503; não repetir mutations automaticamente. Estado e resultado por item, Revisão com null preservado, inbox/worker assíncronos. Ver docs/contracts/prints-web.md.",
+    ),
+    ("get", "/api/v1/prints/intencoes/{intent_id}/itens/{item_id}"): (
+        "Reconciliar arquivo pela identidade conhecida antes do POST",
+        "Leitura autorizada no primário por usuário, intenção e item; FULL_WRITE e READ_ONLY. Não precisa de ID retornado pelo POST. accepted/processing/completed/failed, resultado explícito por item, progresso nullable, retryable e last_retry_id reais. 404 indistinguível entre ausência/recurso alheio/estado expirado. Estado 90 dias, bytes privados sete dias; sem replay automático.",
+    ),
+    ("get", "/api/v1/prints/intencoes/{intent_id}"): (
+        "Consultar os itens efetivamente recebidos da intenção",
+        "Snapshot no primário, FULL_WRITE e READ_ONLY. processing/complete/partial/failed dos itens recebidos até esta consulta; não afirma que toda seleção local foi enviada. Identidades estáveis e resultados explícitos, sem inferência financeira por contagem.",
+    ),
+    ("post", "/api/v1/prints/intencoes/{intent_id}/itens/{item_id}/retry"): (
+        "Tentar explicitamente apenas um item falho elegível",
+        "FULL_WRITE, cookie+CSRF. Mesma identidade e bytes aceitos. retry_id e expected_attempt protegem concorrência/resposta perdida; último retry_id com a mesma versão retorna estado sem refazer sucessos. Aceito/processando/sucesso/não retryable/mídia expirada ou três tentativas consumidas: 409. GET permite reconciliar a ação; nunca retry automático.",
+    ),
+})
+PARAMETER_DESCRIPTIONS.update({
+    "intent_id": "UUID durável da intenção, escolhido e persistido pelo cliente antes de enviar; escopo por usuário.",
+    "item_id": "UUID durável do arquivo dentro da intenção, conhecido antes do POST; não é hash/credencial de mídia.",
+})
+REQUEST_EXAMPLES["post", "/api/v1/prints/intencoes/{intent_id}/itens/{item_id}/retry"] = (
+    "Tentativa explícita de arquivo falho",
+    {"retry_id": "b25f6247-938c-4963-b46d-cf4d82b5fc09", "expected_attempt": 1},
+)
+
+
+REQUEST_EXAMPLES["post", "/api/v1/prints/intencoes/{intent_id}/itens/{item_id}"] = (
+    "Um print raster na seleção",
+    {"file": "foto.png"},
+)
+REQUEST_EXAMPLES["post", "/api/v1/prints/revisoes/{revisao_id}/resolver"] = (
+    "Completar um valor desconhecido sem inventar zero",
+    {"acao": "CORRIGIR", "aposta_corrigida": {"stake_unidades": 1.0}},
+)
+
+
+OPERATION_DOCUMENTATION.update({
+    ("get", "/api/v1/revisao-operacional/revisoes/{revisao_id}/foto"): (
+        "Foto opcional privada da revisão",
+        "READ_ONLY, snapshot do primário, mesma origem autenticada e autorização pela revisão. Reutiliza proveniência/mídia existente; ausência/expiração/foto inválida retornam 404 indistinguível. Raster JPEG/PNG/GIF/WebP até 20 MiB, 40 milhões de pixels e 256 frames; sem hash/URL assinada como autorização.",
+    ),
+    ("get", "/api/v1/revisao-operacional/fila"): (
+        "Fila segura por motivo",
+        "Snapshot do primário: intervalo de abertura criado_em [desde,ate), datas sem offset em America/Sao_Paulo, filtro de família aplicado à população inteira. total_filtrado/por_familia_filtrado do mesmo recorte; total_global identifica separadamente todas as abertas. Reiniciar página 1 depois de resolver para não pular itens em uma fila que diminui.",
+    ),
+    ("get", "/api/v1/revisao-operacional/revisoes/{revisao_id}"): (
+        "Evidência autorizada e ações por família",
+        "Projeção tipada e sanitizada, sem extração bruta/diagnósticos/custos/URLs assinadas. Precondição opaca vinculada ao usuário e à revisão; conta pelo dia do jogo com exceção multicontas explícita. Fotos opcionais pela rota privada existente. Motivo não suportado encaminha ao suporte sem ações.",
+    ),
+    ("post", "/api/v1/revisao-operacional/operacoes/{operacao_id}"): (
+        "Resolver uma revisão condicionalmente",
+        "UUID persistido antes do POST, FULL_WRITE atual e cookie+CSRF. Precondição comparada sob locks em transação SERIALIZABLE; escolha de tipster por fonte, sem IDs inferidos. Reutiliza correção, matriz de conta, consolidação e materializador de Print. Recibo, eventos, vínculo e fechamento atômicos. Repetição explícita idempotente do mesmo UUID/payload recupera recibo por 90 dias; nenhum replay automático após erro ou pagamento.",
+    ),
+    ("get", "/api/v1/revisao-operacional/operacoes/{operacao_id}"): (
+        "Reconciliar uma intenção de revisão",
+        "Recibo durável privado no primário por 90 dias, acessível em READ_ONLY. 404/410 não provam rollback nem autorizam novo POST automático. Revisão resolvida por outro escritor não é atribuída à intenção desconhecida. 401 reautentica; 402 preserva sessão e formulário.",
+    ),
+})
+PARAMETER_DESCRIPTIONS.update({
+    "familia": "Família decidida pelo servidor; filtro aplicado antes da paginação e da contagem.",
+    "operacao_id": "UUID criado e persistido pelo cliente antes da escrita; recuperação pela mesma identidade.",
+})
+REQUEST_EXAMPLES["post", "/api/v1/revisao-operacional/operacoes/{operacao_id}"] = (
+    "Consolidar escolhendo contexto do Telegram",
+    {"revisao_id": "42", "precondicao": "a" * 64, "acao": "MESMA", "tipster_choice": "telegram"},
+)
+
+
 def _document_operations(document: JsonObject) -> None:
     seen: set[OperationKey] = set()
     for method, path, operation in _operations(document):
@@ -1028,11 +1318,22 @@ def _document_operations(document: JsonObject) -> None:
                 raise RuntimeError(f"unnamed parameter in {method.upper()} {path}")
             try:
                 parameter["description"] = PARAMETER_DESCRIPTIONS[name]
+                if path.startswith("/api/v1/painel/filtrado/") and name == "cursor":
+                    parameter["description"] = PAINEL_DETALHADO_CURSOR
+                if path.startswith("/api/v1/revisao") and name in {"desde", "ate"}:
+                    parameter["description"] = (
+                        "Abertura RevisaoPendente.criado_em; "
+                        + (
+                            "limite inclusivo >= desde"
+                            if name == "desde"
+                            else "limite exclusivo < ate"
+                        )
+                        + "; ISO 8601 sem offset significa America/Sao_Paulo. Não filtra data_aposta nem data_jogo."
+                    )
             except KeyError as error:
                 raise RuntimeError(
                     f"missing description for parameter {name!r} in {method.upper()} {path}"
                 ) from error
-
         example = REQUEST_EXAMPLES.get(key)
         if example is not None:
             title, value = example
@@ -1044,7 +1345,6 @@ def _document_operations(document: JsonObject) -> None:
             for media_value in content.values():
                 media = _object(media_value, context="request media type")
                 media["examples"] = {"default": {"summary": title, "value": value}}
-
     missing = set(OPERATION_DOCUMENTATION).difference(seen)
     if missing:
         rendered = ", ".join(f"{method.upper()} {path}" for method, path in sorted(missing))
@@ -1173,17 +1473,14 @@ def _strictify_schema(schema: JsonObject) -> None:
             schema["additionalProperties"] = False
         elif additional is True or additional == {}:
             schema["additionalProperties"] = {"$ref": "#/components/schemas/JsonValue"}
-
     properties = schema.get("properties")
     if isinstance(properties, dict):
         for child in properties.values():
             _strictify_schema(_object(child, context="property schema"))
-
     for key in ("additionalProperties", "contains", "else", "if", "items", "not", "then"):
         child = schema.get(key)
         if isinstance(child, dict):
             _strictify_schema(cast(JsonObject, child))
-
     for key in ("allOf", "anyOf", "oneOf", "prefixItems"):
         children = schema.get(key)
         if isinstance(children, list):
@@ -1200,7 +1497,6 @@ def _strictify_document(document: JsonObject) -> None:
     _configure_domain_request_schemas(schemas)
     for schema_value in schemas.values():
         _strictify_schema(_object(schema_value, context="component schema"))
-
     for method, path, operation in _operations(document):
         parameters = operation.get("parameters", [])
         if isinstance(parameters, list):
@@ -1209,7 +1505,6 @@ def _strictify_document(document: JsonObject) -> None:
                 schema_value = parameter.get("schema")
                 if isinstance(schema_value, dict):
                     _strictify_schema(cast(JsonObject, schema_value))
-
         request_body_value = operation.get("requestBody")
         if isinstance(request_body_value, dict):
             request_body = cast(JsonObject, request_body_value)
@@ -1218,7 +1513,6 @@ def _strictify_document(document: JsonObject) -> None:
                 media = _object(media_value, context="request media type")
                 schema_value = _object(media.get("schema"), context="request schema")
                 _strictify_schema(schema_value)
-
         responses = _object(operation.get("responses"), context=f"responses {method} {path}")
         for response_value in responses.values():
             response = _object(response_value, context="response")
@@ -1234,7 +1528,6 @@ def _strictify_document(document: JsonObject) -> None:
 def build_openapi(app: FastAPI) -> JsonObject:
     if app.openapi_schema is not None:
         return app.openapi_schema
-
     document = get_openapi(
         title=app.title,
         version=app.version,
@@ -1254,7 +1547,17 @@ def build_openapi(app: FastAPI) -> JsonObject:
     _install_manual_request_bodies(document)
     _install_body_limit_responses(document)
     _document_operations(document)
+    install_policies(document, list(_operations(document)))
     _install_collection_security(document)
+    owner_listing = _object(
+        document["paths"]["/api/v1/coleta/installations"]["get"], context="owner listing"
+    )
+    owner_listing["responses"].pop("402", None)
     _strictify_document(document)
+    for _method, path, operation in _operations(document):
+        if path == "/api/v1/revisao/stats":
+            operation["description"] += (
+                " Estatísticas globais de todas as abertas, sem os filtros da lista; idade sobre criado_em, relógio do servidor."
+            )
     app.openapi_schema = document
     return document

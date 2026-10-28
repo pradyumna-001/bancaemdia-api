@@ -26,11 +26,16 @@ router = APIRouter(responses=AUTHENTICATED_ERROR_RESPONSES)
 # messages/photos have no tenant owner in the present schema and cannot be safely
 # attributed to one account; see docs/SECURITY.md before calling this a full export.
 EXPORT_TABLES = (
+    "grupos_aposta",
+    "apostas_grupos",
     "apostas",
+    "apostas_lotes",
     "eventos",
     "movimentos",
     "movimento_requisicoes",
+    "manual_creation_operations",
     "bancas",
+    "bancas_requisicoes",
     "contas_casa",
     "titulares",
     "usos_conta_casa",
@@ -199,6 +204,9 @@ async def anonimizar_minha_conta(
     usuario: Annotated[Usuario, Depends(get_current_user)],
     session: Annotated[AsyncSession, Depends(get_db)],
 ) -> JSONResponse:
+    from bancaemdia.repositories.cruzamento_candidato import CruzamentoCandidatoRepo
+
+    await CruzamentoCandidatoRepo().lock(session, usuario.id)
     # Serializa pedidos concorrentes de exclusão. O trigger de usuário inativo
     # impede novas gravações por trabalhadores que ainda tenham tarefas antigas.
     await session.execute(

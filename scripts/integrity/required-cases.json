@@ -642,5 +642,109 @@
   {
     "module": "security_acceptance",
     "name": "test_collection_credentials_cannot_read_mutate_replay_or_own_foreign_rows"
+  },
+  {
+    "module": "test_owner_sessions",
+    "name": "test_empty_owner_and_two_independent_devices_without_sessions"
+  },
+  {
+    "module": "test_owner_sessions",
+    "name": "test_open_session_exact_microsecond_boundary_and_independent_device"
+  },
+  {
+    "module": "test_owner_sessions",
+    "name": "test_closed_session_is_published_as_last_not_current"
+  },
+  {
+    "module": "test_owner_sessions",
+    "name": "test_open_session_precedes_more_recent_historical_creation"
+  },
+  {
+    "module": "test_owner_sessions",
+    "name": "test_last_history_uses_creation_then_primary_key_tiebreak"
+  },
+  {
+    "module": "test_owner_sessions",
+    "name": "test_owner_listing_and_rls_hide_other_valid_installation_and_session_ids"
+  },
+  {
+    "module": "test_owner_sessions",
+    "name": "test_foreign_and_unknown_control_ids_are_uniform_404[rotate]"
+  },
+  {
+    "module": "test_owner_sessions",
+    "name": "test_foreign_and_unknown_control_ids_are_uniform_404[revoke]"
+  },
+  {
+    "module": "test_owner_sessions",
+    "name": "test_owner_read_requires_real_live_web_identity[anonymous]"
+  },
+  {
+    "module": "test_owner_sessions",
+    "name": "test_owner_read_requires_real_live_web_identity[installation_token]"
+  },
+  {
+    "module": "test_owner_sessions",
+    "name": "test_owner_read_requires_real_live_web_identity[expired_cookie]"
+  },
+  {
+    "module": "test_owner_sessions",
+    "name": "test_owner_read_requires_real_live_web_identity[revoked_cookie]"
+  },
+  {
+    "module": "test_owner_sessions",
+    "name": "test_resume_and_reconnect_keep_the_original_boundary_and_state"
+  },
+  {
+    "module": "test_owner_sessions",
+    "name": "test_concurrent_resume_and_owner_reads_converge_without_new_sessions"
+  },
+  {
+    "module": "test_owner_sessions",
+    "name": "test_rejected_boundary_change_leaves_owner_projection_unchanged"
+  },
+  {
+    "module": "test_owner_sessions",
+    "name": "test_credential_changes_never_manufacture_session_closure_or_presence[expire]"
+  },
+  {
+    "module": "test_owner_sessions",
+    "name": "test_credential_changes_never_manufacture_session_closure_or_presence[revoke]"
+  },
+  {
+    "module": "test_owner_sessions",
+    "name": "test_credential_changes_never_manufacture_session_closure_or_presence[rotate]"
+  },
+  {
+    "module": "test_owner_sessions",
+    "name": "test_owner_get_is_select_only_and_does_not_touch_use_or_financial_facts"
+  },
+  {
+    "module": "test_owner_sessions",
+    "name": "test_full_population_is_untruncated_with_one_projection_query"
+  },
+  {
+    "module": "test_owner_sessions",
+    "name": "test_read_only_owner_reads_and_control_exceptions_but_ingest_stays_denied"
+  },
+  {
+    "module": "test_owner_sessions",
+    "name": "test_cookie_controls_still_require_csrf_and_exact_origin[missing_csrf]"
+  },
+  {
+    "module": "test_owner_sessions",
+    "name": "test_cookie_controls_still_require_csrf_and_exact_origin[wrong_origin]"
+  },
+  {
+    "module": "test_owner_sessions",
+    "name": "test_projection_and_transport_errors_never_expose_credentials_payloads_or_logs"
+  },
+  {
+    "module": "test_owner_sessions",
+    "name": "test_dependency_database_error_is_safe_503_with_retry_after"
+  },
+  {
+    "module": "test_owner_sessions",
+    "name": "test_owner_read_rate_limit_is_documented_and_never_uses_extension_identity"
   }
 ]

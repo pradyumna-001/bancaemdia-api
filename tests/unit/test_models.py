@@ -142,7 +142,8 @@ def test_allowed_values_match_the_original_schema() -> None:
     assert ORIGENS == ("telegram", "telegram_bot", "print", "manual", "planilha", "casa")
     assert TIPOS_DE_MOVIMENTO == ("DEPOSITO", "SAQUE", "TRANSFERENCIA", "BONUS", "AJUSTE")
     assert FONTES == ("export", "ia", "manual", "liquidacao", "planilha", "casa")
-    assert len(TIPOS_DE_EVENTO) == 15
+    assert len(TIPOS_DE_EVENTO) == 16
+    assert "RESULTADO_DESFEITO" in TIPOS_DE_EVENTO
     assert "APOSTA_CRIADA" in TIPOS_DE_EVENTO
     assert "REVISAO_RESOLVIDA" in TIPOS_DE_EVENTO
 
@@ -204,7 +205,10 @@ def test_event_and_ledger_indexes() -> None:
         "idx_movimentos_transferencia": ["usuario_id", "transferencia_id"],
     }
     unidades = {i.name: [c.name for c in i.columns] for i in Unidade.__table__.indexes}
-    assert unidades == {"idx_unidades_usuario": ["usuario_id", "vigente_de"]}
+    assert unidades == {
+        "idx_unidades_usuario": ["usuario_id", "vigente_de"],
+        "uq_unidades_usuario_chave": ["usuario_id", "chave_idempotencia"],
+    }
     contas = {i.name: [c.name for c in i.columns] for i in ContaCasa.__table__.indexes}
     assert contas == {
         "idx_contas_casa_usuario": ["usuario_id", "ativa"],

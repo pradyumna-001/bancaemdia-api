@@ -268,7 +268,15 @@ def policy_for(request: Request) -> RateLimitPolicy | None:
         return COLETA_POLICY if request.method == "POST" else None
     if path == "/api/v1/upload" and request.method == "POST":
         return UPLOAD_POLICY
-    if path == "/api/v1/painel/export" and request.method == "GET":
+    if (
+        path
+        in {
+            "/api/v1/painel/export",
+            "/api/v1/painel/filtrado/export",
+            "/api/v1/painel/filtrado/detalhado/export",
+        }
+        and request.method == "GET"
+    ):
         return PANEL_EXPORT_POLICY
     if path == "/api/v1" or path.startswith("/api/v1/"):
         return API_POLICY
@@ -293,9 +301,19 @@ def _limited_response(
         except (KeyError, ValueError):
             pass
 
+    from bancaemdia.domain.foto_aposta import photo_path
+
     response = JSONResponse(
         status_code=429,
-        content={"error": "rate_limited", "retry_after": retry_after},
+        content={
+            "error": "rate_limited",
+            "retry_after": retry_after,
+            **(
+                {"detail": "Muitas requisições. Tente novamente em instantes."}
+                if photo_path(request_path(request))
+                else {}
+            ),
+        },
     )
     if injected is not None:
         for header in RATE_LIMIT_HEADERS:
@@ -335,7 +353,10 @@ async def _apply_policies(
     if active is not None:
         policy, current_limit = active
         # Header injection also reads the quota window from Redis.
+        explicit_retry = response.headers.get("Retry-After")
         await run_in_threadpool(policy.limiter._inject_headers, response, current_limit)
+        if explicit_retry is not None:
+            response.headers["Retry-After"] = explicit_retry
     return response
 
 

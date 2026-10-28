@@ -22,6 +22,7 @@ class Banca:
     nome: str
     saldo_inicial_centavos: int | None
     criado_em: datetime
+    arquivada_em: datetime | None = None
 
 
 @dataclass(frozen=True)
@@ -45,6 +46,9 @@ class Unidade:
     valor_centavos: int
     vigente_de: datetime
     vigente_ate: datetime | None
+    chave_idempotencia: str | None = None
+    requisicao_hash: str | None = None
+    recibo_json: dict[str, Any] | None = None
 
 
 @dataclass(frozen=True)

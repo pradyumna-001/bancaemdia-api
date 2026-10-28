@@ -53,7 +53,7 @@ Aliases do export de revisão são válidos somente dentro daquela captura. O cl
 
 O cliente deve enviar um envelope por chamada, sem converter seus numbers, autenticar a instalação pareada e manter o mesmo corpo em retries. A resposta fornece `bet_id`, `result` (`created|noop|account_review|conflict_review`) e `needs_review`; 422 é rejeição/quarentena, 429 limite, 503 admissão fechada. Respostas não repetem fonte privada. Pareamento, expiração/revogação, RLS, restrição comercial de escrita, limites de corpo/rate e cota diária compartilhada com coleta v1/v2 permanecem aplicados. Cota usa recebimento UTC, independente de jogo ou captura.
 
-Exportação de privacidade JSON/Excel inclui as três tabelas e preserva valores monetários nativos em texto. Exclusão autenticada remove dados nativos sob a exceção de apagamento do próprio usuário; não permite DELETE ordinário de evidências. Triggers aplicam usuário ativo, acesso comercial e auditoria sem valores privados. Migration `n115native2026` segue `j6main2026`; downgrade recusa remover dados existentes. Rollback operacional conserva schema/evidência.
+Exportação de privacidade JSON/Excel inclui as três tabelas e preserva valores monetários nativos em texto. Exclusão autenticada remove dados nativos sob a exceção de apagamento do próprio usuário; não permite DELETE ordinário de evidências. Triggers aplicam usuário ativo, acesso comercial e auditoria sem valores privados. Migration `n115native2026` segue `j7main2026` (junção dos heads da main de 27/10); downgrade recusa remover dados existentes. Rollback operacional conserva schema/evidência.
 
 ## Revisão, ativação e dependências
 

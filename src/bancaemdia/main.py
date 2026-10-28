@@ -22,7 +22,10 @@ from bancaemdia.api.identity import router as identity_router
 from bancaemdia.api.openapi import build_openapi
 from bancaemdia.api.v1 import (
     admin_casas,
+    aposta_foto,
     apostas,
+    apostas_lotes,
+    bancas,
     billing,
     billing_webhook,
     caixa,
@@ -31,14 +34,23 @@ from bancaemdia.api.v1 import (
     coleta_catalogo,
     coleta_pairing,
     coleta_sessoes,
+    filtros,
+    hipotetica,
+    manual_bets,
     metas,
     native_financials,
     painel,
+    painel_detalhado,
+    painel_filtrado,
+    results,
+    reviews,
     revisao,
     telegram,
     titulares,
+    unidade,
     upload,
     usuario,
+    web_print,
 )
 from bancaemdia.auth.identity_config import identity_settings
 from bancaemdia.auth.identity_service import identity_service
@@ -57,6 +69,7 @@ from bancaemdia.domain.access import AccountReadOnlyError
 from bancaemdia.integrations.telegram import webhook as telegram_webhook
 from bancaemdia.middleware.coleta_body import CollectionBodyLimit
 from bancaemdia.middleware.coleta_credentials import CollectionCredentialMiddleware
+from bancaemdia.middleware.compression import ReadCompressionMiddleware
 from bancaemdia.middleware.rate_limit import AuthRateLimitMiddleware, RateLimitMiddleware
 from bancaemdia.middleware.rls import RLSMiddleware
 from bancaemdia.middleware.router import RouterMiddleware
@@ -138,17 +151,29 @@ app.include_router(coleta_sessoes.router)
 app.include_router(coleta_catalogo.router)
 app.include_router(admin_casas.router)
 app.include_router(upload.router)
+app.include_router(web_print.router)
 app.include_router(identity_router)
 app.include_router(apostas.router)
+app.include_router(manual_bets.router)
+app.include_router(reviews.router)
+app.include_router(results.router)
+app.include_router(aposta_foto.router)
 app.include_router(caixa.router)
 app.include_router(native_financials.router)
 app.include_router(painel.router)
 app.include_router(metas.router)
+app.include_router(painel_filtrado.router)
+app.include_router(painel_detalhado.router)
+app.include_router(filtros.router)
+app.include_router(hipotetica.router)
 app.include_router(revisao.router)
 app.include_router(calculators.router)
 app.include_router(billing_webhook.router)
 app.include_router(billing.router)
 app.include_router(titulares.router)
+app.include_router(apostas_lotes.router)
+app.include_router(bancas.router)
+app.include_router(unidade.router)
 app.include_router(telegram.router)
 app.include_router(telegram_webhook.router)
 app.include_router(usuario.router)
@@ -156,6 +181,45 @@ app.include_router(usuario.router)
 
 @app.exception_handler(RequestValidationError)
 async def validation_failure(request: Request, error: RequestValidationError) -> JSONResponse:
+    if route_path(request).startswith(apostas_lotes.PREFIXO):
+        return apostas_lotes.validacao(error)
+    if route_path(request).startswith(bancas.PREFIXO):
+        return bancas.validacao(error)
+    if route_path(request).startswith(unidade.PREFIXO):
+        return unidade.validacao(error)
+    if route_path(request).startswith("/api/v1/titulares/trocas"):
+        return JSONResponse(status_code=422, content={"detail": "swap_invalid_request"})
+    if route_path(request).startswith("/api/v1/apostas-manuais/"):
+        return manual_bets.validation_failure(error)
+    if request.url.path.startswith("/api/v1/revisao-operacional/"):
+        errors = error.errors()
+        from bancaemdia.domain.aposta_service import CAMPOS_CORRIGIVEIS
+        from bancaemdia.domain.review_contract import ReviewDecision, ReviewQuery
+
+        allowed_fields = (
+            CAMPOS_CORRIGIVEIS
+            | set(ReviewDecision.model_fields)
+            | set(ReviewQuery.model_fields)
+            | {"operacao_id"}
+        )
+        location = errors[0]["loc"] if errors else ()
+        name = str(location[-1]) if location else None
+        field = (
+            name
+            if name in allowed_fields
+            else "aposta_corrigida"
+            if "aposta_corrigida" in location
+            else None
+        )
+        return JSONResponse(
+            {"detail": "review_validation_invalid", "campo": field}, status_code=422
+        )
+    from bancaemdia.domain.foto_aposta import photo_path
+
+    if route_path(request).startswith("/api/v1/prints/"):
+        return aposta_foto.photo_error(422, "o pedido de prints é inválido")
+    if photo_path(route_path(request)):
+        return aposta_foto.photo_error(422, "a chave da aposta é inválida")
     if route_path(request) == "/api/v1/coleta/reader-captures":
         return JSONResponse({"detail": "invalid reader capture envelope"}, status_code=422)
     if route_path(request).startswith("/auth/"):
@@ -198,6 +262,8 @@ configure_tracing(
     environment=settings.APP_ENV,
     otlp_endpoint=settings.OTEL_EXPORTER_OTLP_ENDPOINT,
 )
+# A compressão envolve request_id, erros e métricas: todos eles continuam vendo o JSON original.
+app.add_middleware(ReadCompressionMiddleware)
 app.add_middleware(SecurityHeadersMiddleware)
 
 
@@ -253,6 +319,12 @@ def account_read_only_error(request: Request, exc: AccountReadOnlyError) -> JSON
 
 @app.exception_handler(DBAPIError)
 def billing_database_error(request: Request, exc: DBAPIError) -> JSONResponse:
+    from bancaemdia.domain.foto_aposta import photo_path
+
+    if photo_path(route_path(request)):
+        return aposta_foto.photo_error(503, aposta_foto.UNAVAILABLE)
     if getattr(exc.orig, "sqlstate", None) == "P0402":
         return JSONResponse(status_code=402, content={"detail": "account_read_only"})
+    if route_path(request).startswith("/api/v1/prints/"):
+        return aposta_foto.photo_error(503, "não foi possível consultar os prints agora")
     raise exc

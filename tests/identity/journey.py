@@ -14,16 +14,18 @@ import subprocess
 import sys
 import threading
 import time
+from collections.abc import AsyncIterator
 from dataclasses import dataclass, field
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
+from typing import Any, cast
 from urllib.parse import urlsplit
 from uuid import uuid4
 
 import httpx
 import pytest
 from playwright.async_api import TimeoutError as BrowserTimeout
-from playwright.async_api import async_playwright
+from playwright.async_api import ViewportSize, async_playwright
 from sqlalchemy import text
 from sqlalchemy.engine import make_url
 from sqlalchemy.ext.asyncio import create_async_engine
@@ -47,12 +49,12 @@ class Network:
     token_requests: int = 0
 
 
-def serve_issuer(network):
+def serve_issuer(network: Any) -> Any:
     class Proxy(BaseHTTPRequestHandler):
-        def log_message(self, *_args):
+        def log_message(self, *_args: Any) -> Any:
             return None  # Authorization codes, email-action links and passwords stay out of logs.
 
-        def forward(self):
+        def forward(self) -> Any:
             path = urlsplit(self.path).path
             if network.fault == "issuer" or (network.fault == "jwks" and path.endswith("/certs")):
                 self.send_response(503)
@@ -101,12 +103,12 @@ def serve_issuer(network):
     return ThreadingHTTPServer(("127.0.0.1", 58080), Proxy)
 
 
-def serve_frontend():
+def serve_frontend() -> Any:
     class Frontend(BaseHTTPRequestHandler):
-        def log_message(self, *_args):
+        def log_message(self, *_args: Any) -> Any:
             return None
 
-        def do_GET(self):
+        def do_GET(self) -> Any:
             self.send_response(200)
             self.send_header("Content-Type", "text/html")
             self.send_header(
@@ -126,12 +128,12 @@ def serve_frontend():
 @dataclass
 class Harness:
     service: IdentityService
-    env: dict
+    env: dict[str, str]
     network: Network
     root: Path
-    processes: list = field(default_factory=list)
+    processes: list[Any] = field(default_factory=list)
 
-    async def restart(self):
+    async def restart(self) -> Any:
         for process in self.processes:
             if process.poll() is None:
                 process.terminate()
@@ -169,7 +171,7 @@ class Harness:
                 await asyncio.sleep(0.2)
         pytest.fail("Actual API did not become live")
 
-    async def credentials(self, context):
+    async def credentials(self, context: Any) -> Any:
         cookie = next(
             c["value"]
             for c in await context.cookies(API)
@@ -194,7 +196,7 @@ class Harness:
 
 
 @pytest.fixture
-async def harness(banco, engine_admin, tmp_path):
+async def harness(banco: Any, engine_admin: Any, tmp_path: Any) -> AsyncIterator[Any]:
     assert os.environ.get("TEST_DATABASE_URL"), (
         "Identity acceptance requires explicit disposable PostgreSQL, never a skip"
     )
@@ -276,7 +278,7 @@ async def harness(banco, engine_admin, tmp_path):
             await conn.execute(text(f"DROP ROLE {role}"))
 
 
-async def mail_link(email, seen=None):
+async def mail_link(email: Any, seen: Any = None) -> Any:
     seen = seen or set()
     async with httpx.AsyncClient(timeout=5) as client:
         for _ in range(100):
@@ -298,7 +300,9 @@ async def mail_link(email, seen=None):
     pytest.fail("The real issuer did not send the requested confirmation/recovery email")
 
 
-async def fetch(page, path, *, method="GET", csrf=None, body=None):
+async def fetch(
+    page: Any, path: Any, *, method: Any = "GET", csrf: Any = None, body: Any = None
+) -> Any:
     return await page.evaluate(
         """async ({api,path,method,csrf,body}) => {
       const headers = {}; if (csrf) headers['X-CSRF-Token']=csrf;
@@ -310,7 +314,7 @@ async def fetch(page, path, *, method="GET", csrf=None, body=None):
     )
 
 
-async def mark_external_email_unconfirmed(email):
+async def mark_external_email_unconfirmed(email: Any) -> Any:
     # Control this disposable issuer to test a real signed, unconfirmed ID token on refresh.
     async with httpx.AsyncClient() as client:
         response = await client.post(
@@ -335,7 +339,7 @@ async def mark_external_email_unconfirmed(email):
         assert response.status_code == 204
 
 
-async def login(page, email, password, *, intent="login"):
+async def login(page: Any, email: Any, password: Any, *, intent: Any = "login") -> Any:
     await page.goto(API + "/auth/start?return_to=/signed-in&intent=" + intent)
     if await page.locator("#username").is_visible():
         await page.locator("#username").fill(email)
@@ -364,7 +368,9 @@ async def login(page, email, password, *, intent="login"):
     return result["data"]
 
 
-async def register(page, email, password, *, fail_jwks=False, harness=None):
+async def register(
+    page: Any, email: Any, password: Any, *, fail_jwks: Any = False, harness: Any = None
+) -> Any:
     await page.goto(API + "/auth/start?return_to=/signed-in&intent=signup")
     await page.get_by_role("link", name="Register", exact=True).click()
     await page.locator("#email").fill(email)
@@ -407,7 +413,9 @@ async def register(page, email, password, *, fail_jwks=False, harness=None):
     return status, message
 
 
-async def test_real_registration_refresh_recovery_isolation_and_revocation(harness, engine_admin):
+async def test_real_registration_refresh_recovery_isolation_and_revocation(
+    harness: Any, engine_admin: Any
+) -> None:
     async with async_playwright() as playwright:
         browser = await playwright.chromium.launch()
         a, b, recovery = [await browser.new_context() for _ in range(3)]
@@ -445,6 +453,86 @@ async def test_real_registration_refresh_recovery_isolation_and_revocation(harne
         assert (await fetch(pa, "/api/v1/apostas/" + key))["status"] == 200
         assert (await fetch(pb, "/api/v1/apostas/" + key))["status"] == 404
         assert (await fetch(pb, "/api/v1/apostas"))["data"]["pagination"]["total"] == 0
+        # Exercise these new GETs through the real hosted-login HttpOnly session.
+        for dimensao in [
+            "casas",
+            "tipsters",
+            "mercados",
+            "competicoes",
+            "origens",
+            "grupos",
+            "bancas",
+            "titulares",
+            "contas",
+        ]:
+            url = API + "/api/v1/filtros/" + dimensao
+            async with pa.expect_response(url) as received:
+                opcoes = await fetch(pa, "/api/v1/filtros/" + dimensao)
+            assert opcoes["status"] == 200
+            assert opcoes["headers"]["cache-control"] == "private, no-store"
+            # Vary controls HTTP caches; it is not a CORS-exposed JS header.
+            # Inspect the actual browser network response without weakening CORS.
+            wire_headers = await (await received.value).all_headers()
+            assert {"Authorization", "Cookie", "Origin"} <= {
+                item.strip() for item in wire_headers["vary"].split(",")
+            }
+        grupo = await fetch(
+            pa,
+            "/api/v1/grupos",
+            method="POST",
+            csrf=sa["csrf_token"],
+            body={"nome": "Grupo privado descartável"},
+        )
+        assert grupo["status"] == 201
+        gid = grupo["data"]["id"]
+        assert isinstance(gid, str)
+        assert (await fetch(pb, "/api/v1/filtros/grupos?id=" + gid))["data"]["data"] == []
+        atribuir = await fetch(
+            pa,
+            "/api/v1/apostas/" + key + "/grupos",
+            method="PUT",
+            csrf=sa["csrf_token"],
+            body={"grupo_ids": [gid]},
+        )
+        assert atribuir["status"] == 200
+        query = "?grupo_id=" + gid + "&visibilidade=ativas"
+        resumo = await fetch(pa, "/api/v1/painel/filtrado" + query)
+        assert resumo["status"] == 200 and resumo["data"]["resumo"]["total_apostas"] == 1
+        assert (await fetch(pb, "/api/v1/painel/filtrado" + query))["data"]["resumo"][
+            "total_apostas"
+        ] == 0
+        graficos = await fetch(pa, "/api/v1/painel/filtrado/metricas" + query)
+        assert graficos["status"] == 200 and graficos["data"]["total_periodo"]["total_apostas"] == 1
+        arquivo = await pa.evaluate(
+            """async url => {const r=await fetch(url,{credentials:'include'});return {status:r.status,type:r.headers.get('content-type'),bytes:(await r.arrayBuffer()).byteLength}}""",
+            API + "/api/v1/painel/filtrado/export" + query,
+        )
+        assert arquivo["status"] == 200 and arquivo["bytes"] > 1000
+        assert "spreadsheetml" in arquivo["type"]
+        # New comparison uses the same genuine hosted-login HttpOnly session.
+        for viewport in ({"width": 1440, "height": 900}, {"width": 390, "height": 844}):
+            await pa.set_viewport_size(cast(ViewportSize, viewport))
+            own = await fetch(pa, "/api/v1/painel/hipotetica")
+            other = await fetch(pb, "/api/v1/painel/hipotetica")
+            assert own["status"] == other["status"] == 200
+            assert own["data"]["apostas_consideradas"] == 1
+            assert other["data"]["apostas_consideradas"] == 0
+            assert own["data"]["real"] == own["data"]["hipotetico"]
+            assert own["headers"]["cache-control"] == "private, no-store"
+        await pa.set_viewport_size({"width": 1280, "height": 720})
+        # Same genuine HttpOnly session on desktop and mobile viewports.
+        for viewport in ({"width": 1440, "height": 900}, {"width": 390, "height": 844}):
+            await pa.set_viewport_size(cast(ViewportSize, viewport))
+            for path in (
+                "/api/v1/painel/filtrado/grupos",
+                "/api/v1/painel/filtrado/diario?periodo=1y",
+            ):
+                own = await fetch(pa, path)
+                other = await fetch(pb, path)
+                assert own["status"] == other["status"] == 200
+                assert own["data"]["total_periodo"]["total_apostas"] == 1
+                assert other["data"]["total_periodo"]["total_apostas"] == 0
+        await pa.set_viewport_size({"width": 1280, "height": 720})
         cookie_before, credentials = await harness.credentials(a)
         async with httpx.AsyncClient() as client:
             invalid = await client.get(

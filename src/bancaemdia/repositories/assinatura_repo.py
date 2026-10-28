@@ -25,7 +25,7 @@ _live_billing_status = lambda_stmt(
         .outerjoin(Assinatura, Assinatura.usuario_id == bindparam("billing_owner"))
         .where(BillingRollout.id == 1)
     )
-)
+).execution_options(populate_existing=True)
 
 
 class AssinaturaRepo:

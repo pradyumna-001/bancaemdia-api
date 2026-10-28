@@ -1,5 +1,6 @@
 {$SITE_DOMAIN} {
-    encode zstd gzip
+    # Sem `encode`: a borda comprimiria também /auth/* (csrf_token) e códigos temporários. Quem
+    # decide é a allowlist da API; o reverse_proxy repassa Accept-Encoding e Content-Encoding.
     @privateMetrics path /metrics /metrics/*
     respond @privateMetrics 404
     reverse_proxy api:8000
