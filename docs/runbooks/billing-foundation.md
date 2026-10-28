@@ -21,3 +21,13 @@ extraction/materialization. Reconciliation GETs and existing photo/review eviden
 remain readable in READ_ONLY. A session failure is 401; denied new writes are 402.
 Daily admission/retry limits are internal controls; no processing estimate or
 spending approval is exposed. See [prints web](../contracts/prints-web.md).
+
+## Matriz comercial: comparação histórica
+
+| Operação explícita | FULL_WRITE | READ_ONLY | Regra |
+|---|---|---|---|
+| `hipotetica_historica` — GET `/api/v1/painel/hipotetica` | Permitida | Permitida | Consulta de fatos próprios, sem escrita, IA, gasto ou evento financeiro |
+
+A matriz executável `domain/access.py::OPERATION_ACCESS` valida o acesso comercial
+na operação. Não deduz assinatura da sessão nem permissão só pelo verbo GET.
+[Contrato e limitações](../contracts/hipotetica.md), backend #190 / frontend #21.

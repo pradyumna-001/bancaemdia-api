@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import io
 from pathlib import Path
+from typing import cast
 
 from alembic import command
 from alembic.config import Config
@@ -21,11 +22,7 @@ REVISAO_RESOLVIDA = "f2a9c4e7b106"
 PAINEL = "d3f6a8c1e209"
 CAIXA_REVISAO_MERGE = "e5a1c7d9b204"
 PAINEL_CAIXA_MERGE = "f8b2d4a6c901"
-<<<<<<< HEAD
 HEAD = "a212lote2026"
-=======
-HEAD = "m202manual2026"
->>>>>>> 36b26b6 (fix(ci): preservar inventários e reduzir custo de execução ASGI)
 USUARIO_ATUAL = "NULLIF(current_setting('app.current_user_id', true), '')::bigint"
 JOB_OFERECIDO = "NULLIF(current_setting('app.upload_job_id', true), '')::uuid"
 POR_USUARIO = {
@@ -47,6 +44,7 @@ POR_USUARIO_UPLOAD = {
 }
 POR_USUARIO_IDEMPOTENCIA = {"movimento_requisicoes"}
 POR_USUARIO_LOTES = {"apostas_lotes"}
+POR_USUARIO_BANCAS = {"bancas_requisicoes"}
 POR_USUARIO_TITULARES = {
     "titulares",
     "usos_conta_casa",
@@ -122,7 +120,11 @@ def test_rls_revision_follows_the_baseline() -> None:
 
 def test_protected_and_shared_tables_cover_the_whole_schema() -> None:
     protegidas = (
-        POR_USUARIO | POR_USUARIO_UPLOAD | POR_USUARIO_IDEMPOTENCIA | {"manual_creation_operations"}
+        POR_USUARIO
+        | POR_USUARIO_UPLOAD
+        | POR_USUARIO_IDEMPOTENCIA
+        | {"manual_creation_operations"}
+        | {"print_intents", "print_items", "print_assets"}
     )
     billing = {
         "assinaturas",
@@ -136,6 +138,7 @@ def test_protected_and_shared_tables_cover_the_whole_schema() -> None:
         protegidas
         | POR_USUARIO_TITULARES
         | POR_USUARIO_LOTES
+        | POR_USUARIO_BANCAS
         | POR_USUARIO_TELEGRAM
         | GLOBAIS_TELEGRAM
         | COMPARTILHADAS
@@ -151,6 +154,8 @@ def test_protected_and_shared_tables_cover_the_whole_schema() -> None:
             "cruzamento_entradas",
             "cruzamento_candidatos",
             "reader_quarantine",
+            "result_operations",
+            "review_operations",
             "catalogo_operadores",
             "casa_dominios",
             "catalogo_fontes",
@@ -158,6 +163,8 @@ def test_protected_and_shared_tables_cover_the_whole_schema() -> None:
             "catalogo_publicacoes",
             "catalogo_confirmacoes",
             "catalogo_auditoria",
+            "grupos_aposta",
+            "apostas_grupos",
             "usuarios",
             "audit_log",
         }
@@ -276,12 +283,15 @@ def test_late_branches_merge_without_rewriting_published_revisions() -> None:
     assert script.get_revision(REVISAO_RESOLVIDA).down_revision == TRANSFERENCIA
     assert "007_revisao_resolvida_evento" in script.get_revision(REVISAO_RESOLVIDA).doc
     caixa_revisao = script.get_revision(CAIXA_REVISAO_MERGE)
-    assert set(caixa_revisao.down_revision) == {IDEMPOTENCIA_CAIXA, REVISAO_RESOLVIDA}
+    assert set(cast(tuple[str, ...], caixa_revisao.down_revision)) == {
+        IDEMPOTENCIA_CAIXA,
+        REVISAO_RESOLVIDA,
+    }
     assert "008_merge_caixa_revisao" in caixa_revisao.doc
     assert script.get_revision(PAINEL).down_revision == REVISAO_RESOLVIDA
     assert "008_painel_materialized_views" in script.get_revision(PAINEL).doc
     merge = script.get_revision(PAINEL_CAIXA_MERGE)
-    assert set(merge.down_revision) == {CAIXA_REVISAO_MERGE, PAINEL}
+    assert set(cast(tuple[str, ...], merge.down_revision)) == {CAIXA_REVISAO_MERGE, PAINEL}
     assert "009_merge_painel_caixa" in merge.doc
 
 

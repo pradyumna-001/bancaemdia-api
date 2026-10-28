@@ -1,12 +1,14 @@
 from __future__ import annotations
 
+from collections.abc import Callable
 from dataclasses import FrozenInstanceError
 from datetime import UTC, datetime, timedelta
 from types import SimpleNamespace
-from typing import Any
+from typing import Any, cast
 
 import pytest
 from sqlalchemy.dialects import postgresql
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from bancaemdia import models
 from bancaemdia.domain import registros
@@ -54,11 +56,13 @@ class _Session:
 
 
 def _sql(statement: Any) -> str:
-    return str(statement.compile(dialect=postgresql.dialect()))
+    return str(cast(Any, statement).compile(dialect=cast(Callable[[], Any], postgresql.dialect)()))
 
 
 def _params(statement: Any) -> dict[str, Any]:
-    return dict(statement.compile(dialect=postgresql.dialect()).params)
+    return dict(
+        cast(Any, statement).compile(dialect=cast(Callable[[], Any], postgresql.dialect)()).params
+    )
 
 
 def _usuario() -> models.Usuario:
@@ -125,12 +129,13 @@ def test_colunas_reads_every_mapped_column() -> None:
 def test_records_are_frozen() -> None:
     usuario = registros.Usuario(**colunas(_usuario()))
     with pytest.raises(FrozenInstanceError):
-        usuario.nome = "Outra"
+        attribute_name = "nome"
+        setattr(usuario, attribute_name, "Outra")
 
 
 async def test_usuario_get_by_id() -> None:
     session = _Session(_usuario())
-    usuario = await UsuarioRepo().get_by_id(session, 1)
+    usuario = await UsuarioRepo().get_by_id(cast(AsyncSession, session), 1)
     assert usuario == registros.Usuario(1, "Ana@Exemplo.com", "Ana", AGORA, True)
     assert "WHERE usuarios.id = %(id_1)s" in _sql(session.statements[0])
     assert _params(session.statements[0])["id_1"] == 1
@@ -138,20 +143,20 @@ async def test_usuario_get_by_id() -> None:
 
 async def test_usuario_get_by_email_ignores_case() -> None:
     session = _Session(_usuario())
-    await UsuarioRepo().get_by_email(session, "ANA@exemplo.com")
+    await UsuarioRepo().get_by_email(cast(AsyncSession, session), "ANA@exemplo.com")
     assert "WHERE lower(usuarios.email) = %(lower_1)s" in _sql(session.statements[0])
     assert _params(session.statements[0])["lower_1"] == "ana@exemplo.com"
 
 
 async def test_usuario_missing_is_none() -> None:
     session = _Session()
-    assert await UsuarioRepo().get_by_id(session, 99) is None
-    assert await UsuarioRepo().get_by_email(session, "x@y") is None
+    assert await UsuarioRepo().get_by_id(cast(AsyncSession, session), 99) is None
+    assert await UsuarioRepo().get_by_email(cast(AsyncSession, session), "x@y") is None
 
 
 async def test_usuario_create_returns_the_inserted_row() -> None:
     session = _Session(_usuario())
-    usuario = await UsuarioRepo().create(session, "Ana@Exemplo.com", "Ana")
+    usuario = await UsuarioRepo().create(cast(AsyncSession, session), "Ana@Exemplo.com", "Ana")
     assert usuario.id == 1
     sql = _sql(session.statements[0])
     assert "SELECT * FROM public.create_user_profile(%(email)s, %(nome)s)" in sql
@@ -159,7 +164,7 @@ async def test_usuario_create_returns_the_inserted_row() -> None:
 
 async def test_aposta_get_by_chave_filters_by_user_and_key() -> None:
     session = _Session(_aposta())
-    aposta = await ApostaRepo().get_by_chave(session, 1, "t:1:1:0")
+    aposta = await ApostaRepo().get_by_chave(cast(AsyncSession, session), 1, "t:1:1:0")
     assert isinstance(aposta, registros.Aposta)
     assert aposta.chave == "t:1:1:0"
     assert aposta.stake_centavos == 10_000
@@ -169,7 +174,7 @@ async def test_aposta_get_by_chave_filters_by_user_and_key() -> None:
 
 async def test_aposta_list_without_filters_orders_newest_first() -> None:
     session = _Session(_aposta(id=2), _aposta(id=1))
-    apostas = await ApostaRepo().list_by_usuario(session, 1)
+    apostas = await ApostaRepo().list_by_usuario(cast(AsyncSession, session), 1)
     assert [a.id for a in apostas] == [2, 1]
     sql = _sql(session.statements[0])
     assert sql.count("WHERE") == 2
@@ -181,7 +186,7 @@ async def test_aposta_list_without_filters_orders_newest_first() -> None:
 async def test_aposta_list_applies_every_filter() -> None:
     session = _Session()
     await ApostaRepo().list_by_usuario(
-        session,
+        cast(AsyncSession, session),
         1,
         estado="GREEN",
         origem="telegram",
@@ -208,7 +213,7 @@ async def test_aposta_list_applies_every_filter() -> None:
 async def test_aposta_get_by_chave_for_update_locks_the_row() -> None:
     session = _Session(_aposta())
 
-    aposta = await ApostaRepo().get_by_chave_for_update(session, 1, "t:1:1:0")
+    aposta = await ApostaRepo().get_by_chave_for_update(cast(AsyncSession, session), 1, "t:1:1:0")
 
     assert "pg_advisory_xact_lock" in _sql(session.statements[0])
     assert aposta is not None and aposta.chave == "t:1:1:0"
@@ -236,7 +241,7 @@ async def test_aposta_page_counts_the_filter_in_the_same_query() -> None:
 
     session = _Session2()
 
-    apostas, total = await ApostaRepo().list_page(session, 1, {}, 3, 25)
+    apostas, total = await ApostaRepo().list_page(cast(AsyncSession, session), 1, {}, 3, 25)
 
     assert (len(apostas), total) == (1, 137)
     sql = _sql(session.statements[0])
@@ -258,7 +263,7 @@ async def test_aposta_page_applies_every_filter_of_the_list() -> None:
     session = _Session(EmptyPage())
 
     await ApostaRepo().list_page(
-        session,
+        cast(AsyncSession, session),
         1,
         {
             "estado": "GREEN",
@@ -290,7 +295,9 @@ async def test_aposta_page_applies_every_filter_of_the_list() -> None:
 async def test_revisao_lists_the_open_ones_of_one_bet() -> None:
     session = _Session()
 
-    await RevisaoPendenteRepo().list_abertas_by_aposta_chave(session, 1, "t:1:1:0")
+    await RevisaoPendenteRepo().list_abertas_by_aposta_chave(
+        cast(AsyncSession, session), 1, "t:1:1:0"
+    )
 
     sql = _sql(session.statements[0])
     assert "revisao_pendente.resolvido_em IS NULL" in sql
@@ -300,7 +307,7 @@ async def test_revisao_lists_the_open_ones_of_one_bet() -> None:
 async def test_conta_casa_get_by_id_is_scoped_to_the_person() -> None:
     session = _Session()
 
-    await ContaCasaRepo().get_by_id(session, 1, 42)
+    await ContaCasaRepo().get_by_id(cast(AsyncSession, session), 1, 42)
 
     sql = _sql(session.statements[0])
     assert "contas_casa.usuario_id = " in sql and "contas_casa.id = " in sql
@@ -309,7 +316,7 @@ async def test_conta_casa_get_by_id_is_scoped_to_the_person() -> None:
 async def test_aposta_upsert_updates_only_mutable_columns_on_the_key() -> None:
     session = _Session(_aposta(odd=2.1))
     dados = {"usuario_id": 1, "chave": "t:1:1:0", "odd": 2.1, "stake_centavos": 10_000}
-    aposta = await ApostaRepo().upsert_idempotent(session, dados)
+    aposta = await ApostaRepo().upsert_idempotent(cast(AsyncSession, session), dados)
     assert "pg_advisory_xact_lock" in _sql(session.statements[0])
     assert aposta.odd == pytest.approx(2.1)
     sql = _sql(session.statements[-1])
@@ -324,7 +331,9 @@ async def test_aposta_upsert_updates_only_mutable_columns_on_the_key() -> None:
 
 async def test_aposta_update_estado() -> None:
     session = _Session(_aposta(estado="GREEN", retorno_centavos=19_000))
-    aposta = await ApostaRepo().update_estado(session, 1, "t:1:1:0", "GREEN", 19_000)
+    aposta = await ApostaRepo().update_estado(
+        cast(AsyncSession, session), 1, "t:1:1:0", "GREEN", 19_000
+    )
     assert "pg_advisory_xact_lock" in _sql(session.statements[0])
     assert aposta is not None
     assert aposta.estado == "GREEN"
@@ -334,7 +343,9 @@ async def test_aposta_update_estado() -> None:
     assert "retorno_centavos=%(retorno_centavos)s" in sql
     assert "atualizada_em=now()" in sql
     assert "WHERE apostas.usuario_id = %(usuario_id_1)s AND apostas.chave = %(chave_1)s" in sql
-    assert await ApostaRepo().update_estado(_Session(), 1, "nada", "RED") is None
+    assert (
+        await ApostaRepo().update_estado(cast(AsyncSession, _Session()), 1, "nada", "RED") is None
+    )
 
 
 def _evento() -> models.Evento:
@@ -354,19 +365,21 @@ def _evento() -> models.Evento:
 
 async def test_evento_append_and_lists() -> None:
     session = _Session(_evento())
-    evento = await EventoRepo().append(session, {"usuario_id": 1, "tipo": "APOSTA_CRIADA"})
+    evento = await EventoRepo().append(
+        cast(AsyncSession, session), {"usuario_id": 1, "tipo": "APOSTA_CRIADA"}
+    )
     assert evento.payload_json == {"odd": 1.9}
     assert "INSERT INTO eventos" in _sql(session.statements[0])
     assert "RETURNING eventos.id" in _sql(session.statements[0])
 
-    await EventoRepo().list_by_aposta_chave(session, 1, "t:1:1:0")
+    await EventoRepo().list_by_aposta_chave(cast(AsyncSession, session), 1, "t:1:1:0")
     sql = _sql(session.statements[1])
     assert (
         "eventos.usuario_id = %(usuario_id_1)s AND eventos.aposta_chave = %(aposta_chave_1)s" in sql
     )
     assert sql.endswith("ORDER BY eventos.id")
 
-    await EventoRepo().list_by_usuario(session, 1, limite=50)
+    await EventoRepo().list_by_usuario(cast(AsyncSession, session), 1, limite=50)
     sql = _sql(session.statements[2])
     assert "ORDER BY eventos.criado_em DESC, eventos.id DESC" in sql
     assert "LIMIT %(param_1)s" in sql
@@ -386,16 +399,18 @@ def _movimento() -> models.Movimento:
 
 async def test_movimento_append_and_lists() -> None:
     session = _Session(_movimento())
-    movimento = await MovimentoRepo().append(session, {"usuario_id": 1, "tipo": "DEPOSITO"})
+    movimento = await MovimentoRepo().append(
+        cast(AsyncSession, session), {"usuario_id": 1, "tipo": "DEPOSITO"}
+    )
     assert movimento == registros.Movimento(4, 1, 3, "DEPOSITO", 50_000, ONTEM, None)
 
-    await MovimentoRepo().list_by_usuario(session, 1, desde=ONTEM, ate=AGORA)
+    await MovimentoRepo().list_by_usuario(cast(AsyncSession, session), 1, desde=ONTEM, ate=AGORA)
     sql = _sql(session.statements[1])
     assert "movimentos.ocorrido_em >= %(ocorrido_em_1)s" in sql
     assert "movimentos.ocorrido_em < %(ocorrido_em_2)s" in sql
     assert sql.endswith("ORDER BY movimentos.ocorrido_em, movimentos.id")
 
-    await MovimentoRepo().list_by_conta_casa(session, 3)
+    await MovimentoRepo().list_by_conta_casa(cast(AsyncSession, session), 3)
     assert "WHERE movimentos.conta_casa_id = %(conta_casa_id_1)s" in _sql(session.statements[2])
 
 
@@ -407,8 +422,8 @@ def _conta() -> models.ContaCasa:
 
 async def test_conta_casa_lookup_create_and_close() -> None:
     session = _Session(_conta())
-    conta = await ContaCasaRepo().get_by_usuario_casa(session, 1, 2)
-    assert conta == registros.ContaCasa(3, 1, 2, "", ONTEM, None, True, estado=None)
+    conta = await ContaCasaRepo().get_by_usuario_casa(cast(AsyncSession, session), 1, 2)
+    assert conta == registros.ContaCasa(3, 1, 2, "", ONTEM, None, True, estado=cast(str, None))
     sql = _sql(session.statements[0])
     assert (
         "contas_casa.usuario_id = %(usuario_id_1)s AND contas_casa.casa_id = %(casa_id_1)s" in sql
@@ -416,16 +431,21 @@ async def test_conta_casa_lookup_create_and_close() -> None:
     assert "contas_casa.ativa IS true" in sql
     assert "LIMIT %(param_1)s" in sql
     assert _params(session.statements[0])["param_1"] == 2
-    assert await ContaCasaRepo().get_by_usuario_casa(_Session(_conta(), _conta()), 1, 2) is None
+    assert (
+        await ContaCasaRepo().get_by_usuario_casa(
+            cast(AsyncSession, _Session(_conta(), _conta())), 1, 2
+        )
+        is None
+    )
 
-    await ContaCasaRepo().create(session, {"usuario_id": 1, "casa_id": 2})
+    await ContaCasaRepo().create(cast(AsyncSession, session), {"usuario_id": 1, "casa_id": 2})
     assert "INSERT INTO contas_casa" in _sql(session.statements[1])
 
-    await ContaCasaRepo().update_ate(session, 1, 3, AGORA)
+    await ContaCasaRepo().update_ate(cast(AsyncSession, session), 1, 3, AGORA)
     sql = _sql(session.statements[2])
     assert sql.startswith("UPDATE contas_casa SET ate=%(ate)s")
     assert "WHERE contas_casa.usuario_id = %(usuario_id_1)s AND contas_casa.id = %(id_1)s" in sql
-    assert await ContaCasaRepo().update_ate(_Session(), 1, 99, None) is None
+    assert await ContaCasaRepo().update_ate(cast(AsyncSession, _Session()), 1, 99, None) is None
 
 
 async def test_unidade_vigente_uses_the_temporal_rule() -> None:
@@ -433,7 +453,7 @@ async def test_unidade_vigente_uses_the_temporal_rule() -> None:
         id=5, usuario_id=1, valor_centavos=5_000, vigente_de=ONTEM, vigente_ate=None
     )
     session = _Session(unidade)
-    vigente = await UnidadeRepo().get_vigente(session, 1, AGORA)
+    vigente = await UnidadeRepo().get_vigente(cast(AsyncSession, session), 1, AGORA)
     assert vigente == registros.Unidade(5, 1, 5_000, ONTEM, None)
     sql = _sql(session.statements[0])
     assert "unidades.vigente_de <= %(vigente_de_1)s" in sql
@@ -442,9 +462,11 @@ async def test_unidade_vigente_uses_the_temporal_rule() -> None:
     assert "LIMIT %(param_1)s" in sql
     assert _params(session.statements[0])["vigente_de_1"] == AGORA
 
-    await UnidadeRepo().create(session, {"usuario_id": 1, "valor_centavos": 5_000})
+    await UnidadeRepo().create(
+        cast(AsyncSession, session), {"usuario_id": 1, "valor_centavos": 5_000}
+    )
     assert "INSERT INTO unidades" in _sql(session.statements[1])
-    assert await UnidadeRepo().get_vigente(_Session(), 1, AGORA) is None
+    assert await UnidadeRepo().get_vigente(cast(AsyncSession, _Session()), 1, AGORA) is None
 
 
 def _coleta() -> models.ColetaCasa:
@@ -462,13 +484,13 @@ def _coleta() -> models.ColetaCasa:
 
 async def test_coleta_casa_lookup_and_idempotent_upsert() -> None:
     session = _Session(_coleta())
-    coleta = await ColetaCasaRepo().get_by_identidade(session, 1, 2, "B123")
+    coleta = await ColetaCasaRepo().get_by_identidade(cast(AsyncSession, session), 1, 2, "B123")
     assert coleta is not None
     assert coleta.bruto_json == {"estado": "open"}
     assert "coletas_casa.identidade = %(identidade_1)s" in _sql(session.statements[0])
 
     dados = {"usuario_id": 1, "casa_id": 2, "identidade": "B123", "hash_conteudo": "abc"}
-    await ColetaCasaRepo().upsert_idempotent(session, dados)
+    await ColetaCasaRepo().upsert_idempotent(cast(AsyncSession, session), dados)
     sql = _sql(session.statements[1])
     assert "ON CONFLICT ON CONSTRAINT uq_coletas_casa_identidade DO UPDATE SET" in sql
     assert "hash_conteudo = excluded.hash_conteudo" in sql
@@ -480,24 +502,24 @@ async def test_coleta_casa_lookup_and_idempotent_upsert() -> None:
 
 async def test_coleta_casa_upsert_returns_none_when_nothing_changed() -> None:
     dados = {"usuario_id": 1, "casa_id": 2, "identidade": "B123", "hash_conteudo": "abc"}
-    assert await ColetaCasaRepo().upsert_idempotent(_Session(), dados) is None
+    assert await ColetaCasaRepo().upsert_idempotent(cast(AsyncSession, _Session()), dados) is None
 
 
 async def test_coleta_casa_is_locked_by_id_counted_by_day_and_marked_processed() -> None:
     session = _Session(_coleta())
-    coleta = await ColetaCasaRepo().get_by_id_for_update(session, 1, 8)
+    coleta = await ColetaCasaRepo().get_by_id_for_update(cast(AsyncSession, session), 1, 8)
     assert coleta is not None and coleta.identidade == "B123"
     assert "coletas_casa.id = %(id_1)s" in _sql(session.statements[0])
     assert _sql(session.statements[0]).endswith("FOR UPDATE")
-    assert await ColetaCasaRepo().get_by_id_for_update(_Session(), 1, 9) is None
+    assert await ColetaCasaRepo().get_by_id_for_update(cast(AsyncSession, _Session()), 1, 9) is None
 
     contagem = _Session(3)
-    assert await ColetaCasaRepo().count_received_since(contagem, 1, AGORA) == 3
+    assert await ColetaCasaRepo().count_received_since(cast(AsyncSession, contagem), 1, AGORA) == 3
     assert "count(*)" in _sql(contagem.statements[0])
     assert "coletas_casa.recebido_em >= %(recebido_em_1)s" in _sql(contagem.statements[0])
 
     marcada = _Session()
-    await ColetaCasaRepo().set_processado(marcada, 1, 8)
+    await ColetaCasaRepo().set_processado(cast(AsyncSession, marcada), 1, 8)
     sql = _sql(marcada.statements[0])
     assert "UPDATE coletas_casa SET processado_em=now()" in sql
     assert "coletas_casa.usuario_id = %(usuario_id_1)s" in sql
@@ -506,24 +528,31 @@ async def test_coleta_casa_is_locked_by_id_counted_by_day_and_marked_processed()
 async def test_coleta_casa_is_locked_by_its_house_identity() -> None:
     session = _Session(_coleta())
 
-    coleta = await ColetaCasaRepo().get_by_identidade_for_update(session, 1, 2, "B123")
+    coleta = await ColetaCasaRepo().get_by_identidade_for_update(
+        cast(AsyncSession, session), 1, 2, "B123"
+    )
 
     assert coleta is not None and coleta.id == 8
     sql = _sql(session.statements[0])
     assert "coletas_casa.identidade = %(identidade_1)s" in sql
     assert sql.endswith("FOR UPDATE")
-    assert await ColetaCasaRepo().get_by_identidade_for_update(_Session(), 1, 2, "X") is None
+    assert (
+        await ColetaCasaRepo().get_by_identidade_for_update(
+            cast(AsyncSession, _Session()), 1, 2, "X"
+        )
+        is None
+    )
 
 
 async def test_coleta_casa_is_read_by_id_and_listed_by_house_after_a_cursor() -> None:
     session = _Session(_coleta())
-    coleta = await ColetaCasaRepo().get_by_id(session, 1, 8)
+    coleta = await ColetaCasaRepo().get_by_id(cast(AsyncSession, session), 1, 8)
     assert coleta is not None and coleta.identidade == "B123"
     assert "FOR UPDATE" not in _sql(session.statements[0])
-    assert await ColetaCasaRepo().get_by_id(_Session(), 1, 9) is None
+    assert await ColetaCasaRepo().get_by_id(cast(AsyncSession, _Session()), 1, 9) is None
 
     lista = _Session(_coleta())
-    (linha,) = await ColetaCasaRepo().list_by_casa(lista, 1, 2, 4, 1000)
+    (linha,) = await ColetaCasaRepo().list_by_casa(cast(AsyncSession, lista), 1, 2, 4, 1000)
     assert linha.bruto_json == {"estado": "open"}
     sql = _sql(lista.statements[0])
     assert "coletas_casa.casa_id = %(casa_id_1)s" in sql
@@ -535,7 +564,7 @@ async def test_coleta_casa_is_read_by_id_and_listed_by_house_after_a_cursor() ->
 async def test_bets_are_counted_by_origin_with_their_messages_and_reviews() -> None:
     session = _Session(("telegram", 5, 2, 4, 1))
 
-    contagens = await ApostaRepo().count_by_origem(session, 1, ONTEM, AGORA)
+    contagens = await ApostaRepo().count_by_origem(cast(AsyncSession, session), 1, ONTEM, AGORA)
 
     assert contagens == [registros.ApostasPorOrigem("telegram", 5, 2, 4, 1)]
     sql = _sql(session.statements[0])
@@ -549,7 +578,7 @@ async def test_bets_are_counted_by_origin_with_their_messages_and_reviews() -> N
 async def test_active_users_are_listed_by_id_after_a_cursor() -> None:
     session = _Session(4, 9)
 
-    assert await UsuarioRepo().list_active_ids(session, 3, 2) == [4, 9]
+    assert await UsuarioRepo().list_active_ids(cast(AsyncSession, session), 3, 2) == [4, 9]
 
     sql = _sql(session.statements[0])
     assert "usuarios.id > %(id_1)s" in sql
@@ -561,23 +590,26 @@ async def test_active_users_are_listed_by_id_after_a_cursor() -> None:
 async def test_coleta_token_lookup_offers_its_hash_to_the_row_policy() -> None:
     session = _Session(7)
 
-    assert await ColetaTokenRepo().get_usuario_id_by_hash(session, "abc") == 7
+    assert await ColetaTokenRepo().get_usuario_id_by_hash(cast(AsyncSession, session), "abc") == 7
     assert "set_config('app.coleta_token_hash', :hash, true)" in str(session.statements[0])
     sql = _sql(session.statements[1])
     assert "coleta_token.token_hash = %(token_hash_1)s" in sql
     assert "coleta_token.ativo IS true" in sql
     assert "coleta_token.expira_em IS NULL OR coleta_token.expira_em > now()" in sql
-    assert await ColetaTokenRepo().get_usuario_id_by_hash(_Session(), "abc") is None
+    assert (
+        await ColetaTokenRepo().get_usuario_id_by_hash(cast(AsyncSession, _Session()), "abc")
+        is None
+    )
 
 
 async def test_coleta_token_is_created_and_deactivated_per_user() -> None:
     criado = _Session(5)
-    assert await ColetaTokenRepo().create(criado, 1, "abc", AGORA) == 5
+    assert await ColetaTokenRepo().create(cast(AsyncSession, criado), 1, "abc", AGORA) == 5
     assert "INSERT INTO coleta_token" in _sql(criado.statements[0])
     assert _params(criado.statements[0])["token_hash"] == "abc"
 
     desativados = _Session(1, 2)
-    assert await ColetaTokenRepo().deactivate_by_usuario(desativados, 1) == 2
+    assert await ColetaTokenRepo().deactivate_by_usuario(cast(AsyncSession, desativados), 1) == 2
     sql = _sql(desativados.statements[0])
     assert "UPDATE coleta_token SET ativo=%(ativo)s" in sql
     assert "coleta_token.ativo IS true" in sql
@@ -585,11 +617,11 @@ async def test_coleta_token_is_created_and_deactivated_per_user() -> None:
 
 async def test_casa_is_found_by_its_official_name_and_by_id() -> None:
     por_nome = _Session(2)
-    assert await CasaRepo().get_id_by_nome(por_nome, "Betano") == 2
+    assert await CasaRepo().get_id_by_nome(cast(AsyncSession, por_nome), "Betano") == 2
     assert "casas.nome = %(nome_1)s" in _sql(por_nome.statements[0])
 
     por_id = _Session("Betano")
-    assert await CasaRepo().get_nome_by_id(por_id, 2) == "Betano"
+    assert await CasaRepo().get_nome_by_id(cast(AsyncSession, por_id), 2) == "Betano"
     assert "casas.id = %(id_1)s" in _sql(por_id.statements[0])
 
 
@@ -607,33 +639,37 @@ def _revisao() -> models.RevisaoPendente:
 
 async def test_revisao_pendente_create_list_and_resolve() -> None:
     session = _Session(_revisao())
-    revisao = await RevisaoPendenteRepo().create(session, {"usuario_id": 1, "motivo": "odd"})
+    revisao = await RevisaoPendenteRepo().create(
+        cast(AsyncSession, session), {"usuario_id": 1, "motivo": "odd"}
+    )
     assert revisao == registros.RevisaoPendente(6, 1, "h", "odd fora da faixa", None, AGORA, None)
 
-    await RevisaoPendenteRepo().list_by_usuario(session, 1)
+    await RevisaoPendenteRepo().list_by_usuario(cast(AsyncSession, session), 1)
     sql = _sql(session.statements[1])
     assert "revisao_pendente.resolvido_em IS NULL" in sql
     assert sql.endswith("ORDER BY revisao_pendente.criado_em, revisao_pendente.id")
 
-    await RevisaoPendenteRepo().list_by_usuario(session, 1, apenas_abertas=False)
+    await RevisaoPendenteRepo().list_by_usuario(
+        cast(AsyncSession, session), 1, apenas_abertas=False
+    )
     assert "resolvido_em IS NULL" not in _sql(session.statements[2])
 
-    await RevisaoPendenteRepo().resolve(session, 1, 6)
+    await RevisaoPendenteRepo().resolve(cast(AsyncSession, session), 1, 6)
     sql = _sql(session.statements[3])
     assert sql.startswith("UPDATE revisao_pendente SET resolvido_em=now()")
     assert "revisao_pendente.id = %(id_1)s AND revisao_pendente.resolvido_em IS NULL" in sql
-    assert await RevisaoPendenteRepo().resolve(_Session(), 1, 6) is None
+    assert await RevisaoPendenteRepo().resolve(cast(AsyncSession, _Session()), 1, 6) is None
 
 
 async def test_revisao_pendente_get_by_id_and_lock_are_tenant_scoped() -> None:
     leitura = _Session(_revisao())
     travada = _Session(_revisao())
 
-    assert await RevisaoPendenteRepo().get_by_id(leitura, 1, 6) == registros.RevisaoPendente(
-        6, 1, "h", "odd fora da faixa", None, AGORA, None
-    )
+    assert await RevisaoPendenteRepo().get_by_id(
+        cast(AsyncSession, leitura), 1, 6
+    ) == registros.RevisaoPendente(6, 1, "h", "odd fora da faixa", None, AGORA, None)
     assert await RevisaoPendenteRepo().get_by_id_for_update(
-        travada, 1, 6
+        cast(AsyncSession, travada), 1, 6
     ) == registros.RevisaoPendente(6, 1, "h", "odd fora da faixa", None, AGORA, None)
 
     for session in (leitura, travada):
@@ -643,7 +679,7 @@ async def test_revisao_pendente_get_by_id_and_lock_are_tenant_scoped() -> None:
         # O detalhe também pode mostrar uma revisão já resolvida; só a resolução decide o 409.
         assert "resolvido_em IS NULL" not in sql
     assert _sql(travada.statements[0]).endswith("FOR UPDATE")
-    assert await RevisaoPendenteRepo().get_by_id(_Session(), 1, 99) is None
+    assert await RevisaoPendenteRepo().get_by_id(cast(AsyncSession, _Session()), 1, 99) is None
 
 
 async def test_revisao_pendente_page_is_open_filtered_fifo_and_has_total() -> None:
@@ -667,7 +703,7 @@ async def test_revisao_pendente_page_is_open_filtered_fifo_and_has_total() -> No
 
     session = _PageSession()
     revisoes, total = await RevisaoPendenteRepo().list_page(
-        session,
+        cast(AsyncSession, session),
         1,
         {"motivo": "odd fora da faixa", "desde": ONTEM, "ate": AGORA},
         pagina=2,
@@ -697,7 +733,9 @@ async def test_revisao_pendente_page_keeps_total_after_the_last_page() -> None:
 
     session = _EmptyPageSession()
 
-    assert await RevisaoPendenteRepo().list_page(session, 1, {}, pagina=3, tamanho=10) == ([], 7)
+    assert await RevisaoPendenteRepo().list_page(
+        cast(AsyncSession, session), 1, {}, pagina=3, tamanho=10
+    ) == ([], 7)
     assert len(session.statements) == 2
     assert "FROM (SELECT" in _sql(session.statements[1])
     assert "LIMIT" not in _sql(session.statements[1])
@@ -720,7 +758,7 @@ async def test_revisao_pendente_stats_are_for_open_rows_of_one_tenant() -> None:
         ),
     )
 
-    resultado = await RevisaoPendenteRepo().stats(session, 1)
+    resultado = await RevisaoPendenteRepo().stats(cast(AsyncSession, session), 1)
 
     assert resultado == registros.EstatisticasRevisao(
         total=5,
@@ -734,9 +772,9 @@ async def test_revisao_pendente_stats_are_for_open_rows_of_one_tenant() -> None:
     assert "GROUP BY revisao_pendente.motivo" in sql
     assert "greatest(" in sql
     assert "EXTRACT(epoch FROM now() - min(revisao_pendente.criado_em))" in sql
-    assert await RevisaoPendenteRepo().stats(_Session(), 1) == registros.EstatisticasRevisao(
-        0, {}, None, 0
-    )
+    assert await RevisaoPendenteRepo().stats(
+        cast(AsyncSession, _Session()), 1
+    ) == registros.EstatisticasRevisao(0, {}, None, 0)
 
     futura = _Session(
         SimpleNamespace(
@@ -746,7 +784,9 @@ async def test_revisao_pendente_stats_are_for_open_rows_of_one_tenant() -> None:
             idade_maxima_segundos=-10,
         )
     )
-    assert (await RevisaoPendenteRepo().stats(futura, 1)).idade_maxima_segundos == 0
+    assert (
+        await RevisaoPendenteRepo().stats(cast(AsyncSession, futura), 1)
+    ).idade_maxima_segundos == 0
 
 
 async def test_revisao_photo_is_loaded_by_open_owned_review_not_by_raw_hash() -> None:
@@ -757,33 +797,44 @@ async def test_revisao_photo_is_loaded_by_open_owned_review_not_by_raw_hash() ->
 
     session = PhotoSession((b"jpeg", "image/jpeg"))
 
-    assert await RevisaoPendenteRepo().get_foto_by_id(session, 1, 6) == registros.FotoRevisao(
-        b"jpeg", "image/jpeg"
-    )
+    assert await RevisaoPendenteRepo().get_foto_by_id(
+        cast(AsyncSession, session), 1, 6
+    ) == registros.FotoRevisao(b"jpeg", "image/jpeg")
     sql = _sql(session.statements[1])
     assert "FROM revisao_pendente JOIN midias" in sql
     assert "JOIN midia_arquivos" in sql
     assert "revisao_pendente.usuario_id = " in sql
     assert "revisao_pendente.id = " in sql
     assert "revisao_pendente.resolvido_em IS NULL" in sql
-    assert await RevisaoPendenteRepo().get_foto_by_id(_Session(), 1, 6) is None
+    assert await RevisaoPendenteRepo().get_foto_by_id(cast(AsyncSession, _Session()), 1, 6) is None
 
 
 async def test_revisao_pendente_open_review_is_found_by_bet_and_reason() -> None:
     session = _Session(6)
 
-    assert await RevisaoPendenteRepo().has_open(session, 1, "t:1:1:0", "odd") is True
+    assert (
+        await RevisaoPendenteRepo().has_open(cast(AsyncSession, session), 1, "t:1:1:0", "odd")
+        is True
+    )
     sql = _sql(session.statements[0])
     assert "revisao_pendente.extracao_bruta ->>" in sql
     assert "revisao_pendente.motivo = %(motivo_1)s" in sql
     assert "revisao_pendente.resolvido_em IS NULL" in sql
-    assert await RevisaoPendenteRepo().has_open(_Session(), 1, "t:1:1:0", "odd") is False
+    assert (
+        await RevisaoPendenteRepo().has_open(cast(AsyncSession, _Session()), 1, "t:1:1:0", "odd")
+        is False
+    )
 
 
 async def test_revisao_pendente_superseded_reviews_of_a_bet_are_resolved() -> None:
     session = _Session(6, 7)
 
-    assert await RevisaoPendenteRepo().resolve_superseded(session, 1, "t:1:1:0", "odd") == 2
+    assert (
+        await RevisaoPendenteRepo().resolve_superseded(
+            cast(AsyncSession, session), 1, "t:1:1:0", "odd"
+        )
+        == 2
+    )
     sql = _sql(session.statements[0])
     assert sql.startswith("UPDATE revisao_pendente SET resolvido_em=now()")
     assert "revisao_pendente.extracao_bruta ->>" in sql
@@ -791,10 +842,10 @@ async def test_revisao_pendente_superseded_reviews_of_a_bet_are_resolved() -> No
     assert "revisao_pendente.motivo != %(motivo_2)s" in sql
     assert "tipo_revisao" in _params(session.statements[0]).values()
 
-    await RevisaoPendenteRepo().resolve_superseded(session, 1, "t:1:1:0", None)
+    await RevisaoPendenteRepo().resolve_superseded(cast(AsyncSession, session), 1, "t:1:1:0", None)
     assert "motivo !=" not in _sql(session.statements[1])
     await RevisaoPendenteRepo().resolve_superseded(
-        session, 1, "t:1:1:0", None, include_account=True
+        cast(AsyncSession, session), 1, "t:1:1:0", None, include_account=True
     )
     assert "tipo_revisao" not in _params(session.statements[2]).values()
 
@@ -803,7 +854,7 @@ async def test_aposta_upsert_materializada_only_lets_a_newer_write_in() -> None:
     session = _Session(_aposta())
     dados = {"usuario_id": 1, "chave": "t:1:1:0", "origem": "telegram", "odd": 1.9}
 
-    aposta = await ApostaRepo().upsert_materializada(session, dados)
+    aposta = await ApostaRepo().upsert_materializada(cast(AsyncSession, session), dados)
 
     assert "pg_advisory_xact_lock" in _sql(session.statements[0])
     assert aposta is not None
@@ -815,7 +866,7 @@ async def test_aposta_upsert_materializada_only_lets_a_newer_write_in() -> None:
     assert "atualizada_em = excluded.atualizada_em" in sql
     assert "usuario_id = excluded.usuario_id" not in sql
     assert "WHERE excluded.atualizada_em > apostas.atualizada_em" in sql
-    assert await ApostaRepo().upsert_materializada(_Session(), dados) is None
+    assert await ApostaRepo().upsert_materializada(cast(AsyncSession, _Session()), dados) is None
 
 
 async def test_conta_casa_uses_game_usage_and_never_defaults_without_game_time() -> None:
@@ -831,14 +882,16 @@ async def test_conta_casa_uses_game_usage_and_never_defaults_without_game_time()
     usage = models.UsoContaCasa(conta_casa_id=3, vigente_de=ONTEM, vigente_ate=None)
     session = LookupSession([2], [usage], [_conta()])
     repo = ContaCasaRepo()
-    assert await repo.get_vigente_by_nome_da_casa(session, 1, "Betano") is None
+    assert await repo.get_vigente_by_nome_da_casa(cast(AsyncSession, session), 1, "Betano") is None
     assert not session.statements
-    conta = await repo.get_vigente_by_nome_da_casa(session, 1, "Betano", AGORA)
-    assert conta == registros.ContaCasa(3, 1, 2, "", ONTEM, None, True, estado=None)
+    conta = await repo.get_vigente_by_nome_da_casa(cast(AsyncSession, session), 1, "Betano", AGORA)
+    assert conta == registros.ContaCasa(3, 1, 2, "", ONTEM, None, True, estado=cast(str, None))
     assert "usos_conta_casa" in _sql(session.statements[1])
     assert "usuario_id" in _sql(session.statements[1])
     before = LookupSession([2], [usage])
     assert (
-        await repo.get_vigente_by_nome_da_casa(before, 1, "Betano", ONTEM - timedelta(seconds=1))
+        await repo.get_vigente_by_nome_da_casa(
+            cast(AsyncSession, before), 1, "Betano", ONTEM - timedelta(seconds=1)
+        )
         is None
     )

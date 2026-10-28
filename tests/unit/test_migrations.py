@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import io
 from pathlib import Path
+from typing import cast
 
 from alembic import command
 from alembic.config import Config
@@ -17,11 +18,7 @@ REVISAO_RESOLVIDA = "f2a9c4e7b106"
 CAIXA_REVISAO_MERGE = "e5a1c7d9b204"
 PAINEL = "d3f6a8c1e209"
 PAINEL_CAIXA_MERGE = "f8b2d4a6c901"
-<<<<<<< HEAD
 HEAD = "a212lote2026"
-=======
-HEAD = "m202manual2026"
->>>>>>> 36b26b6 (fix(ci): preservar inventários e reduzir custo de execução ASGI)
 PARTICIONADAS = {
     "eventos": "criado_em",
     "movimentos": "ocorrido_em",
@@ -66,11 +63,14 @@ def test_late_branches_merge_without_rewriting_published_revisions() -> None:
     assert script.get_revision(IDEMPOTENCIA_CAIXA).down_revision == TRANSFERENCIA
     assert revisao.down_revision == TRANSFERENCIA
     assert "007_revisao_resolvida_evento" in revisao.doc
-    assert set(caixa_revisao.down_revision) == {IDEMPOTENCIA_CAIXA, REVISAO_RESOLVIDA}
+    assert set(cast(tuple[str, ...], caixa_revisao.down_revision)) == {
+        IDEMPOTENCIA_CAIXA,
+        REVISAO_RESOLVIDA,
+    }
     assert "008_merge_caixa_revisao" in caixa_revisao.doc
     assert painel.down_revision == REVISAO_RESOLVIDA
     assert "008_painel_materialized_views" in painel.doc
-    assert set(merge.down_revision) == {CAIXA_REVISAO_MERGE, PAINEL}
+    assert set(cast(tuple[str, ...], merge.down_revision)) == {CAIXA_REVISAO_MERGE, PAINEL}
     assert "009_merge_painel_caixa" in merge.doc
 
     upgrade = _upgrade_sql()
@@ -98,7 +98,7 @@ def test_upgrade_creates_every_model_table_once() -> None:
 def test_upgrade_renders_the_schema_of_the_models() -> None:
     sql = _upgrade_sql()
     # Explicit/composite/UUID identity tables are accounted for separately from BIGSERIAL.
-    assert sql.count("id BIGSERIAL NOT NULL") == len(Base.metadata.tables) - 11
+    assert sql.count("id BIGSERIAL NOT NULL") == len(Base.metadata.tables) - 17
     assert "CREATE TYPE familia_de_mercado AS ENUM ('GOLS'" in sql
     assert "payload_json JSONB NOT NULL" in sql
     assert "CHECK (NOT freebet OR stake_centavos = 0)" in sql

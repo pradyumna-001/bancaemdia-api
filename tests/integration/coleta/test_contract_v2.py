@@ -7,13 +7,16 @@ import json
 import os
 import subprocess
 import sys
+from collections.abc import AsyncIterator
 from datetime import UTC, datetime
 from pathlib import Path
 from types import SimpleNamespace
+from typing import Any, cast
 from uuid import UUID, uuid4
 
 import pytest
-from sqlalchemy import func, select, text, update
+from sqlalchemy import Table, func, select, text, update
+from sqlalchemy.engine import CursorResult
 from sqlalchemy.exc import DBAPIError, OperationalError
 from sqlalchemy.ext.asyncio import AsyncSession
 from test_pairing import real_database_required as real_database_required
@@ -24,13 +27,15 @@ from bancaemdia import models
 from bancaemdia.api.v1 import coleta_sessoes
 from bancaemdia.models.coleta_sessao import ColetaEntrega, ColetaSessao
 from bancaemdia.repositories.coleta_instalacao import owner_scope
+from bancaemdia.services.coleta_ingest import submit
 from bancaemdia.workers import coleta_v2, materialization
+from bancaemdia.workers.materialization import _gravar_coletada
 
 pytestmark = pytest.mark.xdist_group("postgres")
 PREFIX = "/api/v1/coleta"
 
 
-def digest(raw):
+def digest(raw: Any) -> Any:
     # Independent implementation of the published canonical JSON encoding.
     return hashlib.sha256(
         json.dumps(
@@ -39,7 +44,7 @@ def digest(raw):
     ).hexdigest()
 
 
-def capture(account=None, **changes):
+def capture(account: Any = None, **changes: Any) -> Any:
     raw = copy.deepcopy(
         json.loads((Path(__file__).parents[2] / "fixtures/coleta/betano.json").read_text())[
             "apostas"
@@ -69,7 +74,7 @@ def capture(account=None, **changes):
 
 
 @pytest.fixture
-async def api(system, monkeypatch):
+async def api(system: Any, monkeypatch: pytest.MonkeyPatch) -> AsyncIterator[Any]:
     from bancaemdia.config import get_settings
 
     monkeypatch.setenv("COLETA_RATE_LIMIT", "1000/minute")
@@ -80,7 +85,7 @@ async def api(system, monkeypatch):
     async with system.admin.begin() as conn:
         casa = await conn.scalar(select(models.Casa.id).where(models.Casa.nome == "Betano"))
         account = await conn.scalar(
-            models.ContaCasa.__table__
+            cast(Table, models.ContaCasa.__table__)
             .insert()
             .values(
                 usuario_id=system.user,
@@ -97,17 +102,17 @@ async def api(system, monkeypatch):
     assert response.status_code == 200, response.text
     session_id = response.json()["sessao_id"]
 
-    async def send(items, **changes):
+    async def send(items: Any, **changes: Any) -> Any:
         body = {"contrato": 2, "batch_id": str(uuid4()), "sessao_id": session_id, "items": items}
         body.update(changes)
         return await system.http.post(PREFIX + "/batches", headers=headers, json=body)
 
-    async def status(ack):
+    async def status(ack: Any) -> Any:
         response = await system.http.get(PREFIX + "/jobs/" + ack["job_id"], headers=headers)
         assert response.status_code == 200
         return response.json()
 
-    async def run(ack):
+    async def run(ack: Any) -> Any:
         return await coleta_v2.process_job(system.engine, system.user, UUID(ack["job_id"]))
 
     yield SimpleNamespace(**{
@@ -124,7 +129,7 @@ async def api(system, monkeypatch):
     get_settings.cache_clear()
 
 
-async def test_mixed_batch_stable_ack_and_lossless_raw_replay(api):
+async def test_mixed_batch_stable_ack_and_lossless_raw_replay(api: Any) -> None:
     valid = capture(api.account)
     unsafe = capture(api.account)
     unsafe["payload"]["authorization"] = "Bearer SENTINEL"
@@ -194,7 +199,9 @@ async def test_mixed_batch_stable_ack_and_lossless_raw_replay(api):
         )
 
 
-async def test_concurrent_timeout_retries_have_one_delivery_and_one_financial_fact(api):
+async def test_concurrent_timeout_retries_have_one_delivery_and_one_financial_fact(
+    api: Any,
+) -> None:
     item = capture(api.account)
     responses = await asyncio.gather(*(api.send([item]) for _ in range(10)))
     assert all(r.status_code == 200 for r in responses)
@@ -218,7 +225,7 @@ async def test_concurrent_timeout_retries_have_one_delivery_and_one_financial_fa
     assert (await api.send([item])).json()["items"][0] == acks[0]
 
 
-async def test_two_installations_converge_to_one_financial_fact(api):
+async def test_two_installations_converge_to_one_financial_fact(api: Any) -> None:
     other = await api.pair()
     headers = {"X-Coleta-Token": other["token"]}
     response = await api.http.post(
@@ -261,7 +268,9 @@ async def test_two_installations_converge_to_one_financial_fact(api):
 
 
 @pytest.mark.parametrize("bad_revision", ["invalid", "2026-08-02", 99999999999999999999])
-async def test_invalid_source_revision_is_not_replaced_by_placement(api, bad_revision):
+async def test_invalid_source_revision_is_not_replaced_by_placement(
+    api: Any, bad_revision: Any
+) -> None:
     item = capture(api.account)
     item["payload"]["settledAt"] = bad_revision
     item["content_hash"] = digest(item["payload"])
@@ -279,7 +288,7 @@ async def test_invalid_source_revision_is_not_replaced_by_placement(api, bad_rev
         )
 
 
-async def test_duplicate_content_new_event_and_lifecycle_out_of_order(api):
+async def test_duplicate_content_new_event_and_lifecycle_out_of_order(api: Any) -> None:
     settled = capture(api.account)
     opened = copy.deepcopy(settled)
     opened["client_event_id"] = str(uuid4())
@@ -333,7 +342,9 @@ async def test_duplicate_content_new_event_and_lifecycle_out_of_order(api):
 
 
 @pytest.mark.parametrize("protocol", [1, 2])
-async def test_same_financial_content_advances_source_clock_without_new_events(api, protocol):
+async def test_same_financial_content_advances_source_clock_without_new_events(
+    api: Any, protocol: Any
+) -> None:
     original = capture(api.account)
     ack = (await api.send([original])).json()["items"][0]
     assert await api.run(ack) == "materialized"
@@ -392,7 +403,7 @@ async def test_same_financial_content_advances_source_clock_without_new_events(a
         )
 
 
-async def test_session_resume_is_explicit_immutable_and_owned_by_installation(api):
+async def test_session_resume_is_explicit_immutable_and_owned_by_installation(api: Any) -> None:
     path = PREFIX + "/sessions"
     assert (
         await api.http.post(path, headers=api.headers, json={"coletar_desde": api.boundary})
@@ -437,7 +448,7 @@ async def test_session_resume_is_explicit_immutable_and_owned_by_installation(ap
 @pytest.mark.parametrize(
     "kind", ["foreign", "wrong_house", "before", "ended", "missing", "unknown"]
 )
-async def test_account_reference_is_never_a_first_active_fallback(api, kind):
+async def test_account_reference_is_never_a_first_active_fallback(api: Any, kind: Any) -> None:
     reference = api.account
     async with api.admin.begin() as conn:
         if kind == "foreign":
@@ -448,7 +459,7 @@ async def test_account_reference_is_never_a_first_active_fallback(api, kind):
             )
         elif kind == "wrong_house":
             house = await conn.scalar(
-                models.Casa.__table__
+                cast(Table, models.Casa.__table__)
                 .insert()
                 .values(nome="Other " + uuid4().hex)
                 .returning(models.Casa.id)
@@ -486,7 +497,9 @@ async def test_account_reference_is_never_a_first_active_fallback(api, kind):
 
 
 @pytest.mark.parametrize("value", [None, "2026-08-02", "not-a-date", 99999999999999999999])
-async def test_capture_clock_cannot_replace_missing_or_untrusted_ticket_time(api, value):
+async def test_capture_clock_cannot_replace_missing_or_untrusted_ticket_time(
+    api: Any, value: Any
+) -> None:
     item = capture(api.account)
     item["payload"]["placedAt"] = value
     item["content_hash"] = digest(item["payload"])
@@ -495,7 +508,7 @@ async def test_capture_clock_cannot_replace_missing_or_untrusted_ticket_time(api
     assert (await api.status(ack))["reason"] == "source_time_untrusted"
 
 
-async def test_rls_jobs_and_transport_ids_do_not_cross_tenants_or_installations(api):
+async def test_rls_jobs_and_transport_ids_do_not_cross_tenants_or_installations(api: Any) -> None:
     item = capture(api.account)
     ack = (await api.send([item])).json()["items"][0]
     foreign = await api.pair(uid=api.other)
@@ -519,21 +532,24 @@ async def test_rls_jobs_and_transport_ids_do_not_cross_tenants_or_installations(
             is None
         )
         assert (
-            await session.execute(
-                update(ColetaEntrega)
-                .where(ColetaEntrega.job_id == UUID(ack["job_id"]))
-                .values(status="failed")
+            cast(
+                CursorResult[Any],
+                await session.execute(
+                    update(ColetaEntrega)
+                    .where(ColetaEntrega.job_id == UUID(ack["job_id"]))
+                    .values(status="failed")
+                ),
             )
         ).rowcount == 0
 
 
 async def test_broker_loss_and_a_fresh_worker_process_recover_persisted_inbox(
-    api, monkeypatch, banco
-):
+    api: Any, monkeypatch: pytest.MonkeyPatch, banco: Any
+) -> None:
     from bancaemdia.services.coleta_ingest import notify_worker
     from bancaemdia.workers.celery_app import app as celery
 
-    def unavailable(*args, **kwargs):
+    def unavailable(*args: Any, **kwargs: Any) -> Any:
         raise ConnectionError("synthetic broker outage")
 
     monkeypatch.setattr(celery, "send_task", unavailable)
@@ -556,12 +572,12 @@ async def test_broker_loss_and_a_fresh_worker_process_recover_persisted_inbox(
 
 
 async def test_worker_failure_rolls_back_financial_fact_and_retry_materializes_once(
-    api, monkeypatch
-):
+    api: Any, monkeypatch: pytest.MonkeyPatch
+) -> None:
     ack = (await api.send([capture(api.account)])).json()["items"][0]
-    original = coleta_v2._gravar_coletada
+    original = _gravar_coletada
 
-    async def crash(*args, **kwargs):
+    async def crash(*args: Any, **kwargs: Any) -> Any:
         await original(*args, **kwargs)
         raise OperationalError("synthetic transaction loss", {}, Exception("simulated"))
 
@@ -590,7 +606,9 @@ async def test_worker_failure_rolls_back_financial_fact_and_retry_materializes_o
     assert await api.run(ack) == "materialized"
 
 
-async def test_401_429_unknown_version_and_no_admission_on_failures(api, monkeypatch):
+async def test_401_429_unknown_version_and_no_admission_on_failures(
+    api: Any, monkeypatch: pytest.MonkeyPatch
+) -> None:
     from bancaemdia.middleware.rate_limit import coleta_limiter
 
     item = capture(api.account)
@@ -612,7 +630,9 @@ async def test_401_429_unknown_version_and_no_admission_on_failures(api, monkeyp
         get_settings.cache_clear()
 
 
-async def test_daily_limit_rolls_back_batch_and_preserves_original_ack(api, monkeypatch):
+async def test_daily_limit_rolls_back_batch_and_preserves_original_ack(
+    api: Any, monkeypatch: pytest.MonkeyPatch
+) -> None:
     from bancaemdia.config import get_settings
 
     monkeypatch.setattr(get_settings(), "COLETA_DAILY_LIMIT", 1)
@@ -644,7 +664,9 @@ async def test_daily_limit_rolls_back_batch_and_preserves_original_ack(api, monk
     assert legacy.status_code == 429
 
 
-async def test_daily_limit_is_shared_across_concurrent_installations(api, monkeypatch):
+async def test_daily_limit_is_shared_across_concurrent_installations(
+    api: Any, monkeypatch: pytest.MonkeyPatch
+) -> None:
     from bancaemdia.config import get_settings
 
     monkeypatch.setattr(get_settings(), "COLETA_DAILY_LIMIT", 1)
@@ -683,7 +705,7 @@ async def test_daily_limit_is_shared_across_concurrent_installations(api, monkey
         )
 
 
-async def test_hash_tamper_is_terminal_and_never_materializes(api):
+async def test_hash_tamper_is_terminal_and_never_materializes(api: Any) -> None:
     ack = (await api.send([capture(api.account)])).json()["items"][0]
     async with api.admin.begin() as conn:
         await conn.execute(
@@ -696,11 +718,11 @@ async def test_hash_tamper_is_terminal_and_never_materializes(api):
 
 
 async def test_http_500_after_commit_retries_without_losing_or_duplicating_capture(
-    api, monkeypatch
-):
-    original = coleta_sessoes.submit
+    api: Any, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    original = submit
 
-    async def fail_after_commit(*args):
+    async def fail_after_commit(*args: Any) -> Any:
         await original(*args)
         raise RuntimeError("SENTINEL_PRIVATE")
 
@@ -722,7 +744,9 @@ async def test_http_500_after_commit_retries_without_losing_or_duplicating_captu
             )
 
 
-async def test_authenticated_malformed_and_item_size_rejections_have_no_financial_effect(api):
+async def test_authenticated_malformed_and_item_size_rejections_have_no_financial_effect(
+    api: Any,
+) -> None:
     malformed = await api.http.post(PREFIX + "/batches", headers=api.headers, content=b'{"bad":')
     assert malformed.status_code == 422
     oversized = capture(api.account)
@@ -745,15 +769,15 @@ async def test_authenticated_malformed_and_item_size_rejections_have_no_financia
         )
 
 
-async def test_timeout_after_server_commit_repeats_the_original_ack(api):
+async def test_timeout_after_server_commit_repeats_the_original_ack(api: Any) -> None:
     import httpx
 
     from bancaemdia.main import app
 
-    async def discard(message):
+    async def discard(message: Any) -> Any:
         pass
 
-    async def lost_response(scope, receive, send):
+    async def lost_response(scope: Any, receive: Any, send: Any) -> Any:
         await app(scope, receive, discard)
         raise httpx.ReadTimeout("synthetic response lost after commit")
 
@@ -774,12 +798,12 @@ async def test_timeout_after_server_commit_repeats_the_original_ack(api):
 
 
 async def test_unexpected_worker_failures_reach_failed_without_partial_financial_writes(
-    api, monkeypatch
-):
+    api: Any, monkeypatch: pytest.MonkeyPatch
+) -> None:
     ack = (await api.send([capture(api.account)])).json()["items"][0]
-    original = coleta_v2._gravar_coletada
+    original = _gravar_coletada
 
-    async def fail(*args, **kwargs):
+    async def fail(*args: Any, **kwargs: Any) -> Any:
         await original(*args, **kwargs)
         raise RuntimeError("synthetic processing failure")
 
@@ -804,7 +828,7 @@ async def test_unexpected_worker_failures_reach_failed_without_partial_financial
         )
 
 
-async def test_exact_boundary_and_negative_zero_payload_remain_hash_verifiable(api):
+async def test_exact_boundary_and_negative_zero_payload_remain_hash_verifiable(api: Any) -> None:
     item = capture(api.account)
     item["payload"]["safe_unknown"] = {"signed_zero": -0.0, "unicode": "ação"}
     item["content_hash"] = digest(item["payload"])
@@ -820,7 +844,7 @@ async def test_exact_boundary_and_negative_zero_payload_remain_hash_verifiable(a
     assert await api.run(ack) == "materialized"
 
 
-async def test_v2_migration_roundtrip_and_populated_downgrade_guard(banco_migracao):
+async def test_v2_migration_roundtrip_and_populated_downgrade_guard(banco_migracao: Any) -> None:
     from alembic import command
     from alembic.config import Config
     from sqlalchemy.ext.asyncio import create_async_engine
@@ -835,19 +859,21 @@ async def test_v2_migration_roundtrip_and_populated_downgrade_guard(banco_migrac
         await asyncio.to_thread(command.upgrade, config, "head")
         async with engine.begin() as conn:
             uid = await conn.scalar(
-                models.Usuario.__table__
+                cast(Table, models.Usuario.__table__)
                 .insert()
                 .values(email="migration@synthetic.test", nome="Synthetic")
                 .returning(models.Usuario.id)
             )
             iid = await conn.scalar(
-                models.ColetaInstalacao.__table__
+                cast(Table, models.ColetaInstalacao.__table__)
                 .insert()
                 .values(usuario_id=uid, instalacao_publica_id=uuid4())
                 .returning(models.ColetaInstalacao.id)
             )
             await conn.execute(
-                ColetaSessao.__table__.insert().values(
+                cast(Table, ColetaSessao.__table__)
+                .insert()
+                .values(
                     usuario_id=uid,
                     instalacao_id=iid,
                     sessao_id=uuid4(),

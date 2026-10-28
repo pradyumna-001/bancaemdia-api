@@ -20,25 +20,45 @@ MANUAL_BET_HOUSES = sorted(
 )
 
 OPERATION_DOCUMENTATION: dict[OperationKey, tuple[str, str]] = {
-  OPERATION_DOCUMENTATION: dict[OperationKey, tuple[str, str]] = {
     ("get", "/api/v1/titulares/trocas/intencao"): (
-        "Recuperar inten��o de troca",
-        "Leitura do propriet�rio no prim�rio por Idempotency-Key, inclusive READ_ONLY. APPLIED devolve recibo original. PREVIEW/EXPIRED/404 n�o provam rollback. Reten��o at� exclus�o da conta; sem reenvio autom�tico.",
+        "Recuperar intenção de troca",
+        "Leitura do proprietário no primário por Idempotency-Key, inclusive READ_ONLY. APPLIED devolve recibo original. PREVIEW/EXPIRED/404 não provam rollback. Retenção até exclusão da conta; sem reenvio automático.",
     ),
     ("post", "/api/v1/apostas-manuais/operacoes/{intencao_id}"): (
-        "Criar aposta manual reconcili�vel",
-        "FULL_WRITE e CSRF atuais. UUID escolhido antes do POST; aposta, eventos, eventual revis�o e recibo no mesmo commit. Mesmo UUID/corpo normalizado devolve confirma��o original sem recalcular data, unidade ou conta; outro corpo conflita. Recupera��o por 90 dias; identidade n�o � reutilizada ap�s expirar. Nenhum POST recebe retry autom�tico.",
+        "Criar aposta manual reconciliável",
+        "FULL_WRITE e CSRF atuais. UUID escolhido antes do POST; aposta, eventos, eventual revisão e recibo no mesmo commit. Mesmo UUID/corpo normalizado devolve confirmação original sem recalcular data, unidade ou conta; outro corpo conflita. Recuperação por 90 dias; identidade não é reutilizada após expirar. Nenhum POST recebe retry automático.",
     ),
     ("get", "/api/v1/apostas-manuais/operacoes/{intencao_id}"): (
-        "Recuperar confirma��o original manual",
-        "READ_ONLY expl�cito no prim�rio, por UUID e usu�rio autenticado. Recibo original dispon�vel por 90 dias, mesmo ap�s corre��o/apagamento da aposta. 404/410 n�o provam rollback nem autorizam repeti��o autom�tica. Somente confirmado tem chave para navegar ao detalhe atual; nenhuma fila ass�ncrona � publicada.",
+        "Recuperar confirmação original manual",
+        "READ_ONLY explícito no primário, por UUID e usuário autenticado. Recibo original disponível por 90 dias, mesmo após correção/apagamento da aposta. 404/410 não provam rollback nem autorizam repetição automática. Somente confirmado tem chave para navegar ao detalhe atual; nenhuma fila assíncrona é publicada.",
     ),
-        ("get", "/api/v1/painel/hipotetica"): (
-        "Compara��o hist�rica seguindo a stake do tipster",
-        "Somente leitura, inclusive READ_ONLY. Popula��o completa (m�ximo 10000) com os filtros can�nicos; dicas confirmadas resolvidas separadamente e nunca contadas duas vezes. Usa stake da dica, odd e resultado reais, centavos em strings e HALF_EVEN. Cashout, taxas, b�nus, retorno fixo e evid�ncia insuficiente impedem compara��o completa. Null n�o � zero. Sem par�metros livres de stake nem pagina��o. Contrato: docs/contracts/hipotetica.md.",
+    ("get", "/api/v1/resultados/fila"): (
+        "Fila global por antiguidade",
+        "Snapshot do primário, data_jogo crescente com fallback criada_em, cursor privado de 30 minutos; apenas pendentes selecionadas, financeiras, atribuídas e sem revisão grave. Total da fronteira no mesmo snapshot.",
     ),
-    ("post", "/api/v1/coleta/sessions"): ( (feat(apostas): criar e recuperar aposta manual por intenção (#202))
- (feat(painel): comparar historico pela stake da dica confirmada (#190))
+    ("get", "/api/v1/resultados/apostas/{chave}"): (
+        "Consultar revisão e elegibilidade",
+        "Estado atual autorizado no primário para criar uma nova intenção após conflito; não reutilizar intenção incerta.",
+    ),
+    ("post", "/api/v1/resultados/operacoes/{intention_id}"): (
+        "Registrar resultado condicional",
+        "UUID criado antes da escrita, revisão esperada comparada sob lock no primário; FULL_WRITE e um evento por gesto. Replay do mesmo payload recupera recibo antes da comparação de versão.",
+    ),
+    ("post", "/api/v1/resultados/operacoes/{intention_id}/desfazer"): (
+        "Desfazer resultado confirmado",
+        "Nova intenção ligada à operação do mesmo usuário e à revisão produzida por ela, válida por 24h; restaura pré-imagem autoritativa com evento auditável.",
+    ),
+    ("get", "/api/v1/resultados/operacoes/{intention_id}"): (
+        "Recuperar resposta perdida",
+        "Recibo privado do primário por 90 dias; não é estado atual. 404/410 não provam rollback e não autorizam replay automático.",
+    ),
+    ("get", "/api/v1/apostas/{chave}/foto"): (
+        "Ler a foto original autorizada da aposta",
+        "Imagem binária privada por aposta e proveniência persistida no primário, inclusive após revisão. FULL_WRITE e READ_ONLY. Sem extração, escrita, redirecionamento ou credenciais em URL. 404 representa aposta/foto inexistente, inacessível, ambígua ou removida pela retenção. Ver docs/contracts/aposta-foto.md.",
+    ),
+    ("get", "/api/v1/painel/hipotetica"): (
+        "Comparação histórica seguindo a stake do tipster",
+        "Somente leitura, inclusive READ_ONLY. População completa (máximo 10000) com os filtros canônicos; dicas confirmadas resolvidas separadamente e nunca contadas duas vezes. Usa stake da dica, odd e resultado reais, centavos em strings e HALF_EVEN. Cashout, taxas, bônus, retorno fixo e evidência insuficiente impedem comparação completa. Null não é zero. Sem parâmetros livres de stake nem paginação. Contrato: docs/contracts/hipotetica.md.",
     ),
     ("post", "/api/v1/coleta/sessions"): (
         "Abrir ou retomar sessão",
@@ -83,6 +103,18 @@ OPERATION_DOCUMENTATION: dict[OperationKey, tuple[str, str]] = {
     ("put", "/api/v1/apostas/{chave}/grupos"): (
         "Atribuir grupos à aposta",
         "Substitui vínculos explícitos, privados e auditados da aposta estável. Não altera contas nem valores; sem associação histórica presumida.",
+    ),
+    ("get", "/api/v1/painel/filtrado/diario"): (
+        "Consultar diário completo em janelas limitadas",
+        "Dias civis de data_aposta em America/Sao_Paulo para 7d/30d/90d/1y/all. Total completo, subtotal da janela, parcela sem data e estados explícitos. Cursor cifrado vinculado ao usuário e filtros; valores monetários em strings exatas. Não atualiza MV.",
+    ),
+    ("get", "/api/v1/painel/filtrado/grupos"): (
+        "Consultar grupos de origem e seus tipsters em lote",
+        "Vínculo explícito único da aposta canônica; sem grupo/ambiguidade/não resolvida são parcelas explícitas. Paginação de pares grupo-tipster, com totais completos de cada grupo e do período em todas as páginas. Rótulos atuais e grupos arquivados preservados.",
+    ),
+    ("get", "/api/v1/painel/filtrado/detalhado/export"): (
+        "Exportar diário completo e hierarquia reconciliáveis",
+        "XLSX do mesmo snapshot/seletores: Contexto, Resumo, Grupos únicos, Tipsters por grupo, Diario. Dinheiro e IDs como texto exato. Limite explícito de 100000 dias/pares; excesso retorna 422, nunca truncamento. READ_ONLY permite exportação.",
     ),
     ("get", "/api/v1/painel/filtrado"): (
         "Resumo da seleção de apostas do site",
@@ -273,21 +305,17 @@ OPERATION_DOCUMENTATION: dict[OperationKey, tuple[str, str]] = {
         "Restaurar aposta na apuração",
         "Volta a incluir uma aposta anteriormente excluída, preservando todo o histórico.",
     ),
-    ("post", "/api/v1/apostas/{chave}/restaurar"): (
-        "Restaurar aposta na apura��o",
-        "Volta a incluir uma aposta anteriormente exclu�da, preservando todo o hist�rico.",
-    ),
     ("get", "/api/v1/apostas/lotes/previa-apagar"): (
-        "Pr�via de apagar todas as apostas",
-        "Conta as apostas ativas e devolve a frase que a pessoa precisa digitar e um token de confirma��o assinado, v�lido por 10 minutos e preso a este conjunto exato. Escopo: apostas apenas; movimentos, bancas, cadastro, titulares, assinatura, Telegram e coleta n�o mudam.",
+        "Prévia de apagar todas as apostas",
+        "Conta as apostas ativas e devolve a frase que a pessoa precisa digitar e um token de confirmação assinado, válido por 10 minutos e preso a este conjunto exato. Escopo: apostas apenas; movimentos, bancas, cadastro, titulares, assinatura, Telegram e coleta não mudam.",
     ),
     ("post", "/api/v1/apostas/lotes"): (
         "Apagar todas as apostas",
-        "Apaga de uma vez, numa transa��o, todas as apostas ativas da pr�via, com a mesma sem�ntica do DELETE individual: um evento por aposta, nada removido fisicamente, vis�veis com incluir_apagadas. Exige frase e token da pr�via; 409 se o conjunto mudou, a pr�via expirou ou outro lote est� em curso. Idempotency-Key obrigat�ria: mesmo pedido devolve o recibo original. FULL_WRITE e CSRF; 402 sem efeito.",
+        "Apaga de uma vez, numa transação, todas as apostas ativas da prévia, com a mesma semântica do DELETE individual: um evento por aposta, nada removido fisicamente, visíveis com incluir_apagadas. Exige frase e token da prévia; 409 se o conjunto mudou, a prévia expirou ou outro lote está em curso. Idempotency-Key obrigatória: mesmo pedido devolve o recibo original. FULL_WRITE e CSRF; 402 sem efeito.",
     ),
     ("get", "/api/v1/apostas/lotes/intencao"): (
         "Recuperar lote de apostas",
-        "L� no prim�rio a opera��o, o status e o recibo gravados para a Idempotency-Key ap�s resposta perdida; 404 se nada foi gravado. Permitida em READ_ONLY.",
+        "Lê no primário a operação, o status e o recibo gravados para a Idempotency-Key após resposta perdida; 404 se nada foi gravado. Permitida em READ_ONLY.",
     ),
     ("get", "/api/v1/apostas/lotes/{lote_id}"): (
         "Consultar lote de apostas",
@@ -295,41 +323,39 @@ OPERATION_DOCUMENTATION: dict[OperationKey, tuple[str, str]] = {
     ),
     ("post", "/api/v1/apostas/lotes/{lote_id}/restaurar"): (
         "Restaurar lote de apostas",
-        "Restaura de uma vez exatamente as apostas que este lote apagou e que continuam apagadas; as alteradas uma a uma depois do lote ficam como est�o. Um lote restaura uma vez (409 lote_restaurado). Idempotency-Key obrigat�ria; FULL_WRITE e CSRF.",
+        "Restaura de uma vez exatamente as apostas que este lote apagou e que continuam apagadas; as alteradas uma a uma depois do lote ficam como estão. Um lote restaura uma vez (409 lote_restaurado). Idempotency-Key obrigatória; FULL_WRITE e CSRF.",
     ),
     ("get", "/api/v1/bancas"): (
         "Listar bancas",
-        "Bancas do usu�rio com id, nome, estado (ativa/arquivada), capital inicial em centavos ou null (n�o informado) e contas vinculadas. Permitida em READ_ONLY.",
+        "Bancas do usuário com id, nome, estado (ativa/arquivada), capital inicial em centavos ou null (não informado) e contas vinculadas. Permitida em READ_ONLY.",
     ),
     ("post", "/api/v1/bancas"): (
         "Criar banca",
-        "Cria banca ativa; capital ausente ou null fica n�o informado e a progress�o segue null. Nome �nico por usu�rio, inclusive entre arquivadas (409 nome_em_uso). Idempotency-Key obrigat�ria: mesmo pedido devolve a resposta original, outro pedido 409. FULL_WRITE e CSRF.",
+        "Cria banca ativa; capital ausente ou null fica não informado e a progressão segue null. Nome único por usuário, inclusive entre arquivadas (409 nome_em_uso). Idempotency-Key obrigatória: mesmo pedido devolve a resposta original, outro pedido 409. FULL_WRITE e CSRF.",
     ),
     ("patch", "/api/v1/bancas/{banca_id}"): (
         "Alterar banca",
-        "Renomeia ou define/remove o capital inicial (null apaga); s� os campos enviados mudam. Banca arquivada recusa com 409 banca_arquivada. Idempotency-Key obrigat�ria; FULL_WRITE e CSRF.",
+        "Renomeia ou define/remove o capital inicial (null apaga); só os campos enviados mudam. Banca arquivada recusa com 409 banca_arquivada. Idempotency-Key obrigatória; FULL_WRITE e CSRF.",
     ),
     ("post", "/api/v1/bancas/{banca_id}/arquivar"): (
         "Arquivar banca",
-        "Marca a banca como arquivada sem apagar movimentos, apostas nem v�nculos hist�ricos. Recusa com 409 banca_com_contas enquanto houver conta vinculada; banca arquivada n�o aceita novos v�nculos. Idempotency-Key obrigat�ria; FULL_WRITE e CSRF.",
+        "Marca a banca como arquivada sem apagar movimentos, apostas nem vínculos históricos. Recusa com 409 banca_com_contas enquanto houver conta vinculada; banca arquivada não aceita novos vínculos. Idempotency-Key obrigatória; FULL_WRITE e CSRF.",
     ),
     ("get", "/api/v1/bancas/intencao"): (
         "Recuperar escrita de banca",
-        "L� no prim�rio a opera��o, o status e a resposta gravados para a Idempotency-Key ap�s resposta perdida; 404 se nada foi gravado. Permitida em READ_ONLY.",
+        "Lê no primário a operação, o status e a resposta gravados para a Idempotency-Key após resposta perdida; 404 se nada foi gravado. Permitida em READ_ONLY.",
     ),
     ("get", "/api/v1/unidade"): (
         "Consultar valor da unidade",
-        "Unidade vigente agora e hist�rico de vig�ncias do usu�rio, com centavos exatos, origem (padrao/usuario) e in�cio no fuso do usu�rio. Sem vig�ncia vale o padr�o de 10.000 centavos. Permitida em READ_ONLY.",
+        "Unidade vigente agora e histórico de vigências do usuário, com centavos exatos, origem (padrao/usuario) e início no fuso do usuário. Sem vigência vale o padrão de 10.000 centavos. Permitida em READ_ONLY.",
     ),
     ("post", "/api/v1/unidade/vigencias"): (
         "Definir valor da unidade",
-        "Abre nova vig�ncia no instante do servidor e encerra a anterior nesse instante. Apostas existentes guardam a unidade com que foram criadas e n�o mudam; cria��o manual, coleta, Telegram e XLSX leem a vig�ncia do instante da aposta. Idempotency-Key obrigat�ria: mesmo corpo devolve o recibo original, corpo diferente 409. FULL_WRITE e CSRF.",
+        "Abre nova vigência no instante do servidor e encerra a anterior nesse instante. Apostas existentes guardam a unidade com que foram criadas e não mudam; criação manual, coleta, Telegram e XLSX leem a vigência do instante da aposta. Idempotency-Key obrigatória: mesmo corpo devolve o recibo original, corpo diferente 409. FULL_WRITE e CSRF.",
     ),
     ("get", "/api/v1/unidade/vigencias/intencao"): (
         "Recuperar troca de unidade",
-        "L� no prim�rio o recibo gravado para a Idempotency-Key ap�s resposta perdida; 404 se nada foi gravado. N�o cria nem renova vig�ncia. Permitida em READ_ONLY.",
-    ),
-    ("post", "/api/v1/caixa"): ( (feat(unidade): publicar o valor da unidade com vigencia para o site (#210))
+        "Lê no primário o recibo gravado para a Idempotency-Key após resposta perdida; 404 se nada foi gravado. Não cria nem renova vigência. Permitida em READ_ONLY.",
     ),
     ("post", "/api/v1/caixa"): (
         "Registrar movimento de caixa",
@@ -489,22 +515,23 @@ OPERATION_DOCUMENTATION: dict[OperationKey, tuple[str, str]] = {
     ),
 }
 
+PAINEL_DETALHADO_CURSOR = "Cursor privado cifrado, até 2048 caracteres, vinculado ao usuário/capacidade/filtros; expira em 24h. Reiniciar a paginação em 422."
+
 PARAMETER_DESCRIPTIONS = {
     "intencao_id": "UUID escolhido pela SPA antes do POST e persistido na URL. A referência não concede acesso e fica ocupada para o mesmo usuário após expiração do recibo.",
     "cursor": "Cursor privado vinculado à pessoa/filtros/fronteira, válido por 30 minutos; não usar offset.",
     "intention_id": "UUID da intenção escolhido antes da escrita; identifica, nunca autoriza.",
-    "banca_id": "Identificador da banca própria usado como filtro.",
     "time_casa_id": "Identificador canônico do time da casa usado como filtro.",
     "time_fora_id": "Identificador canônico do time visitante usado como filtro.",
     "freebet": "Filtra por aposta com valor de face e custo próprio distintos.",
- (feat(revisao): motivos tipados, escolha por fonte e decisões recuperáveis (#200))
+    "dias_por_pagina": "Número de dias civis por janela, 1-366; não altera o total completo.",
+    "inicio_dia": "Início civil opcional dentro do recorte diário completo; não combinar com cursor.",
     "sessao_id": "UUID opaco da sessão pertencente à instalação autenticada.",
     "q": "Busca textual literal por nome, sem curingas SQL; limite 160 caracteres.",
     "dimensao": "casas/tipsters/mercados/competicoes/origens/grupos/bancas/titulares/contas; sessão normal do site.",
     "id": "ID canônico exato em texto decimal (BIGINT 1..9223372036854775807); origens usa o valor textual do domínio. Resolve inativas; não combinar com q ou page diferente de 1.",
     "incluir_inativas": "Inclui opções arquivadas/inativas; resolução por id sempre preserva histórico.",
     "grupo_id": "ID BIGINT do grupo privado, vínculo explícito por aposta. Ausente ou de outro usuário produz seleção vazia.",
-    "banca_id": "ID BIGINT da banca gravada na aposta; não usa a banca atual da conta. Ausente ou de outro usuário produz seleção vazia.",
     "visibilidade": "ativas/apagadas/todas; padrão ativas. Legado incluir_apagadas=true significa todas; combinação conflitante retorna 422.",
     "instalacao_id": "ID interno da instalação do usuário autenticado.",
     "client_version": "Versão estável do cliente em três componentes.",
@@ -569,7 +596,21 @@ REQUEST_EXAMPLES: dict[OperationKey, tuple[str, JsonObject]] = {
             "evento": "Casa x Fora",
             "descricao": "Casa vence",
             "mercado_bruto": "Resultado final",
- (feat(revisao): motivos tipados, escolha por fonte e decisões recuperáveis (#200))
+        },
+    ),
+    ("post", "/api/v1/resultados/operacoes/{intention_id}"): (
+        "Uma intenção por gesto",
+        {
+            "chave": "m:synthetic",
+            "revisao_esperada": "00000000-0000-4000-8000-000000000001",
+            "estado": "GREEN",
+        },
+    ),
+    ("post", "/api/v1/resultados/operacoes/{intention_id}/desfazer"): (
+        "Reverter a intenção confirmada",
+        {
+            "operacao_id": "00000000-0000-4000-8000-000000000002",
+            "revisao_esperada": "00000000-0000-4000-8000-000000000003",
         },
     ),
     ("post", "/api/v1/coleta/sessions"): (
@@ -727,7 +768,7 @@ REQUEST_EXAMPLES: dict[OperationKey, tuple[str, JsonObject]] = {
         {"estado": "GREEN", "retorno_centavos": 19_500},
     ),
     ("post", "/api/v1/apostas/lotes"): (
-        "Confirma��o da pr�via",
+        "Confirmação da prévia",
         {
             "acao": "apagar_todas",
             "confirmacao": "token-devolvido-pela-previa",
@@ -745,7 +786,6 @@ REQUEST_EXAMPLES: dict[OperationKey, tuple[str, JsonObject]] = {
     ("post", "/api/v1/unidade/vigencias"): (
         "Unidade de R$ 50,00",
         {"valor_centavos": 5_000},
-    ), (feat(unidade): publicar o valor da unidade com vigencia para o site (#210))
     ),
     ("post", "/api/v1/caixa"): (
         "Depósito",
@@ -1209,7 +1249,7 @@ def _document_operations(document: JsonObject) -> None:
                 ["FULL_WRITE", "READ_ONLY"] if method == "get" else ["FULL_WRITE"]
             )
             operation["x-automatic-retry"] = method == "get"
-ica confirmada (#190))
+
         parameters = operation.get("parameters", [])
         if not isinstance(parameters, list):
             raise RuntimeError(f"parameters for {method.upper()} {path} must be a list")
@@ -1220,6 +1260,8 @@ ica confirmada (#190))
                 raise RuntimeError(f"unnamed parameter in {method.upper()} {path}")
             try:
                 parameter["description"] = PARAMETER_DESCRIPTIONS[name]
+                if path.startswith("/api/v1/painel/filtrado/") and name == "cursor":
+                    parameter["description"] = PAINEL_DETALHADO_CURSOR
                 if path.startswith("/api/v1/revisao") and name in {"desde", "ate"}:
                     parameter["description"] = (
                         "Abertura RevisaoPendente.criado_em; "
