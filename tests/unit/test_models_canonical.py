@@ -193,7 +193,7 @@ def test_all_forty_eight_tables_are_registered() -> None:
         "print_items",
         "print_assets",
     }
-    assert len(esperadas) == 73
+    assert len(esperadas) == 75
     assert set(Base.metadata.tables) == esperadas
     assert {m.__tablename__ for m in CANONICOS} == {
         "casas",

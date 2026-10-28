@@ -25,11 +25,16 @@ def test_review_complete_surface_published_with_private_access_and_recovery(sche
         path = schema["paths"][P + suffix]
         assert set(path) == methods
         for method in methods:
-            policy = path[method]["x-bancaemdia-review"]
-            assert policy["access"] == ("READ_ONLY" if method == "get" else "FULL_WRITE")
-            assert policy["automatic_mutation_replay"] is False
-            assert policy["receipt_days"] == 90
-            assert policy["precondition"] == "opaque_evidence_cas"
+            policy = path[method]["x-bancaemdia-policy"]
+            assert policy["access_modes"] == (
+                ["FULL_WRITE", "READ_ONLY"] if method == "get" else ["FULL_WRITE"]
+            )
+            if method == "post":
+                assert policy["automatic_retry"]["allowed"] is False
+                assert policy["idempotency"]["recovery"] == "GET " + P + suffix
+    operations = schema["paths"][P + "/operacoes/{operacao_id}"]
+    assert all("90 dias" in operations[method]["description"] for method in ("get", "post"))
+    assert "Precondição" in operations["post"]["description"]
 
 
 def test_review_typed_safe_evidence_exact_ids_money_and_nullable_return(schema):

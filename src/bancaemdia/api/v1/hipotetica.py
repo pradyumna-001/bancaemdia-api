@@ -134,11 +134,6 @@ class HipoteticaSaida(ModeloHipotetica):
 @router.get(
     "/api/v1/painel/hipotetica",
     response_model=HipoteticaSaida,
-    openapi_extra={
-        "x-commercial-operation": "hipotetica_historica",
-        "x-commercial-access": ["FULL_WRITE", "READ_ONLY"],
-        "x-maximum-population": 10_000,
-    },
 )
 async def consultar_hipotetica(
     request: Request,

@@ -1244,11 +1244,6 @@ def _document_operations(document: JsonObject) -> None:
             ) from error
         operation["summary"] = summary
         operation["description"] = description
-        if path.startswith("/api/v1/prints/"):
-            operation["x-access-modes"] = (
-                ["FULL_WRITE", "READ_ONLY"] if method == "get" else ["FULL_WRITE"]
-            )
-            operation["x-automatic-retry"] = method == "get"
 
         parameters = operation.get("parameters", [])
         if not isinstance(parameters, list):
@@ -1495,30 +1490,7 @@ def build_openapi(app: FastAPI) -> JsonObject:
     )
     owner_listing["responses"].pop("402", None)
     _strictify_document(document)
-    for method, path, operation in _operations(document):
-        if path.startswith("/api/v1/resultados/"):
-            operation["x-bancaemdia-resultados"] = {
-                "access": "READ_ONLY" if method == "get" else "FULL_WRITE",
-                "read_source": "primary_snapshot" if method == "get" else "primary_transaction",
-                "cache": "private, no-store",
-                "automatic_mutation_replay": False,
-                "intention_parameter": "intention_id" if "/operacoes/" in path else None,
-                "recovery_path": "/api/v1/resultados/operacoes/{intention_id}"
-                if "/operacoes/" in path
-                else None,
-                "pagination": "keyset_cursor" if path.endswith("/fila") else None,
-            }
-    for method, path, operation in _operations(document):
-        if path.startswith("/api/v1/revisao-operacional/"):
-            operation["x-bancaemdia-review"] = {
-                "access": "READ_ONLY" if method == "get" else "FULL_WRITE",
-                "read_source": "primary_snapshot" if method == "get" else "primary_transaction",
-                "automatic_mutation_replay": False,
-                "receipt_days": 90,
-                "precondition": "opaque_evidence_cas",
-                "age_filter": "criado_em_interval",
-                "consumption": "restart_page_1",
-            }
+    for _method, path, operation in _operations(document):
         if path == "/api/v1/revisao/stats":
             operation["description"] += (
                 " Estatísticas globais de todas as abertas, sem os filtros da lista; idade sobre criado_em, relógio do servidor."

@@ -167,15 +167,6 @@ async def exchange_code(
             "headers": {"Retry-After": {"schema": {"type": "string"}}},
         },
     },
-    openapi_extra={
-        "x-permission": "READ_ONLY",
-        "x-session-selection": {
-            "order": ["open_first", "criada_em_desc", "id_desc"],
-            "absence": {"estado_sessao": "sem_sessao", "sessao_coleta_is_null": True},
-            "presence": "not_available",
-            "pagination": "none_all_owned_installations_in_id_ascending_order",
-        },
-    },
 )
 async def list_installations(
     usuario_id: int = Depends(owner), session: AsyncSession = Depends(get_db_primary)

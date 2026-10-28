@@ -148,15 +148,6 @@ ID = Annotated[
     },
     summary="Criar aposta manual reconciliável",
     description="FULL_WRITE e CSRF atuais. Cria aposta, eventos, eventual revisão e recibo no mesmo commit. Mesmo UUID/corpo normalizado retorna o recibo sem recalcular defaults; outro corpo conflita. Nunca repetir automaticamente.",
-    openapi_extra={
-        "x-idempotency": {
-            "identity": "path.intencao_id",
-            "scope": "authenticated_user",
-            "retention_days": 90,
-            "automatic_retry": False,
-            "expired_identity_reusable": False,
-        }
-    },
 )
 async def create_manual(
     intencao_id: ID,
@@ -198,7 +189,6 @@ async def create_manual(
     response_model=ManualCreationReceipt,
     summary="Recuperar confirmação original da aposta manual",
     description="READ_ONLY explícito; consulta o primário e o recibo durável por 90 dias, sem recalcular a aposta atual. 404/410 não provam rollback e não autorizam repetição automática. Identidade expirada permanece ocupada até apagamento autorizado da conta. Operação síncrona: nenhum estado assíncrono inventado.",
-    openapi_extra={"x-permission": "READ_ONLY", "x-automatic-retry": False},
 )
 async def recover_manual(
     intencao_id: ID,

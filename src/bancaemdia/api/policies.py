@@ -59,6 +59,27 @@ def _por_caminho(parametro: str, recuperacao: str) -> Politica:
     )
 
 
+def _intencao(parametro: str, recuperacao: str) -> Politica:
+    # UUID da intenção escolhido antes do POST: após resposta perdida, consultar o recibo;
+    # os contratos de manual, resultados e revisão proíbem repetir a escrita sozinho.
+    return Politica(
+        SO_ESCRITA,
+        retry=False,
+        identidade=f"path:{parametro}",
+        retencao=RETENCAO_CONTA,
+        recuperacao=recuperacao,
+    )
+
+
+def _por_chave(recuperacao: str, retencao: str = RETENCAO_CONTA) -> Politica:
+    return Politica(
+        SO_ESCRITA, retry=True, identidade=CHAVE, retencao=retencao, recuperacao=recuperacao
+    )
+
+
+PRINT_ITEM = "GET /api/v1/prints/intencoes/{intent_id}/itens/{item_id}"
+
+
 POLITICAS: dict[OperationKey, Politica] = {
     ("get", "/health"): LEITURA,
     ("get", "/ready"): LEITURA,
@@ -165,6 +186,75 @@ POLITICAS: dict[OperationKey, Politica] = {
     ("get", "/api/v1/upload/{job_id}"): LEITURA,
     ("get", "/api/v1/usuario/me/export"): LEITURA,
     ("delete", "/api/v1/usuario/me"): CONTROLE,
+    ("get", "/api/v1/apostas/lotes/previa-apagar"): LEITURA,
+    ("post", "/api/v1/apostas/lotes"): _por_chave("GET /api/v1/apostas/lotes/intencao"),
+    ("get", "/api/v1/apostas/lotes/intencao"): LEITURA,
+    ("get", "/api/v1/apostas/lotes/{lote_id}"): LEITURA,
+    ("post", "/api/v1/apostas/lotes/{lote_id}/restaurar"): _por_chave(
+        "GET /api/v1/apostas/lotes/intencao"
+    ),
+    ("get", "/api/v1/bancas"): LEITURA,
+    ("post", "/api/v1/bancas"): _por_chave("GET /api/v1/bancas/intencao"),
+    ("patch", "/api/v1/bancas/{banca_id}"): _por_chave("GET /api/v1/bancas/intencao"),
+    ("post", "/api/v1/bancas/{banca_id}/arquivar"): _por_chave("GET /api/v1/bancas/intencao"),
+    ("get", "/api/v1/bancas/intencao"): LEITURA,
+    ("get", "/api/v1/unidade"): LEITURA,
+    # O contrato da unidade guarda a chave enquanto a vigência existir.
+    ("post", "/api/v1/unidade/vigencias"): _por_chave(
+        "GET /api/v1/unidade/vigencias/intencao", retencao="while_resource_exists"
+    ),
+    ("get", "/api/v1/unidade/vigencias/intencao"): LEITURA,
+    ("get", "/api/v1/titulares/trocas/intencao"): LEITURA,
+    ("post", "/api/v1/apostas-manuais/operacoes/{intencao_id}"): _intencao(
+        "intencao_id", "GET /api/v1/apostas-manuais/operacoes/{intencao_id}"
+    ),
+    ("get", "/api/v1/apostas-manuais/operacoes/{intencao_id}"): LEITURA,
+    ("get", "/api/v1/apostas/{chave}/foto"): LEITURA,
+    ("get", "/api/v1/prints/intencoes/{intent_id}"): LEITURA,
+    ("get", "/api/v1/prints/intencoes/{intent_id}/itens/{item_id}"): LEITURA,
+    # Mesmos bytes na mesma intenção+item não criam fatos; nunca reenviar sozinho.
+    ("post", "/api/v1/prints/intencoes/{intent_id}/itens/{item_id}"): Politica(
+        SO_ESCRITA,
+        retry=False,
+        identidade="path:item_id",
+        retencao="while_resource_exists",
+        recuperacao=PRINT_ITEM,
+    ),
+    ("post", "/api/v1/prints/intencoes/{intent_id}/itens/{item_id}/retry"): Politica(
+        SO_ESCRITA,
+        retry=False,
+        identidade="body:retry_id",
+        retencao="while_resource_exists",
+        recuperacao=PRINT_ITEM,
+    ),
+    ("post", "/api/v1/prints/revisoes/{revisao_id}/resolver"): ESCRITA,
+    ("get", "/api/v1/resultados/fila"): LEITURA,
+    ("get", "/api/v1/resultados/apostas/{chave}"): LEITURA,
+    ("post", "/api/v1/resultados/operacoes/{intention_id}"): _intencao(
+        "intention_id", "GET /api/v1/resultados/operacoes/{intention_id}"
+    ),
+    ("post", "/api/v1/resultados/operacoes/{intention_id}/desfazer"): _intencao(
+        "intention_id", "GET /api/v1/resultados/operacoes/{intention_id}"
+    ),
+    ("get", "/api/v1/resultados/operacoes/{intention_id}"): LEITURA,
+    ("get", "/api/v1/revisao-operacional/fila"): LEITURA,
+    ("get", "/api/v1/revisao-operacional/revisoes/{revisao_id}"): LEITURA,
+    ("get", "/api/v1/revisao-operacional/revisoes/{revisao_id}/foto"): LEITURA,
+    ("post", "/api/v1/revisao-operacional/operacoes/{operacao_id}"): _intencao(
+        "operacao_id", "GET /api/v1/revisao-operacional/operacoes/{operacao_id}"
+    ),
+    ("get", "/api/v1/revisao-operacional/operacoes/{operacao_id}"): LEITURA,
+    ("get", "/api/v1/painel/filtrado"): LEITURA,
+    ("get", "/api/v1/painel/filtrado/metricas"): LEITURA,
+    ("get", "/api/v1/painel/filtrado/export"): LEITURA,
+    ("get", "/api/v1/painel/filtrado/diario"): LEITURA,
+    ("get", "/api/v1/painel/filtrado/grupos"): LEITURA,
+    ("get", "/api/v1/painel/filtrado/detalhado/export"): LEITURA,
+    ("get", "/api/v1/painel/hipotetica"): LEITURA,
+    ("get", "/api/v1/filtros/{dimensao}"): LEITURA,
+    ("post", "/api/v1/grupos"): ESCRITA,
+    ("patch", "/api/v1/grupos/{grupo_id}"): ESCRITA,
+    ("put", "/api/v1/apostas/{chave}/grupos"): ESCRITA,
 }
 
 # Fora do gate de usuário (_current_user): sem conta comercial (saúde, identidade, provedores,

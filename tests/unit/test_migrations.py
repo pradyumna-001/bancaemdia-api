@@ -18,7 +18,7 @@ REVISAO_RESOLVIDA = "f2a9c4e7b106"
 CAIXA_REVISAO_MERGE = "e5a1c7d9b204"
 PAINEL = "d3f6a8c1e209"
 PAINEL_CAIXA_MERGE = "f8b2d4a6c901"
-HEAD = "a212lote2026"
+HEAD = "j7main2026"
 PARTICIONADAS = {
     "eventos": "criado_em",
     "movimentos": "ocorrido_em",
