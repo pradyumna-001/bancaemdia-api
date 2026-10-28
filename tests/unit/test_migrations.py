@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import io
+import logging
 from pathlib import Path
 from typing import cast
 
@@ -36,6 +37,12 @@ def _upgrade_sql() -> str:
     buffer = io.StringIO()
     command.upgrade(_config(buffer), "head", sql=True)
     return buffer.getvalue()
+
+
+def test_running_migrations_keeps_application_loggers_enabled() -> None:
+    logger = logging.getLogger("bancaemdia.observability.logging")
+    _upgrade_sql()
+    assert not logger.disabled
 
 
 def _downgrade_sql() -> str:
