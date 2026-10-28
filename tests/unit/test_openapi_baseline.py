@@ -68,7 +68,15 @@ _REBASE_RAW = b"""{
 =======
     "Evidence": {"type": "boolean"},
 >>>>>>> e2b7f17 (fix(revisao): accepted side)
-    "After": {"type": "string"}
+    "After": {"type": "string"},
+    "MetaEntrada": {"properties": {
+      "alvo": {"anyOf": [{"type": "number"}, {"type": "string"}]},
+      "linha_base": {"anyOf": [{"type": "string"}, {"type": "null"}]}
+    }},
+    "MetaAlteracao": {"properties": {
+      "alvo": {"anyOf": [{"type": "string"}, {"type": "null"}]},
+      "linha_base": {"anyOf": [{"type": "string"}, {"type": "null"}]}
+    }}
   }},
   "paths": {"/accepted": {"get": {"responses": {"200": {"description": "OK"}}}}}
 }"""
@@ -78,14 +86,21 @@ def test_known_rebase_conflicts_keep_every_accepted_definition(monkeypatch) -> N
     digest = hashlib.sha256(_REBASE_RAW).hexdigest()
     monkeypatch.setattr(baseline, "REBASE_SNAPSHOT_SHA256", digest)
     document = baseline.parse_baseline(_REBASE_RAW)
-    assert document["components"]["schemas"] == {
+    schemas = document["components"]["schemas"]
+    assert {name: schemas[name] for name in ("Before", "Published", "Middle", "Evidence")} == {
         "Before": {"type": "string"},
         "Published": {"type": "integer"},
         "Middle": {"type": "string"},
         "Evidence": {"type": "boolean"},
-        "After": {"type": "string"},
-        **baseline._REBASE_RECOVERED_SCHEMAS,
     }
+    assert (
+        schemas["ManualAssignmentNotice"]
+        == baseline._REBASE_RECOVERED_SCHEMAS["ManualAssignmentNotice"]
+    )
+    for name, field in baseline._GOAL_DECIMAL_FIELDS:
+        texts = [v for v in schemas[name]["properties"][field]["anyOf"] if v["type"] == "string"]
+        assert texts == [{"type": "string", "pattern": baseline._GOAL_DECIMAL_PATTERN}]
+    assert schemas["MetaEntrada"]["properties"]["alvo"]["anyOf"][0] == {"type": "number"}
     notice = baseline._REBASE_RECOVERED_SCHEMAS["ManualAssignmentNotice"]
     assert notice["required"] == ["codigo", "revisao_id"]
     assert notice["additionalProperties"] is False
