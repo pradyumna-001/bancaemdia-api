@@ -53,7 +53,9 @@ dependencies = [
 
 [project.optional-dependencies]
 dev = [
-    "pytest>=8.3.4",
+    # Capped: under pytest 9.2, Schemathesis 4.27.5 stops splitting its suites per operation and
+    # the whole negative suite collapses into one skipped test.
+    "pytest>=8.3.4,<9.2",
     "pytest-asyncio>=0.24.0",
     "pytest-xdist>=3.6.1",
     "pytest-cov>=6.0.0",
