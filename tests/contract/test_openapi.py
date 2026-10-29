@@ -460,6 +460,10 @@ def test_ci_rejects_breaking_changes_against_the_pull_request_base() -> None:
 
 
 contract_app = NoProductionLifespan(app)
+# Each xdist process generates the complete application contract once, before
+# starting Schemathesis' timed HTTP reads. Keep the real /openapi.json requests
+# and their existing timeout; first-time schema construction is collection work.
+app.openapi()
 
 positive_config = schemathesis.Config()
 positive_config.projects.default.generation.update(
