@@ -156,13 +156,24 @@ def run_fixture_set(directory: Path, registry: ReaderRegistry) -> dict:
         ):
             raise FixtureContractError("manifest_provenance_mismatch")
         try:
-            result = registry.read(envelope)
-            if (result.reader_id, result.reader_version) != (
-                manifest["reader_id"],
-                manifest["reader_version"],
-            ):
-                raise FixtureContractError("manifest_reader_version_mismatch")
-            actual = {"bets": [b.model_dump(mode="json") for b in result.bets]}
+            if manifest.get("money_contract") == 2:
+                from bancaemdia.coleta.readers.one_win import OneWinReader
+
+                native = OneWinReader().parse_native(ReaderEnvelope.model_validate(envelope))
+                if (native.reader_id, native.reader_version) != (
+                    manifest["reader_id"],
+                    manifest["reader_version"],
+                ):
+                    raise FixtureContractError("manifest_reader_version_mismatch")
+                actual = {"bets": [native.model_dump(mode="json")]}
+            else:
+                result = registry.read(envelope)
+                if (result.reader_id, result.reader_version) != (
+                    manifest["reader_id"],
+                    manifest["reader_version"],
+                ):
+                    raise FixtureContractError("manifest_reader_version_mismatch")
+                actual = {"bets": [b.model_dump(mode="json") for b in result.bets]}
         except ReaderError as error:
             actual = {"error_code": error.code.value, "reason": error.reason}
         if actual != golden:
@@ -181,6 +192,7 @@ def run_fixture_set(directory: Path, registry: ReaderRegistry) -> dict:
         "reader_version": manifest["reader_version"],
         "raw_schema_version": manifest["raw_schema_version"],
         "fixture_set_version": manifest["fixture_set_version"],
+        "money_contract": manifest.get("money_contract", 1),
         "fixture_count": len(manifest["fixtures"]),
         "covered_states": sorted(states),
         "last_real_capture_at": manifest["last_real_capture_at"],

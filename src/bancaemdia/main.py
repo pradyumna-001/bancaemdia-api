@@ -38,12 +38,14 @@ from bancaemdia.api.v1 import (
     hipotetica,
     manual_bets,
     metas,
+    native_financials,
     painel,
     painel_detalhado,
     painel_filtrado,
     results,
     reviews,
     revisao,
+    sheet_import,
     telegram,
     titulares,
     unidade,
@@ -157,7 +159,9 @@ app.include_router(manual_bets.router)
 app.include_router(reviews.router)
 app.include_router(results.router)
 app.include_router(aposta_foto.router)
+app.include_router(sheet_import.router)
 app.include_router(caixa.router)
+app.include_router(native_financials.router)
 app.include_router(painel.router)
 app.include_router(metas.router)
 app.include_router(painel_filtrado.router)
@@ -218,6 +222,10 @@ async def validation_failure(request: Request, error: RequestValidationError) ->
         return aposta_foto.photo_error(422, "o pedido de prints é inválido")
     if photo_path(route_path(request)):
         return aposta_foto.photo_error(422, "a chave da aposta é inválida")
+    if route_path(request).startswith("/api/v1/planilhas/"):
+        return JSONResponse(status_code=422, content={"detail": "invalid_import_request"})
+    if route_path(request) == "/api/v1/coleta/reader-captures":
+        return JSONResponse({"detail": "invalid reader capture envelope"}, status_code=422)
     if route_path(request).startswith("/auth/"):
         return failure(IdentityError("invalid_request", 422))
     return await request_validation_exception_handler(request, error)
@@ -323,4 +331,17 @@ def billing_database_error(request: Request, exc: DBAPIError) -> JSONResponse:
         return JSONResponse(status_code=402, content={"detail": "account_read_only"})
     if route_path(request).startswith("/api/v1/prints/"):
         return aposta_foto.photo_error(503, "não foi possível consultar os prints agora")
+    if route_path(request).startswith("/api/v1/planilhas/"):
+        return JSONResponse(
+            status_code=503, content={"detail": "import_unavailable"}, headers={"Retry-After": "5"}
+        )
+    raise exc
+
+
+@app.exception_handler(OSError)
+def sheet_connection_error(request: Request, exc: OSError) -> JSONResponse:
+    if route_path(request).startswith("/api/v1/planilhas/"):
+        return JSONResponse(
+            status_code=503, content={"detail": "import_unavailable"}, headers={"Retry-After": "5"}
+        )
     raise exc

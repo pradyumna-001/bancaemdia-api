@@ -22,7 +22,7 @@ REVISAO_RESOLVIDA = "f2a9c4e7b106"
 PAINEL = "d3f6a8c1e209"
 CAIXA_REVISAO_MERGE = "e5a1c7d9b204"
 PAINEL_CAIXA_MERGE = "f8b2d4a6c901"
-HEAD = "j7main2026"
+HEAD = "n115native2026"
 USUARIO_ATUAL = "NULLIF(current_setting('app.current_user_id', true), '')::bigint"
 JOB_OFERECIDO = "NULLIF(current_setting('app.upload_job_id', true), '')::uuid"
 POR_USUARIO = {
@@ -43,6 +43,7 @@ POR_USUARIO_UPLOAD = {
     "upload_arquivos",
 }
 POR_USUARIO_IDEMPOTENCIA = {"movimento_requisicoes"}
+POR_USUARIO_NATIVAS = {"native_accounts", "native_bets", "native_bet_evidence"}
 POR_USUARIO_LOTES = {"apostas_lotes"}
 POR_USUARIO_BANCAS = {"bancas_requisicoes"}
 POR_USUARIO_TITULARES = {
@@ -136,6 +137,7 @@ def test_protected_and_shared_tables_cover_the_whole_schema() -> None:
     }
     assert (
         protegidas
+        | POR_USUARIO_NATIVAS
         | POR_USUARIO_TITULARES
         | POR_USUARIO_LOTES
         | POR_USUARIO_BANCAS
@@ -165,13 +167,16 @@ def test_protected_and_shared_tables_cover_the_whole_schema() -> None:
             "catalogo_auditoria",
             "grupos_aposta",
             "apostas_grupos",
+            "sheet_sources",
+            "sheet_previews",
+            "sheet_confirmations",
             "usuarios",
             "audit_log",
         }
         == set(Base.metadata.tables)
     )
     assert not protegidas & COMPARTILHADAS
-    for tabela in protegidas:
+    for tabela in protegidas | POR_USUARIO_NATIVAS:
         assert "usuario_id" in Base.metadata.tables[tabela].c
     for tabela in COMPARTILHADAS:
         assert "usuario_id" not in Base.metadata.tables[tabela].c
@@ -183,6 +188,31 @@ def test_billing_rls_is_added_in_its_own_revision() -> None:
     assert "ALTER TABLE assinaturas FORCE ROW LEVEL SECURITY" in sql
     assert "CREATE POLICY assinaturas_por_usuario" in sql
     assert "CREATE POLICY assinaturas_cadastro" in sql
+
+
+def test_native_financial_policies_preserve_owner_and_evidence_boundaries() -> None:
+    sql = _upgrade_sql("s196preview2026:n115native2026")
+    for table in POR_USUARIO_NATIVAS:
+        assert f"ALTER TABLE {table} ENABLE ROW LEVEL SECURITY" in sql
+        assert f"ALTER TABLE {table} FORCE ROW LEVEL SECURITY" in sql
+        assert (
+            f"CREATE POLICY {table}_read ON {table} FOR SELECT USING (usuario_id = {USUARIO_ATUAL})"
+        ) in sql
+        assert (
+            f"CREATE POLICY {table}_insert ON {table} FOR INSERT WITH CHECK (usuario_id = {USUARIO_ATUAL})"
+        ) in sql
+        assert (
+            f"CREATE POLICY {table}_erase ON {table} FOR DELETE USING (usuario_id = {USUARIO_ATUAL} AND usuario_id = NULLIF(current_setting('app.erase_user_data', true), '')::bigint)"
+        ) in sql
+        assert f"CREATE TRIGGER active_{table}_write" in sql
+        assert f"CREATE TRIGGER audit_{table}_write" in sql
+    assert sql.count("EXECUTE FUNCTION billing_require_write()") == 3
+    for table in ("native_accounts", "native_bets"):
+        assert (
+            f"CREATE POLICY {table}_update ON {table} FOR UPDATE USING (usuario_id = {USUARIO_ATUAL}) WITH CHECK (usuario_id = {USUARIO_ATUAL})"
+        ) in sql
+    assert "native_bet_evidence_update" not in sql
+    assert "FOR ALL" not in sql
 
 
 def test_every_per_user_table_is_protected() -> None:
