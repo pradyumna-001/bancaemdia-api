@@ -65,14 +65,15 @@ async def test_migration_refuses_populated_downgrade_and_restores_empty_guards(
                 {"uid": uid, "id": uuid4()},
             )
         with pytest.raises(RuntimeError, match="identities cannot be removed"):
-            await asyncio.to_thread(command.downgrade, config, "j6main2026")
+            await asyncio.to_thread(command.downgrade, config, "j7main2026")
         async with engine.begin() as conn:
+            # O downgrade roda numa transação só: a recusa desfaz também o passo de n115native2026.
             assert (
                 await conn.scalar(text("SELECT version_num FROM alembic_version"))
-                == "s196preview2026"
+                == "n115native2026"
             )
             await conn.execute(text("DELETE FROM usuarios WHERE id=:uid"), {"uid": uid})
-        await asyncio.to_thread(command.downgrade, config, "j6main2026")
+        await asyncio.to_thread(command.downgrade, config, "j7main2026")
         await asyncio.to_thread(command.upgrade, config, "head")
         async with engine.connect() as conn:
             assert (

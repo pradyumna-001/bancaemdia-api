@@ -48,6 +48,47 @@ def safe_evidence(value: object) -> dict[str, object] | None:
         return None
 
 
+async def quarantine_reader_error(
+    session: AsyncSession, usuario_id: int, value: object, error: ReaderError
+) -> ReaderOutcome:
+    from bancaemdia.services.native_financials import require_owner
+
+    await require_owner(session, usuario_id)
+    try:
+        raw = canonical_bytes(
+            value.model_dump(mode="json") if isinstance(value, ReaderEnvelope) else value
+        )
+    except (ValueError, TypeError, UnicodeEncodeError, RecursionError):
+        raw = b"unencodable-reader-envelope"
+    fingerprint = digest(raw)
+    row_id = await session.scalar(
+        insert(ReaderQuarantine)
+        .values(
+            usuario_id=usuario_id,
+            capture_sha256=fingerprint,
+            error_code=error.code.value,
+            reason=error.reason,
+            envelope=None if error.code.value == "unsafe_payload" else safe_evidence(value),
+        )
+        .on_conflict_do_nothing(constraint="uq_reader_quarantine_capture")
+        .returning(ReaderQuarantine.id)
+    )
+    if row_id is None:
+        row_id = await session.scalar(
+            select(ReaderQuarantine.id).where(
+                ReaderQuarantine.usuario_id == usuario_id,
+                ReaderQuarantine.capture_sha256 == fingerprint,
+                ReaderQuarantine.error_code == error.code.value,
+                ReaderQuarantine.reason == error.reason,
+            )
+        )
+    reader_outcomes.labels(outcome="quarantined", error_code=error.code.value).inc()
+    structlog.get_logger(__name__).warning(
+        "reader_capture_quarantined", error_code=error.code.value, reason=error.reason
+    )
+    return ReaderOutcome(None, row_id, error.code.value, error.reason)
+
+
 async def parse_or_quarantine(
     session: AsyncSession, usuario_id: int, value: object, registry: ReaderRegistry
 ) -> ReaderOutcome:
@@ -62,40 +103,6 @@ async def parse_or_quarantine(
     try:
         parsed = registry.read(value)
     except ReaderError as error:
-        try:
-            # Digest is irreversible; unsafe bodies and parser exception text are omitted.
-            raw = canonical_bytes(
-                value.model_dump(mode="json") if isinstance(value, ReaderEnvelope) else value
-            )
-        except (ValueError, TypeError, UnicodeEncodeError, RecursionError):
-            raw = b"unencodable-reader-envelope"
-        fingerprint = digest(raw)
-        statement = (
-            insert(ReaderQuarantine)
-            .values(
-                usuario_id=usuario_id,
-                capture_sha256=fingerprint,
-                error_code=error.code.value,
-                reason=error.reason,
-                envelope=None if error.code.value == "unsafe_payload" else safe_evidence(value),
-            )
-            .on_conflict_do_nothing(constraint="uq_reader_quarantine_capture")
-            .returning(ReaderQuarantine.id)
-        )
-        row_id = await session.scalar(statement)
-        if row_id is None:
-            row_id = await session.scalar(
-                select(ReaderQuarantine.id).where(
-                    ReaderQuarantine.usuario_id == usuario_id,
-                    ReaderQuarantine.capture_sha256 == fingerprint,
-                    ReaderQuarantine.error_code == error.code.value,
-                    ReaderQuarantine.reason == error.reason,
-                )
-            )
-        reader_outcomes.labels(outcome="quarantined", error_code=error.code.value).inc()
-        structlog.get_logger(__name__).warning(
-            "reader_capture_quarantined", error_code=error.code.value, reason=error.reason
-        )
-        return ReaderOutcome(None, row_id, error.code.value, error.reason)
+        return await quarantine_reader_error(session, usuario_id, value, error)
     reader_outcomes.labels(outcome="parsed", error_code="none").inc()
     return ReaderOutcome(parsed, None, None, None)

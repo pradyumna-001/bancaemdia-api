@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import re
 from collections.abc import Generator, Iterator
 from contextlib import contextmanager
 from dataclasses import dataclass, field
@@ -217,9 +218,21 @@ def test_openapi_endpoint_matches_checked_in_snapshot(openapi_document: JsonObje
 
 
 @pytest.mark.contract
+def test_goal_decimal_text_preserves_the_published_pattern(openapi_document: JsonObject) -> None:
+    schemas = _as_object(_as_object(openapi_document["components"])["schemas"])
+    for name in ("MetaEntrada", "MetaAlteracao"):
+        properties = _as_object(_as_object(schemas[name])["properties"])
+        for field_name in ("alvo", "linha_base"):
+            alternatives = _as_object(properties[field_name])["anyOf"]
+            strings = [value for value in alternatives if value.get("type") == "string"]
+            assert len(strings) == 1
+            assert strings[0]["pattern"] == r"^(?!^[-+.]*$)[+-]?0*\d*\.?\d*$"
+
+
+@pytest.mark.contract
 def test_every_operation_has_human_documentation(openapi_document: JsonObject) -> None:
     operations = list(_operations(openapi_document))
-    assert len(operations) == 132
+    assert len(operations) == 147
     for method, path, operation in operations:
         location = f"{method.upper()} {path}"
         assert str(operation.get("summary", "")).strip(), location
@@ -244,7 +257,7 @@ def test_request_bodies_have_examples(openapi_document: JsonObject) -> None:
             assert media.get("example") is not None or media.get("examples"), (
                 f"{method.upper()} {path}: {media_type} lacks an example"
             )
-    assert bodies == 46
+    assert bodies == 52
 
 
 @pytest.mark.contract
@@ -619,6 +632,8 @@ negative_schema = (
     .exclude(path="/api/v1/coleta/pairing-exchange")
     .exclude(path="/api/v1/coleta/status")
     .exclude(path="/api/v1/coleta/catalogo")
+    # Installation-token transport is proved separately in test_native_financials.py.
+    .exclude(path="/api/v1/coleta/reader-captures")
     .exclude(path_regex=r"^/api/v1/coleta/(sessions|batches|jobs|contract)(/|$)")
     .exclude(
         # `chave` is an intentionally opaque, unconstrained string. There is no serializable
@@ -697,6 +712,18 @@ def invalid_upload_job_cases(
         )
         return st.text(alphabet="ghijklmnopqrstuvwxyz", min_size=1, max_size=40).map(
             lambda value: operation.Case(path_parameters={"lote_id": value}, **lote_kwargs)
+        )
+    if operation.path.startswith("/api/v1/planilhas/") and "{" in operation.path:
+        names = re.findall(r"\{([^}]+)\}", operation.path)
+        kwargs = (
+            {"media_type": "application/json", "body": {}}
+            if operation.method.upper() in {"POST", "PUT"}
+            else {}
+        )
+        if "/fontes/" in operation.path and "/previas/" in operation.path:
+            kwargs = {"media_type": "multipart/form-data", "body": {"arquivo": "invalid.xlsx"}}
+        return st.text(alphabet="ghijklmnopqrstuvwxyz", min_size=1, max_size=40).map(
+            lambda value: operation.Case(path_parameters=dict.fromkeys(names, value), **kwargs)
         )
     if operation.path != "/api/v1/upload/{job_id}" or operation.method.upper() != "GET":
         return _strategy

@@ -809,7 +809,7 @@ async def test_native_populated_migration_refuses_destructive_downgrade(
     try:
         with pytest.raises(Exception, match="native financial evidence exists"):
             await asyncio.to_thread(
-                _em_outra_thread, lambda: command.downgrade(config, "j7main2026")
+                _em_outra_thread, lambda: command.downgrade(config, "s196preview2026")
             )
     finally:
         if previous is None:

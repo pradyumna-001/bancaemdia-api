@@ -61,7 +61,7 @@ def _por_caminho(parametro: str, recuperacao: str) -> Politica:
 
 def _intencao(parametro: str, recuperacao: str) -> Politica:
     # UUID da intenção escolhido antes do POST: após resposta perdida, consultar o recibo;
-    # os contratos de manual, resultados e revisão proíbem repetir a escrita sozinho.
+    # os contratos de manual, resultados, revisão e planilha proíbem repetir a escrita sozinho.
     return Politica(
         SO_ESCRITA,
         retry=False,
@@ -255,6 +255,29 @@ POLITICAS: dict[OperationKey, Politica] = {
     ("post", "/api/v1/grupos"): ESCRITA,
     ("patch", "/api/v1/grupos/{grupo_id}"): ESCRITA,
     ("put", "/api/v1/apostas/{chave}/grupos"): ESCRITA,
+    ("get", "/api/v1/planilhas/campos"): LEITURA,
+    ("get", "/api/v1/planilhas/fontes"): LEITURA,
+    ("put", "/api/v1/planilhas/fontes/{source_id}"): _intencao(
+        "source_id", "GET /api/v1/planilhas/fontes/{source_id}"
+    ),
+    ("get", "/api/v1/planilhas/fontes/{source_id}"): LEITURA,
+    ("post", "/api/v1/planilhas/fontes/{source_id}/previas/{preview_id}"): _intencao(
+        "preview_id", "GET /api/v1/planilhas/previas/{preview_id}"
+    ),
+    ("get", "/api/v1/planilhas/previas/{preview_id}"): LEITURA,
+    ("get", "/api/v1/planilhas/previas/{preview_id}/linhas"): LEITURA,
+    ("post", "/api/v1/planilhas/previas/{preview_id}/remapear/{new_preview_id}"): _intencao(
+        "new_preview_id", "GET /api/v1/planilhas/previas/{preview_id}"
+    ),
+    ("post", "/api/v1/planilhas/confirmacoes/{confirmation_id}"): _intencao(
+        "confirmation_id", "GET /api/v1/planilhas/confirmacoes/{confirmation_id}"
+    ),
+    ("get", "/api/v1/planilhas/confirmacoes/{confirmation_id}"): LEITURA,
+    ("post", "/api/v1/coleta/reader-captures"): ESCRITA,
+    ("get", "/api/v1/financeiro/nativo/contas"): LEITURA,
+    ("post", "/api/v1/financeiro/nativo/contas"): ESCRITA,
+    ("get", "/api/v1/financeiro/nativo/resumo"): LEITURA,
+    ("get", "/api/v1/financeiro/nativo/apostas"): LEITURA,
 }
 
 # Fora do gate de usuário (_current_user): sem conta comercial (saúde, identidade, provedores,
@@ -272,6 +295,7 @@ FORA_DO_USUARIO = frozenset({
     "/coleta",
     "/api/v1/coleta",
     "/api/v1/coleta/batches",
+    "/api/v1/coleta/reader-captures",
     "/api/v1/coleta/catalogo",
     "/api/v1/coleta/contract",
     "/api/v1/coleta/contract/schema",

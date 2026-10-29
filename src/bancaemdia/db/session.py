@@ -41,12 +41,15 @@ LAG_CHECK_SECONDS = 30
 # Com o primário parado, a hora da última transação reaplicada não anda e a subtração vira atraso falso
 # (medido). Recebido = reaplicado só é zero com o receptor de WAL ligado: desligado, os dois ficam iguais e
 # parados enquanto a cópia envelhece (medido); fora de recuperação a função fica parada (docs PG 16).
+# now() é o início da transação: uma transação reaplicada logo depois tem hora maior e a diferença
+# fica negativa (medido no k6 do #221). GREATEST zera esse caso e mantém NULL sem transação reaplicada.
 REPLICA_LAG_SQL = text(
     "SELECT CASE"
     " WHEN NOT pg_is_in_recovery() THEN NULL"
     " WHEN pg_last_wal_receive_lsn() = pg_last_wal_replay_lsn()"
     " AND EXISTS (SELECT 1 FROM pg_stat_wal_receiver) THEN 0"
-    " ELSE EXTRACT(EPOCH FROM now() - pg_last_xact_replay_timestamp())"
+    " ELSE EXTRACT(EPOCH FROM GREATEST(now(), pg_last_xact_replay_timestamp())"
+    " - pg_last_xact_replay_timestamp())"
     " END"
 )
 

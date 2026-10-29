@@ -55,6 +55,7 @@ from bancaemdia.models.midia import Midia
 from bancaemdia.models.midia_arquivo import MidiaArquivo
 from bancaemdia.models.movimento import Movimento
 from bancaemdia.models.movimento_requisicao import MovimentoRequisicao
+from bancaemdia.models.native_financials import NativeAccount, NativeBet, NativeBetEvidence
 from bancaemdia.models.rascunho_aposta import RascunhoAposta, RascunhoCorrecao
 from bancaemdia.models.reader_quarantine import ReaderQuarantine
 from bancaemdia.models.revisao_pendente import RevisaoPendente
@@ -153,7 +154,7 @@ def _indexes(modelo: type[Base]) -> dict[str, list[str]]:
     }
 
 
-def test_all_forty_eight_tables_are_registered() -> None:
+def test_all_registered_models_match_the_schema() -> None:
     esperadas = {
         m.__tablename__
         for m in NUCLEO
@@ -180,6 +181,9 @@ def test_all_forty_eight_tables_are_registered() -> None:
             ColetaPairingQuota,
             ColetaSessao,
             ColetaEntrega,
+            NativeAccount,
+            NativeBet,
+            NativeBetEvidence,
             ApostaLote,
             BancaRequisicao,
         )
@@ -193,7 +197,8 @@ def test_all_forty_eight_tables_are_registered() -> None:
         "print_items",
         "print_assets",
     }
-    assert len(esperadas) == 75
+    esperadas |= {"sheet_sources", "sheet_previews", "sheet_confirmations"}
+    assert len(esperadas) == 81
     assert set(Base.metadata.tables) == esperadas
     assert {m.__tablename__ for m in CANONICOS} == {
         "casas",
@@ -396,6 +401,9 @@ def test_bigserial_except_composite_and_billing_owner_keys() -> None:
         "print_intents",
         "print_items",
         "apostas_grupos",
+        "sheet_sources",
+        "sheet_previews",
+        "sheet_confirmations",
         "cruzamento_entradas",
         "extracoes_cache",
         "assinaturas",

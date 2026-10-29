@@ -1,3 +1,4 @@
+import hashlib
 from collections.abc import Iterable
 from typing import Any, cast
 
@@ -59,6 +60,66 @@ OPERATION_DOCUMENTATION: dict[OperationKey, tuple[str, str]] = {
     ("get", "/api/v1/painel/hipotetica"): (
         "Comparação histórica seguindo a stake do tipster",
         "Somente leitura, inclusive READ_ONLY. População completa (máximo 10000) com os filtros canônicos; dicas confirmadas resolvidas separadamente e nunca contadas duas vezes. Usa stake da dica, odd e resultado reais, centavos em strings e HALF_EVEN. Cashout, taxas, bônus, retorno fixo e evidência insuficiente impedem comparação completa. Null não é zero. Sem parâmetros livres de stake nem paginação. Contrato: docs/contracts/hipotetica.md.",
+    ),
+    ("get", "/api/v1/planilhas/campos"): (
+        "Catálogo de colunas XLSX",
+        "Publica campos, tipos, opções e limites; normalização financeira pertence ao servidor.",
+    ),
+    ("put", "/api/v1/planilhas/fontes/{source_id}"): (
+        "Registrar fonte estável",
+        "UUID escolhido antes do envio, origem web-xlsx imutável; reutilizar a fonte listada na reimportação.",
+    ),
+    ("get", "/api/v1/planilhas/fontes"): (
+        "Listar fontes próprias",
+        "Fontes persistem até exclusão da conta; paginação explícita sem credenciais.",
+    ),
+    ("get", "/api/v1/planilhas/fontes/{source_id}"): (
+        "Reconciliar fonte",
+        "Consulta autorizada da identidade conhecida antes do PUT, inclusive resposta perdida.",
+    ),
+    ("post", "/api/v1/planilhas/fontes/{source_id}/previas/{preview_id}"): (
+        "Preparar prévia XLSX",
+        "Multipart com exatamente um arquivo XLSX. Síncrona, limitada e privada; nunca escreve fatos financeiros. Nova identidade invalida prévia anterior.",
+    ),
+    ("get", "/api/v1/planilhas/previas/{preview_id}"): (
+        "Consultar prévia",
+        "Estado ready/invalid/obsolete e contagens previstas, versão, hash e validade; não é autorização de escrita.",
+    ),
+    ("get", "/api/v1/planilhas/previas/{preview_id}/linhas"): (
+        "Consultar linhas da prévia",
+        "Página própria com valores inválidos preservados, normalização e consequências calculadas no backend; total distingue página.",
+    ),
+    ("post", "/api/v1/planilhas/previas/{preview_id}/remapear/{new_preview_id}"): (
+        "Remapear e revalidar prévia",
+        "Seleciona aba e índices de colunas 1-based, sem editar células. Nova referência/versionamento invalida a anterior; mesma identidade só aceita o mesmo pedido.",
+    ),
+    ("post", "/api/v1/planilhas/confirmacoes/{confirmation_id}"): (
+        "Confirmar alterações da prévia",
+        "Intenção conhecida antes do POST, vinculada à referência/hash. Revalida fonte, snapshot e billing; aplicação atômica SERIALIZABLE, obsolescência 409 sem efeitos parciais.",
+    ),
+    ("get", "/api/v1/planilhas/confirmacoes/{confirmation_id}"): (
+        "Reconciliar aplicação XLSX",
+        "Retorna resultado durável real de materialização, inclusive resposta perdida; não autoriza replay por rede/logout/refresh.",
+    ),
+    ("post", "/api/v1/coleta/reader-captures"): (
+        "Receber fonte textual com moeda nativa",
+        "ReaderEnvelope lossless reader-capture-1 por X-Coleta-Token/HTTPS. Preserva USDT exato; conta pelo jogo e multicontas explícita. Duplicatas são no-op; conflitos sem versão vão à revisão. Admissão fechada até corpus financeiro aprovado e ativação explícita. Não altera coleta-v2.",
+    ),
+    ("post", "/api/v1/financeiro/nativo/contas"): (
+        "Criar conta com moeda explícita",
+        "Cria conta do usuário autenticado em BRL ou USDT, com intervalo do jogo [valid_from, valid_to). Não converte nem movimenta saldo.",
+    ),
+    ("get", "/api/v1/financeiro/nativo/contas"): (
+        "Listar contas com moeda explícita",
+        "Lista até 100 contas nativas do usuário, incluindo intervalos históricos. As contas legadas em reais permanecem em seu contrato vigente.",
+    ),
+    ("get", "/api/v1/financeiro/nativo/resumo"): (
+        "Consultar totais por moeda",
+        "Agrupa somente fatos do ledger nativo por moeda, com decimais em texto. Exclui revisão/conta não atribuída; filtra pelo jogo [since, until). Não soma BRL com USDT nem inclui o ledger legado de centavos.",
+    ),
+    ("get", "/api/v1/financeiro/nativo/apostas"): (
+        "Listar apostas com moeda nativa",
+        "Lista fatos do ledger nativo, incluindo os pendentes de revisão, por jogo/id decrescente. Valores exatos em texto, moeda explícita e retorno bruto; lucro calculado no servidor.",
     ),
     ("post", "/api/v1/coleta/sessions"): (
         "Abrir ou retomar sessão",
@@ -526,6 +587,15 @@ PARAMETER_DESCRIPTIONS = {
     "freebet": "Filtra por aposta com valor de face e custo próprio distintos.",
     "dias_por_pagina": "Número de dias civis por janela, 1-366; não altera o total completo.",
     "inicio_dia": "Início civil opcional dentro do recorte diário completo; não combinar com cursor.",
+    "source_id": "UUID estável da fonte própria, persistido antes do primeiro PUT.",
+    "preview_id": "UUID da prévia conhecido antes do upload; referência/hash/versão para reconciliação.",
+    "new_preview_id": "Novo UUID durável para remapeamento; nunca reutilizar com dados incompatíveis.",
+    "confirmation_id": "UUID da intenção persistido antes do POST; GET reconcilia resposta perdida.",
+    "since": "Início inclusivo pelo instante do jogo, com fuso explícito.",
+    "until": "Fim exclusivo pelo instante do jogo, com fuso explícito.",
+    "account_id": "ID da conta nativa do próprio usuário; inexistente ou de terceiro retorna conjunto vazio.",
+    "currency": "Moeda nativa explícita, BRL ou USDT; sem conversão.",
+    "limit": "Máximo de apostas nativas, entre 1 e 100; padrão 50.",
     "sessao_id": "UUID opaco da sessão pertencente à instalação autenticada.",
     "q": "Busca textual literal por nome, sem curingas SQL; limite 160 caracteres.",
     "dimensao": "casas/tipsters/mercados/competicoes/origens/grupos/bancas/titulares/contas; sessão normal do site.",
@@ -581,6 +651,9 @@ PARAMETER_DESCRIPTIONS = {
     "tipster_id": "Identificador canônico do tipster usado como filtro.",
 }
 
+
+_NATIVE_SOURCE_EXAMPLE = '{"bet":{"id":"example-native-bet","createdAt":"2026-01-02T02:00:00Z","currencyCode":"USDT","wallet":"example-wallet","status":2,"amount":12.34,"cf":2.5,"profitAmount":30.85,"freebetAmount":0,"bonusAmount":0,"bonusPercent":0,"betType":"ordinary"},"selections":[{"match":{"id":"example-event","startAt":1767484800,"competitors":[{"name":"Example A"},{"name":"Example B"}]},"odd":{"id":"example-odd","name":"Example selection","groupName":"Example market","cf":2.5},"status":2,"isHalfReturn":false}]}'
+
 REQUEST_EXAMPLES: dict[OperationKey, tuple[str, JsonObject]] = {
     ("post", "/api/v1/apostas-manuais/operacoes/{intencao_id}"): (
         "Aposta manual/freebet com face positiva e conta opcional explícita",
@@ -611,6 +684,70 @@ REQUEST_EXAMPLES: dict[OperationKey, tuple[str, JsonObject]] = {
         {
             "operacao_id": "00000000-0000-4000-8000-000000000002",
             "revisao_esperada": "00000000-0000-4000-8000-000000000003",
+        },
+    ),
+    ("put", "/api/v1/planilhas/fontes/{source_id}"): (
+        "Fonte sintética",
+        {"nome": "Planilha principal"},
+    ),
+    ("post", "/api/v1/planilhas/fontes/{source_id}/previas/{preview_id}"): (
+        "XLSX sintético",
+        {"arquivo": "synthetic-import.xlsx"},
+    ),
+    ("post", "/api/v1/planilhas/previas/{preview_id}/remapear/{new_preview_id}"): (
+        "Remapeamento explícito",
+        {
+            "expected_revision": 1,
+            "sheet": "Apostas",
+            "mapping": {
+                "linha_id": 1,
+                "casa": 2,
+                "data_aposta": 3,
+                "odd": 4,
+                "stake_unidades": 5,
+                "atualizada_em": 6,
+            },
+        },
+    ),
+    ("post", "/api/v1/planilhas/confirmacoes/{confirmation_id}"): (
+        "Confirmar dados",
+        {
+            "preview_id": "11111111-1111-4111-8111-111111111111",
+            "preview_hash": "0000000000000000000000000000000000000000000000000000000000000000",
+        },
+    ),
+    ("post", "/api/v1/financeiro/nativo/contas"): (
+        "Conta sintética em USDT",
+        {
+            "casa_id": 1,
+            "currency": "USDT",
+            "label": "Conta exemplo",
+            "valid_from": "2026-01-01T00:00:00Z",
+            "valid_to": None,
+        },
+    ),
+    ("post", "/api/v1/coleta/reader-captures"): (
+        "Envelope sintético; não é evidência real",
+        {
+            "transport_contract": "reader-capture-1",
+            "envelope": {
+                "envelope_schema": 1,
+                "brand": "1win",
+                "hostname": "api-gateway.top-parser.com",
+                "source": {
+                    "channel": "fetch",
+                    "direction": "observed_response",
+                    "endpoint": "/bets/history/get-many",
+                    "frame_signature": None,
+                },
+                "captured_at": "2026-01-05T00:00:00Z",
+                "raw_schema_version": "1win-history-game-v2",
+                "content_type": "application/json",
+                "payload_text": _NATIVE_SOURCE_EXAMPLE,
+                "content_hash": hashlib.sha256(_NATIVE_SOURCE_EXAMPLE.encode("utf-8")).hexdigest(),
+            },
+            "multicontas": False,
+            "explicit_account_id": None,
         },
     ),
     ("post", "/api/v1/coleta/sessions"): (
@@ -1242,6 +1379,12 @@ def _document_operations(document: JsonObject) -> None:
             raise RuntimeError(
                 f"missing OpenAPI documentation for {method.upper()} {path}"
             ) from error
+        if path.startswith("/api/v1/planilhas/"):
+            for status in ("429", "503"):
+                operation["responses"][status].setdefault("headers", {})["Retry-After"] = {
+                    "schema": {"type": "integer", "minimum": 1},
+                    "description": "Espera em segundos; mutations exigem reconciliação e ação explícita.",
+                }
         operation["summary"] = summary
         operation["description"] = description
 
@@ -1391,6 +1534,7 @@ def _install_catalog_security(document: JsonObject) -> None:
     paths = _object(document["paths"], context="paths")
     for method, path, scheme in (
         ("get", "/api/v1/coleta/catalogo", "InstallationToken"),
+        ("post", "/api/v1/coleta/reader-captures", "InstallationToken"),
         ("get", "/api/v1/admin/casas", "BearerAuth"),
         ("get", "/api/v1/admin/casas/export", "BearerAuth"),
         ("post", "/api/v1/catalogo/candidatos", "BearerAuth"),
