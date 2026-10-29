@@ -684,6 +684,16 @@ def invalid_upload_job_cases(
             return operation.Case(path_parameters=parameters, body=body, media_type=media_type)
 
         return st.text(alphabet="ghijklmnopqrstuvwxyz", min_size=1, max_size=40).map(invalid_print)
+    if operation.path.startswith("/api/v1/apostas/lotes/{lote_id}"):
+        # Same UUID filtering as above; the restore also requires its Idempotency-Key header.
+        lote_kwargs = (
+            {"headers": {"Idempotency-Key": "synthetic-restore"}}
+            if operation.method.upper() == "POST"
+            else {}
+        )
+        return st.text(alphabet="ghijklmnopqrstuvwxyz", min_size=1, max_size=40).map(
+            lambda value: operation.Case(path_parameters={"lote_id": value}, **lote_kwargs)
+        )
     if operation.path != "/api/v1/upload/{job_id}" or operation.method.upper() != "GET":
         return _strategy
     return st.text(alphabet="ghijklmnopqrstuvwxyz", min_size=1, max_size=40).map(

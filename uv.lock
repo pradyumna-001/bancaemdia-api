@@ -229,7 +229,7 @@ requires-dist = [
     { name = "pydantic", extras = ["email"], specifier = ">=2.9.0" },
     { name = "pydantic-settings", specifier = ">=2.6.0" },
     { name = "pyjwt", extras = ["crypto"], specifier = ">=2.14.0" },
-    { name = "pytest", marker = "extra == 'dev'", specifier = ">=8.3.4" },
+    { name = "pytest", marker = "extra == 'dev'", specifier = ">=8.3.4,<9.2" },
     { name = "pytest-asyncio", marker = "extra == 'dev'", specifier = ">=0.24.0" },
     { name = "pytest-cov", marker = "extra == 'dev'", specifier = ">=6.0.0" },
     { name = "pytest-xdist", marker = "extra == 'dev'", specifier = ">=3.6.1" },
