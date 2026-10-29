@@ -1,0 +1,27 @@
+{"commit_id":"7059e5391b0d44af3a72978fd51fb5dd6d7a2504","event":"REQUEST_CHANGES","body":"## PR #76 Review — feat: separar acesso comercial de sessão (#52)\n\n### Resumo\n\nSeparação de responsabilidades: autenticação (sessão/identidade) e autorização comercial (billing/assinatura) agora são estados separados. Nova superfície `/api/v1/billing/status` retorna `{ access: 'FULL_WRITE' | 'READ_ONLY' }`. Novo `requireReadAccess` permite leitura em READ_ONLY. Middleware `JWTAuthMiddleware` e `AuthRateLimitMiddleware` refinados. 29 arquivos, +1608/−135, 3 commits. Base `main` @ `b5fb27d`.\n\n### Pontos fortes\n- **Separação clara**: `READ_OPERATIONS` enum define leituras permitidas em READ_ONLY; mutações exigem FULL_WRITE.\n- **Controller robusto**: `createAccessController` com `useSyncExternalStore` para reatividade, advisory lock `pareador:{uid}`, refresh inteligente (respeita `Retry-After`).\n- **402/429/503 bem definidos**: `402` = `account_read_only`; `429` com `Retry-After`; `503` com `Retry-After: 5` e `account_read_only` preservado.\n- **Lock ordering correto**: `pareador:{uid}` (advisory) → `usuario` row lock → contas FK. Previne deadlock.\n- **Logout/rotação limpa retry state**: `denied()` incrementa revisão e cancela queries.\n- **Tests abrangentes**: 8 testes cobrindo escrita com status fresco, 402 invalida confirmação, falha de status/shape, logout/troca limpa sinal, recusa concorrente.\n\n### Alterações solicitadas\n\n1. **`controller.ts` — `consult()` faz query extra se `retryUntil` > 0**: Faz `throw` antes de qualquer request, mas não limpa `retryUntil` em erro 503 do billing. Adicionar limpeza.\n2. **`run()` — lock antes de `require_write_access`**: Ordem atual: `lock()` → `require_write_access()`. Se lock falha, acesso já verificado desnecessariamente. Inverter ordem.\n3. **`controller.ts` — `retryUntil` não resetado em erro 503 do billing**: Em `catch`, só seta `retryUntil` para `ApiError` com `retryAfterMs`. Erro 503 do billing não tem `retryAfterMs`, então `retryUntil` fica 0 mas request falhou. Adicionar `retryUntil = Date.now() + error.retryAfterMs` para 503.\n4. **Middleware ASGI conversion (RLS, Router, Auth)**: Mesma mudança dos PRs anteriores. Verificar regressão em `current_user_id` (RLS) e `use_primary` (roteamento primário/réplica).\n\nVerdict: **Aprovar após os 4 itens acima**. Arquitetura sólida, separação limpa de responsabilidades.",
+  "comments": [
+    {
+      "path": "src/features/acesso/controller.ts",
+      "line": 1,
+      "side": "RIGHT",
+      "body": "## `consult()` — query extra se `retryUntil` > 0\n\nFaz `throw` antes de qualquer request se `retryUntil > 0`, mas não limpa `retryUntil` em erro 503 do billing. Em erro 503, `retryUntil` fica 0 mas request falhou. Considerar `retryUntil = Date.now() + error.retryAfterMs` para 503."
+    },
+    {
+      "path": "src/features/acesso/controller.ts",
+      "line": 1,
+      "side": "RIGHT",
+      "body": "## `run()` — lock antes de `require_write_access`\n\nOrdem atual: `lock()` → `require_write_access()`. Se lock falha/timeout, acesso já verificado desnecessariamente. Inverter: `require_write_access` primeiro, depois lock."
+    },
+    {
+      "path": "src/features/acesso/controller.ts",
+      "line": 1,
+      "side": "RIGHT",
+      "body": "## `retryUntil` não resetado em erro 503 do billing\n\nEm `catch`, só seta `retryUntil` para `ApiError` com `retryAfterMs`. Erro 503 do billing não tem `retryAfterMs`, então `retryUntil` fica 0 mas request falhou. Adicionar `if (error.status === 503) retryUntil = Date.now() + error.retryAfterMs`."
+    },
+    {
+      "path": "src/features/acesso/operations.ts",
+      "line": 1,
+      "side": "RIGHT",
+      "body": "## `operationNeedsWrite` — `GET /api/v1/coleta` marcado como leitura mas pode ter side effects\n\n`GET /api/v1/coleta` não está em `READ_ONLY_OPERATIONS` mas `GET /api/v1/coleta/installations` está. Verificar se `GET /api/v1/coleta` deve ser leitura pura (sem side effects) para estar em `READ_ONLY_OPERATIONS`."
+    }
+  ]}

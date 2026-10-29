@@ -1,0 +1,27 @@
+{"commit_id":"1efe758cf0bbfa3be7815a56171c2e0ad94837d6","event":"REQUEST_CHANGES","body":"## PR #83 Review — fix(conta): corrigir apresentação das telas de acesso (#82)\n\n### Resumo\n\nRefatoração da `AccountPage.tsx` com mapeamento explícito de jornadas (`journeys`), melhor tratamento de erros, integração com `useRetryAfter`, destinos internos e estados de loading. 3 arquivos modificados (+142/−144). Base `main` @ `b5fb27d`.\n\n### Pontos fortes\n- **Mapeamento explícito de jornadas**: Objeto `journeys` tipado com `title`, `description`, `action`, `intent`. Elimina strings mágicas.\n- **Estados claros**: `blocked` combina `!auth`, `checking`, `ending`, `logoutUnconfirmed`, `waiting`, `error.kind !== 'invalid_request'`. Lógica legível.\n- **Retry-after integrado**: `useRetryAfter(auth?.state.error)` exibe prazo restante em botões desabilitados.\n- **Destino interno preservado**: `destinoInterno` extrai `destino` do query param e preserva no redirect pós-login.\n- **Estados de erro explícitos**: `logoutUnconfirmed` (saída não confirmada), `checking`, `error.kind !== 'invalid_request'`. UX clara.\n- **Help contextual**: `<details>` com FAQ por jornada (login, cadastro, recuperação, confirmação).\n- **Acessibilidade**: `aria-labelledby`, `role=\"status\"`, labels em botões/links.\n- **Logout/Recovery**: `service?.logout()` e `service?.resume()` integrados.\n\n### Alterações solicitadas\n\n1. **`path === '/sair'` hardcoded**: String mágica `'/sair'` aparece em 3 lugares. Extrair para constante `JOURNEY_PATHS.SAIR = '/sair'` no objeto `journeys` ou constante separada.\n2. **`blocked` não considera `phase === 'expired'`**: Se sessão expirou mas `auth` ainda existe, `phase` pode não ser `'ended'`. Adicionar `phase === 'expired'` ao `blocked`.\n3. **`service?.resume()` em `useEffect` sem cleanup**: Se `path` muda rapidamente, `resume()` pode ser chamado múltiplas vezes. Adicionar cleanup function ou guard.\n4. **`destination` em `link()` não sanitizado**: `new URLSearchParams(location.search).get('destino')` passado direto para URL. Validar que é path interno (começa com `/`) para evitar open redirect.\n\nVerdict: **Aprovar após os 4 itens acima**. Refatoração limpa, tipagem forte, UX melhorada.",
+  "comments": [
+    {
+      "path": "src/features/conta/AccountPage.tsx",
+      "line": 107,
+      "side": "RIGHT",
+      "body": "## `path === '/sair'` hardcoded\n\nString mágica `'/sair'` aparece em 3 lugares (linha 107, 128, 237). Extrair para constante `JOURNEY_PATHS.SAIR = '/sair'` ou usar `journeys.sair` se adicionar ao objeto `journeys`."
+    },
+    {
+      "path": "src/features/conta/AccountPage.tsx",
+      "line": 92,
+      "side": "RIGHT",
+      "body": "## `blocked` não considera `phase === 'expired'`\n\nSe sessão expirou mas `auth` ainda existe, `phase` pode não ser `'ended'`. Adicionar `phase === 'expired'` ao `blocked`: `phase === 'expired' || phase === 'ending' || ...`."
+    },
+    {
+      "path": "src/features/conta/AccountPage.tsx",
+      "line": 85,
+      "side": "RIGHT",
+      "body": "## `service?.resume()` em `useEffect` sem cleanup\n\nSe `path` muda rapidamente, `resume()` pode ser chamado múltiplas vezes. Adicionar cleanup function ou guard:\n```ts\nuseEffect(() => {\n  if (!internal && phase === 'checking') {\n    const promise = service?.resume();\n    return () => promise?.then?.(r => r?.cancel?.());\n  }\n}, [service, phase, internal]);\n```"
+    },
+    {
+      "path": "src/features/conta/AccountPage.tsx",
+      "line": 98,
+      "side": "RIGHT",
+      "body": "## `destination` em `link()` não sanitizado\n\n`new URLSearchParams(location.search).get('destino')` passado direto para URL. Validar que é path interno (começa com `/`) para evitar open redirect:\n```ts\nconst destination = destinoInterno(new URLSearchParams(location.search).get('destino'));\nif (destination && !destination.startsWith('/')) destination = '/'; // fallback seguro\n```"
+    }
+  ]}
