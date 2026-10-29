@@ -12,9 +12,8 @@ def test_hypothetical_contract_has_exact_money_auth_explicit_read_policy_and_exa
     document = app.openapi()
     operation = document["paths"]["/api/v1/painel/hipotetica"]["get"]
     assert operation["security"]
-    assert operation["x-commercial-operation"] == "hipotetica_historica"
-    assert operation["x-commercial-access"] == ["FULL_WRITE", "READ_ONLY"]
-    assert operation["x-maximum-population"] == 10000
+    assert operation["x-bancaemdia-policy"]["access_modes"] == ["FULL_WRITE", "READ_ONLY"]
+    assert "máximo 10000" in operation["description"]
     assert "402" not in operation["responses"]
     assert operation["responses"]["404"]["content"]["application/json"]["schema"] == {
         "$ref": "#/components/schemas/ErrorResponse"

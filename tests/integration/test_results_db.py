@@ -811,6 +811,7 @@ async def test_migration_empty_roundtrip_and_populated_refusal(banco_migracao, m
 
     from alembic import command
     from alembic.config import Config
+    from alembic.script import ScriptDirectory
     from sqlalchemy.ext.asyncio import create_async_engine
 
     root = Path(__file__).resolve().parents[2]
@@ -851,7 +852,7 @@ async def test_migration_empty_roundtrip_and_populated_refusal(banco_migracao, m
         async with engine.begin() as conn:
             assert (
                 await conn.scalar(text("SELECT version_num FROM alembic_version"))
-                == "r200review2026"
+                == ScriptDirectory.from_config(config).get_current_head()
             )
             await conn.execute(
                 text(

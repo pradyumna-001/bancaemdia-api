@@ -520,6 +520,19 @@ async def test_real_registration_refresh_recovery_isolation_and_revocation(
             assert own["data"]["real"] == own["data"]["hipotetico"]
             assert own["headers"]["cache-control"] == "private, no-store"
         await pa.set_viewport_size({"width": 1280, "height": 720})
+        # Same genuine HttpOnly session on desktop and mobile viewports.
+        for viewport in ({"width": 1440, "height": 900}, {"width": 390, "height": 844}):
+            await pa.set_viewport_size(cast(ViewportSize, viewport))
+            for path in (
+                "/api/v1/painel/filtrado/grupos",
+                "/api/v1/painel/filtrado/diario?periodo=1y",
+            ):
+                own = await fetch(pa, path)
+                other = await fetch(pb, path)
+                assert own["status"] == other["status"] == 200
+                assert own["data"]["total_periodo"]["total_apostas"] == 1
+                assert other["data"]["total_periodo"]["total_apostas"] == 0
+        await pa.set_viewport_size({"width": 1280, "height": 720})
         cookie_before, credentials = await harness.credentials(a)
         async with httpx.AsyncClient() as client:
             invalid = await client.get(

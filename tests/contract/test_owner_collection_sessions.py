@@ -29,15 +29,12 @@ def test_collection_session_boundary_matches_selection(selection):
 def test_owner_session_projection_has_only_web_security_and_read_only_permission():
     operation = app.openapi()["paths"]["/api/v1/coleta/installations"]["get"]
     assert operation["security"] == [{"HTTPBearer": []}, {"SessionCookie": []}]
-    assert operation["x-permission"] == "READ_ONLY"
+    assert operation["x-bancaemdia-policy"]["access_modes"] == ["FULL_WRITE", "READ_ONLY"]
     assert "402" not in operation["responses"]
     assert {"401", "429", "503"} <= set(operation["responses"])
     assert operation["responses"]["503"]["headers"]["Retry-After"]
-    assert operation["x-session-selection"]["presence"] == "not_available"
-    assert operation["x-session-selection"]["absence"] == {
-        "estado_sessao": "sem_sessao",
-        "sessao_coleta_is_null": True,
-    }
+    assert "não presença online" in operation["description"]
+    assert "estado_sessao=sem_sessao e sessao_coleta=null" in operation["description"]
 
 
 def test_owner_session_schema_is_required_nullable_and_has_explicit_selection():

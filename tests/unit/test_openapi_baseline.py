@@ -55,6 +55,66 @@ def test_exact_syntax_repair_preserves_schemas_required_fields_and_operations(mo
     }
 
 
+_REBASE_RAW = b"""{
+  "openapi": "3.1.0",
+  "components": {"schemas": {
+    "Before": {"type": "string"},
+<<<<<<< HEAD
+=======
+    "Published": {"type": "integer"},
+>>>>>>> d0523b7 (fix(manual): accepted side)
+    "Middle": {"type": "string"},
+<<<<<<< HEAD
+=======
+    "Evidence": {"type": "boolean"},
+>>>>>>> e2b7f17 (fix(revisao): accepted side)
+    "After": {"type": "string"},
+    "MetaEntrada": {"properties": {
+      "alvo": {"anyOf": [{"type": "number"}, {"type": "string"}]},
+      "linha_base": {"anyOf": [{"type": "string"}, {"type": "null"}]}
+    }},
+    "MetaAlteracao": {"properties": {
+      "alvo": {"anyOf": [{"type": "string"}, {"type": "null"}]},
+      "linha_base": {"anyOf": [{"type": "string"}, {"type": "null"}]}
+    }}
+  }},
+  "paths": {"/accepted": {"get": {"responses": {"200": {"description": "OK"}}}}}
+}"""
+
+
+def test_known_rebase_conflicts_keep_every_accepted_definition(monkeypatch) -> None:
+    digest = hashlib.sha256(_REBASE_RAW).hexdigest()
+    monkeypatch.setattr(baseline, "REBASE_SNAPSHOT_SHA256", digest)
+    document = baseline.parse_baseline(_REBASE_RAW)
+    schemas = document["components"]["schemas"]
+    assert {name: schemas[name] for name in ("Before", "Published", "Middle", "Evidence")} == {
+        "Before": {"type": "string"},
+        "Published": {"type": "integer"},
+        "Middle": {"type": "string"},
+        "Evidence": {"type": "boolean"},
+    }
+    assert (
+        schemas["ManualAssignmentNotice"]
+        == baseline._REBASE_RECOVERED_SCHEMAS["ManualAssignmentNotice"]
+    )
+    for name, field in baseline._GOAL_DECIMAL_FIELDS:
+        texts = [v for v in schemas[name]["properties"][field]["anyOf"] if v["type"] == "string"]
+        assert texts == [{"type": "string", "pattern": baseline._GOAL_DECIMAL_PATTERN}]
+    assert schemas["MetaEntrada"]["properties"]["alvo"]["anyOf"][0] == {"type": "number"}
+    notice = baseline._REBASE_RECOVERED_SCHEMAS["ManualAssignmentNotice"]
+    assert notice["required"] == ["codigo", "revisao_id"]
+    assert notice["additionalProperties"] is False
+
+
+def test_rebase_repair_refuses_other_bytes_and_changed_conflicts(monkeypatch) -> None:
+    with pytest.raises(json.JSONDecodeError):
+        baseline.parse_baseline(_REBASE_RAW)
+    changed = _REBASE_RAW.replace(b'=======\n    "Published"', b'    "Published"')
+    monkeypatch.setattr(baseline, "REBASE_SNAPSHOT_SHA256", hashlib.sha256(changed).hexdigest())
+    with pytest.raises(ValueError, match="no longer matches the conflict repair"):
+        baseline.parse_baseline(changed)
+
+
 def test_repair_does_not_accept_other_bytes_even_with_same_syntax() -> None:
     with pytest.raises(json.JSONDecodeError):
         baseline.parse_baseline(b'{"openapi":"3.1.0","paths":{}} trailing')

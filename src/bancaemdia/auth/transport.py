@@ -36,7 +36,13 @@ class IdentityTransportMiddleware:
         request = Request(scope)
         path = request_path(request)
         financial = path == "/api/v1/painel/hipotetica"
-        if not settings.AUTH_ENABLED and not path.startswith("/auth/") and not financial:
+        private_financial = path.startswith("/api/v1/painel/filtrado")
+        if (
+            not settings.AUTH_ENABLED
+            and not path.startswith("/auth/")
+            and not financial
+            and not private_financial
+        ):
             # Disabled identity has no transport policy on these routes. Do not
             # create a task group or buffer a streaming collection response.
             await self.app(scope, receive, send)
@@ -95,8 +101,12 @@ class IdentityTransportMiddleware:
                         "X-Auth-Error, X-Request-ID, Retry-After"
                     )
                     headers["Vary"] = ", ".join(filter(None, [headers.get("Vary"), "Origin"]))
+                if private_financial:
+                    vary = {v.strip() for v in headers.get("Vary", "").split(",") if v.strip()}
+                    headers["Vary"] = ", ".join(sorted(vary | {"Authorization", "Cookie"}))
                 if (
                     financial
+                    or private_financial
                     or path.startswith("/auth/")
                     or (settings.AUTH_ENABLED and path.startswith("/api/"))
                 ):

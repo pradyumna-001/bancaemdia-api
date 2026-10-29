@@ -40,11 +40,11 @@ dependencies = [
     "structlog>=25.1.0",
     "prometheus-client>=0.20.0",
     "prometheus-fastapi-instrumentator>=7.1.0",
-    "opentelemetry-api>=1.28.0",
+    "opentelemetry-api>=1.45.1",
     "opentelemetry-sdk>=1.28.0",
     "opentelemetry-instrumentation-fastapi>=0.49b0",
     "opentelemetry-instrumentation-sqlalchemy>=0.49b0",
-    "opentelemetry-instrumentation-httpx>=0.49b0,<0.66b0",
+    "opentelemetry-instrumentation-httpx>=0.49b0",
     "opentelemetry-instrumentation-redis>=0.49b0",
     "opentelemetry-instrumentation-celery>=0.49b0",
     "opentelemetry-exporter-otlp>=1.28.0",
@@ -52,7 +52,9 @@ dependencies = [
 
 [project.optional-dependencies]
 dev = [
-    "pytest>=8.3.4",
+    # Capped: under pytest 9.2, Schemathesis 4.27.5 stops splitting its suites per operation and
+    # the whole negative suite collapses into one skipped test.
+    "pytest>=8.3.4,<9.2",
     "pytest-asyncio>=0.24.0",
     "pytest-xdist>=3.6.1",
     "pytest-cov>=6.0.0",

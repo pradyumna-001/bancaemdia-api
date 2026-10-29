@@ -23,14 +23,18 @@ def test_manual_identity_is_published_in_both_operations_and_has_no_path_collisi
 def test_manual_openapi_retention_no_retry_and_cookie_permissions():
     d = json.loads(SCHEMA.read_text(encoding="utf8"))
     post, get = d["paths"][P]["post"], d["paths"][P]["get"]
-    assert post["x-idempotency"] == {
-        "identity": "path.intencao_id",
-        "scope": "authenticated_user",
-        "retention_days": 90,
-        "automatic_retry": False,
-        "expired_identity_reusable": False,
+    assert post["x-bancaemdia-policy"] == {
+        "access_modes": ["FULL_WRITE"],
+        "automatic_retry": {"allowed": False, "max_attempts": None},
+        "idempotency": {
+            "identity": "path:intencao_id",
+            "retention": "until_account_deletion",
+            "recovery": "GET " + P,
+        },
     }
-    assert get["x-permission"] == "READ_ONLY"
+    assert "90 dias" in post["description"]
+    assert "Nenhum POST recebe retry automático" in post["description"]
+    assert get["x-bancaemdia-policy"]["access_modes"] == ["FULL_WRITE", "READ_ONLY"]
     assert {"SessionCookie": [], "CsrfProof": []} in post["security"]
     assert {"SessionCookie": []} in get["security"]
     assert {"200", "201", "401", "402", "403", "409", "410", "422", "429", "503"} <= post[

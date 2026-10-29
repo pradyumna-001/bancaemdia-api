@@ -17,117 +17,128 @@ python scripts/generate_openapi.py
 
 | Method | Path | Summary | Responses | Tags |
 | --- | --- | --- | --- | --- |
-| `GET` | `/api/v1/admin/casas` | Consultar catálogo administrativo | `200`, `400`, `401`, `402`, `403`, `405`, `422`, `429`, `500`, `503` | — |
-| `GET` | `/api/v1/admin/casas/export` | Exportar catálogo administrativo | `200`, `400`, `401`, `402`, `403`, `405`, `422`, `429`, `500`, `503` | — |
-| `GET` | `/api/v1/apostas` | Listar apostas | `200`, `401`, `402`, `422`, `429`, `500`, `503` | — |
+| `GET` | `/api/v1/admin/casas` | Consultar catálogo administrativo | `200`, `400`, `401`, `403`, `405`, `422`, `429`, `500`, `503` | — |
+| `GET` | `/api/v1/admin/casas/export` | Exportar catálogo administrativo | `200`, `400`, `401`, `403`, `405`, `422`, `429`, `500`, `503` | — |
+| `GET` | `/api/v1/apostas` | Listar apostas | `200`, `401`, `422`, `429`, `500`, `503` | — |
 | `POST` | `/api/v1/apostas` | Criar aposta manual | `201`, `401`, `402`, `403`, `409`, `413`, `422`, `429`, `500`, `503` | — |
-| `GET` | `/api/v1/apostas-manuais/operacoes/{intencao_id}` | Recuperar confirmação original manual | `200`, `401`, `402`, `404`, `409`, `410`, `422`, `429`, `500`, `503` | — |
+| `GET` | `/api/v1/apostas-manuais/operacoes/{intencao_id}` | Recuperar confirmação original manual | `200`, `401`, `404`, `409`, `410`, `422`, `429`, `500`, `503` | — |
 | `POST` | `/api/v1/apostas-manuais/operacoes/{intencao_id}` | Criar aposta manual reconciliável | `200`, `201`, `401`, `402`, `403`, `404`, `409`, `410`, `413`, `422`, `429`, `500`, `503` | — |
 | `POST` | `/api/v1/apostas/importar-planilha` | Importar apostas do Excel | `200`, `401`, `402`, `403`, `413`, `422`, `429`, `500`, `503` | — |
 | `POST` | `/api/v1/apostas/lotes` | Apagar todas as apostas | `201`, `401`, `402`, `403`, `409`, `413`, `422`, `429`, `500`, `503` | — |
-| `GET` | `/api/v1/apostas/lotes/intencao` | Recuperar lote de apostas | `200`, `401`, `402`, `404`, `422`, `429`, `500`, `503` | — |
-| `GET` | `/api/v1/apostas/lotes/previa-apagar` | Prévia de apagar todas as apostas | `200`, `401`, `402`, `422`, `429`, `500`, `503` | — |
-| `GET` | `/api/v1/apostas/lotes/{lote_id}` | Consultar lote de apostas | `200`, `401`, `402`, `404`, `422`, `429`, `500`, `503` | — |
+| `GET` | `/api/v1/apostas/lotes/intencao` | Recuperar lote de apostas | `200`, `401`, `404`, `422`, `429`, `500`, `503` | — |
+| `GET` | `/api/v1/apostas/lotes/previa-apagar` | Prévia de apagar todas as apostas | `200`, `401`, `422`, `429`, `500`, `503` | — |
+| `GET` | `/api/v1/apostas/lotes/{lote_id}` | Consultar lote de apostas | `200`, `401`, `404`, `422`, `429`, `500`, `503` | — |
 | `POST` | `/api/v1/apostas/lotes/{lote_id}/restaurar` | Restaurar lote de apostas | `200`, `401`, `402`, `403`, `404`, `409`, `422`, `429`, `500`, `503` | — |
-| `GET` | `/api/v1/apostas/{chave}` | Consultar aposta | `200`, `401`, `402`, `404`, `422`, `429`, `500`, `503` | — |
+| `GET` | `/api/v1/apostas/{chave}` | Consultar aposta | `200`, `401`, `404`, `422`, `429`, `500`, `503` | — |
 | `PATCH` | `/api/v1/apostas/{chave}` | Corrigir aposta | `200`, `401`, `402`, `403`, `404`, `409`, `413`, `422`, `429`, `500`, `503` | — |
 | `DELETE` | `/api/v1/apostas/{chave}` | Excluir aposta da apuração | `200`, `401`, `402`, `403`, `404`, `409`, `422`, `429`, `500`, `503` | — |
 | `GET` | `/api/v1/apostas/{chave}/foto` | Ler a foto original autorizada da aposta | `200`, `401`, `404`, `422`, `429`, `500`, `503` | — |
+| `PUT` | `/api/v1/apostas/{chave}/grupos` | Atribuir grupos à aposta | `200`, `401`, `402`, `403`, `413`, `422`, `429`, `500`, `503` | — |
 | `POST` | `/api/v1/apostas/{chave}/restaurar` | Restaurar aposta na apuração | `200`, `401`, `402`, `403`, `404`, `409`, `422`, `429`, `500`, `503` | — |
 | `POST` | `/api/v1/apostas/{chave}/resultado` | Registrar resultado da aposta | `200`, `401`, `402`, `403`, `404`, `409`, `413`, `422`, `429`, `500`, `503` | — |
-| `GET` | `/api/v1/bancas` | Listar bancas | `200`, `401`, `402`, `422`, `429`, `500`, `503` | — |
+| `GET` | `/api/v1/bancas` | Listar bancas | `200`, `401`, `422`, `429`, `500`, `503` | — |
 | `POST` | `/api/v1/bancas` | Criar banca | `201`, `401`, `402`, `403`, `409`, `413`, `422`, `429`, `500`, `503` | — |
-| `GET` | `/api/v1/bancas/intencao` | Recuperar escrita de banca | `200`, `401`, `402`, `404`, `422`, `429`, `500`, `503` | — |
+| `GET` | `/api/v1/bancas/intencao` | Recuperar escrita de banca | `200`, `401`, `404`, `422`, `429`, `500`, `503` | — |
 | `PATCH` | `/api/v1/bancas/{banca_id}` | Alterar banca | `200`, `401`, `402`, `403`, `404`, `409`, `413`, `422`, `429`, `500`, `503` | — |
 | `POST` | `/api/v1/bancas/{banca_id}/arquivar` | Arquivar banca | `200`, `401`, `402`, `403`, `404`, `409`, `422`, `429`, `500`, `503` | — |
-| `POST` | `/api/v1/billing/cancel` | Cancel renewal | `200`, `401`, `402`, `403`, `409`, `422`, `429`, `500`, `503` | billing |
-| `POST` | `/api/v1/billing/portal` | Manage subscription | `200`, `401`, `402`, `403`, `409`, `422`, `429`, `500`, `503` | billing |
-| `GET` | `/api/v1/billing/status` | Subscription status | `200`, `401`, `402`, `409`, `422`, `429`, `500`, `503` | billing |
-| `POST` | `/api/v1/billing/subscribe` | Start hosted Checkout | `200`, `401`, `402`, `403`, `409`, `413`, `422`, `429`, `500`, `503` | billing |
+| `POST` | `/api/v1/billing/cancel` | Cancel renewal | `200`, `401`, `403`, `409`, `422`, `429`, `500`, `503` | billing |
+| `POST` | `/api/v1/billing/portal` | Manage subscription | `200`, `401`, `403`, `409`, `422`, `429`, `500`, `503` | billing |
+| `GET` | `/api/v1/billing/status` | Subscription status | `200`, `401`, `409`, `422`, `429`, `500`, `503` | billing |
+| `POST` | `/api/v1/billing/subscribe` | Start hosted Checkout | `200`, `401`, `403`, `409`, `413`, `422`, `429`, `500`, `503` | billing |
 | `POST` | `/api/v1/billing/webhook` | Receive Stripe events | `200`, `400`, `413`, `503` | — |
-| `GET` | `/api/v1/caixa` | Listar movimentos de caixa | `200`, `401`, `402`, `422`, `429`, `500`, `503` | — |
+| `GET` | `/api/v1/caixa` | Listar movimentos de caixa | `200`, `401`, `422`, `429`, `500`, `503` | — |
 | `POST` | `/api/v1/caixa` | Registrar movimento de caixa | `201`, `401`, `402`, `403`, `404`, `409`, `413`, `422`, `429`, `500`, `503` | — |
 | `PATCH` | `/api/v1/caixa/contas/{conta_casa_id}/banca` | Vincular conta à banca | `200`, `401`, `402`, `403`, `404`, `409`, `413`, `422`, `429`, `500`, `503` | — |
-| `GET` | `/api/v1/caixa/extrato` | Consultar extrato | `200`, `401`, `402`, `422`, `429`, `500`, `503` | — |
-| `GET` | `/api/v1/caixa/saldo` | Consultar saldos | `200`, `401`, `402`, `422`, `429`, `500`, `503` | — |
-| `POST` | `/api/v1/calculadoras/cobertura-ao-vivo` | Calcular cobertura ao vivo | `200`, `401`, `402`, `403`, `413`, `422`, `429`, `500`, `503` | calculadoras |
-| `POST` | `/api/v1/calculadoras/distribuir-entre-resultados` | Distribuir entre resultados | `200`, `401`, `402`, `403`, `413`, `422`, `429`, `500`, `503` | calculadoras |
-| `POST` | `/api/v1/calculadoras/mercado-justo` | Normalizar mercado justo | `200`, `401`, `402`, `403`, `413`, `422`, `429`, `500`, `503` | calculadoras |
-| `POST` | `/api/v1/calculadoras/percentual-banca` | Calcular percentual da banca | `200`, `401`, `402`, `403`, `413`, `422`, `429`, `500`, `503` | calculadoras |
-| `POST` | `/api/v1/catalogo/candidatos` | Confirmar acesso a domínio exato | `200`, `400`, `401`, `402`, `403`, `405`, `413`, `422`, `429`, `500`, `503` | — |
+| `GET` | `/api/v1/caixa/extrato` | Consultar extrato | `200`, `401`, `422`, `429`, `500`, `503` | — |
+| `GET` | `/api/v1/caixa/saldo` | Consultar saldos | `200`, `401`, `422`, `429`, `500`, `503` | — |
+| `POST` | `/api/v1/calculadoras/cobertura-ao-vivo` | Calcular cobertura ao vivo | `200`, `401`, `403`, `413`, `422`, `429`, `500`, `503` | calculadoras |
+| `POST` | `/api/v1/calculadoras/distribuir-entre-resultados` | Distribuir entre resultados | `200`, `401`, `403`, `413`, `422`, `429`, `500`, `503` | calculadoras |
+| `POST` | `/api/v1/calculadoras/mercado-justo` | Normalizar mercado justo | `200`, `401`, `403`, `413`, `422`, `429`, `500`, `503` | calculadoras |
+| `POST` | `/api/v1/calculadoras/percentual-banca` | Calcular percentual da banca | `200`, `401`, `403`, `413`, `422`, `429`, `500`, `503` | calculadoras |
+| `POST` | `/api/v1/catalogo/candidatos` | Confirmar acesso a domínio exato | `200`, `400`, `401`, `403`, `405`, `413`, `422`, `429`, `500`, `503` | — |
 | `POST` | `/api/v1/coleta` | Receber coleta da extensão | `200`, `400`, `402`, `403`, `413`, `429`, `500`, `503` | — |
 | `POST` | `/api/v1/coleta/batches` | Receber lote v2 | `200`, `400`, `401`, `402`, `403`, `404`, `409`, `413`, `422`, `429`, `500`, `503` | — |
 | `GET` | `/api/v1/coleta/catalogo` | Consultar catálogo assinado | `200`, `304`, `400`, `403`, `405`, `409`, `422`, `426`, `429`, `500`, `503` | — |
-| `GET` | `/api/v1/coleta/contract` | Consultar versão do contrato | `200`, `400`, `401`, `402`, `403`, `404`, `409`, `422`, `429`, `500`, `503` | — |
-| `GET` | `/api/v1/coleta/contract/schema` | Baixar contrato canônico | `200`, `400`, `401`, `402`, `403`, `404`, `409`, `422`, `429`, `500`, `503` | — |
+| `GET` | `/api/v1/coleta/contract` | Consultar versão do contrato | `200`, `400`, `401`, `403`, `404`, `409`, `422`, `429`, `500`, `503` | — |
+| `GET` | `/api/v1/coleta/contract/schema` | Baixar contrato canônico | `200`, `400`, `401`, `403`, `404`, `409`, `422`, `429`, `500`, `503` | — |
 | `GET` | `/api/v1/coleta/installations` | Listar instalações e sessões próprias | `200`, `400`, `401`, `403`, `404`, `422`, `429`, `500`, `503` | — |
-| `DELETE` | `/api/v1/coleta/installations/{instalacao_id}` | Revogar instalação | `204`, `400`, `401`, `402`, `403`, `404`, `422`, `429`, `500`, `503` | — |
-| `POST` | `/api/v1/coleta/installations/{instalacao_id}/rotate` | Rotacionar credencial | `200`, `400`, `401`, `402`, `403`, `404`, `422`, `429`, `500`, `503` | — |
+| `DELETE` | `/api/v1/coleta/installations/{instalacao_id}` | Revogar instalação | `204`, `400`, `401`, `403`, `404`, `422`, `429`, `500`, `503` | — |
+| `POST` | `/api/v1/coleta/installations/{instalacao_id}/rotate` | Rotacionar credencial | `200`, `400`, `401`, `403`, `404`, `422`, `429`, `500`, `503` | — |
 | `GET` | `/api/v1/coleta/jobs/{job_id}` | Consultar entrega v2 | `200`, `400`, `401`, `402`, `403`, `404`, `409`, `422`, `429`, `500`, `503` | — |
-| `POST` | `/api/v1/coleta/pairing-codes` | Criar código de pareamento | `201`, `400`, `401`, `402`, `403`, `404`, `422`, `429`, `500`, `503` | — |
-| `POST` | `/api/v1/coleta/pairing-exchange` | Parear instalação | `200`, `400`, `401`, `402`, `403`, `404`, `413`, `422`, `429`, `500`, `503` | — |
+| `POST` | `/api/v1/coleta/pairing-codes` | Criar código de pareamento | `201`, `400`, `401`, `403`, `404`, `422`, `429`, `500`, `503` | — |
+| `POST` | `/api/v1/coleta/pairing-exchange` | Parear instalação | `200`, `400`, `401`, `403`, `404`, `413`, `422`, `429`, `500`, `503` | — |
 | `POST` | `/api/v1/coleta/sessions` | Abrir ou retomar sessão | `200`, `400`, `401`, `402`, `403`, `404`, `409`, `413`, `422`, `429`, `500`, `503` | — |
 | `GET` | `/api/v1/coleta/sessions/{sessao_id}` | Consultar sessão | `200`, `400`, `401`, `402`, `403`, `404`, `409`, `422`, `429`, `500`, `503` | — |
 | `DELETE` | `/api/v1/coleta/sessions/{sessao_id}` | Encerrar sessão | `204`, `400`, `401`, `402`, `403`, `404`, `409`, `422`, `429`, `500`, `503` | — |
-| `GET` | `/api/v1/coleta/status` | Consultar credencial da instalação | `200`, `400`, `401`, `402`, `403`, `404`, `422`, `429`, `500`, `503` | — |
+| `GET` | `/api/v1/coleta/status` | Consultar credencial da instalação | `200`, `400`, `401`, `403`, `404`, `422`, `429`, `500`, `503` | — |
 | `POST` | `/api/v1/consolidacoes` | Consolidar fontes após revisão | `200`, `401`, `402`, `403`, `413`, `422`, `429`, `500`, `503` | — |
 | `POST` | `/api/v1/consolidacoes/{relacao_id}/desvincular` | Desvincular fontes após revisão | `200`, `401`, `402`, `403`, `413`, `422`, `429`, `500`, `503` | — |
+| `GET` | `/api/v1/filtros/{dimensao}` | Opções autenticadas dos filtros | `200`, `401`, `422`, `429`, `500`, `503` | — |
+| `POST` | `/api/v1/grupos` | Criar grupo privado de apostas | `201`, `401`, `402`, `403`, `413`, `422`, `429`, `500`, `503` | — |
+| `PATCH` | `/api/v1/grupos/{grupo_id}` | Editar ou arquivar grupo | `200`, `401`, `402`, `403`, `413`, `422`, `429`, `500`, `503` | — |
 | `POST` | `/api/v1/integrations/telegram/webhook` | Receber atualização do bot Telegram | `202`, `400`, `403`, `413`, `415`, `429`, `503` | — |
-| `GET` | `/api/v1/painel` | Consultar painel financeiro | `200`, `401`, `402`, `422`, `429`, `500`, `503` | — |
-| `GET` | `/api/v1/painel/analises` | Consultar análises adicionais | `200`, `401`, `402`, `422`, `429`, `500`, `503` | — |
-| `GET` | `/api/v1/painel/export` | Exportar painel em Excel | `200`, `401`, `402`, `422`, `429`, `500`, `503` | — |
-| `GET` | `/api/v1/painel/metas` | Listar metas de desempenho | `200`, `401`, `402`, `422`, `429`, `500`, `503` | — |
+| `GET` | `/api/v1/painel` | Consultar painel financeiro | `200`, `401`, `422`, `429`, `500`, `503` | — |
+| `GET` | `/api/v1/painel/analises` | Consultar análises adicionais | `200`, `401`, `422`, `429`, `500`, `503` | — |
+| `GET` | `/api/v1/painel/export` | Exportar painel em Excel | `200`, `401`, `422`, `429`, `500`, `503` | — |
+| `GET` | `/api/v1/painel/filtrado` | Resumo da seleção de apostas do site | `200`, `401`, `422`, `429`, `500`, `503` | — |
+| `GET` | `/api/v1/painel/filtrado/detalhado/export` | Exportar diário completo e hierarquia reconciliáveis | `200`, `401`, `422`, `429`, `500`, `503` | — |
+| `GET` | `/api/v1/painel/filtrado/diario` | Consultar diário completo em janelas limitadas | `200`, `401`, `422`, `429`, `500`, `503` | — |
+| `GET` | `/api/v1/painel/filtrado/export` | Exportação agregada da seleção do site | `200`, `401`, `422`, `429`, `500`, `503` | — |
+| `GET` | `/api/v1/painel/filtrado/grupos` | Consultar grupos de origem e seus tipsters em lote | `200`, `401`, `422`, `429`, `500`, `503` | — |
+| `GET` | `/api/v1/painel/filtrado/metricas` | Séries diárias da seleção do site | `200`, `401`, `422`, `429`, `500`, `503` | — |
+| `GET` | `/api/v1/painel/hipotetica` | Comparação histórica seguindo a stake do tipster | `200`, `401`, `404`, `422`, `429`, `500`, `503` | — |
+| `GET` | `/api/v1/painel/metas` | Listar metas de desempenho | `200`, `401`, `422`, `429`, `500`, `503` | — |
 | `POST` | `/api/v1/painel/metas` | Criar meta de desempenho | `201`, `401`, `402`, `403`, `413`, `422`, `429`, `500`, `503` | — |
-| `GET` | `/api/v1/painel/metas/{meta_id}` | Consultar meta de desempenho | `200`, `401`, `402`, `422`, `429`, `500`, `503` | — |
+| `GET` | `/api/v1/painel/metas/{meta_id}` | Consultar meta de desempenho | `200`, `401`, `422`, `429`, `500`, `503` | — |
 | `PATCH` | `/api/v1/painel/metas/{meta_id}` | Alterar meta de desempenho | `200`, `401`, `402`, `403`, `413`, `422`, `429`, `500`, `503` | — |
 | `DELETE` | `/api/v1/painel/metas/{meta_id}` | Arquivar meta de desempenho | `200`, `401`, `402`, `403`, `422`, `429`, `500`, `503` | — |
-| `GET` | `/api/v1/painel/metricas` | Consultar séries para gráficos | `200`, `401`, `402`, `422`, `429`, `500`, `503` | — |
-| `GET` | `/api/v1/painel/preferencias` | Consultar preferências do painel | `200`, `401`, `402`, `422`, `429`, `500`, `503` | — |
+| `GET` | `/api/v1/painel/metricas` | Consultar séries para gráficos | `200`, `401`, `422`, `429`, `500`, `503` | — |
+| `GET` | `/api/v1/painel/preferencias` | Consultar preferências do painel | `200`, `401`, `422`, `429`, `500`, `503` | — |
 | `PATCH` | `/api/v1/painel/preferencias` | Alterar preferências do painel | `200`, `401`, `402`, `403`, `413`, `422`, `429`, `500`, `503` | — |
 | `GET` | `/api/v1/prints/intencoes/{intent_id}` | Consultar os itens efetivamente recebidos da intenção | `200`, `401`, `404`, `422`, `429`, `500`, `503` | — |
 | `GET` | `/api/v1/prints/intencoes/{intent_id}/itens/{item_id}` | Reconciliar arquivo pela identidade conhecida antes do POST | `200`, `401`, `404`, `422`, `429`, `500`, `503` | — |
 | `POST` | `/api/v1/prints/intencoes/{intent_id}/itens/{item_id}` | Receber um print web com identidade durável | `202`, `400`, `401`, `402`, `403`, `404`, `409`, `410`, `413`, `422`, `429`, `500`, `503` | — |
 | `POST` | `/api/v1/prints/intencoes/{intent_id}/itens/{item_id}/retry` | Tentar explicitamente apenas um item falho elegível | `202`, `400`, `401`, `402`, `403`, `404`, `409`, `410`, `413`, `422`, `429`, `500`, `503` | — |
 | `POST` | `/api/v1/prints/revisoes/{revisao_id}/resolver` | Resolver revisão de print sem valores financeiros inventados | `200`, `400`, `401`, `402`, `403`, `404`, `409`, `410`, `413`, `422`, `429`, `500`, `503` | — |
-| `GET` | `/api/v1/resultados/apostas/{chave}` | Consultar revisão e elegibilidade | `200`, `401`, `402`, `403`, `404`, `409`, `410`, `422`, `429`, `500`, `503` | Resultados |
-| `GET` | `/api/v1/resultados/fila` | Fila global por antiguidade | `200`, `401`, `402`, `403`, `404`, `409`, `410`, `422`, `429`, `500`, `503` | Resultados |
-| `GET` | `/api/v1/resultados/operacoes/{intention_id}` | Recuperar resposta perdida | `200`, `401`, `402`, `403`, `404`, `409`, `410`, `422`, `429`, `500`, `503` | Resultados |
+| `GET` | `/api/v1/resultados/apostas/{chave}` | Consultar revisão e elegibilidade | `200`, `401`, `403`, `404`, `409`, `410`, `422`, `429`, `500`, `503` | Resultados |
+| `GET` | `/api/v1/resultados/fila` | Fila global por antiguidade | `200`, `401`, `403`, `404`, `409`, `410`, `422`, `429`, `500`, `503` | Resultados |
+| `GET` | `/api/v1/resultados/operacoes/{intention_id}` | Recuperar resposta perdida | `200`, `401`, `403`, `404`, `409`, `410`, `422`, `429`, `500`, `503` | Resultados |
 | `POST` | `/api/v1/resultados/operacoes/{intention_id}` | Registrar resultado condicional | `200`, `401`, `402`, `403`, `404`, `409`, `410`, `413`, `422`, `429`, `500`, `503` | Resultados |
 | `POST` | `/api/v1/resultados/operacoes/{intention_id}/desfazer` | Desfazer resultado confirmado | `200`, `401`, `402`, `403`, `404`, `409`, `410`, `413`, `422`, `429`, `500`, `503` | Resultados |
-| `GET` | `/api/v1/revisao` | Listar revisões pendentes | `200`, `401`, `402`, `422`, `429`, `500`, `503` | — |
-| `GET` | `/api/v1/revisao-operacional/fila` | Fila segura por motivo | `200`, `401`, `402`, `403`, `404`, `409`, `410`, `422`, `429`, `500`, `503` | Revisão operacional |
-| `GET` | `/api/v1/revisao-operacional/operacoes/{operacao_id}` | Reconciliar uma intenção de revisão | `200`, `401`, `402`, `403`, `404`, `409`, `410`, `422`, `429`, `500`, `503` | Revisão operacional |
+| `GET` | `/api/v1/revisao` | Listar revisões pendentes | `200`, `401`, `422`, `429`, `500`, `503` | — |
+| `GET` | `/api/v1/revisao-operacional/fila` | Fila segura por motivo | `200`, `401`, `403`, `404`, `409`, `410`, `422`, `429`, `500`, `503` | Revisão operacional |
+| `GET` | `/api/v1/revisao-operacional/operacoes/{operacao_id}` | Reconciliar uma intenção de revisão | `200`, `401`, `403`, `404`, `409`, `410`, `422`, `429`, `500`, `503` | Revisão operacional |
 | `POST` | `/api/v1/revisao-operacional/operacoes/{operacao_id}` | Resolver uma revisão condicionalmente | `200`, `401`, `402`, `403`, `404`, `409`, `410`, `413`, `422`, `429`, `500`, `503` | Revisão operacional |
-| `GET` | `/api/v1/revisao-operacional/revisoes/{revisao_id}` | Evidência autorizada e ações por família | `200`, `401`, `402`, `403`, `404`, `409`, `410`, `422`, `429`, `500`, `503` | Revisão operacional |
-| `GET` | `/api/v1/revisao-operacional/revisoes/{revisao_id}/foto` | Foto opcional privada da revisão | `200`, `401`, `402`, `403`, `404`, `409`, `410`, `422`, `429`, `500`, `503` | Revisão operacional |
-| `GET` | `/api/v1/revisao/stats` | Consultar estatísticas de revisão | `200`, `401`, `402`, `422`, `429`, `500`, `503` | — |
-| `GET` | `/api/v1/revisao/{revisao_id}` | Consultar revisão | `200`, `401`, `402`, `404`, `422`, `429`, `500`, `503` | — |
-| `GET` | `/api/v1/revisao/{revisao_id}/foto` | Consultar foto da revisão | `200`, `401`, `402`, `404`, `422`, `429`, `500`, `503` | — |
+| `GET` | `/api/v1/revisao-operacional/revisoes/{revisao_id}` | Evidência autorizada e ações por família | `200`, `401`, `403`, `404`, `409`, `410`, `422`, `429`, `500`, `503` | Revisão operacional |
+| `GET` | `/api/v1/revisao-operacional/revisoes/{revisao_id}/foto` | Foto opcional privada da revisão | `200`, `401`, `403`, `404`, `409`, `410`, `422`, `429`, `500`, `503` | Revisão operacional |
+| `GET` | `/api/v1/revisao/stats` | Consultar estatísticas de revisão | `200`, `401`, `422`, `429`, `500`, `503` | — |
+| `GET` | `/api/v1/revisao/{revisao_id}` | Consultar revisão | `200`, `401`, `404`, `422`, `429`, `500`, `503` | — |
+| `GET` | `/api/v1/revisao/{revisao_id}/foto` | Consultar foto da revisão | `200`, `401`, `404`, `422`, `429`, `500`, `503` | — |
 | `POST` | `/api/v1/revisao/{revisao_id}/resolver` | Resolver revisão | `200`, `401`, `402`, `403`, `404`, `409`, `413`, `422`, `429`, `500`, `503` | — |
-| `GET` | `/api/v1/telegram/link` | Consultar vínculo Telegram | `200`, `401`, `402`, `422`, `429`, `500`, `503` | — |
-| `DELETE` | `/api/v1/telegram/link` | Revogar vínculo Telegram | `200`, `401`, `402`, `403`, `422`, `429`, `500`, `503` | — |
-| `POST` | `/api/v1/telegram/link-codes` | Emitir código de vínculo Telegram | `201`, `401`, `402`, `403`, `422`, `429`, `500`, `503` | — |
-| `GET` | `/api/v1/titulares` | Listar titulares | `200`, `401`, `402`, `422`, `429`, `500`, `503` | — |
+| `GET` | `/api/v1/telegram/link` | Consultar vínculo Telegram | `200`, `401`, `422`, `429`, `500`, `503` | — |
+| `DELETE` | `/api/v1/telegram/link` | Revogar vínculo Telegram | `200`, `401`, `403`, `422`, `429`, `500`, `503` | — |
+| `POST` | `/api/v1/telegram/link-codes` | Emitir código de vínculo Telegram | `201`, `401`, `403`, `422`, `429`, `500`, `503` | — |
+| `GET` | `/api/v1/titulares` | Listar titulares | `200`, `401`, `422`, `429`, `500`, `503` | — |
 | `POST` | `/api/v1/titulares` | Criar titular | `201`, `401`, `402`, `403`, `413`, `422`, `429`, `500`, `503` | — |
-| `GET` | `/api/v1/titulares/casas/{casa_id}/matriz` | Consultar titulares por casa | `200`, `401`, `402`, `422`, `429`, `500`, `503` | — |
-| `GET` | `/api/v1/titulares/financeiro` | Consultar financeiro por titular e conta | `200`, `401`, `402`, `422`, `429`, `500`, `503` | — |
+| `GET` | `/api/v1/titulares/casas/{casa_id}/matriz` | Consultar titulares por casa | `200`, `401`, `422`, `429`, `500`, `503` | — |
+| `GET` | `/api/v1/titulares/financeiro` | Consultar financeiro por titular e conta | `200`, `401`, `422`, `429`, `500`, `503` | — |
 | `POST` | `/api/v1/titulares/trocas` | Trocar conta da casa | `200`, `401`, `402`, `403`, `409`, `410`, `413`, `422`, `429`, `500`, `503` | — |
-| `GET` | `/api/v1/titulares/trocas/intencao` | Recuperar intenção de troca | `200`, `401`, `402`, `404`, `422`, `429`, `500`, `503` | — |
+| `GET` | `/api/v1/titulares/trocas/intencao` | Recuperar intenção de troca | `200`, `401`, `404`, `422`, `429`, `500`, `503` | — |
 | `POST` | `/api/v1/titulares/trocas/preview` | Prévia de troca de conta | `200`, `401`, `402`, `403`, `409`, `410`, `413`, `422`, `429`, `500`, `503` | — |
-| `GET` | `/api/v1/titulares/{titular_id}` | Consultar titular | `200`, `401`, `402`, `422`, `429`, `500`, `503` | — |
+| `GET` | `/api/v1/titulares/{titular_id}` | Consultar titular | `200`, `401`, `422`, `429`, `500`, `503` | — |
 | `PATCH` | `/api/v1/titulares/{titular_id}` | Editar titular | `200`, `401`, `402`, `403`, `413`, `422`, `429`, `500`, `503` | — |
 | `DELETE` | `/api/v1/titulares/{titular_id}` | Arquivar titular | `200`, `401`, `402`, `403`, `422`, `429`, `500`, `503` | — |
 | `POST` | `/api/v1/titulares/{titular_id}/contas` | Criar conta da casa | `201`, `401`, `402`, `403`, `413`, `422`, `429`, `500`, `503` | — |
 | `PATCH` | `/api/v1/titulares/{titular_id}/contas/{conta_id}` | Editar conta da casa | `200`, `401`, `402`, `403`, `413`, `422`, `429`, `500`, `503` | — |
 | `POST` | `/api/v1/titulares/{titular_id}/contas/{conta_id}/ativar` | Ativar primeira conta da casa | `200`, `401`, `402`, `403`, `422`, `429`, `500`, `503` | — |
-| `GET` | `/api/v1/titulares/{titular_id}/matriz` | Consultar casas do titular | `200`, `401`, `402`, `422`, `429`, `500`, `503` | — |
-| `GET` | `/api/v1/unidade` | Consultar valor da unidade | `200`, `401`, `402`, `422`, `429`, `500`, `503` | — |
+| `GET` | `/api/v1/titulares/{titular_id}/matriz` | Consultar casas do titular | `200`, `401`, `422`, `429`, `500`, `503` | — |
+| `GET` | `/api/v1/unidade` | Consultar valor da unidade | `200`, `401`, `422`, `429`, `500`, `503` | — |
 | `POST` | `/api/v1/unidade/vigencias` | Definir valor da unidade | `201`, `401`, `402`, `403`, `409`, `413`, `422`, `429`, `500`, `503` | — |
-| `GET` | `/api/v1/unidade/vigencias/intencao` | Recuperar troca de unidade | `200`, `401`, `402`, `404`, `422`, `429`, `500`, `503` | — |
+| `GET` | `/api/v1/unidade/vigencias/intencao` | Recuperar troca de unidade | `200`, `401`, `404`, `422`, `429`, `500`, `503` | — |
 | `POST` | `/api/v1/upload` | Enviar exportação do Telegram | `202`, `400`, `401`, `402`, `403`, `413`, `422`, `429`, `500`, `503` | — |
-| `GET` | `/api/v1/upload/{job_id}` | Consultar processamento do upload | `200`, `401`, `402`, `404`, `422`, `429`, `500`, `503` | — |
-| `DELETE` | `/api/v1/usuario/me` | Desativar e anonimizar minha conta | `200`, `401`, `402`, `403`, `409`, `422`, `429`, `500`, `503` | — |
-| `GET` | `/api/v1/usuario/me/export` | Exportar meus registros | `200`, `401`, `402`, `422`, `429`, `500`, `503` | — |
+| `GET` | `/api/v1/upload/{job_id}` | Consultar processamento do upload | `200`, `401`, `404`, `422`, `429`, `500`, `503` | — |
+| `DELETE` | `/api/v1/usuario/me` | Desativar e anonimizar minha conta | `200`, `401`, `403`, `409`, `422`, `429`, `500`, `503` | — |
+| `GET` | `/api/v1/usuario/me/export` | Exportar meus registros | `200`, `401`, `422`, `429`, `500`, `503` | — |
 | `GET` | `/auth/callback` | Concluir identidade verificada | `302`, `400`, `401`, `403`, `409`, `422`, `429`, `500`, `503` | Identity |
 | `GET` | `/auth/jwks` | Consultar chaves públicas | `200`, `400`, `401`, `403`, `409`, `422`, `429`, `500`, `503` | Identity |
 | `POST` | `/auth/logout` | Revogar sessão | `200`, `400`, `401`, `403`, `409`, `422`, `429`, `500`, `503` | Identity |
