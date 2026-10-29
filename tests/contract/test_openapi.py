@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import re
 from collections.abc import Generator, Iterator
 from contextlib import contextmanager
 from dataclasses import dataclass, field
@@ -219,7 +220,7 @@ def test_openapi_endpoint_matches_checked_in_snapshot(openapi_document: JsonObje
 @pytest.mark.contract
 def test_every_operation_has_human_documentation(openapi_document: JsonObject) -> None:
     operations = list(_operations(openapi_document))
-    assert len(operations) == 132
+    assert len(operations) == 142
     for method, path, operation in operations:
         location = f"{method.upper()} {path}"
         assert str(operation.get("summary", "")).strip(), location
@@ -244,7 +245,7 @@ def test_request_bodies_have_examples(openapi_document: JsonObject) -> None:
             assert media.get("example") is not None or media.get("examples"), (
                 f"{method.upper()} {path}: {media_type} lacks an example"
             )
-    assert bodies == 46
+    assert bodies == 50
 
 
 @pytest.mark.contract
@@ -460,6 +461,10 @@ def test_ci_rejects_breaking_changes_against_the_pull_request_base() -> None:
 
 
 contract_app = NoProductionLifespan(app)
+# Each xdist process generates the complete application contract once, before
+# starting Schemathesis' timed HTTP reads. Keep the real /openapi.json requests
+# and their existing timeout; first-time schema construction is collection work.
+app.openapi()
 
 positive_config = schemathesis.Config()
 positive_config.projects.default.generation.update(
@@ -684,6 +689,18 @@ def invalid_upload_job_cases(
             return operation.Case(path_parameters=parameters, body=body, media_type=media_type)
 
         return st.text(alphabet="ghijklmnopqrstuvwxyz", min_size=1, max_size=40).map(invalid_print)
+    if operation.path.startswith("/api/v1/planilhas/") and "{" in operation.path:
+        names = re.findall(r"\{([^}]+)\}", operation.path)
+        kwargs = (
+            {"media_type": "application/json", "body": {}}
+            if operation.method.upper() in {"POST", "PUT"}
+            else {}
+        )
+        if "/fontes/" in operation.path and "/previas/" in operation.path:
+            kwargs = {"media_type": "multipart/form-data", "body": {"arquivo": "invalid.xlsx"}}
+        return st.text(alphabet="ghijklmnopqrstuvwxyz", min_size=1, max_size=40).map(
+            lambda value: operation.Case(path_parameters=dict.fromkeys(names, value), **kwargs)
+        )
     if operation.path != "/api/v1/upload/{job_id}" or operation.method.upper() != "GET":
         return _strategy
     return st.text(alphabet="ghijklmnopqrstuvwxyz", min_size=1, max_size=40).map(

@@ -48,6 +48,7 @@ dependencies = [
     "opentelemetry-instrumentation-redis>=0.49b0",
     "opentelemetry-instrumentation-celery>=0.49b0",
     "opentelemetry-exporter-otlp>=1.28.0",
+    "defusedxml>=0.7.1",
 ]
 
 [project.optional-dependencies]
