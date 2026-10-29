@@ -40,6 +40,7 @@ async def account_for_game(
         NativeAccount.usuario_id == user_id,
         NativeAccount.casa_id == house_id,
         NativeAccount.currency == bet.currency,
+        NativeAccount.active == True,  # Fix #2: filter by active=True
     )
     if explicit_account_id is not None:
         match = await session.scalar(statement.where(NativeAccount.id == explicit_account_id))
