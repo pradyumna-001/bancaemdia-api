@@ -22,6 +22,7 @@ from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncEngine, AsyncSession
 
 from bancaemdia.api.policies import EXTENSION, FORA_DO_USUARIO
+from bancaemdia.api.v1 import sheet_import
 from bancaemdia.auth import middleware as auth_middleware
 from bancaemdia.auth.jwt import JWKSCache
 from bancaemdia.config import get_settings
@@ -83,6 +84,8 @@ async def read_only(
 
     for dependency in (get_db, get_db_primary, get_db_primary_snapshot, get_db_snapshot):
         monkeypatch.setitem(app.dependency_overrides, dependency, sessions)
+    # A planilha abre a própria sessão SERIALIZABLE pelo engine do módulo, fora de get_db.
+    monkeypatch.setattr(sheet_import, "engine", engine_app)
     settings = get_settings()
     async with engine_admin.begin() as conn:
         previous = await conn.scalar(text("SELECT activated_at FROM billing_rollout WHERE id=1"))
