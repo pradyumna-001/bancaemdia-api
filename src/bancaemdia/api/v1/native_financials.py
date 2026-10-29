@@ -120,21 +120,23 @@ async def create_account(
 ) -> dict[str, object]:
     if await session.scalar(select(Casa.id).where(Casa.id == payload.casa_id)) is None:
         raise HTTPException(404, "house not found")
-    
+
     # Fix #3: Prevent overlapping accounts for same user/casa/currency
     overlap = await session.scalar(
-        select(NativeAccount.id).where(
+        select(NativeAccount.id)
+        .where(
             NativeAccount.usuario_id == user.id,
             NativeAccount.casa_id == payload.casa_id,
             NativeAccount.currency == payload.currency,
-            NativeAccount.active == True,
+            NativeAccount.active,
             NativeAccount.valid_from <= payload.valid_to if payload.valid_to else True,
             (NativeAccount.valid_to.is_(None)) | (NativeAccount.valid_to > payload.valid_from),
-        ).limit(1)
+        )
+        .limit(1)
     )
     if overlap is not None:
         raise HTTPException(409, "overlapping account exists for this user/casa/currency")
-    
+
     account = NativeAccount(usuario_id=user.id, **payload.model_dump(), active=True)
     session.add(account)
     await session.flush()

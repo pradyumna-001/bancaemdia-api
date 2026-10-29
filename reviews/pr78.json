@@ -1,0 +1,27 @@
+{"commit_id":"67346001c4214236441892d408df137274124489","event":"REQUEST_CHANGES","body":"## PR #78 Review — feat: implementar quatro calculadoras com resultados da API (#55)\n\n### Resumo\n\nImplementa 4 calculadoras stateless consumindo API: `mercado-justo`, `distribuir-entre-resultados`, `cobertura-ao-vivo`, `percentual-banca`. UI reativa com `useRef` para revision control, cancelamento via `AbortController`, retry-after, optimistic updates. 104 arquivos, +10k/−2k, 1 commit. Base `main` @ `b5fb27d`.\n\n### Pontos fortes\n- **4 calculadoras stateless**: `mercado-justo`, `distribuir-entre-resultados`, `cobertura-ao-vivo`, `percentual-banca` — sem estado servidor, apenas leitura.\n- **Revision control robusto**: `revision.current.value++` em cada ação; `AbortController` cancela requests anteriores; `pending.current` evita race conditions.\n- **Validação rigorosa**: `decimalInput`/`moneyInput` parseiam decimal brasileiro (vírgula/ponto); `moneyInput` recusa `boolean`; `decimalInput` valida range odd ≥ 1.01.\n- **Market type explícito**: `market` flag distingue `mercado-justo` vs `distribuir-entre-resultados`; `complete` checkbox exige confirmação explícita.\n- **`presentCalculation` tipado**: Retorna `metrics`, `rows`, `columns`, `warnings`, `method`, `precision`, `rounding`, `assumptions` — tipado para resposta.\n- **UI responsiva**: `entries` dinâmico (2-20 resultados), `removedEntry` com undo, `removedEntry.index` para undo preciso.\n- **Testes abrangentes**: 12 testes unitários + 4 E2E cobrindo market/distribute/coverage/bankroll, validação, limites.\n\n### Alterações solicitadas\n\n1. **`CalculadorasPage.tsx` — `revision.current.value++` em 3 lugares**: Incremento manual em 3 lugares (`clear`, `useEffect` tool, `useEffect` error). Centralizar em helper `nextRevision()`.\n2. **`protocol.ts` — `presentCalculation` retorna `any` para `rows`/`columns`**: Tipagem fraca. Definir `CalculationResult` com `rows: CalculationRow[]`, `columns: string[]`.\n3. **`protocol.ts` — `moneyInput`/`decimalInput` não validam `NaN`/`Infinity`**: `moneyInput` usa `Number()` que aceita `NaN`. Adicionar `Number.isFinite()`.\n4. **`CalculadorasPage.tsx` — `revision.current.value++` em 3 `useEffect`**: Duplicação. Extrair `const nextRevision = () => revision.current.value++;` no topo.\n5. **Middleware ASGI conversion**: Verificar regressão.\n\nVerdict: **Aprovar após os 5 itens acima**. Arquitetura sólida, tipagem forte, UX fluida.",
+  "comments": [
+    {
+      "path": "src/features/calculadoras/CalculadorasPage.tsx",
+      "line": 1,
+      "side": "RIGHT",
+      "body": "## `revision.current.value++` duplicado em 3 lugares\n\nIncremento manual em `clear()`, `useEffect` tool change, `useEffect` error. Centralizar:\n```ts\nconst nextRevision = () => revision.current.value++;\n// usar nextRevision() em vez de revision.current.value++\n```"
+    },
+    {
+      "path": "src/features/calculadoras/protocol.ts",
+      "line": 1,
+      "side": "RIGHT",
+      "body": "## `presentCalculation` retorna `any` para `rows`/`columns`\n\n`rows: any[]`, `columns: any[]` — tipagem fraca. Definir:\n```ts\nexport interface CalculationRow { [key: string]: string | number | null }\nexport interface CalculationResult { metrics: [string, string][]; rows: CalculationRow[]; columns: string[]; ... }\n```"
+    },
+    {
+      "path": "src/features/calculadoras/protocol.ts",
+      "line": 1,
+      "side": "RIGHT",
+      "body": "## `moneyInput`/`decimalInput` não validam `NaN`/`Infinity`\n\n`moneyInput` usa `Number()` que aceita `NaN`. `decimalInput` usa `Number()` sem `Number.isFinite()`. Adicionar:\n```ts\nif (!Number.isFinite(number)) throw new Error('Valor indisponível.');\n```"
+    },
+    {
+      "path": "src/features/calculadoras/CalculadorasPage.tsx",
+      "line": 1,
+      "side": "RIGHT",
+      "body": "## `revision.current.value++` duplicado em 3 `useEffect`\n\nIncremento manual em 3 `useEffect` (tool change, error, clear). Extrair:\n```ts\nconst nextRevision = () => revision.current.value++;\n// usar nextRevision() em vez de revision.current.value++\n```"
+    }
+  ]}

@@ -1,0 +1,1 @@
+{"body":"## `blocked` não considera `phase === 'expired'`\n\nSe sessão expirou mas `auth` ainda existe, `phase` pode não ser `'ended'`. Adicionar `phase === 'expired'` ao `blocked`: `phase === 'expired' || phase === 'ending' || ...`.","commit_id":"1efe758cf0bbfa3be7815a56171c2e0ad94837d6","path":"src/features/conta/AccountPage.tsx","line":102,"side":"RIGHT"}

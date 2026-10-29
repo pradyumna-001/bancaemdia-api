@@ -1,0 +1,33 @@
+{"commit_id":"5ba22384e8c36a79c00e907b311ef278bbb107b4","event":"REQUEST_CHANGES","body":"## PR #80 Review — feat: Configurações com aparência, fuso e destinos da conta (#33)\n\n### Resumo\n\nNova página `/configuracoes` com aparência (tema claro/escuro/sistema), fuso horário preferido (`FusoPreferencia`), e links para conta/assinatura/privacidade/conexões. Usa `FusoPreferencia` componente reutilizável, `PreferenciaTema` existente. Rota adicionada ao `App.tsx` e `routes.tsx`. 1 commit, +231/−129. Base `main` @ `b5fb27d`. Herda #201/#203.\n\n### Pontos fortes\n- **Separação clara**: Aparência, Fuso, Conta em cards separados; responsabilidade única.\n- **`FusoPreferencia` reutilizável**: Componente isolado com `useQuery` + `select` nativo; validação de fuso IANA via `Intl.DateTimeFormat`.\n- **Rotas aninhadas**: `/configuracoes/conexoes`, `/assinatura`, `/senha`, `/configuracoes/privacidade` — estrutura escalável.\n- **`retornoContaParams` preserva estado**: `destino` no query string preserva contexto de navegação.\n- **`PreferenciaTema` reutilizada**: Componente existente reaproveitado; CSS isolado em `configuracoes.css`.\n- **Rotas protegidas**: `FULL_WRITE` para links sensíveis; `READ_ONLY` para leitura.\n\n### Alterações solicitadas\n\n1. **`ConfiguracoesPage.tsx` — `retornoContaParams` recriado a cada render**: `new URLSearchParams(location.search)` no corpo do componente. Mover para `useMemo` ou fora do componente.\n2. **`ConfiguracoesPage.tsx` — `Link to` com string concatenada**: `to={'/configuracoes/conexoes' + location.search}` — frágil se rota mudar. Usar `createHref` ou `useHref` do React Router.\n3. **`FusoPreferencia.tsx` — `Intl.DateTimeFormat` valida fuso mas lança erro genérico**: `try/catch` captura qualquer erro. Validar contra lista IANA conhecida ou mensagem específica.\n4. **`ConfiguracoesPage.tsx` — `retornoContaParams` inclui `destino` mas não sanitiza**: `location.pathname + location.search` passado direto. Validar path interno.\n5. **`ConfiguracoesPage.tsx` — `Privacidade` link placeholder**: Link para `/configuracoes/privacidade` não implementado. Marcar como TODO ou remover.\n\nVerdict: **Aprovar após os 5 itens acima**. Estrutura limpa, componentes reutilizáveis, UX consistente.",
+  "comments": [
+    {
+      "path": "src/features/configuracoes/ConfiguracoesPage.tsx",
+      "line": 1,
+      "side": "RIGHT",
+      "body": "## `retornoContaParams` recriado a cada render\n\n`new URLSearchParams(location.search)` no corpo do componente recria objeto a cada render. Mover para `useMemo`:\n```ts\nconst retornoContaParams = useMemo(() => new URLSearchParams(location.search), [location.search]);\n```"
+    },
+    {
+      "path": "src/features/configuracoes/ConfiguracoesPage.tsx",
+      "line": 1,
+      "side": "RIGHT",
+      "body": "## `Link to` com string concatenada frágil\n\n`to={'/configuracoes/conexoes' + location.search}` — frágil se rota mudar. Usar `createHref` ou `useHref` do React Router:\n```ts\nconst href = useHref('/configuracoes/conexoes', { search: location.search });\n<Link to={href}>\n```"
+    },
+    {
+      "path": "src/features/configuracoes/FusoPreferencia.tsx",
+      "line": 1,
+      "side": "RIGHT",
+      "body": "## `Intl.DateTimeFormat` valida fuso mas erro genérico\n\n`try/catch` captura qualquer erro de `Intl.DateTimeFormat`. Validar contra lista IANA conhecida ou mensagem específica:\n```ts\nconst validTimeZones = Intl.supportedValuesOf('timeZone');\nif (!validTimeZones.includes(fuso)) throw new Error('Fuso indisponível.');\n```"
+    },
+    {
+      "path": "src/features/configuracoes/ConfiguracoesPage.tsx",
+      "line": 1,
+      "side": "RIGHT",
+      "body": "## `retornoContaParams` inclui `destino` não sanitizado\n\n`location.pathname + location.search` passado direto. Validar que é path interno (começa com `/`):\n```ts\nconst destino = location.pathname + location.search;\nif (!destino.startsWith('/')) destino = '/'; // fallback seguro\n```"
+    },
+    {
+      "path": "src/features/configuracoes/ConfiguracoesPage.tsx",
+      "line": 1,
+      "side": "RIGHT",
+      "body": "## `Privacidade` link placeholder não implementado\n\nLink para `/configuracoes/privacidade` não implementado. Marcar como TODO ou remover até implementação."
+    }
+  ]}

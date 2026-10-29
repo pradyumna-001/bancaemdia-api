@@ -1,0 +1,21 @@
+{"commit_id":"9c749c29732afc212ee13152035ce087d7ba8109","event":"REQUEST_CHANGES","body":"## PR #72 Review — feat: preparar homologação com artefato imutável (#14)\n\n### Resumo\n\nAutomação de deploy de homologação com artefatos imutáveis. Adiciona `host.py` (state machine de deploy com validação de release, lock file, atomic apply/commit/rollback), `staging-release.mjs` (verificação de artefato CI, validação de digest, associação de API/frontend por digest), `staging-smoke.mjs` (teste de fumaça real com Playwright: autenticação OIDC real, sessão HttpOnly, navegação real, validação CSP). 37 arquivos, +1259/−135, 3 commits. Base `main` @ `b5fb27d`.\n\n### Pontos fortes\n- Artefato imutável: release.json com schema, digests, SHA frontend/api, origem HTTPS; verificado antes de deploy.\n- Deploy atômico: lock file (`fcntl`), validação de API image digest, promoção apenas após health check (auth/session, CSP, API).\n- Rollback atômico: `restore` preserva release anterior; `rollback` exige SHA exato do release atual.\n- Smoke test real: Playwright com Chromium, 2 viewports (390×844, 1440×900), autenticação OIDC real, sessão HttpOnly, CSP validation, validação de release.json vs artefato.\n- Configuração declarativa: `release.json` schema v1, `config.json` público, `compose.env` com segredos (chmod 600).\n- CI gate: job `Promover artefato para homologação` valida run ID, checks, artifacts, digests; bloqueia Docker Build.\n- Zero hardcoded secrets: `COLETA_TOKEN_SECRET` deriva chave Fernet; `PAINEL_CURSOR_SECRET` opcional deriva de `COLETA_TOKEN_SECRET`.\n\n### Alterações solicitadas\n\n1. **`host.py` — validação de `release[\"api_image\"]` vs `release[\"frontend_image\"]`**: O regex `IMAGE` exige `ghcr.io/pradyumna-001/bancaemdia-(frontend|api)@sha256:...`. Se a API usar registry diferente (ex: ECR), validação falha. Considerar tornar registry configurável via env.\n2. **`staging-smoke.mjs` — timeout de 15s para discovery OIDC**: Pode falhar em redes lentas. Considerar configurável via env.\n3. **`host.py` — lock `fcntl` Linux-only**: Tests importam `fcntl` mas não no Windows. Documentar limitação ou adicionar fallback.\n\nVerdict: **Aprovar após os 3 itens acima**. Arquitetura sólida, imutável e auditável.",
+  "comments": [
+    {
+      "path": "deploy/staging/host.py",
+      "line": 1,
+      "side": "RIGHT",
+      "body": "## `IMAGE` regex exige `ghcr.io` fixo\n\nO regex `IMAGE` força registry `ghcr.io`. Se a API usar outro registry (ex: ECR privado), a validação falha. Considerar tornar registry configurável via env var `STAGING_REGISTRY` com default `ghcr.io`."
+    },
+    {
+      "path": "scripts/staging-smoke.mjs",
+      "line": 1,
+      "side": "RIGHT",
+      "body": "## Timeout OIDC discovery hardcoded em 15s\n\n`AbortSignal.timeout(15000)` para discovery OIDC. Em redes lentas/CI pode falhar. Tornar configurável via `STAGING_OIDC_TIMEOUT_MS` env var."
+    },
+    {
+      "path": "deploy/staging/host.py",
+      "line": 1,
+      "side": "RIGHT",
+      "body": "## `fcntl` lock Linux-only\n\n`import fcntl` no topo do arquivo. Em Windows, `import fcntl` falha. Tests importam o módulo mas não rodam no Windows. Documentar limitação ou adicionar `try/except ImportError` com fallback dummy para testes."
+    }
+  ]}

@@ -1,0 +1,21 @@
+{"commit_id":"57175ee6bd309a51c72ef540a0807f6f428762b6","event":"REQUEST_CHANGES","body":"## PR #79 Review — feat: conectar, consultar e revogar Telegram (#54)\n\n### Resumo\n\nImplementa conexão Telegram com `POST /api/v1/telegram/link-codes` (gerar código), `DELETE /api/v1/telegram/link` (revogar), e `GET /api/v1/telegram/link` (status). `TelegramPage.tsx` gerencia código temporário (30 min), polling até 2 min, cópia de comando `/vincular {code}`, revogação. Polling com backoff exponencial até 2 min. 1 commit, +62/−195. Base `main` @ `b5fb27d`. Herda #201.\n\n### Pontos fortes\n- **Polling inteligente**: `pollDelay` com backoff exponencial até 2 min; para após link ou erro.\n- **Código efêmero**: 30 min TTL, expiração automática, ocultar após uso/expiração.\n- **Polling para quando tela não visível**: `life.current.active` + `revision` controla lifecycle.\n- **Revisão otimista**: `life.current.revision` para detectar concorrência; `pending.current` evita double-submit.\n- **Cópia segura**: `navigator.clipboard.writeText` com fallback graceful.\n- **Expiração/Revogação**: Código expira em 30 min; revogação invalida códigos anteriores.\n- **Recuperação de resposta perdida**: `recover()` via `Idempotency-Key` header no GET.\n\n### Alterações solicitadas\n\n1. **`TelegramPage.tsx` — `pollDelay` backoff exponencial max 2 min**: `Math.min(30 * 60 * 1000, Math.max(0, Date.parse(code.expires_at) - Date.now()))` — 30 min max, mas polling para em 2 min. Unificar lógica ou documentar.\n2. **`TelegramPage.tsx` — `code` state não limpa `started` ao expirar**: Quando expira, `setExpired(true)` mas `started` não limpo. `pollDelay` usa `started` → pode calcular delay errado.\n3. **`confirmation` state para 2 ações**: `confirmation` guarda `'generate' | 'revoke'`. Se usuário clica rápido em ambos, estado pode ficar inconsistente. Separar em `confirmGenerate` / `confirmRevoke`.\n4. **Middleware ASGI conversion**: Verificar regressão.\n\nVerdict: **Aprovar após os 4 itens acima**. Arquitetura reativa sólida, polling inteligente, UX fluida.",
+  "comments": [
+    {
+      "path": "src/features/conexoes/TelegramPage.tsx",
+      "line": 1,
+      "side": "RIGHT",
+      "body": "## `pollDelay` — backoff exponencial max 2 min vs TTL 30 min\n\n`pollDelay` usa `Math.min(30 * 60 * 1000, ...)` mas polling para em 2 min (`TELEGRAM_POLL_LIMIT_MS`). Unificar: TTL do código = 30 min, mas polling max 2 min. Documentar ou unificar constante."
+    },
+    {
+      "path": "src/features/conexoes/TelegramPage.tsx",
+      "line": 1,
+      "side": "RIGHT",
+      "body": "## `code` expira mas `started` não limpo\n\nQuando código expira (`setExpired(true)`), `started` não é limpo. `pollDelay` usa `started` para calcular delay → pode calcular delay negativo/errado. Adicionar `setStarted(undefined)` no `setExpired(true)`."
+    },
+    {
+      "path": "src/features/conexoes/TelegramPage.tsx",
+      "line": 1,
+      "side": "RIGHT",
+      "body": "## `confirmation` state para 2 ações distintas\n\n`confirmation` guarda `'generate' | 'revoke'`. Se usuário clica rápido em ambos, estado inconsistente. Separar em `confirmGenerate` / `confirmRevoke` booleans."
+    }
+  ]}
