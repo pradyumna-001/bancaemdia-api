@@ -64,3 +64,4 @@ logs/
 
 # Poetry
 poetry.lock
+identity-diagnostics/

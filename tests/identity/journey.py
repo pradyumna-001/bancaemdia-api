@@ -34,6 +34,7 @@ from sqlalchemy.pool import NullPool
 from bancaemdia.auth.identity_crypto import digest
 from bancaemdia.auth.identity_service import IdentityService
 from bancaemdia.config import get_settings
+from tests.identity import diagnostics
 from tests.identity.support import key_settings
 
 API = "http://127.0.0.1:58000"
@@ -134,10 +135,23 @@ class Harness:
     processes: list[Any] = field(default_factory=list)
 
     async def restart(self) -> Any:
+        journal = diagnostics.Journal(self.root / "identity-diagnostics", self.env)
         for process in self.processes:
             if process.poll() is None:
+                started = time.monotonic()
                 process.terminate()
                 await asyncio.to_thread(process.wait, 15)
+                journal.record(
+                    "api.stop",
+                    f"pid={process.pid} exit={process.returncode}"
+                    f" after={time.monotonic() - started:.2f}s",
+                )
+        journal.record(
+            "api.port.before",
+            f"bind_error={diagnostics.bind_error(58000)} holders={diagnostics.port_holders(58000)}",
+        )
+        stderr_path = journal.directory / f"api-{len(self.processes)}.stderr"
+        stderr = stderr_path.open("wb")
         # Raw uvicorn access logging is deliberately disabled for the sandbox subprocess too.
         process = subprocess.Popen(
             [
@@ -154,14 +168,20 @@ class Harness:
             env=self.env,
             cwd=self.root,
             stdout=subprocess.DEVNULL,
-            stderr=subprocess.DEVNULL,
+            stderr=stderr,
         )
+        stderr.close()
         self.processes.append(process)
         async with httpx.AsyncClient(timeout=2) as client:
             for _ in range(100):
                 if process.poll() is not None:
+                    holders = diagnostics.port_holders(58000)
+                    journal.record("api.exit", f"code={process.returncode} holders={holders}")
                     pytest.fail(
                         "Actual API subprocess did not start; check configuration and migration"
+                        f" (exit {process.returncode}; port 58000 holders {holders})\n"
+                        + diagnostics.tail(stderr_path, self.env),
+                        pytrace=False,
                     )
                 try:
                     if (await client.get(API + "/health")).status_code == 200:
@@ -362,7 +382,15 @@ async def login(page: Any, email: Any, password: Any, *, intent: Any = "login") 
         )
     await page.locator("#password").fill(password)
     await page.locator("#kc-login").click()
-    await page.wait_for_url(FRONT + "/signed-in", timeout=30000)
+    try:
+        await page.wait_for_url(FRONT + "/signed-in", timeout=30000)
+    except BrowserTimeout:
+        state = await diagnostics.hosted_state(page)
+        issuer = await diagnostics.issuer_user(email)
+        pytest.fail(
+            "Hosted login did not reach /signed-in: " + json.dumps({**state, "issuer": issuer}),
+            pytrace=False,
+        )
     result = await fetch(page, "/auth/session")
     assert result["status"] == 200 and result["data"]["email"] == email
     return result["data"]
@@ -380,6 +408,9 @@ async def register(
     assert await page.locator("#password").count() == 0
     await page.locator('input[type="submit"],button[type="submit"]').click()
     link, message = await mail_link(email)
+    journal = diagnostics.Journal(harness.root / "identity-diagnostics", harness.env)
+    journal.record("register.mail", json.dumps(await diagnostics.hosted_state(page)))
+    journal.record("register.mail.issuer", json.dumps(await diagnostics.issuer_user(email)))
     # No API user can exist before email confirmation.
     async with harness.service.engine.connect() as conn:
         assert (
@@ -408,8 +439,19 @@ async def register(
         await asyncio.sleep(31)  # Existing JWKS anti-amplification cooldown, not a mocked clock.
         status = await login(page, email, password)
     else:
-        await page.wait_for_url(FRONT + "/signed-in", timeout=30000)
+        try:
+            await page.wait_for_url(FRONT + "/signed-in", timeout=30000)
+        except BrowserTimeout:
+            state = await diagnostics.hosted_state(page)
+            issuer = await diagnostics.issuer_user(email)
+            journal.record("register.timeout", json.dumps({**state, "issuer": issuer}))
+            pytest.fail(
+                "Hosted registration did not reach /signed-in: "
+                + json.dumps({**state, "issuer": issuer}),
+                pytrace=False,
+            )
         status = (await fetch(page, "/auth/session"))["data"]
+    journal.record("register.done.issuer", json.dumps(await diagnostics.issuer_user(email)))
     return status, message
 
 
