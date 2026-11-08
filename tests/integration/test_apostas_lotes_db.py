@@ -296,7 +296,9 @@ async def test_confirmation_is_bound_to_the_exact_set_phrase_and_time(
     previa = await api.previa(uid)
     errada = await api.apagar(uid, previa, frase="APAGAR TUDO")
     assert errada.status_code == 422 and errada.json() == {"detail": "frase_incorreta"}
-    adulterada = await api.apagar(uid, previa, confirmacao=previa["confirmacao"][:-2] + "00")
+    # The HMAC hexdigest itself ends in "00" once in 256 runs; always change it.
+    fim = "11" if previa["confirmacao"].endswith("00") else "00"
+    adulterada = await api.apagar(uid, previa, confirmacao=previa["confirmacao"][:-2] + fim)
     assert adulterada.status_code == 422 and adulterada.json() == {"detail": "confirmacao_invalida"}
     outra = await api.novo()
     alheia = await api.apagar(outra, previa)
