@@ -508,7 +508,10 @@ jobs:
         if: always()
         with:
           name: identity-acceptance
-          path: identity-results.xml
+          # Bootstrap journal and stderr are sanitized by tests/identity/diagnostics.py.
+          path: |
+            identity-results.xml
+            identity-diagnostics/
       - name: Stop only this disposable compose project
         if: always()
         run: docker compose -f tests/identity/docker-compose.yml down

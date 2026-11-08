@@ -25,7 +25,7 @@ from uuid import uuid4
 import httpx
 import pytest
 from playwright.async_api import TimeoutError as BrowserTimeout
-from playwright.async_api import ViewportSize, async_playwright
+from playwright.async_api import ViewportSize, async_playwright, expect
 from sqlalchemy import text
 from sqlalchemy.engine import make_url
 from sqlalchemy.ext.asyncio import create_async_engine
@@ -34,6 +34,7 @@ from sqlalchemy.pool import NullPool
 from bancaemdia.auth.identity_crypto import digest
 from bancaemdia.auth.identity_service import IdentityService
 from bancaemdia.config import get_settings
+from tests.identity import diagnostics, ports
 from tests.identity.support import key_settings
 
 API = "http://127.0.0.1:58000"
@@ -41,12 +42,23 @@ FRONT = "http://127.0.0.1:58001"
 ISSUER = "http://127.0.0.1:58080/realms/bancaemdia-acceptance"
 MAIL = "http://127.0.0.1:58025"
 CLIENT = "bancaemdia-acceptance"
+SUBMIT = 'input[type="submit"],button[type="submit"]'
 
 
 @dataclass
 class Network:
     fault: str = ""
     token_requests: int = 0
+
+
+def reserved_server(port: int, handler: Any) -> ThreadingHTTPServer:
+    server = ThreadingHTTPServer(("127.0.0.1", port), handler, bind_and_activate=False)
+    server.socket.close()
+    # server_close() closes only this duplicate; see tests/identity/ports.py.
+    server.socket = ports.listener(port)
+    server.server_address = server.socket.getsockname()
+    server.server_name, server.server_port = "127.0.0.1", port
+    return server
 
 
 def serve_issuer(network: Any) -> Any:
@@ -100,7 +112,7 @@ def serve_issuer(network: Any) -> Any:
         do_POST = forward  # ruff: ignore[mixed-case-variable-in-class-scope] - BaseHTTPRequestHandler protocol
         do_PUT = forward  # ruff: ignore[mixed-case-variable-in-class-scope] - disposable issuer admin protocol
 
-    return ThreadingHTTPServer(("127.0.0.1", 58080), Proxy)
+    return reserved_server(58080, Proxy)
 
 
 def serve_frontend() -> Any:
@@ -122,7 +134,59 @@ def serve_frontend() -> Any:
                 b"<!doctype html><title>Disposable identity acceptance</title><p>Session return destination</p>"
             )
 
-    return ThreadingHTTPServer(("127.0.0.1", 58001), Frontend)
+    return reserved_server(58001, Frontend)
+
+
+async def stop_servers(servers: list[Any]) -> None:
+    for server in servers:
+        await asyncio.to_thread(server.shutdown)
+        server.server_close()
+
+
+async def wait_for_issuer(journal: diagnostics.Journal) -> None:
+    """The realm answers discovery, publishes signing keys and renders the hosted login.
+
+    Keycloak serves discovery as soon as HTTP is up; the first hosted page can still
+    fail while themes and the imported realm finish warming. A journey starts only after
+    the same three things a browser needs are ready.
+    """
+    started, last = time.monotonic(), ""
+    async with httpx.AsyncClient(timeout=5) as client:
+        while time.monotonic() - started < 180:
+            last = ""
+            try:
+                discovery = await client.get(ISSUER + "/.well-known/openid-configuration")
+                if discovery.status_code != 200:
+                    last = f"discovery {discovery.status_code}"
+                    raise LookupError
+                metadata = discovery.json()
+                certs = await client.get(metadata["jwks_uri"])
+                if certs.status_code != 200 or not certs.json().get("keys"):
+                    last = f"jwks {certs.status_code}"
+                    raise LookupError
+                hosted = await client.get(
+                    metadata["authorization_endpoint"],
+                    params={
+                        "client_id": CLIENT,
+                        "response_type": "code",
+                        "scope": "openid",
+                        "redirect_uri": API + "/auth/callback",
+                        # The client requires PKCE; this throwaway request is never completed.
+                        "state": secrets.token_urlsafe(16),
+                        "code_challenge": secrets.token_urlsafe(32),
+                        "code_challenge_method": "S256",
+                    },
+                )
+                if hosted.status_code != 200 or 'id="kc-form-login"' not in hosted.text:
+                    last = f"hosted login {hosted.status_code}"
+                    raise LookupError
+                journal.record("issuer.ready", f"after={time.monotonic() - started:.1f}s")
+                return
+            except (LookupError, KeyError, ValueError, httpx.HTTPError) as error:
+                last = last or type(error).__name__
+            await asyncio.sleep(1)
+    journal.record("issuer.unavailable", last)
+    pytest.fail(f"Real disposable issuer is not ready after 180 s (last: {last})", pytrace=False)
 
 
 @dataclass
@@ -133,43 +197,80 @@ class Harness:
     root: Path
     processes: list[Any] = field(default_factory=list)
 
-    async def restart(self) -> Any:
+    @property
+    def journal(self) -> diagnostics.Journal:
+        directory = os.environ.get("IDENTITY_DIAGNOSTICS_DIR") or self.root / "identity-diagnostics"
+        return diagnostics.Journal(Path(directory), self.env)
+
+    async def stop(self) -> None:
         for process in self.processes:
-            if process.poll() is None:
-                process.terminate()
+            if process.poll() is not None:
+                continue
+            started = time.monotonic()
+            process.terminate()
+            try:
                 await asyncio.to_thread(process.wait, 15)
-        # Raw uvicorn access logging is deliberately disabled for the sandbox subprocess too.
-        process = subprocess.Popen(
-            [
-                sys.executable,
-                "-m",
-                "uvicorn",
-                "bancaemdia.main:app",
-                "--host",
-                "127.0.0.1",
-                "--port",
-                "58000",
-                "--no-access-log",
-            ],
-            env=self.env,
-            cwd=self.root,
-            stdout=subprocess.DEVNULL,
-            stderr=subprocess.DEVNULL,
-        )
+            except subprocess.TimeoutExpired:
+                # A graceful shutdown can wait forever on a kept-alive browser connection.
+                self.journal.record("process.kill", f"pid={process.pid} ignored SIGTERM for 15s")
+                process.kill()
+                await asyncio.to_thread(process.wait, 15)
+            self.journal.record(
+                "process.stop",
+                f"pid={process.pid} exit={process.returncode}"
+                f" after={time.monotonic() - started:.1f}s",
+            )
+
+    async def restart(self) -> Any:
+        # Every previous API (and any owned helper process) is gone before the next starts:
+        # two APIs on one socket would serve requests with stale configuration.
+        await self.stop()
+        journal = self.journal
+        listener = ports.listener(58000, journal)
+        listener.set_inheritable(True)
+        stderr_path = journal.directory / f"api-{uuid4().hex[:12]}.stderr"
+        with stderr_path.open("wb") as stderr:
+            process = subprocess.Popen(
+                [
+                    sys.executable,
+                    str(Path(__file__).with_name("api_server.py")),
+                    str(listener.fileno()),
+                ],
+                env=self.env,
+                cwd=self.root,
+                stdout=subprocess.DEVNULL,
+                stderr=stderr,
+                pass_fds=(listener.fileno(),),
+            )
+        listener.close()  # The child holds its own copy; the reserved original stays here.
         self.processes.append(process)
+        started = time.monotonic()
         async with httpx.AsyncClient(timeout=2) as client:
-            for _ in range(100):
+            while time.monotonic() - started < 120:
                 if process.poll() is not None:
+                    journal.record("api.exit", f"pid={process.pid} code={process.returncode}")
                     pytest.fail(
                         "Actual API subprocess did not start; check configuration and migration"
+                        f" (exit code {process.returncode}; sanitized stderr {stderr_path.name}):\n"
+                        + diagnostics.tail(stderr_path, self.env),
+                        pytrace=False,
                     )
                 try:
                     if (await client.get(API + "/health")).status_code == 200:
+                        journal.record(
+                            "api.live",
+                            f"pid={process.pid} after={time.monotonic() - started:.1f}s",
+                        )
                         return
                 except httpx.HTTPError:
                     pass
                 await asyncio.sleep(0.2)
-        pytest.fail("Actual API did not become live")
+        journal.record("api.not_live", f"pid={process.pid}")
+        pytest.fail(
+            "Actual API did not become live in 120 s; last sanitized stderr:\n"
+            + diagnostics.tail(stderr_path, self.env),
+            pytrace=False,
+        )
 
     async def credentials(self, context: Any) -> Any:
         cookie = next(
@@ -200,22 +301,23 @@ async def harness(banco: Any, engine_admin: Any, tmp_path: Any) -> AsyncIterator
     assert os.environ.get("TEST_DATABASE_URL"), (
         "Identity acceptance requires explicit disposable PostgreSQL, never a skip"
     )
+    root = Path(__file__).resolve().parents[2]
+    journal = diagnostics.Journal(
+        Path(os.environ.get("IDENTITY_DIAGNOSTICS_DIR") or root / "identity-diagnostics"),
+        os.environ,
+    )
+    # Reserve before this harness starts its own servers or API (see ports.py).
+    await ports.reserve(58000, journal)
+    await ports.reserve(58080, journal)
     network = Network()
     servers = [serve_issuer(network), serve_frontend()]
     for server in servers:
         threading.Thread(target=server.serve_forever, daemon=True).start()
-    async with httpx.AsyncClient(timeout=3) as client:
-        for _ in range(180):
-            try:
-                if (
-                    await client.get(ISSUER + "/.well-known/openid-configuration")
-                ).status_code == 200:
-                    break
-            except httpx.HTTPError:
-                pass
-            await asyncio.sleep(1)
-        else:
-            pytest.fail("Real disposable issuer is not available")
+    try:
+        await wait_for_issuer(journal)
+    except BaseException:
+        await stop_servers(servers)
+        raise
     role, password = "identity_browser_" + uuid4().hex, secrets.token_urlsafe(32)
     async with engine_admin.begin() as conn:
         await conn.execute(text(f"CREATE ROLE {role} LOGIN PASSWORD '{password}' NOBYPASSRLS"))
@@ -261,18 +363,14 @@ async def harness(banco: Any, engine_admin: Any, tmp_path: Any) -> AsyncIterator
         AUTH_RATE_LIMIT="1000/minute",
         API_RATE_LIMIT="1000/minute",
     )
-    harness = Harness(service, env, network, Path(__file__).resolve().parents[2])
-    await harness.restart()
+    harness = Harness(service, env, network, root)
     try:
+        # Inside try: a failed first start must still free the port, servers and role.
+        await harness.restart()
         yield harness
     finally:
-        for process in harness.processes:
-            if process.poll() is None:
-                process.terminate()
-                await asyncio.to_thread(process.wait, 15)
-        for server in servers:
-            await asyncio.to_thread(server.shutdown)
-            server.server_close()
+        await harness.stop()
+        await stop_servers(servers)
         await engine.dispose()
         async with engine_admin.begin() as conn:
             await conn.execute(text(f"DROP ROLE {role}"))
@@ -341,10 +439,14 @@ async def mark_external_email_unconfirmed(email: Any) -> Any:
 
 async def login(page: Any, email: Any, password: Any, *, intent: Any = "login") -> Any:
     await page.goto(API + "/auth/start?return_to=/signed-in&intent=" + intent)
+    journal = default_journal()
+    fields = {"#password": password}
     if await page.locator("#username").is_visible():
-        await page.locator("#username").fill(email)
-        if not await page.locator("#password").count():
-            await page.locator("#kc-login").click()
+        if await page.locator("#password").count():
+            fields = {"#username": email, **fields}
+        else:  # Username-first page: the password comes on the next one.
+            await fill_exactly(page, {"#username": email}, journal)
+            await submit_and_wait(page, journal, "login-username", "#kc-login")
     try:
         await page.locator("#password").wait_for(timeout=5000)
     except BrowserTimeout:
@@ -360,12 +462,100 @@ async def login(page: Any, email: Any, password: Any, *, intent: Any = "login") 
                 "controls": controls,
             })
         )
-    await page.locator("#password").fill(password)
-    await page.locator("#kc-login").click()
-    await page.wait_for_url(FRONT + "/signed-in", timeout=30000)
+    await fill_exactly(page, fields, journal)
+    await submit_and_wait(page, journal, "login", "#kc-login")
+    try:
+        await page.wait_for_url(FRONT + "/signed-in", timeout=30000)
+    except BrowserTimeout:
+        state = await diagnostics.hosted_state(page)
+        issuer = await diagnostics.issuer_user(email)
+        pytest.fail(
+            "Hosted login did not reach /signed-in: " + json.dumps({**state, "issuer": issuer}),
+            pytrace=False,
+        )
     result = await fetch(page, "/auth/session")
     assert result["status"] == 200 and result["data"]["email"] == email
     return result["data"]
+
+
+async def require_complete_account(email: str, journal: diagnostics.Journal) -> None:
+    # A later hosted login would stop on a pending required action with no clue why.
+    issuer = await diagnostics.issuer_user(email)
+    journal.record("register.issuer", json.dumps(issuer))
+    if "requiredActions" in issuer and (
+        issuer["requiredActions"]
+        or issuer["emailVerified"] is not True
+        or "password" not in issuer["credentials"]
+    ):
+        pytest.fail("Issuer left the new account incomplete: " + json.dumps(issuer), pytrace=False)
+
+
+def default_journal() -> diagnostics.Journal:
+    root = Path(__file__).resolve().parents[2]
+    directory = os.environ.get("IDENTITY_DIAGNOSTICS_DIR") or root / "identity-diagnostics"
+    return diagnostics.Journal(Path(directory), os.environ)
+
+
+async def _lost_values(page: Any, values: dict[str, str]) -> list[str]:
+    return [s for s, value in values.items() if await page.locator(s).input_value() != value]
+
+
+async def fill_exactly(page: Any, values: dict[str, str], journal: diagnostics.Journal) -> None:
+    """Fill hosted fields once the form is ready and prove each one kept its exact value.
+
+    WebKit was seen re-mounting Keycloak's UPDATE_PASSWORD form after load: one field lost
+    its value and the issuer answered "Passwords don't match." (frontend #140). Comparing
+    here, instead of expect().to_have_value, keeps the passwords out of failure messages.
+    """
+    await page.wait_for_load_state("load")
+    for selector in values:
+        await page.locator(selector).wait_for(state="visible", timeout=30000)
+        await expect(page.locator(selector)).to_be_editable(timeout=30000)
+    deadline = time.monotonic() + 10
+    while True:
+        for selector, value in values.items():
+            await page.locator(selector).fill(value)
+        lost = await _lost_values(page, values)
+        if not lost:
+            await asyncio.sleep(0.2)  # Still intact a moment later: no re-mount in flight.
+            lost = await _lost_values(page, values)
+            if not lost:
+                return
+        # Input preparation only: nothing was submitted and no product step is repeated.
+        journal.record("form.refill", json.dumps({"path": urlsplit(page.url).path, "lost": lost}))
+        if time.monotonic() > deadline:
+            pytest.fail(
+                "Hosted form did not keep the typed values: "
+                + json.dumps({"path": urlsplit(page.url).path, "fields": lost}),
+                pytrace=False,
+            )
+        await page.wait_for_load_state("load")
+
+
+async def submit_and_wait(
+    page: Any, journal: diagnostics.Journal, step: str, button: str = SUBMIT
+) -> None:
+    """Submit a hosted form and wait until the issuer's answer has loaded."""
+    try:
+        async with page.expect_navigation(wait_until="load", timeout=30000):
+            await page.locator(button).click()
+    except BrowserTimeout:
+        state = await diagnostics.hosted_state(page)
+        journal.record(step + ".submit.timeout", json.dumps(state))
+        pytest.fail(f"Hosted {step} form got no answer: " + json.dumps(state), pytrace=False)
+
+
+async def set_new_password(page: Any, password: str, journal: diagnostics.Journal) -> None:
+    # Keycloak's UPDATE_PASSWORD form, reached from a confirmation or recovery email.
+    await fill_exactly(page, {"#password-new": password, "#password-confirm": password}, journal)
+    await submit_and_wait(page, journal, "update-password")
+
+
+async def submit_registration(page: Any, journal: diagnostics.Journal) -> None:
+    # Like a person, open the email only after the issuer answered the form. Following
+    # the action link while the registration request is still in flight lets the two
+    # requests race on the same Keycloak authentication session.
+    await submit_and_wait(page, journal, "register")
 
 
 async def register(
@@ -373,13 +563,16 @@ async def register(
 ) -> Any:
     await page.goto(API + "/auth/start?return_to=/signed-in&intent=signup")
     await page.get_by_role("link", name="Register", exact=True).click()
-    await page.locator("#email").fill(email)
-    await page.locator("#firstName").fill("Disposable")
-    await page.locator("#lastName").fill("Acceptance")
+    await fill_exactly(
+        page,
+        {"#email": email, "#firstName": "Disposable", "#lastName": "Acceptance"},
+        harness.journal,
+    )
     # Keycloak 26.7 confirms email before asking the registrant to set a password.
     assert await page.locator("#password").count() == 0
-    await page.locator('input[type="submit"],button[type="submit"]').click()
+    await submit_registration(page, harness.journal)
     link, message = await mail_link(email)
+    journal = harness.journal
     # No API user can exist before email confirmation.
     async with harness.service.engine.connect() as conn:
         assert (
@@ -391,9 +584,7 @@ async def register(
     if fail_jwks:
         harness.network.fault = "jwks"
     await page.goto(link)
-    await page.locator("#password-new").fill(password)
-    await page.locator("#password-confirm").fill(password)
-    await page.locator('input[type="submit"],button[type="submit"]').click()
+    await set_new_password(page, password, journal)
     if fail_jwks:
         await page.wait_for_url(API + "/auth/callback?**", timeout=30000)
         assert (await page.locator("body").inner_text()).find("issuer_unavailable") >= 0
@@ -408,8 +599,19 @@ async def register(
         await asyncio.sleep(31)  # Existing JWKS anti-amplification cooldown, not a mocked clock.
         status = await login(page, email, password)
     else:
-        await page.wait_for_url(FRONT + "/signed-in", timeout=30000)
+        try:
+            await page.wait_for_url(FRONT + "/signed-in", timeout=30000)
+        except BrowserTimeout:
+            state = await diagnostics.hosted_state(page)
+            issuer = await diagnostics.issuer_user(email)
+            journal.record("register.timeout", json.dumps({**state, "issuer": issuer}))
+            pytest.fail(
+                "Hosted registration did not reach /signed-in: "
+                + json.dumps({**state, "issuer": issuer}),
+                pytrace=False,
+            )
         status = (await fetch(page, "/auth/session"))["data"]
+    await require_complete_account(email, journal)
     return status, message
 
 
@@ -616,23 +818,23 @@ async def test_real_registration_refresh_recovery_isolation_and_revocation(
         # Real hosted password recovery and SMTP mail, preserving the external/internal link.
         await pr.goto(API + "/auth/start?intent=recover&return_to=/signed-in")
         await pr.get_by_role("link", name="Forgot Password?", exact=True).click()
-        await pr.locator("#username").fill(email_a)
-        await pr.locator('input[type="submit"],button[type="submit"]').click()
+        await fill_exactly(pr, {"#username": email_a}, harness.journal)
+        # The recovery email is sent while this answer renders, as on registration.
+        await submit_and_wait(pr, harness.journal, "recover")
         link, _ = await mail_link(email_a, {confirmation})
         await pr.goto(link)
-        await pr.locator("#password-new").fill(next_password)
-        await pr.locator("#password-confirm").fill(next_password)
-        await pr.locator('input[type="submit"],button[type="submit"]').click()
+        await set_new_password(pr, next_password, harness.journal)
         await pr.wait_for_url(FRONT + "/signed-in", timeout=30000)
         sr = (await fetch(pr, "/auth/session"))["data"]
         assert sr["usuario_id"] == sa["usuario_id"]
         assert (await fetch(pa, "/api/v1/apostas"))["status"] == 401
         cookie_recovery, live = await harness.credentials(recovery)
         await pa.goto(API + "/auth/start?return_to=/signed-in")
+        old = {"#password": password_a}
         if await pa.locator("#username").is_visible():
-            await pa.locator("#username").fill(email_a)
-        await pa.locator("#password").fill(password_a)
-        await pa.locator("#kc-login").click()
+            old = {"#username": email_a, **old}
+        await fill_exactly(pa, old, harness.journal)
+        await submit_and_wait(pa, harness.journal, "old-password", "#kc-login")
         await pa.get_by_text("Invalid username or password.", exact=True).wait_for()
         async with httpx.AsyncClient() as client:
             assert (
