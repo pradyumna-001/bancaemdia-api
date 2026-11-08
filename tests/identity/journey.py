@@ -25,7 +25,7 @@ from uuid import uuid4
 import httpx
 import pytest
 from playwright.async_api import TimeoutError as BrowserTimeout
-from playwright.async_api import ViewportSize, async_playwright
+from playwright.async_api import ViewportSize, async_playwright, expect
 from sqlalchemy import text
 from sqlalchemy.engine import make_url
 from sqlalchemy.ext.asyncio import create_async_engine
@@ -42,6 +42,7 @@ FRONT = "http://127.0.0.1:58001"
 ISSUER = "http://127.0.0.1:58080/realms/bancaemdia-acceptance"
 MAIL = "http://127.0.0.1:58025"
 CLIENT = "bancaemdia-acceptance"
+SUBMIT = 'input[type="submit"],button[type="submit"]'
 
 
 @dataclass
@@ -438,10 +439,14 @@ async def mark_external_email_unconfirmed(email: Any) -> Any:
 
 async def login(page: Any, email: Any, password: Any, *, intent: Any = "login") -> Any:
     await page.goto(API + "/auth/start?return_to=/signed-in&intent=" + intent)
+    journal = default_journal()
+    fields = {"#password": password}
     if await page.locator("#username").is_visible():
-        await page.locator("#username").fill(email)
-        if not await page.locator("#password").count():
-            await page.locator("#kc-login").click()
+        if await page.locator("#password").count():
+            fields = {"#username": email, **fields}
+        else:  # Username-first page: the password comes on the next one.
+            await fill_exactly(page, {"#username": email}, journal)
+            await submit_and_wait(page, journal, "login-username", "#kc-login")
     try:
         await page.locator("#password").wait_for(timeout=5000)
     except BrowserTimeout:
@@ -457,8 +462,8 @@ async def login(page: Any, email: Any, password: Any, *, intent: Any = "login") 
                 "controls": controls,
             })
         )
-    await page.locator("#password").fill(password)
-    await page.locator("#kc-login").click()
+    await fill_exactly(page, fields, journal)
+    await submit_and_wait(page, journal, "login", "#kc-login")
     try:
         await page.wait_for_url(FRONT + "/signed-in", timeout=30000)
     except BrowserTimeout:
@@ -485,17 +490,72 @@ async def require_complete_account(email: str, journal: diagnostics.Journal) -> 
         pytest.fail("Issuer left the new account incomplete: " + json.dumps(issuer), pytrace=False)
 
 
+def default_journal() -> diagnostics.Journal:
+    root = Path(__file__).resolve().parents[2]
+    directory = os.environ.get("IDENTITY_DIAGNOSTICS_DIR") or root / "identity-diagnostics"
+    return diagnostics.Journal(Path(directory), os.environ)
+
+
+async def _lost_values(page: Any, values: dict[str, str]) -> list[str]:
+    return [s for s, value in values.items() if await page.locator(s).input_value() != value]
+
+
+async def fill_exactly(page: Any, values: dict[str, str], journal: diagnostics.Journal) -> None:
+    """Fill hosted fields once the form is ready and prove each one kept its exact value.
+
+    WebKit was seen re-mounting Keycloak's UPDATE_PASSWORD form after load: one field lost
+    its value and the issuer answered "Passwords don't match." (frontend #140). Comparing
+    here, instead of expect().to_have_value, keeps the passwords out of failure messages.
+    """
+    await page.wait_for_load_state("load")
+    for selector in values:
+        await page.locator(selector).wait_for(state="visible", timeout=30000)
+        await expect(page.locator(selector)).to_be_editable(timeout=30000)
+    deadline = time.monotonic() + 10
+    while True:
+        for selector, value in values.items():
+            await page.locator(selector).fill(value)
+        lost = await _lost_values(page, values)
+        if not lost:
+            await asyncio.sleep(0.2)  # Still intact a moment later: no re-mount in flight.
+            lost = await _lost_values(page, values)
+            if not lost:
+                return
+        # Input preparation only: nothing was submitted and no product step is repeated.
+        journal.record("form.refill", json.dumps({"path": urlsplit(page.url).path, "lost": lost}))
+        if time.monotonic() > deadline:
+            pytest.fail(
+                "Hosted form did not keep the typed values: "
+                + json.dumps({"path": urlsplit(page.url).path, "fields": lost}),
+                pytrace=False,
+            )
+        await page.wait_for_load_state("load")
+
+
+async def submit_and_wait(
+    page: Any, journal: diagnostics.Journal, step: str, button: str = SUBMIT
+) -> None:
+    """Submit a hosted form and wait until the issuer's answer has loaded."""
+    try:
+        async with page.expect_navigation(wait_until="load", timeout=30000):
+            await page.locator(button).click()
+    except BrowserTimeout:
+        state = await diagnostics.hosted_state(page)
+        journal.record(step + ".submit.timeout", json.dumps(state))
+        pytest.fail(f"Hosted {step} form got no answer: " + json.dumps(state), pytrace=False)
+
+
+async def set_new_password(page: Any, password: str, journal: diagnostics.Journal) -> None:
+    # Keycloak's UPDATE_PASSWORD form, reached from a confirmation or recovery email.
+    await fill_exactly(page, {"#password-new": password, "#password-confirm": password}, journal)
+    await submit_and_wait(page, journal, "update-password")
+
+
 async def submit_registration(page: Any, journal: diagnostics.Journal) -> None:
     # Like a person, open the email only after the issuer answered the form. Following
     # the action link while the registration request is still in flight lets the two
     # requests race on the same Keycloak authentication session.
-    try:
-        async with page.expect_navigation(wait_until="load", timeout=30000):
-            await page.locator('input[type="submit"],button[type="submit"]').click()
-    except BrowserTimeout:
-        state = await diagnostics.hosted_state(page)
-        journal.record("register.submit.timeout", json.dumps(state))
-        pytest.fail("Hosted registration form got no answer: " + json.dumps(state), pytrace=False)
+    await submit_and_wait(page, journal, "register")
 
 
 async def register(
@@ -503,9 +563,11 @@ async def register(
 ) -> Any:
     await page.goto(API + "/auth/start?return_to=/signed-in&intent=signup")
     await page.get_by_role("link", name="Register", exact=True).click()
-    await page.locator("#email").fill(email)
-    await page.locator("#firstName").fill("Disposable")
-    await page.locator("#lastName").fill("Acceptance")
+    await fill_exactly(
+        page,
+        {"#email": email, "#firstName": "Disposable", "#lastName": "Acceptance"},
+        harness.journal,
+    )
     # Keycloak 26.7 confirms email before asking the registrant to set a password.
     assert await page.locator("#password").count() == 0
     await submit_registration(page, harness.journal)
@@ -522,9 +584,7 @@ async def register(
     if fail_jwks:
         harness.network.fault = "jwks"
     await page.goto(link)
-    await page.locator("#password-new").fill(password)
-    await page.locator("#password-confirm").fill(password)
-    await page.locator('input[type="submit"],button[type="submit"]').click()
+    await set_new_password(page, password, journal)
     if fail_jwks:
         await page.wait_for_url(API + "/auth/callback?**", timeout=30000)
         assert (await page.locator("body").inner_text()).find("issuer_unavailable") >= 0
@@ -758,23 +818,23 @@ async def test_real_registration_refresh_recovery_isolation_and_revocation(
         # Real hosted password recovery and SMTP mail, preserving the external/internal link.
         await pr.goto(API + "/auth/start?intent=recover&return_to=/signed-in")
         await pr.get_by_role("link", name="Forgot Password?", exact=True).click()
-        await pr.locator("#username").fill(email_a)
-        await pr.locator('input[type="submit"],button[type="submit"]').click()
+        await fill_exactly(pr, {"#username": email_a}, harness.journal)
+        # The recovery email is sent while this answer renders, as on registration.
+        await submit_and_wait(pr, harness.journal, "recover")
         link, _ = await mail_link(email_a, {confirmation})
         await pr.goto(link)
-        await pr.locator("#password-new").fill(next_password)
-        await pr.locator("#password-confirm").fill(next_password)
-        await pr.locator('input[type="submit"],button[type="submit"]').click()
+        await set_new_password(pr, next_password, harness.journal)
         await pr.wait_for_url(FRONT + "/signed-in", timeout=30000)
         sr = (await fetch(pr, "/auth/session"))["data"]
         assert sr["usuario_id"] == sa["usuario_id"]
         assert (await fetch(pa, "/api/v1/apostas"))["status"] == 401
         cookie_recovery, live = await harness.credentials(recovery)
         await pa.goto(API + "/auth/start?return_to=/signed-in")
+        old = {"#password": password_a}
         if await pa.locator("#username").is_visible():
-            await pa.locator("#username").fill(email_a)
-        await pa.locator("#password").fill(password_a)
-        await pa.locator("#kc-login").click()
+            old = {"#username": email_a, **old}
+        await fill_exactly(pa, old, harness.journal)
+        await submit_and_wait(pa, harness.journal, "old-password", "#kc-login")
         await pa.get_by_text("Invalid username or password.", exact=True).wait_for()
         async with httpx.AsyncClient() as client:
             assert (
