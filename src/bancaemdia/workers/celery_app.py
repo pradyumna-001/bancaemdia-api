@@ -4,7 +4,7 @@ from functools import lru_cache
 import redis
 from celery import Celery, Task, signals
 from celery.worker import WorkController
-from kombu import Queue
+from kombu.entity import Queue  # kombu 5.7 re-exports it lazily; this is its module.
 from kombu.exceptions import OperationalError
 from prometheus_client import start_http_server
 

@@ -148,6 +148,11 @@ module = ["bancaemdia.observability.metrics"]
 disallow_untyped_calls = false
 
 [[tool.mypy.overrides]]
+module = ["bancaemdia.workers.celery_app"]
+# kombu.entity.Queue (5.7+) is typed as a module but its constructor is not.
+disallow_untyped_calls = false
+
+[[tool.mypy.overrides]]
 module = ["bancaemdia.config"]
 disallow_any_generics = false
 disallow_subclassing_any = false
