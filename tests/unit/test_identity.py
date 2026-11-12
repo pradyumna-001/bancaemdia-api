@@ -69,7 +69,7 @@ def test_enabled_configuration_rejects_unsafe_deployment(tmp_path, changes):
 
 async def test_internal_jwt_reuses_validator_and_contains_only_internal_subject(tmp_path):
     keys = IdentityKeys(key_settings(tmp_path))
-    token = keys.issue(73, "session-id", 60, 3)
+    token = keys.issue(73, "session-id", int(time.time()) + 60, 3)
     assert await verify_token(token, keys.cache) == 73
     claims = jwt.decode(
         token, keys.private.public_key(), algorithms=["RS256"], audience=get_settings().JWT_AUDIENCE
@@ -79,7 +79,7 @@ async def test_internal_jwt_reuses_validator_and_contains_only_internal_subject(
     assert all(not {"d", "p", "q", "dp", "dq", "qi"}.intersection(key) for key in keys.jwks["keys"])
     assert set(keys.jwks["keys"][0]["key_ops"]) == {"verify"}
     with pytest.raises(InvalidTokenError):
-        await verify_token(keys.issue(73, "session-id", -1), keys.cache)
+        await verify_token(keys.issue(73, "session-id", int(time.time()) - 1), keys.cache)
 
 
 def test_ciphertext_cannot_be_swapped_or_modified_and_csrf_is_cookie_bound(tmp_path):

@@ -80,17 +80,18 @@ class IdentityKeys:
             self.encryption[self.enc_kid], b"csrf:" + cookie.encode(), "sha256"
         ).hexdigest()
 
-    def issue(self, user: int, session_id: str, seconds: int, generation: int = 0) -> str:
+    def issue(self, user: int, session_id: str, expires: int, generation: int = 0) -> str:
+        # expires is the absolute exp (whole seconds); the session's access_until is the same
+        # instant, so /auth/session and the resources never disagree about expiry.
         settings = get_settings()
-        now = int(time.time())
         return jwt.encode(
             {
                 "sub": str(user),
                 "sid": session_id,
                 "iss": settings.JWT_ISSUER,
                 "aud": settings.JWT_AUDIENCE,
-                "iat": now,
-                "exp": now + seconds,
+                "iat": int(time.time()),
+                "exp": expires,
                 "ver": generation,
             },
             self.private,
