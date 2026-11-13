@@ -1,6 +1,10 @@
 import asyncio
+import time
+from datetime import UTC, datetime
+from types import SimpleNamespace
 from uuid import uuid4
 
+import jwt.api_jwt
 import pytest
 from pydantic import SecretStr
 from sqlalchemy import text
@@ -9,6 +13,7 @@ from sqlalchemy.exc import DBAPIError
 from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine
 from sqlalchemy.pool import NullPool
 
+from bancaemdia.auth import identity_crypto, identity_service
 from bancaemdia.auth.identity_service import IdentityService
 from bancaemdia.auth.oidc import IdentityError
 from tests.identity.support import key_settings
@@ -151,3 +156,71 @@ async def test_startup_refuses_database_owner_as_identity_credential(
     unsafe = IdentityService(identity_service_db.settings, engine_admin)
     with pytest.raises(ValueError, match="limited, separate auth role"):
         await unsafe.verify_database_role()
+
+
+class FrozenClock:
+    """One controllable instant for the service, the internal JWT issuer and PyJWT's exp check."""
+
+    def __init__(self, monkeypatch: pytest.MonkeyPatch, start: float) -> None:
+        self.at = start
+        clock = self
+
+        class Frozen(datetime):
+            @classmethod
+            def now(cls, tz=None):  # type: ignore[override]
+                return datetime.fromtimestamp(clock.at, tz)
+
+        monkeypatch.setattr(identity_service, "now", lambda: datetime.fromtimestamp(self.at, UTC))
+        monkeypatch.setattr(identity_crypto, "time", SimpleNamespace(time=lambda: self.at))
+        monkeypatch.setattr(jwt.api_jwt, "datetime", Frozen)
+
+
+class FakeIssuer:
+    """Stands in for the OIDC exchange only; sessions, keys, JWT and database are the real ones."""
+
+    def __init__(self, claims):
+        self.claims, self.state = claims, ""
+
+    async def authorization(self, state, nonce, verifier):
+        self.state = state
+        return "https://issuer.example.org/auth"
+
+    async def tokens(self, _form):
+        return {"id_token": "external", "refresh_token": uuid4().hex}
+
+    async def identity(self, _id_token, _nonce):
+        return self.claims
+
+
+async def test_access_deadline_is_one_instant_for_session_status_and_resources(
+    identity_service_db, monkeypatch
+):
+    # The internal JWT's exp is whole seconds. If access_until kept the microseconds of a
+    # separate now(), resources answered 401 access_expired for up to ~1 s while
+    # /auth/session still said refresh_required=false, and the SPA never renewed.
+    service = identity_service_db
+    seconds = service.settings.AUTH_ACCESS_SECONDS
+    service.oidc = FakeIssuer(identity_claims())
+    clock = FrozenClock(monkeypatch, int(time.time()) + 0.9)
+
+    async def assert_one_deadline(cookie, issued_at):
+        status = await service.status(cookie)
+        deadline = status["access_expires_at"].timestamp()
+        clock.at = deadline - 0.5
+        # Whatever /auth/session says, the resources must agree with it.
+        assert (await service.status(cookie))["refresh_required"] is False
+        assert await service.authenticate(cookie) == status["usuario_id"]
+        clock.at = deadline  # The exact instant PyJWT stops accepting the token (exp <= now).
+        assert (await service.status(cookie))["refresh_required"] is True
+        with pytest.raises(IdentityError, match="access_expired"):
+            await service.authenticate(cookie)
+        assert deadline == int(issued_at) + seconds  # Same whole second as the JWT's exp.
+
+    issued_at = clock.at
+    _, browser = await service.begin("/signed-in")
+    cookie, _ = await service.callback(service.oidc.state, browser, "code")
+    await assert_one_deadline(cookie, issued_at)
+
+    clock.at = issued_at = int(clock.at) + 0.9
+    renewed = await service.refresh(cookie)
+    await assert_one_deadline(renewed, issued_at)
