@@ -140,7 +140,8 @@ class IdentityService:
                 for previous_id in previous:
                     await self._revoke(session, str(previous_id), "logout")
             sid = str(uuid4())
-            encrypted = self._credentials(sid, user, 0, tokens)
+            access = self._access_deadline()
+            encrypted = self._credentials(sid, user, 0, tokens, access)
             await session.execute(
                 text(
                     "INSERT INTO auth_private.sessions(id,identity_id,cookie_hash,encrypted,expires_at,idle_until,access_until) VALUES(:id,:identity,:cookie,:encrypted,:expires,:idle,:access)"
@@ -152,7 +153,7 @@ class IdentityService:
                     "encrypted": encrypted,
                     "expires": now() + timedelta(seconds=self.settings.AUTH_SESSION_SECONDS),
                     "idle": now() + timedelta(seconds=self.settings.AUTH_IDLE_SECONDS),
-                    "access": now() + timedelta(seconds=self.settings.AUTH_ACCESS_SECONDS),
+                    "access": access,
                 },
             )
             await self._audit(session, user, sid, "login")
@@ -214,8 +215,21 @@ class IdentityService:
         await self._audit(session, int(user), None, "provision")
         return int(user), identity
 
-    def _credentials(self, sid: str, user: int, generation: int, tokens: dict[str, Any]) -> str:
-        internal = self.keys.issue(user, sid, self.settings.AUTH_ACCESS_SECONDS, generation)
+    def _access_deadline(self) -> datetime:
+        # The internal JWT's exp has whole-second precision; access_until is that same instant.
+        return now().replace(microsecond=0) + timedelta(seconds=self.settings.AUTH_ACCESS_SECONDS)
+
+    def _credentials(
+        self,
+        sid: str,
+        user: int,
+        generation: int,
+        tokens: dict[str, Any],
+        access: datetime | None = None,
+    ) -> str:
+        # Callers that store access_until pass that same instant; see _access_deadline.
+        access = access or self._access_deadline()
+        internal = self.keys.issue(user, sid, int(access.timestamp()), generation)
         return self.keys.seal(
             json.dumps({
                 "internal": internal,
@@ -255,16 +269,26 @@ class IdentityService:
             raise IdentityError("account_inactive")
         return dict(row)
 
+    async def _access_user(self, row: dict[str, Any]) -> int | None:
+        """The user the session's internal access still proves, or None once it lapsed.
+
+        authenticate() and status() share this decision: no resource may answer
+        access_expired while /auth/session still reports refresh_required=false.
+        """
+        if row["access_until"] <= now():
+            return None
+        credentials = json.loads(self.keys.open(row["encrypted"], "session:" + str(row["id"])))
+        try:
+            return await verify_token(credentials["internal"], self.keys.cache)
+        except InvalidTokenError:
+            return None
+
     async def authenticate(self, cookie: str) -> int:
         async with AsyncSession(self.engine) as session:
             row = await self._lookup(session, cookie)
-        if row["access_until"] <= now():
+        user = await self._access_user(row)
+        if user is None:
             raise IdentityError("access_expired")
-        credentials = json.loads(self.keys.open(row["encrypted"], "session:" + str(row["id"])))
-        try:
-            user = await verify_token(credentials["internal"], self.keys.cache)
-        except InvalidTokenError as error:
-            raise IdentityError("access_expired") from error
         if user != row["usuario_id"]:
             raise IdentityError("identity_rejected")
         return user
@@ -312,7 +336,7 @@ class IdentityService:
             "csrf_token": self.keys.csrf(cookie),
             "access_expires_at": row["access_until"],
             "session_expires_at": min(row["expires_at"], row["idle_until"]),
-            "refresh_required": row["access_until"] <= now(),
+            "refresh_required": await self._access_user(row) is None,
         }
 
     async def refresh(self, cookie: str) -> str:
@@ -389,8 +413,9 @@ class IdentityService:
                 if failure is None:
                     assert tokens is not None
                     tokens["refresh_token"] = tokens.get("refresh_token") or credentials["refresh"]
+                    access = self._access_deadline()
                     encrypted = self._credentials(
-                        sid, row["usuario_id"], row["generation"] + 1, tokens
+                        sid, row["usuario_id"], row["generation"] + 1, tokens, access
                     )
                     await session.execute(
                         text(
@@ -410,7 +435,7 @@ class IdentityService:
                                 row["expires_at"],
                                 now() + timedelta(seconds=self.settings.AUTH_IDLE_SECONDS),
                             ),
-                            "access": now() + timedelta(seconds=self.settings.AUTH_ACCESS_SECONDS),
+                            "access": access,
                         },
                     )
                     await self._audit(session, row["usuario_id"], sid, "refresh")
