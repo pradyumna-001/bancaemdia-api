@@ -67,6 +67,7 @@ python scripts/generate_openapi.py
 | `GET` | `/api/v1/coleta/jobs/{job_id}` | Consultar entrega v2 | `200`, `400`, `401`, `402`, `403`, `404`, `409`, `422`, `429`, `500`, `503` | — |
 | `POST` | `/api/v1/coleta/pairing-codes` | Criar código de pareamento | `201`, `400`, `401`, `403`, `404`, `422`, `429`, `500`, `503` | — |
 | `POST` | `/api/v1/coleta/pairing-exchange` | Parear instalação | `200`, `400`, `401`, `403`, `404`, `413`, `422`, `429`, `500`, `503` | — |
+| `POST` | `/api/v1/coleta/reader-captures` | Receber fonte textual com moeda nativa | `200`, `400`, `401`, `402`, `403`, `413`, `422`, `429`, `500`, `503` | — |
 | `POST` | `/api/v1/coleta/sessions` | Abrir ou retomar sessão | `200`, `400`, `401`, `402`, `403`, `404`, `409`, `413`, `422`, `429`, `500`, `503` | — |
 | `GET` | `/api/v1/coleta/sessions/{sessao_id}` | Consultar sessão | `200`, `400`, `401`, `402`, `403`, `404`, `409`, `422`, `429`, `500`, `503` | — |
 | `DELETE` | `/api/v1/coleta/sessions/{sessao_id}` | Encerrar sessão | `204`, `400`, `401`, `402`, `403`, `404`, `409`, `422`, `429`, `500`, `503` | — |
@@ -74,6 +75,10 @@ python scripts/generate_openapi.py
 | `POST` | `/api/v1/consolidacoes` | Consolidar fontes após revisão | `200`, `401`, `402`, `403`, `413`, `422`, `429`, `500`, `503` | — |
 | `POST` | `/api/v1/consolidacoes/{relacao_id}/desvincular` | Desvincular fontes após revisão | `200`, `401`, `402`, `403`, `413`, `422`, `429`, `500`, `503` | — |
 | `GET` | `/api/v1/filtros/{dimensao}` | Opções autenticadas dos filtros | `200`, `401`, `422`, `429`, `500`, `503` | — |
+| `GET` | `/api/v1/financeiro/nativo/apostas` | Listar apostas com moeda nativa | `200`, `401`, `422`, `429`, `500`, `503` | — |
+| `GET` | `/api/v1/financeiro/nativo/contas` | Listar contas com moeda explícita | `200`, `401`, `422`, `429`, `500`, `503` | — |
+| `POST` | `/api/v1/financeiro/nativo/contas` | Criar conta com moeda explícita | `201`, `401`, `402`, `403`, `413`, `422`, `429`, `500`, `503` | — |
+| `GET` | `/api/v1/financeiro/nativo/resumo` | Consultar totais por moeda | `200`, `401`, `422`, `429`, `500`, `503` | — |
 | `POST` | `/api/v1/grupos` | Criar grupo privado de apostas | `201`, `401`, `402`, `403`, `413`, `422`, `429`, `500`, `503` | — |
 | `PATCH` | `/api/v1/grupos/{grupo_id}` | Editar ou arquivar grupo | `200`, `401`, `402`, `403`, `413`, `422`, `429`, `500`, `503` | — |
 | `POST` | `/api/v1/integrations/telegram/webhook` | Receber atualização do bot Telegram | `202`, `400`, `403`, `413`, `415`, `429`, `503` | — |
@@ -95,6 +100,16 @@ python scripts/generate_openapi.py
 | `GET` | `/api/v1/painel/metricas` | Consultar séries para gráficos | `200`, `401`, `422`, `429`, `500`, `503` | — |
 | `GET` | `/api/v1/painel/preferencias` | Consultar preferências do painel | `200`, `401`, `422`, `429`, `500`, `503` | — |
 | `PATCH` | `/api/v1/painel/preferencias` | Alterar preferências do painel | `200`, `401`, `402`, `403`, `413`, `422`, `429`, `500`, `503` | — |
+| `GET` | `/api/v1/planilhas/campos` | Catálogo de colunas XLSX | `200`, `400`, `401`, `409`, `410`, `413`, `422`, `429`, `500`, `503` | Planilhas |
+| `GET` | `/api/v1/planilhas/confirmacoes/{confirmation_id}` | Reconciliar aplicação XLSX | `200`, `400`, `401`, `409`, `410`, `413`, `422`, `429`, `500`, `503` | Planilhas |
+| `POST` | `/api/v1/planilhas/confirmacoes/{confirmation_id}` | Confirmar alterações da prévia | `200`, `400`, `401`, `402`, `403`, `409`, `410`, `413`, `422`, `429`, `500`, `503` | Planilhas |
+| `GET` | `/api/v1/planilhas/fontes` | Listar fontes próprias | `200`, `400`, `401`, `409`, `410`, `413`, `422`, `429`, `500`, `503` | Planilhas |
+| `GET` | `/api/v1/planilhas/fontes/{source_id}` | Reconciliar fonte | `200`, `400`, `401`, `409`, `410`, `413`, `422`, `429`, `500`, `503` | Planilhas |
+| `PUT` | `/api/v1/planilhas/fontes/{source_id}` | Registrar fonte estável | `200`, `400`, `401`, `402`, `403`, `409`, `410`, `413`, `422`, `429`, `500`, `503` | Planilhas |
+| `POST` | `/api/v1/planilhas/fontes/{source_id}/previas/{preview_id}` | Preparar prévia XLSX | `201`, `400`, `401`, `402`, `403`, `409`, `410`, `413`, `422`, `429`, `500`, `503` | Planilhas |
+| `GET` | `/api/v1/planilhas/previas/{preview_id}` | Consultar prévia | `200`, `400`, `401`, `409`, `410`, `413`, `422`, `429`, `500`, `503` | Planilhas |
+| `GET` | `/api/v1/planilhas/previas/{preview_id}/linhas` | Consultar linhas da prévia | `200`, `400`, `401`, `409`, `410`, `413`, `422`, `429`, `500`, `503` | Planilhas |
+| `POST` | `/api/v1/planilhas/previas/{preview_id}/remapear/{new_preview_id}` | Remapear e revalidar prévia | `201`, `400`, `401`, `402`, `403`, `409`, `410`, `413`, `422`, `429`, `500`, `503` | Planilhas |
 | `GET` | `/api/v1/prints/intencoes/{intent_id}` | Consultar os itens efetivamente recebidos da intenção | `200`, `401`, `404`, `422`, `429`, `500`, `503` | — |
 | `GET` | `/api/v1/prints/intencoes/{intent_id}/itens/{item_id}` | Reconciliar arquivo pela identidade conhecida antes do POST | `200`, `401`, `404`, `422`, `429`, `500`, `503` | — |
 | `POST` | `/api/v1/prints/intencoes/{intent_id}/itens/{item_id}` | Receber um print web com identidade durável | `202`, `400`, `401`, `402`, `403`, `404`, `409`, `410`, `413`, `422`, `429`, `500`, `503` | — |

@@ -8,7 +8,6 @@ down_revision = (
     "a212lote2026",
     "b211banca2026",
     "m202manual2026",
-    "n115native2026",
     "r200review2026",
     "s183filter2026",
     "u210unit2026",

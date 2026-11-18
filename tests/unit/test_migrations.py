@@ -19,7 +19,7 @@ REVISAO_RESOLVIDA = "f2a9c4e7b106"
 CAIXA_REVISAO_MERGE = "e5a1c7d9b204"
 PAINEL = "d3f6a8c1e209"
 PAINEL_CAIXA_MERGE = "f8b2d4a6c901"
-HEAD = "j7main2026"
+HEAD = "n115native2026"
 PARTICIONADAS = {
     "eventos": "criado_em",
     "movimentos": "ocorrido_em",
@@ -105,7 +105,7 @@ def test_upgrade_creates_every_model_table_once() -> None:
 def test_upgrade_renders_the_schema_of_the_models() -> None:
     sql = _upgrade_sql()
     # Explicit/composite/UUID identity tables are accounted for separately from BIGSERIAL.
-    assert sql.count("id BIGSERIAL NOT NULL") == len(Base.metadata.tables) - 17
+    assert sql.count("id BIGSERIAL NOT NULL") == len(Base.metadata.tables) - 20
     assert "CREATE TYPE familia_de_mercado AS ENUM ('GOLS'" in sql
     assert "payload_json JSONB NOT NULL" in sql
     assert "CHECK (NOT freebet OR stake_centavos = 0)" in sql

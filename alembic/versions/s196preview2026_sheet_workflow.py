@@ -6,7 +6,7 @@ from sqlalchemy import text
 from bancaemdia.models.sheet_import import SheetConfirmation, SheetPreview, SheetSource
 
 revision = "s196preview2026"
-down_revision = "j6main2026"
+down_revision = "j7main2026"
 branch_labels = None
 depends_on = None
 TABLES = (SheetSource.__table__, SheetPreview.__table__, SheetConfirmation.__table__)

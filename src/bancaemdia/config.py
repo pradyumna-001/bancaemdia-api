@@ -21,6 +21,7 @@ class Settings(BaseSettings):
     STRIPE_SECRET_KEY: SecretStr | None = None
     STRIPE_WEBHOOK_SECRET: SecretStr | None = None
     BILLING_ENABLED: bool = False
+    ONE_WIN_NATIVE_ENABLED: bool = False
     BILLING_CURRENCIES: str = "BRL"
     BILLING_RETURN_URL: str = "http://localhost:5173/assinatura"
     STRIPE_PORTAL_CONFIGURATION: str | None = None
